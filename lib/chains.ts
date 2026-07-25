@@ -61,3 +61,8 @@ export function getAllChains(): ChainConfig[] {
 export function getChain(chainId: string): ChainConfig | undefined {
   return loadChains().find((c) => c.chainId === chainId);
 }
+
+/** Display ticker derived from the base denom: "uatom" -> "ATOM". */
+export function symbolFor(chain: ChainConfig): string {
+  return chain.denom.replace(/^u/, "").toUpperCase();
+}
