@@ -9,6 +9,10 @@ export function generateStaticParams() {
 
 export const dynamicParams = true;
 
+// An explorer always shows head-of-chain state, so never prerender this at build
+// time — a public node being down must not be able to fail the build.
+export const dynamic = "force-dynamic";
+
 interface LatestBlockResponse {
   block: { header: { height: string; time: string } };
 }
@@ -25,7 +29,9 @@ async function getOverviewData(chain: ChainConfig) {
     tags: [`chain:${chain.chainId}`, `chain:${chain.chainId}:overview`],
   };
 
-  const [latestBlock, pool, validators] = await Promise.all([
+  // Each tile degrades independently: one failing module shows "—" rather than
+  // taking down the whole overview.
+  const [latestBlock, pool, validators] = await Promise.allSettled([
     fetchLcd<LatestBlockResponse>(chain, "/cosmos/base/tendermint/v1beta1/blocks/latest", { next }),
     fetchLcd<StakingPoolResponse>(chain, "/cosmos/staking/v1beta1/pool", { next }),
     fetchLcd<ValidatorsResponse>(chain, "/cosmos/staking/v1beta1/validators", {
@@ -38,14 +44,20 @@ async function getOverviewData(chain: ChainConfig) {
     }),
   ]);
 
-  const bonded = Number(pool.pool.bonded_tokens);
-  const notBonded = Number(pool.pool.not_bonded_tokens);
+  let bondedRatio: number | null = null;
+  if (pool.status === "fulfilled") {
+    const bonded = Number(pool.value.pool.bonded_tokens);
+    const notBonded = Number(pool.value.pool.not_bonded_tokens);
+    const total = bonded + notBonded;
+    if (Number.isFinite(total) && total > 0) bondedRatio = bonded / total;
+  }
 
   return {
-    height: latestBlock.block.header.height,
-    blockTime: latestBlock.block.header.time,
-    activeValidators: Number(validators.pagination.total),
-    bondedRatio: bonded / (bonded + notBonded),
+    height: latestBlock.status === "fulfilled" ? latestBlock.value.block.header.height : null,
+    blockTime: latestBlock.status === "fulfilled" ? latestBlock.value.block.header.time : null,
+    activeValidators:
+      validators.status === "fulfilled" ? Number(validators.value.pagination.total) : null,
+    bondedRatio,
   };
 }
 
@@ -69,28 +81,30 @@ export default async function ChainOverviewPage({
         <Card>
           <CardHeader>
             <CardDescription>Latest Block</CardDescription>
-            <CardTitle className="text-3xl">{data.height}</CardTitle>
+            <CardTitle className="text-3xl">
+              {data.height ? Number(data.height).toLocaleString() : "—"}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Block Time</CardDescription>
             <CardTitle className="text-3xl">
-              {new Date(data.blockTime).toLocaleTimeString()}
+              {data.blockTime ? new Date(data.blockTime).toLocaleTimeString() : "—"}
             </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Active Validators</CardDescription>
-            <CardTitle className="text-3xl">{data.activeValidators}</CardTitle>
+            <CardTitle className="text-3xl">{data.activeValidators ?? "—"}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Bonded Ratio</CardDescription>
             <CardTitle className="text-3xl">
-              {(data.bondedRatio * 100).toFixed(2)}%
+              {data.bondedRatio === null ? "—" : `${(data.bondedRatio * 100).toFixed(2)}%`}
             </CardTitle>
           </CardHeader>
         </Card>

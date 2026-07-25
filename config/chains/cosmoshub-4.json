@@ -7,13 +7,13 @@
   "denom": "uatom",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://rest.cosmoshub-main.ccvalidators.com",
-    "https://cosmoshub.lava.build"
+    "https://cosmos-rest.publicnode.com",
+    "https://rest.cosmos.directory/cosmoshub"
   ],
   "rpcEndpoints": [
-    "https://cosmos.rpc.uquad.org",
-    "https://rpc.cosmoshub-main.ccvalidators.com"
+    "https://cosmos-rpc.publicnode.com",
+    "https://rpc.cosmos.directory/cosmoshub"
   ],
-  "wsEndpoint": "wss://cosmos.rpc.uquad.org/websocket",
+  "wsEndpoint": "wss://cosmos-rpc.publicnode.com/websocket",
   "featuredValidator": null
 }

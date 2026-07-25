@@ -7,13 +7,13 @@
   "denom": "uatone",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://atomone-api.allinbits.com",
-    "https://atomone-rest.publicnode.com"
+    "https://atomone-rest.publicnode.com",
+    "https://rest.cosmos.directory/atomone"
   ],
   "rpcEndpoints": [
-    "https://atomone-rpc.allinbits.com",
-    "https://atomone-rpc.publicnode.com"
+    "https://atomone-rpc.publicnode.com",
+    "https://rpc.cosmos.directory/atomone"
   ],
-  "wsEndpoint": "wss://atomone-rpc.allinbits.com/websocket",
+  "wsEndpoint": "wss://atomone-rpc.publicnode.com/websocket",
   "featuredValidator": null
 }

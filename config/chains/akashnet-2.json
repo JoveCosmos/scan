@@ -7,13 +7,13 @@
   "denom": "uakt",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://rest-akash.ecostake.com",
-    "https://akash-api.kleomedes.network"
+    "https://akash-rest.publicnode.com",
+    "https://rest.cosmos.directory/akash"
   ],
   "rpcEndpoints": [
-    "https://rpc-akash.ecostake.com",
-    "https://akash-rpc.kleomedes.network"
+    "https://rpc.cosmos.directory/akash",
+    "https://akash-rpc.publicnode.com"
   ],
-  "wsEndpoint": "wss://rpc-akash.ecostake.com/websocket",
+  "wsEndpoint": "wss://akash-rpc.publicnode.com/websocket",
   "featuredValidator": null
 }
