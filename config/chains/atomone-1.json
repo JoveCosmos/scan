@@ -1,0 +1,19 @@
+{
+  "chainId": "atomone-1",
+  "name": "atomone",
+  "prettyName": "AtomOne",
+  "logo": "/chains/atomone.svg",
+  "bech32Prefix": "atone",
+  "denom": "uatone",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://atomone-api.allinbits.com",
+    "https://atomone-rest.publicnode.com"
+  ],
+  "rpcEndpoints": [
+    "https://atomone-rpc.allinbits.com",
+    "https://atomone-rpc.publicnode.com"
+  ],
+  "wsEndpoint": "wss://atomone-rpc.allinbits.com/websocket",
+  "featuredValidator": null
+}

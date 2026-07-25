@@ -1,0 +1,19 @@
+{
+  "chainId": "akashnet-2",
+  "name": "akash",
+  "prettyName": "Akash",
+  "logo": "/chains/akash.svg",
+  "bech32Prefix": "akash",
+  "denom": "uakt",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://rest-akash.ecostake.com",
+    "https://akash-api.kleomedes.network"
+  ],
+  "rpcEndpoints": [
+    "https://rpc-akash.ecostake.com",
+    "https://akash-rpc.kleomedes.network"
+  ],
+  "wsEndpoint": "wss://rpc-akash.ecostake.com/websocket",
+  "featuredValidator": null
+}

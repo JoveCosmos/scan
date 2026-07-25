@@ -1,0 +1,19 @@
+{
+  "chainId": "cosmoshub-4",
+  "name": "cosmoshub",
+  "prettyName": "Cosmos Hub",
+  "logo": "/chains/cosmoshub.svg",
+  "bech32Prefix": "cosmos",
+  "denom": "uatom",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://rest.cosmoshub-main.ccvalidators.com",
+    "https://cosmoshub.lava.build"
+  ],
+  "rpcEndpoints": [
+    "https://cosmos.rpc.uquad.org",
+    "https://rpc.cosmoshub-main.ccvalidators.com"
+  ],
+  "wsEndpoint": "wss://cosmos.rpc.uquad.org/websocket",
+  "featuredValidator": null
+}
