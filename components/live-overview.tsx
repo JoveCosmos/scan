@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatToken, type ChainOverview } from "@/lib/overview";
+import { timeAgo } from "@/lib/format";
 
 function useSecondsTicker() {
   const [, force] = useState(0);
@@ -12,16 +13,6 @@ function useSecondsTicker() {
     const id = setInterval(() => force((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, []);
-}
-
-function secondsAgo(iso: string | null): string {
-  if (!iso) return "—";
-  const delta = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (!Number.isFinite(delta)) return "—";
-  if (delta < 1) return "just now";
-  if (delta < 60) return `${Math.floor(delta)}s ago`;
-  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
-  return `${Math.floor(delta / 3600)}h ago`;
 }
 
 function StatCard({
@@ -117,7 +108,7 @@ export function LiveOverview({
         <StatCard
           label="Latest Block"
           value={data.height ? Number(data.height).toLocaleString() : "—"}
-          sub={secondsAgo(data.blockTime)}
+          sub={timeAgo(data.blockTime)}
           flash={flash}
         />
         <StatCard
