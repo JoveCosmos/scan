@@ -148,7 +148,18 @@ interface CacheEntry {
   inflight: Promise<ValoperIndex> | null;
 }
 
-const indexCache = new Map<string, CacheEntry>();
+/*
+ * Held on globalThis, not in module scope: instrumentation.ts is bundled
+ * separately from route handlers, so a module-level Map would give the startup
+ * warm its own copy and every request would still see a cold cache.
+ */
+const CACHE_KEY = Symbol.for("gata.valoperIndexCache");
+
+const globalCache = globalThis as typeof globalThis & {
+  [CACHE_KEY]?: Map<string, CacheEntry>;
+};
+
+const indexCache: Map<string, CacheEntry> = (globalCache[CACHE_KEY] ??= new Map());
 
 const EMPTY_INDEX: ValoperIndex = { bySigning: new Map(), byOperator: new Map() };
 
