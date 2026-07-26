@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor } from "@/lib/chains";
-import { getRecentTxs } from "@/lib/txs";
+import { getAdapter } from "@/lib/adapter";
 import { TxsTable } from "@/components/txs-table";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function TxsPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const initial = await getRecentTxs(chain);
+  const initial = await getAdapter(chain).getRecentTxs();
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">

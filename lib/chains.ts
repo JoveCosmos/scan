@@ -2,21 +2,46 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 
-const chainConfigSchema = z.object({
-  chainId: z.string().min(1),
-  name: z.string().min(1),
-  prettyName: z.string().min(1),
-  logo: z.string(),
-  bech32Prefix: z.string().min(1),
-  denom: z.string().min(1),
-  exponent: z.number().int().nonnegative(),
-  lcdEndpoints: z.array(z.string().url()).min(1),
-  rpcEndpoints: z.array(z.string().url()).min(1),
-  wsEndpoint: z.string().min(1),
-  featuredValidator: z.string().nullable(),
-  /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
-  accent: z.string().optional(),
-});
+const chainConfigSchema = z
+  .object({
+    chainId: z.string().min(1),
+    name: z.string().min(1),
+    prettyName: z.string().min(1),
+    logo: z.string(),
+    bech32Prefix: z.string().min(1),
+    denom: z.string().min(1),
+    exponent: z.number().int().nonnegative(),
+    /**
+     * "cosmos" chains are read over the Cosmos SDK REST (LCD) API. "gno" chains
+     * expose no /cosmos/* modules at all — they are read over Tendermint2 JSON-RPC
+     * plus an indexing REST API, so they need a different adapter entirely.
+     */
+    kind: z.enum(["cosmos", "gno"]).default("cosmos"),
+    lcdEndpoints: z.array(z.string().url()).default([]),
+    rpcEndpoints: z.array(z.string().url()).min(1),
+    /** Indexing REST API. Required for gno, where the RPC cannot list txs. */
+    apiEndpoints: z.array(z.string().url()).default([]),
+    /** Optional GraphQL tx-indexer, used to enrich single-tx lookups. */
+    indexerEndpoints: z.array(z.string().url()).default([]),
+    wsEndpoint: z.string().min(1),
+    featuredValidator: z.string().nullable(),
+    /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
+    accent: z.string().optional(),
+  })
+  .superRefine((chain, ctx) => {
+    if (chain.kind === "cosmos" && chain.lcdEndpoints.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `chain "${chain.chainId}" is kind "cosmos" and needs at least one lcdEndpoint`,
+      });
+    }
+    if (chain.kind === "gno" && chain.apiEndpoints.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `chain "${chain.chainId}" is kind "gno" and needs at least one apiEndpoint (the RPC cannot list transactions)`,
+      });
+    }
+  });
 
 export type ChainConfig = z.infer<typeof chainConfigSchema>;
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getChain } from "@/lib/chains";
-import { getRecentBlocks } from "@/lib/blocks";
+import { getAdapter } from "@/lib/adapter";
 import { BlocksTable } from "@/components/blocks-table";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export default async function BlocksPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const blocks = await getRecentBlocks(chain);
+  const blocks = await getAdapter(chain).getRecentBlocks();
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">

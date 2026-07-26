@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { getChain, symbolFor, accentFor } from "@/lib/chains";
-import { getTx } from "@/lib/txs";
+import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
+import { decodeParam } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function generateMetadata({
   params: Promise<{ chain: string; hash: string }>;
 }): Promise<Metadata> {
   const { hash } = await params;
-  return { title: `Tx ${hash.slice(0, 10)}…` };
+  return { title: `Tx ${decodeParam(hash).slice(0, 10)}…` };
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -32,11 +33,13 @@ export default async function TxDetailPage({
 }: {
   params: Promise<{ chain: string; hash: string }>;
 }) {
-  const { chain: chainId, hash } = await params;
+  const { chain: chainId, hash: rawHash } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const tx = await getTx(chain, hash);
+  const hash = decodeParam(rawHash);
+  const adapter = getAdapter(chain);
+  const tx = await adapter.getTx(hash);
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 

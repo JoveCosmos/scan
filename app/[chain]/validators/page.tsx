@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getValidators, statusLabel } from "@/lib/validators";
+import { statusLabel } from "@/lib/validators";
+import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
 
@@ -84,7 +85,9 @@ export default async function ValidatorsPage({
 
 async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
-  const validators = await getValidators(chain);
+  const adapter = getAdapter(chain);
+  const validators = await adapter.getValidators();
+  const { staking } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -114,19 +117,31 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
           value={nakamoto > 0 ? String(nakamoto) : "—"}
           sub="to exceed ⅓ of stake"
         />
-        <StatPanel
-          index={2}
-          accent={accent}
-          label="Bonded Stake"
-          value={formatToken(String(totalBonded), chain.exponent)}
-          sub={symbol}
-        />
-        <StatPanel
-          index={3}
-          accent={accent}
-          label="Avg Commission"
-          value={`${(avgCommission * 100).toFixed(1)}%`}
-        />
+        {staking ? (
+          <>
+            <StatPanel
+              index={2}
+              accent={accent}
+              label="Bonded Stake"
+              value={formatToken(String(totalBonded), chain.exponent)}
+              sub={symbol}
+            />
+            <StatPanel
+              index={3}
+              accent={accent}
+              label="Avg Commission"
+              value={`${(avgCommission * 100).toFixed(1)}%`}
+            />
+          </>
+        ) : (
+          <StatPanel
+            index={2}
+            accent={accent}
+            label="Total Voting Power"
+            value={totalBonded.toLocaleString()}
+            sub="consensus weight"
+          />
+        )}
       </div>
 
       <div className="gata-panel overflow-x-auto">
@@ -137,9 +152,15 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               <th className="px-4 py-3 font-medium text-muted-foreground">Validator</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Voting Power</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Cumulative</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+              {staking ? (
+                <>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
+                  <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+                </>
+              ) : (
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Power</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -152,23 +173,34 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                   {v.rank}
                 </td>
                 <td className="max-w-[240px] px-4 py-2.5">
-                  <Link
-                    href={`/${chainId}/validators/${v.operatorAddress}`}
-                    className="block min-w-0"
-                  >
-                    <div
-                      className="truncate font-medium text-primary hover:underline"
-                      title={v.moniker}
+                  {/* Only staking chains have a validator profile to link to;
+                      gno exposes a consensus set with no per-validator module. */}
+                  {staking ? (
+                    <Link
+                      href={`/${chainId}/validators/${v.operatorAddress}`}
+                      className="block min-w-0"
                     >
-                      {v.moniker}
-                    </div>
+                      <div
+                        className="truncate font-medium text-primary hover:underline"
+                        title={v.moniker}
+                      >
+                        {v.moniker}
+                      </div>
+                      <div
+                        className="truncate font-mono text-xs text-muted-foreground"
+                        title={v.operatorAddress}
+                      >
+                        {truncateMiddle(v.operatorAddress, 14, 8)}
+                      </div>
+                    </Link>
+                  ) : (
                     <div
-                      className="truncate font-mono text-xs text-muted-foreground"
+                      className="truncate font-mono text-xs"
                       title={v.operatorAddress}
                     >
-                      {truncateMiddle(v.operatorAddress, 14, 8)}
+                      {truncateMiddle(v.operatorAddress, 16, 8)}
                     </div>
-                  </Link>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="font-mono tabular-nums">
@@ -190,6 +222,12 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                 <td className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
                   {(v.cumulativePower * 100).toFixed(1)}%
                 </td>
+                {!staking ? (
+                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                    {Number(v.tokens).toLocaleString()}
+                  </td>
+                ) : (
+                  <>
                 <td className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {formatToken(v.tokens, chain.exponent)}
                 </td>
@@ -207,6 +245,8 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                     {v.jailed ? "Jailed" : statusLabel(v.status)}
                   </span>
                 </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

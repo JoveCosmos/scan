@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAllChains, getChain, symbolFor, accentFor } from "@/lib/chains";
-import { getChainOverview, formatToken } from "@/lib/overview";
+import { formatToken } from "@/lib/overview";
+import { getAdapter } from "@/lib/adapter";
 import { LiveOverview } from "@/components/live-overview";
 
 export function generateStaticParams() {
@@ -60,7 +61,7 @@ export default async function ChainOverviewPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const overview = await getChainOverview(chain);
+  const overview = await getAdapter(chain).getOverview();
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 

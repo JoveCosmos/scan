@@ -36,11 +36,25 @@ export async function fetchLcd<T>(
   requestPath: string,
   opts: FetchLcdOptions = {}
 ): Promise<T> {
+  return fetchFrom<T>(chain.lcdEndpoints, requestPath, opts, chain.chainId);
+}
+
+/**
+ * Endpoint-failover JSON fetch over an arbitrary base-URL list. Shared by the
+ * Cosmos LCD client and the gno RPC/API clients, which have the same need for
+ * timeouts and fallback but entirely different URL shapes.
+ */
+export async function fetchFrom<T>(
+  endpoints: string[],
+  requestPath: string,
+  opts: FetchLcdOptions = {},
+  label = "chain"
+): Promise<T> {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, next, cache, searchParams } = opts;
 
   let lastError: unknown;
 
-  for (const endpoint of chain.lcdEndpoints) {
+  for (const endpoint of endpoints) {
     const url = buildUrl(endpoint, requestPath, searchParams);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -68,7 +82,7 @@ export async function fetchLcd<T>(
   }
 
   throw new LcdError(
-    `All LCD endpoints failed for chain ${chain.chainId}, path ${requestPath}`,
+    `All endpoints failed for ${label}, path ${requestPath}`,
     lastError
   );
 }

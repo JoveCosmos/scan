@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
-import { getChainOverview } from "@/lib/overview";
+import { getAdapter } from "@/lib/adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET(
     return NextResponse.json({ error: `Unknown chain "${chainId}"` }, { status: 404 });
   }
 
-  const overview = await getChainOverview(chain);
+  const overview = await getAdapter(chain).getOverview();
 
   return NextResponse.json(overview, {
     headers: { "cache-control": "no-store" },

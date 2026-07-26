@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
-import { getChainOverview } from "@/lib/overview";
+import { getAdapter } from "@/lib/adapter";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ async function ChainCard({
   index: number;
 }) {
   const chain = getAllChains().find((c) => c.chainId === chainId)!;
-  const overview = await getChainOverview(chain);
+  const overview = await getAdapter(chain).getOverview();
 
   return (
     <Link href={`/${chainId}`} className="group block">

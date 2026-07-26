@@ -10,6 +10,19 @@ export function timeAgo(iso: string | null): string {
   return `${Math.floor(delta / 86400)}d ago`;
 }
 
+/**
+ * Next hands dynamic route params through still percent-encoded, which matters
+ * for gno's base64 tx hashes (they contain "+", "/" and "="). Decoding is a
+ * no-op for Cosmos hex hashes, and malformed input is returned untouched.
+ */
+export function decodeParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /** "cosmosvaloper1abc…xyz9" — keeps both ends, which are the identifying parts. */
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
   if (value.length <= head + tail + 1) return value;

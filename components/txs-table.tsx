@@ -164,7 +164,7 @@ export function TxsTable({
                 >
                   <td className="px-4 py-3">
                     <Link
-                      href={`/${chainId}/txs/${tx.hash}`}
+                      href={`/${chainId}/txs/${encodeURIComponent(tx.hash)}`}
                       className="font-mono text-xs text-primary hover:underline"
                       title={tx.hash}
                     >
