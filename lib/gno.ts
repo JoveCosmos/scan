@@ -4,6 +4,7 @@ import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
+import { getValoperIndex } from "@/lib/gno-valopers";
 
 /*
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
@@ -340,36 +341,140 @@ export async function gnoTx(
   };
 }
 
-/**
- * The consensus set from JSON-RPC. gno.land has no staking module, so "voting
- * power" is the raw Tendermint power rather than a bonded-token share, and
- * commission/jailed have no meaning here.
- */
-export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
-  const res = await gnoRpc<ValidatorsResult>(chain, "/validators", {
-    timeoutMs: 12_000,
-  });
+interface ApiValidatorItem {
+  monikerName: string;
+  status: string;
+  address: string;
+  votingPower: string;
+  shareRate: string;
+  firstCommittedHeight: number | null;
+  firstCommittedTime: string | null;
+}
 
-  const ranked = [...res.validators].sort(
-    (a, b) => Number(b.voting_power) - Number(a.voting_power)
-  );
-  const totalPower = ranked.reduce((sum, v) => sum + Number(v.voting_power), 0);
+/** signing address -> moniker, best-effort: never fails a validator listing. */
+async function valoperMonikers(chain: ChainConfig): Promise<Map<string, string>> {
+  try {
+    const index = await getValoperIndex(chain);
+    const map = new Map<string, string>();
+    for (const [signing, profile] of index.bySigning) {
+      if (profile.moniker) map.set(signing, profile.moniker);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function rankValidators(
+  entries: { address: string; moniker: string; power: number; status: string }[]
+): ValidatorSummary[] {
+  const ranked = [...entries].sort((a, b) => b.power - a.power);
+  const totalPower = ranked.reduce((sum, v) => sum + v.power, 0);
 
   let running = 0;
   return ranked.map((v, i) => {
-    const power = totalPower > 0 ? Number(v.voting_power) / totalPower : 0;
-    running += power;
+    const share = totalPower > 0 ? v.power / totalPower : 0;
+    running += share;
     return {
       rank: i + 1,
       operatorAddress: v.address,
-      moniker: v.address,
+      moniker: v.moniker,
       website: "",
       jailed: false,
-      status: "BOND_STATUS_BONDED",
-      tokens: v.voting_power,
-      votingPower: power,
+      status: v.status,
+      tokens: String(v.power),
+      votingPower: share,
       cumulativePower: running,
       commissionRate: 0,
     };
   });
+}
+
+/**
+ * The active consensus set. Preferred source is the indexing API because it
+ * carries monikers; the JSON-RPC validator set is the fallback and yields bare
+ * addresses. Either way "voting power" is raw Tendermint power — gno.land has
+ * no staking module, so commission and jailing have no meaning here.
+ */
+export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  try {
+    const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
+      limit: 100,
+    });
+    const active = (data.items ?? []).filter((v) => v.status === "ACTIVE");
+    if (active.length > 0) {
+      // The indexing API knows a moniker for only a couple of validators; the
+      // valopers realm is the real identity registry, so prefer it and fall
+      // back to whatever the API has.
+      const monikers = await valoperMonikers(chain);
+      return rankValidators(
+        active.map((v) => ({
+          address: v.address,
+          moniker: monikers.get(v.address) || v.monikerName || v.address,
+          power: Number(v.votingPower),
+          status: v.status,
+        }))
+      );
+    }
+  } catch {
+    // Fall through to the RPC consensus set.
+  }
+
+  const res = await gnoRpc<ValidatorsResult>(chain, "/validators", {
+    timeoutMs: 12_000,
+  });
+  return rankValidators(
+    res.validators.map((v) => ({
+      address: v.address,
+      moniker: v.address,
+      power: Number(v.voting_power),
+      status: "ACTIVE",
+    }))
+  );
+}
+
+export interface GnoValidatorDetail {
+  address: string;
+  moniker: string | null;
+  status: string | null;
+  votingPower: string | null;
+  sharePercent: number | null;
+  rank: number | null;
+  firstCommittedHeight: number | null;
+  firstCommittedTime: string | null;
+}
+
+/** Consensus-side facts about one validator, keyed by its signing address. */
+export async function gnoValidatorDetail(
+  chain: ChainConfig,
+  address: string
+): Promise<GnoValidatorDetail | null> {
+  try {
+    const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
+      limit: 100,
+    });
+    const items = data.items ?? [];
+    const hit = items.find((v) => v.address === address);
+    if (!hit) return null;
+
+    const active = items
+      .filter((v) => v.status === "ACTIVE")
+      .sort((a, b) => Number(b.votingPower) - Number(a.votingPower));
+    const rankIndex = active.findIndex((v) => v.address === address);
+
+    const monikers = await valoperMonikers(chain);
+
+    return {
+      address: hit.address,
+      moniker: monikers.get(hit.address) || hit.monikerName || null,
+      status: hit.status,
+      votingPower: hit.votingPower,
+      sharePercent: hit.shareRate ? Number(hit.shareRate) : null,
+      rank: rankIndex >= 0 ? rankIndex + 1 : null,
+      firstCommittedHeight: hit.firstCommittedHeight,
+      firstCommittedTime: hit.firstCommittedTime,
+    };
+  } catch {
+    return null;
+  }
 }

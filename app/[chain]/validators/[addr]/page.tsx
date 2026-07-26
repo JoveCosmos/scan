@@ -6,6 +6,8 @@ import { getChain, symbolFor, accentFor } from "@/lib/chains";
 import { getValidator, statusLabel } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
+import { GnoValidatorDetail } from "@/components/gno-validator-detail";
+import { decodeParam } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +16,14 @@ export async function generateMetadata({
 }: {
   params: Promise<{ chain: string; addr: string }>;
 }): Promise<Metadata> {
-  const { chain: chainId, addr } = await params;
+  const { chain: chainId, addr: rawAddr } = await params;
   const chain = getChain(chainId);
   if (!chain) return { title: "Validator" };
+
+  const addr = decodeParam(rawAddr);
+  // Avoid the Cosmos staking lookup for chains that have no staking module.
+  if (chain.kind === "gno") return { title: `Validator ${addr.slice(0, 12)}…` };
+
   const validator = await getValidator(chain, addr);
   return { title: validator ? validator.moniker : "Validator" };
 }
@@ -65,9 +72,17 @@ export default async function ValidatorDetailPage({
 }: {
   params: Promise<{ chain: string; addr: string }>;
 }) {
-  const { chain: chainId, addr } = await params;
+  const { chain: chainId, addr: rawAddr } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
+
+  const addr = decodeParam(rawAddr);
+
+  // gno.land has no staking module — identity comes from the valopers realm
+  // instead, so it gets an entirely different detail view.
+  if (chain.kind === "gno") {
+    return <GnoValidatorDetail chain={chain} address={addr} />;
+  }
 
   const validator = await getValidator(chain, addr);
   const accent = accentFor(chain);

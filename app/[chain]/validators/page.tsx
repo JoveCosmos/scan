@@ -173,34 +173,25 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                   {v.rank}
                 </td>
                 <td className="max-w-[240px] px-4 py-2.5">
-                  {/* Only staking chains have a validator profile to link to;
-                      gno exposes a consensus set with no per-validator module. */}
-                  {staking ? (
-                    <Link
-                      href={`/${chainId}/validators/${v.operatorAddress}`}
-                      className="block min-w-0"
-                    >
-                      <div
-                        className="truncate font-medium text-primary hover:underline"
-                        title={v.moniker}
-                      >
-                        {v.moniker}
-                      </div>
-                      <div
-                        className="truncate font-mono text-xs text-muted-foreground"
-                        title={v.operatorAddress}
-                      >
-                        {truncateMiddle(v.operatorAddress, 14, 8)}
-                      </div>
-                    </Link>
-                  ) : (
+                  {/* Cosmos links to a staking profile; gno links to its
+                      valopers-realm profile, keyed by consensus address. */}
+                  <Link
+                    href={`/${chainId}/validators/${v.operatorAddress}`}
+                    className="block min-w-0"
+                  >
                     <div
-                      className="truncate font-mono text-xs"
+                      className="truncate font-medium text-primary hover:underline"
+                      title={v.moniker}
+                    >
+                      {v.moniker}
+                    </div>
+                    <div
+                      className="truncate font-mono text-xs text-muted-foreground"
                       title={v.operatorAddress}
                     >
-                      {truncateMiddle(v.operatorAddress, 16, 8)}
+                      {truncateMiddle(v.operatorAddress, 14, 8)}
                     </div>
-                  )}
+                  </Link>
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="font-mono tabular-nums">
