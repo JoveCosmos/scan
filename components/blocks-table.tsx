@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -90,8 +91,13 @@ export function BlocksTable({
                   flashHeight === block.height && "gata-flash"
                 )}
               >
-                <td className="px-4 py-2.5 font-mono tabular-nums font-medium">
-                  {Number(block.height).toLocaleString()}
+                <td className="px-4 py-2.5 font-mono font-medium tabular-nums">
+                  <Link
+                    href={`/${chainId}/blocks/${block.height}`}
+                    className="text-primary hover:underline"
+                  >
+                    {Number(block.height).toLocaleString()}
+                  </Link>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   {timeAgo(block.time)}

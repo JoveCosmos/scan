@@ -179,7 +179,7 @@ export function TxsTable({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
-                      href={`/${chainId}/blocks`}
+                      href={`/${chainId}/blocks/${tx.height}`}
                       className="font-mono text-xs text-muted-foreground hover:text-foreground"
                     >
                       {Number(tx.height).toLocaleString()}

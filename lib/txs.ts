@@ -130,7 +130,7 @@ function toSummary(raw: RawTxResponse): TxSummary {
   };
 }
 
-async function txsAtHeight(
+export async function txsAtHeight(
   chain: ChainConfig,
   height: string,
   fallbackRawTxs: string[],

@@ -47,6 +47,131 @@ export function statusLabel(status: string): string {
   return STATUS_LABEL[status] ?? status;
 }
 
+export interface ValidatorDetail {
+  operatorAddress: string;
+  moniker: string;
+  identity: string;
+  website: string;
+  details: string;
+  securityContact: string;
+  jailed: boolean;
+  status: string;
+  tokens: string;
+  commissionRate: number;
+  maxRate: number;
+  maxChangeRate: number;
+  commissionUpdatedAt: string | null;
+  minSelfDelegation: string;
+  unbondingHeight: string | null;
+  unbondingTime: string | null;
+  /** Share of total bonded stake, 0–1. null when the set could not be read. */
+  votingPower: number | null;
+  rank: number | null;
+  delegatorCount: string | null;
+  outstandingCommission: { denom: string; amount: string }[];
+}
+
+interface SingleValidatorResponse {
+  validator: RawValidator & {
+    description: RawValidator["description"] & { security_contact?: string };
+    commission: RawValidator["commission"] & { update_time?: string };
+    min_self_delegation?: string;
+    unbonding_height?: string;
+    unbonding_time?: string;
+  };
+}
+
+interface DelegationsResponse {
+  pagination?: { total?: string };
+}
+
+interface CommissionResponse {
+  commission?: { commission?: { denom: string; amount: string }[] };
+}
+
+/**
+ * Full profile for one validator. Rank and voting power need the whole bonded
+ * set, and the delegator count and outstanding commission come from separate
+ * modules — each is optional so a slow or disabled endpoint degrades to "—"
+ * instead of failing the page.
+ */
+export async function getValidator(
+  chain: ChainConfig,
+  operatorAddress: string
+): Promise<ValidatorDetail | null> {
+  let single: SingleValidatorResponse;
+  try {
+    single = await fetchLcd<SingleValidatorResponse>(
+      chain,
+      `/cosmos/staking/v1beta1/validators/${operatorAddress}`,
+      { cache: "no-store", timeoutMs: 10_000 }
+    );
+  } catch {
+    return null;
+  }
+
+  const v = single.validator;
+  if (!v) return null;
+
+  const [setResult, delegationsResult, commissionResult] = await Promise.allSettled([
+    getValidators(chain),
+    fetchLcd<DelegationsResponse>(
+      chain,
+      `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`,
+      {
+        cache: "no-store",
+        timeoutMs: 12_000,
+        searchParams: { "pagination.count_total": true, "pagination.limit": 1 },
+      }
+    ),
+    fetchLcd<CommissionResponse>(
+      chain,
+      `/cosmos/distribution/v1beta1/validators/${operatorAddress}/commission`,
+      { cache: "no-store", timeoutMs: 10_000 }
+    ),
+  ]);
+
+  let votingPower: number | null = null;
+  let rank: number | null = null;
+  if (setResult.status === "fulfilled") {
+    const hit = setResult.value.find((x) => x.operatorAddress === operatorAddress);
+    if (hit) {
+      votingPower = hit.votingPower;
+      rank = hit.rank;
+    }
+  }
+
+  return {
+    operatorAddress: v.operator_address,
+    moniker: v.description?.moniker?.trim() || v.operator_address,
+    identity: v.description?.identity ?? "",
+    website: v.description?.website ?? "",
+    details: v.description?.details ?? "",
+    securityContact: v.description?.security_contact ?? "",
+    jailed: v.jailed,
+    status: v.status,
+    tokens: v.tokens,
+    commissionRate: Number(v.commission?.commission_rates?.rate ?? 0),
+    maxRate: Number(v.commission?.commission_rates?.max_rate ?? 0),
+    maxChangeRate: Number(v.commission?.commission_rates?.max_change_rate ?? 0),
+    commissionUpdatedAt: v.commission?.update_time ?? null,
+    minSelfDelegation: v.min_self_delegation ?? "0",
+    unbondingHeight:
+      v.unbonding_height && v.unbonding_height !== "0" ? v.unbonding_height : null,
+    unbondingTime: v.unbonding_time ?? null,
+    votingPower,
+    rank,
+    delegatorCount:
+      delegationsResult.status === "fulfilled"
+        ? (delegationsResult.value.pagination?.total ?? null)
+        : null,
+    outstandingCommission:
+      commissionResult.status === "fulfilled"
+        ? (commissionResult.value.commission?.commission ?? [])
+        : [],
+  };
+}
+
 /**
  * Bonded validator set, ranked by stake. Pages through the LCD because several
  * chains cap page size well below their validator count.

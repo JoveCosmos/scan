@@ -1,5 +1,8 @@
+import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getValidators, statusLabel } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
@@ -37,6 +40,23 @@ function StatPanel({
   );
 }
 
+function TableSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-[104px] rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-[420px] rounded-xl" />
+    </div>
+  );
+}
+
+/**
+ * The page shell resolves synchronously so an unknown chain can still produce a
+ * real 404; only the slow validator-set read streams in behind Suspense.
+ */
 export default async function ValidatorsPage({
   params,
 }: {
@@ -46,6 +66,24 @@ export default async function ValidatorsPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Validators</h1>
+        <p className="text-sm text-muted-foreground">
+          Active set on {chain.prettyName}
+        </p>
+      </div>
+
+      <Suspense fallback={<TableSkeleton />}>
+        <ValidatorsContent chain={chain} />
+      </Suspense>
+    </main>
+  );
+}
+
+async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
+  const chainId = chain.chainId;
   const validators = await getValidators(chain);
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
@@ -61,14 +99,7 @@ export default async function ValidatorsPage({
       : 0;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Validators</h1>
-        <p className="text-sm text-muted-foreground">
-          Active set on {chain.prettyName}
-        </p>
-      </div>
-
+    <>
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatPanel
           index={0}
@@ -121,15 +152,23 @@ export default async function ValidatorsPage({
                   {v.rank}
                 </td>
                 <td className="max-w-[240px] px-4 py-2.5">
-                  <div className="truncate font-medium" title={v.moniker}>
-                    {v.moniker}
-                  </div>
-                  <div
-                    className="truncate font-mono text-xs text-muted-foreground"
-                    title={v.operatorAddress}
+                  <Link
+                    href={`/${chainId}/validators/${v.operatorAddress}`}
+                    className="block min-w-0"
                   >
-                    {truncateMiddle(v.operatorAddress, 14, 8)}
-                  </div>
+                    <div
+                      className="truncate font-medium text-primary hover:underline"
+                      title={v.moniker}
+                    >
+                      {v.moniker}
+                    </div>
+                    <div
+                      className="truncate font-mono text-xs text-muted-foreground"
+                      title={v.operatorAddress}
+                    >
+                      {truncateMiddle(v.operatorAddress, 14, 8)}
+                    </div>
+                  </Link>
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="font-mono tabular-nums">
@@ -173,6 +212,6 @@ export default async function ValidatorsPage({
           </tbody>
         </table>
       </div>
-    </main>
+    </>
   );
 }
