@@ -10,8 +10,13 @@ import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators } from "@/lib/validators";
 import type { AccountView } from "@/lib/accounts";
 import { getCosmosAccount } from "@/lib/accounts";
-import type { ProposalSummary, GovParams } from "@/lib/proposals";
-import { getProposals, getProposal, getGovParams } from "@/lib/proposals";
+import type { ProposalSummary, GovParams, ProposalVotes } from "@/lib/proposals";
+import {
+  getProposals,
+  getProposal,
+  getGovParams,
+  getProposalVotes,
+} from "@/lib/proposals";
 import {
   gnoOverview,
   gnoRecentBlocks,
@@ -96,6 +101,7 @@ export interface ChainAdapter {
     limit?: number
   ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;
   getProposal(id: string): Promise<ProposalSummary | null>;
+  getProposalVotes(id: string): Promise<ProposalVotes>;
   getGovParams(): Promise<GovParams | null>;
 }
 
@@ -122,6 +128,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getAccount: (address) => gnoAccount(chain, address),
       getProposals: async () => ({ proposals: [], total: null }),
       getProposal: async () => null,
+      getProposalVotes: async () => ({ votes: [], total: null, byOption: {} }),
       getGovParams: async () => null,
     };
   }
@@ -147,6 +154,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getAccount: (address) => getCosmosAccount(chain, address),
     getProposals: (limit) => getProposals(chain, limit),
     getProposal: (id) => getProposal(chain, id),
+    getProposalVotes: (id) => getProposalVotes(chain, id),
     getGovParams: () => getGovParams(chain),
   };
 }

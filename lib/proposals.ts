@@ -181,6 +181,93 @@ export async function getProposal(
   return proposal;
 }
 
+export interface VoteOption {
+  option: string;
+  /** 0–1. Only meaningful for split (weighted) votes. */
+  weight: number;
+}
+
+export interface ProposalVote {
+  voter: string;
+  options: VoteOption[];
+  /** Convenience: the heaviest option, which is the whole vote for most voters. */
+  primary: string;
+  weighted: boolean;
+}
+
+export interface ProposalVotes {
+  votes: ProposalVote[];
+  total: number | null;
+  /** Counts per option, by voter head-count rather than by stake. */
+  byOption: Record<string, number>;
+}
+
+const VOTE_LABEL: Record<string, string> = {
+  VOTE_OPTION_YES: "Yes",
+  VOTE_OPTION_NO: "No",
+  VOTE_OPTION_NO_WITH_VETO: "No with Veto",
+  VOTE_OPTION_ABSTAIN: "Abstain",
+  VOTE_OPTION_UNSPECIFIED: "Unspecified",
+};
+
+export function voteOptionLabel(option: string): string {
+  return VOTE_LABEL[option] ?? option.replace(/^VOTE_OPTION_/, "");
+}
+
+interface RawVote {
+  voter: string;
+  options?: { option: string; weight: string }[];
+}
+
+/**
+ * Individual votes. The gov module deletes votes once a proposal is tallied, so
+ * this is normally empty for anything past its voting period — that is pruning,
+ * not an absence of votes, and the UI says so.
+ */
+export async function getProposalVotes(
+  chain: ChainConfig,
+  id: string,
+  limit = 300
+): Promise<ProposalVotes> {
+  try {
+    const res = await fetchLcd<{
+      votes?: RawVote[];
+      pagination?: { total?: string };
+    }>(chain, `/cosmos/gov/v1/proposals/${id}/votes`, {
+      cache: "no-store",
+      timeoutMs: 15_000,
+      searchParams: { "pagination.limit": limit, "pagination.count_total": true },
+    });
+
+    const byOption: Record<string, number> = {};
+
+    const votes: ProposalVote[] = (res.votes ?? []).map((v) => {
+      const options: VoteOption[] = (v.options ?? []).map((o) => ({
+        option: o.option,
+        weight: Number(o.weight) || 0,
+      }));
+      const sorted = [...options].sort((a, b) => b.weight - a.weight);
+      const primary = sorted[0]?.option ?? "VOTE_OPTION_UNSPECIFIED";
+      byOption[primary] = (byOption[primary] ?? 0) + 1;
+
+      return {
+        voter: v.voter,
+        options,
+        primary,
+        weighted: options.length > 1,
+      };
+    });
+
+    return {
+      votes,
+      total: res.pagination?.total ? Number(res.pagination.total) : votes.length,
+      byOption,
+    };
+  } catch {
+    return { votes: [], total: null, byOption: {} };
+  }
+}
+
 export async function getGovParams(chain: ChainConfig): Promise<GovParams> {
   try {
     const res = await fetchLcd<{

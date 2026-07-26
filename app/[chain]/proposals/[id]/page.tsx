@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -9,6 +10,8 @@ import { truncateMiddle } from "@/lib/format";
 import { isVoting, tallyShares } from "@/lib/proposals";
 import { TallyBar } from "@/components/tally-bar";
 import { StatusBadge } from "@/components/proposal-status-badge";
+import { ProposalVotes } from "@/components/proposal-votes";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const dynamic = "force-dynamic";
 
@@ -221,6 +224,17 @@ export default async function ProposalDetailPage({
           ) : null}
         </dl>
       </div>
+
+      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">Votes</h2>
+      {/* Streamed separately: fetching every vote is the slowest read on the
+          page and the tally above does not depend on it. */}
+      <Suspense fallback={<Skeleton className="h-[280px] rounded-xl" />}>
+        <ProposalVotes
+          chain={chain}
+          proposalId={proposal.id}
+          status={proposal.status}
+        />
+      </Suspense>
     </main>
   );
 }
