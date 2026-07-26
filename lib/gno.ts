@@ -473,13 +473,18 @@ export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummar
     // Fall through to the RPC consensus set.
   }
 
-  const res = await gnoRpc<ValidatorsResult>(chain, "/validators", {
-    timeoutMs: 12_000,
-  });
+  // Identity comes from the realm, not from whichever source supplied the set,
+  // so the fallback must resolve monikers too — otherwise a blip on the
+  // indexing API silently turns every name back into a raw address.
+  const [res, monikers] = await Promise.all([
+    gnoRpc<ValidatorsResult>(chain, "/validators", { timeoutMs: 12_000 }),
+    valoperMonikers(chain),
+  ]);
+
   return rankValidators(
     res.validators.map((v) => ({
       address: v.address,
-      moniker: v.address,
+      moniker: monikers.get(v.address) || v.address,
       power: Number(v.voting_power),
       status: "ACTIVE",
     }))

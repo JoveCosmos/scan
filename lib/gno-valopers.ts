@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import type { ChainConfig } from "@/lib/chains";
 
 /*
@@ -142,10 +144,12 @@ const INDEX_TTL_MS = 10 * 60 * 1000;
 
 interface CacheEntry {
   at: number;
-  /** Resolved value, once the first build finishes. */
+  /** Resolved value, once the first build finishes or the disk copy loads. */
   value: ValoperIndex | null;
   /** In-flight build, if one is running. */
   inflight: Promise<ValoperIndex> | null;
+  /** Whether the on-disk copy has already been consulted this process. */
+  hydrated?: boolean;
 }
 
 /*
@@ -162,6 +166,111 @@ const globalCache = globalThis as typeof globalThis & {
 const indexCache: Map<string, CacheEntry> = (globalCache[CACHE_KEY] ??= new Map());
 
 const EMPTY_INDEX: ValoperIndex = { bySigning: new Map(), byOperator: new Map() };
+
+/*
+ * Disk persistence.
+ *
+ * Rebuilding costs ~25s of serialised realm execution, which the node cannot be
+ * made to do faster. Persisting means only the very first run on a machine pays
+ * it — every later restart, including a rebuild that wipes .next, starts warm.
+ *
+ * Registrations change rarely, so a stale file is still far better than falling
+ * back to raw addresses; it is served immediately and refreshed in the
+ * background. Beyond MAX_DISK_AGE_MS it is ignored entirely.
+ */
+const CACHE_DIR =
+  process.env.VALOPER_CACHE_DIR ?? path.join(process.cwd(), ".cache", "valopers");
+const MAX_DISK_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DISK_VERSION = 1;
+
+interface DiskPayload {
+  version: number;
+  chainId: string;
+  at: number;
+  profiles: ValoperProfile[];
+}
+
+function cacheFile(chainId: string): string {
+  // chainIds come from local config, but keep the path from escaping the dir.
+  return path.join(CACHE_DIR, `${chainId.replace(/[^\w.-]/g, "_")}.json`);
+}
+
+function indexFromProfiles(profiles: ValoperProfile[]): ValoperIndex {
+  const bySigning = new Map<string, ValoperProfile>();
+  const byOperator = new Map<string, ValoperProfile>();
+  for (const profile of profiles) {
+    byOperator.set(profile.operatorAddress, profile);
+    if (profile.signingAddress) bySigning.set(profile.signingAddress, profile);
+  }
+  return { bySigning, byOperator };
+}
+
+async function readDisk(
+  chainId: string
+): Promise<{ at: number; index: ValoperIndex } | null> {
+  try {
+    const raw = await fs.readFile(cacheFile(chainId), "utf-8");
+    const payload = JSON.parse(raw) as DiskPayload;
+
+    if (payload.version !== DISK_VERSION) return null;
+    if (payload.chainId !== chainId) return null;
+    if (!Array.isArray(payload.profiles) || payload.profiles.length === 0) return null;
+    if (Date.now() - payload.at > MAX_DISK_AGE_MS) return null;
+
+    return { at: payload.at, index: indexFromProfiles(payload.profiles) };
+  } catch {
+    // Missing or unreadable cache is normal — just rebuild.
+    return null;
+  }
+}
+
+async function writeDisk(chainId: string, index: ValoperIndex): Promise<void> {
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+    const payload: DiskPayload = {
+      version: DISK_VERSION,
+      chainId,
+      at: Date.now(),
+      profiles: [...index.byOperator.values()],
+    };
+    // Write-then-rename so a crash mid-write cannot leave a truncated file that
+    // a later boot would read as valid.
+    const target = cacheFile(chainId);
+    const temp = `${target}.${process.pid}.tmp`;
+    await fs.writeFile(temp, JSON.stringify(payload), "utf-8");
+    await fs.rename(temp, target);
+  } catch (err) {
+    console.warn(
+      `[valopers] could not persist index for ${chainId}:`,
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
+/** Populate memory from disk once per process, before deciding to rebuild. */
+async function hydrate(chain: ChainConfig): Promise<ValoperIndex | null> {
+  const entry = indexCache.get(chain.chainId);
+  if (entry?.value) return entry.value;
+  if (entry?.hydrated) return null;
+
+  const fromDisk = await readDisk(chain.chainId);
+  const current = indexCache.get(chain.chainId);
+  if (current?.value) return current.value;
+
+  indexCache.set(chain.chainId, {
+    at: fromDisk?.at ?? 0,
+    value: fromDisk?.index ?? null,
+    inflight: current?.inflight ?? null,
+    hydrated: true,
+  });
+
+  if (fromDisk) {
+    console.log(
+      `[valopers] loaded ${fromDisk.index.byOperator.size} profiles for ${chain.chainId} from disk`
+    );
+  }
+  return fromDisk?.index ?? null;
+}
 
 async function buildIndex(chain: ChainConfig): Promise<ValoperIndex> {
   const entries: { moniker: string; operatorAddress: string }[] = [];
@@ -201,23 +310,39 @@ async function buildIndex(chain: ChainConfig): Promise<ValoperIndex> {
  * Kick off a build if none is cached or the cache is stale. Returns the in-flight
  * promise. Safe to call repeatedly — concurrent callers share one build.
  */
-function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
+async function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
+  // Consult disk before deciding to rebuild, so a restart does not pay the
+  // ~25s cost again.
+  await hydrate(chain);
+
   const entry = indexCache.get(chain.chainId);
 
   if (entry?.inflight) return entry.inflight;
   if (entry?.value && Date.now() - entry.at < INDEX_TTL_MS) {
-    return Promise.resolve(entry.value);
+    return entry.value;
   }
 
   const inflight = buildIndex(chain)
-    .then((index) => {
-      indexCache.set(chain.chainId, { at: Date.now(), value: index, inflight: null });
+    .then(async (index) => {
+      indexCache.set(chain.chainId, {
+        at: Date.now(),
+        value: index,
+        inflight: null,
+        hydrated: true,
+      });
+      await writeDisk(chain.chainId, index);
       return index;
     })
     .catch((err) => {
-      // Keep any previously good value rather than losing it to a failed refresh.
-      const prev = indexCache.get(chain.chainId)?.value ?? null;
-      indexCache.set(chain.chainId, { at: 0, value: prev, inflight: null });
+      // Keep any previously good value — including one loaded from disk —
+      // rather than losing it to a failed refresh.
+      const prev = indexCache.get(chain.chainId);
+      indexCache.set(chain.chainId, {
+        at: prev?.value ? prev.at : 0,
+        value: prev?.value ?? null,
+        inflight: null,
+        hydrated: true,
+      });
       throw err;
     });
 
@@ -225,6 +350,7 @@ function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
     at: entry?.at ?? 0,
     value: entry?.value ?? null,
     inflight,
+    hydrated: true,
   });
   return inflight;
 }
@@ -256,6 +382,9 @@ export async function getValoperIndexNow(
   chain: ChainConfig,
   budgetMs = 1500
 ): Promise<ValoperIndex> {
+  // Reading the persisted copy takes milliseconds, so do it before deciding
+  // whether to wait on a rebuild.
+  await hydrate(chain);
   const entry = indexCache.get(chain.chainId);
 
   // Serve stale immediately, refreshing in the background.
