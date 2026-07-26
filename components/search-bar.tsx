@@ -11,7 +11,9 @@ import { Search } from "lucide-react";
  */
 export function SearchBar({
   chainId,
-  placeholder = "Search height, tx or address",
+  // Kept short so it is not clipped in the narrow mobile field; the aria-label
+  // and the empty search page carry the full explanation.
+  placeholder = "Search…",
 }: {
   chainId: string;
   placeholder?: string;

@@ -94,7 +94,7 @@ export function BlocksTable({
                 <td className="px-4 py-2.5 font-mono font-medium tabular-nums">
                   <Link
                     href={`/${chainId}/blocks/${block.height}`}
-                    className="text-primary hover:underline"
+                    className="-my-2 inline-block py-2 text-primary hover:underline"
                   >
                     {Number(block.height).toLocaleString()}
                   </Link>

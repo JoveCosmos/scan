@@ -165,7 +165,8 @@ export function TxsTable({
                   <td className="px-4 py-3">
                     <Link
                       href={`/${chainId}/txs/${encodeURIComponent(tx.hash)}`}
-                      className="font-mono text-xs text-primary hover:underline"
+                      // -my-2 keeps the row height while giving a ~32px tap target.
+                      className="-my-2 inline-block py-2 font-mono text-xs text-primary hover:underline"
                       title={tx.hash}
                     >
                       {truncateMiddle(tx.hash, 10, 8)}
@@ -180,7 +181,7 @@ export function TxsTable({
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/${chainId}/blocks/${tx.height}`}
-                      className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                      className="-my-2 inline-block py-2 font-mono text-xs text-muted-foreground hover:text-foreground"
                     >
                       {Number(tx.height).toLocaleString()}
                     </Link>

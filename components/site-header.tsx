@@ -16,10 +16,11 @@ export interface ChainSummary {
 }
 
 const NAV = [
-  { href: "", label: "Overview" },
-  { href: "/blocks", label: "Blocks" },
-  { href: "/txs", label: "Transactions" },
-  { href: "/validators", label: "Validators" },
+  { href: "", label: "Overview", short: "Overview" },
+  { href: "/blocks", label: "Blocks", short: "Blocks" },
+  // Shortened on narrow screens so all four tabs fit without a sideways swipe.
+  { href: "/txs", label: "Transactions", short: "Txs" },
+  { href: "/validators", label: "Validators", short: "Vals" },
 ];
 
 function ChainSwitcher({
@@ -137,14 +138,16 @@ function NavLinks({
             key={item.label}
             href={href}
             className={cn(
-              "relative whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors",
+              // py-2 keeps the tab tap target ~36px on touch screens.
+              "relative whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors",
               isActive
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
               itemClassName
             )}
           >
-            {item.label}
+            <span className="sm:hidden">{item.short}</span>
+            <span className="hidden sm:inline">{item.label}</span>
             {isActive ? (
               <span className="absolute inset-x-3 -bottom-[9px] h-px bg-primary shadow-[0_0_8px_var(--gata-glow)]" />
             ) : null}
@@ -182,7 +185,9 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
               className="h-full w-full object-cover"
             />
           </span>
-          <span className="flex flex-col gap-0.5 leading-none">
+          {/* Wordmark gives way to the mark alone on narrow screens so the
+              search field has room in the top row. */}
+          <span className="hidden flex-col gap-0.5 leading-none sm:flex">
             <span className="text-[15px] font-bold tracking-tight">GATA HUB</span>
             <span className="text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
               Explorer
@@ -204,7 +209,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           {activeChainId ? (
-            <div className="hidden min-w-0 max-w-xs flex-1 sm:block">
+            <div className="min-w-0 max-w-xs flex-1">
               <SearchBar chainId={activeChainId} />
             </div>
           ) : null}
@@ -217,16 +222,11 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
       </div>
 
       {activeChainId ? (
-        <div className="border-t border-border lg:hidden">
-          <div className="px-4 pt-2 sm:hidden">
-            <SearchBar chainId={activeChainId} placeholder="Search…" />
-          </div>
-          <NavLinks
-            activeChainId={activeChainId}
-            pathname={pathname}
-            className="flex items-center gap-1 overflow-x-auto px-4 py-2"
-          />
-        </div>
+        <NavLinks
+          activeChainId={activeChainId}
+          pathname={pathname}
+          className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
+        />
       ) : null}
     </header>
   );
