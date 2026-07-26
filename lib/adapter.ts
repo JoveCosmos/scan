@@ -8,6 +8,8 @@ import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators } from "@/lib/validators";
+import type { AccountView } from "@/lib/accounts";
+import { getCosmosAccount } from "@/lib/accounts";
 import {
   gnoOverview,
   gnoRecentBlocks,
@@ -16,6 +18,7 @@ import {
   gnoValidators,
   gnoBlockDetail,
   gnoBlockTxs,
+  gnoAccount,
 } from "@/lib/gno";
 
 /**
@@ -74,6 +77,7 @@ export interface ChainAdapter {
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
+  getAccount(address: string): Promise<AccountView>;
 }
 
 export function getAdapter(chain: ChainConfig): ChainAdapter {
@@ -87,6 +91,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
+      getAccount: (address) => gnoAccount(chain, address),
     };
   }
 
@@ -100,5 +105,6 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
     getValidators: () => getValidators(chain),
+    getAccount: (address) => getCosmosAccount(chain, address),
   };
 }

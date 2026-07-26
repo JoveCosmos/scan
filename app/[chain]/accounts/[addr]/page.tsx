@@ -1,0 +1,220 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
+import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getAdapter } from "@/lib/adapter";
+import { formatToken } from "@/lib/overview";
+import { decodeParam } from "@/lib/format";
+import { CopyButton } from "@/components/copy-button";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ addr: string }>;
+}): Promise<Metadata> {
+  const { addr } = await params;
+  return { title: `Account ${decodeParam(addr).slice(0, 12)}…` };
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-sm">{children}</dd>
+    </div>
+  );
+}
+
+/** IBC denoms are opaque hashes; show a short form with the full value on hover. */
+function denomLabel(denom: string, symbol: string, baseDenom: string): string {
+  if (denom === baseDenom) return symbol;
+  if (denom.startsWith("ibc/")) return `IBC ${denom.slice(4, 10)}…`;
+  return denom;
+}
+
+/**
+ * Exact display amount. The stat tile above uses compact notation, so the table
+ * deliberately shows the full number — abbreviating both meant a balance of
+ * 999.999997B also rendered as "1000.0000B", two values for one figure.
+ */
+function exactAmount(raw: string, exponent: number): string {
+  if (!/^\d+$/.test(raw)) return raw;
+
+  // Balances routinely exceed Number.MAX_SAFE_INTEGER — a 999999997125000000
+  // ugnot balance divided as a float rendered as ...124.9999. Split with BigInt.
+  // BigInt(...) rather than 10n literals, which need an ES2020 target.
+  const value = BigInt(raw);
+  const base = BigInt(10) ** BigInt(exponent);
+  const whole = (value / base).toLocaleString();
+  const fraction = (value % base).toString().padStart(exponent, "0").replace(/0+$/, "");
+
+  return fraction ? `${whole}.${fraction}` : whole;
+}
+
+export default async function AccountPage({
+  params,
+}: {
+  params: Promise<{ chain: string; addr: string }>;
+}) {
+  const { chain: chainId, addr: rawAddr } = await params;
+  const chain = getChain(chainId);
+  if (!chain) notFound();
+
+  const address = decodeParam(rawAddr);
+  const accent = accentFor(chain);
+  const symbol = symbolFor(chain);
+  const account = await getAdapter(chain).getAccount(address);
+
+  const primary = account.balances.find((b) => b.denom === chain.denom);
+  const others = account.balances.filter((b) => b.denom !== chain.denom);
+
+  return (
+    <main className="mx-auto max-w-4xl px-4 py-8">
+      <Link
+        href={`/${chainId}`}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to {chain.prettyName}
+      </Link>
+
+      <div className="mb-6 flex items-center gap-3">
+        <span
+          className="h-9 w-1 rounded-full"
+          style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
+        />
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
+          <p className="truncate font-mono text-sm text-muted-foreground">{address}</p>
+        </div>
+      </div>
+
+      {!account.exists ? (
+        <div className="gata-panel px-6 py-12 text-center">
+          <h2 className="text-lg font-semibold">No on-chain activity</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {chain.prettyName} has no record for this address. It may never have
+            been used, or it may belong to a different network.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div
+              className="gata-panel gata-rise p-5"
+              style={{ ["--panel-accent" as string]: accent }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Available
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+                {primary ? formatToken(primary.amount, chain.exponent, 2) : "0"}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">{symbol}</p>
+            </div>
+            <div
+              className="gata-panel gata-rise p-5"
+              style={{
+                ["--panel-accent" as string]: accent,
+                animationDelay: "60ms",
+              }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Delegated
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+                {account.delegatedTotal
+                  ? formatToken(account.delegatedTotal, chain.exponent, 2)
+                  : "—"}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {account.delegationCount != null
+                  ? `${account.delegationCount} validators`
+                  : "not applicable"}
+              </p>
+            </div>
+            <div
+              className="gata-panel gata-rise p-5"
+              style={{
+                ["--panel-accent" as string]: accent,
+                animationDelay: "120ms",
+              }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Other Assets
+              </p>
+              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+                {others.length}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">denominations</p>
+            </div>
+          </div>
+
+          <div
+            className="gata-panel mb-5"
+            style={{ ["--panel-accent" as string]: accent }}
+          >
+            <dl>
+              <Row label="Address">
+                <div className="flex items-start gap-2">
+                  <span className="min-w-0 break-all font-mono text-xs">{address}</span>
+                  <CopyButton value={address} label="address" />
+                </div>
+              </Row>
+              <Row label="Account Number">
+                <span className="font-mono text-xs">
+                  {account.accountNumber ?? "—"}
+                </span>
+              </Row>
+              <Row label="Sequence">
+                <span className="font-mono text-xs">{account.sequence ?? "—"}</span>
+              </Row>
+            </dl>
+          </div>
+
+          {account.balances.length > 0 ? (
+            <>
+              <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+                Balances ({account.balances.length})
+              </h2>
+              <div className="gata-panel overflow-x-auto">
+                <table className="w-full min-w-[420px] text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-3 font-medium text-muted-foreground">
+                        Denom
+                      </th>
+                      <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                        Amount
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {account.balances.map((b) => (
+                      <tr
+                        key={b.denom}
+                        className="border-b border-border/50 last:border-0 hover:bg-[var(--gata-card-hi)]/60"
+                      >
+                        <td className="px-4 py-3 font-mono text-xs" title={b.denom}>
+                          {denomLabel(b.denom, symbol, chain.denom)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono tabular-nums">
+                          {b.denom === chain.denom
+                            ? exactAmount(b.amount, chain.exponent)
+                            : Number(b.amount).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : null}
+        </>
+      )}
+    </main>
+  );
+}

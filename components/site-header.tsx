@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchBar } from "@/components/search-bar";
 
 export interface ChainSummary {
   chainId: string;
@@ -193,27 +194,39 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           <NavLinks
             activeChainId={activeChainId}
             pathname={pathname}
-            className="hidden items-center gap-1 md:flex"
+            className="hidden items-center gap-1 lg:flex"
           />
         ) : (
-          <span className="hidden text-sm text-muted-foreground md:block">
+          <span className="hidden text-sm text-muted-foreground lg:block">
             Multi-chain block explorer
           </span>
         )}
 
-        <ChainSwitcher
-          chains={chains}
-          activeChainId={activeChainId}
-          section={section}
-        />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          {activeChainId ? (
+            <div className="hidden min-w-0 max-w-xs flex-1 sm:block">
+              <SearchBar chainId={activeChainId} />
+            </div>
+          ) : null}
+          <ChainSwitcher
+            chains={chains}
+            activeChainId={activeChainId}
+            section={section}
+          />
+        </div>
       </div>
 
       {activeChainId ? (
-        <NavLinks
-          activeChainId={activeChainId}
-          pathname={pathname}
-          className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 md:hidden"
-        />
+        <div className="border-t border-border lg:hidden">
+          <div className="px-4 pt-2 sm:hidden">
+            <SearchBar chainId={activeChainId} placeholder="Search…" />
+          </div>
+          <NavLinks
+            activeChainId={activeChainId}
+            pathname={pathname}
+            className="flex items-center gap-1 overflow-x-auto px-4 py-2"
+          />
+        </div>
       ) : null}
     </header>
   );

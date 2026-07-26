@@ -5,6 +5,7 @@ import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValoperIndexNow, prewarmValoperIndex } from "@/lib/gno-valopers";
+import { parseCoinString, type AccountView } from "@/lib/accounts";
 
 /*
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
@@ -43,6 +44,45 @@ async function gnoRpc<T>(
     throw new Error(res.error?.message ?? `Empty RPC result for ${path}`);
   }
   return res.result;
+}
+
+/** Raw ABCI query. The address lives in the path; data is empty. */
+async function abciQuery(
+  chain: ChainConfig,
+  path: string,
+  timeoutMs = 8000
+): Promise<string | null> {
+  for (const endpoint of chain.rpcEndpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "abci_query",
+          params: { path, data: "" },
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) continue;
+
+      const json = (await res.json()) as {
+        error?: unknown;
+        result?: { response?: { ResponseBase?: { Data?: string; Error?: unknown } } };
+      };
+      if (json.error) continue;
+
+      const base = json.result?.response?.ResponseBase;
+      if (!base || base.Error) return null;
+
+      return Buffer.from(base.Data ?? "", "base64").toString();
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }
 
 async function gnoApi<T>(
@@ -439,6 +479,57 @@ export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummar
       status: "ACTIVE",
     }))
   );
+}
+
+interface GnoBaseAccount {
+  BaseAccount?: {
+    address?: string;
+    coins?: string;
+    account_number?: string;
+    sequence?: string;
+  };
+}
+
+/**
+ * gno exposes accounts over ABCI rather than REST, with the address in the query
+ * path and the balance as a coin string ("123ugnot") rather than a coin list.
+ */
+export async function gnoAccount(
+  chain: ChainConfig,
+  address: string
+): Promise<AccountView> {
+  const empty: AccountView = {
+    address,
+    balances: [],
+    delegatedTotal: null,
+    delegationCount: null,
+    accountNumber: null,
+    sequence: null,
+    exists: false,
+  };
+
+  const raw = await abciQuery(chain, `auth/accounts/${address}`);
+  if (!raw) return empty;
+
+  let parsed: GnoBaseAccount;
+  try {
+    parsed = JSON.parse(raw) as GnoBaseAccount;
+  } catch {
+    return empty;
+  }
+
+  const base = parsed.BaseAccount;
+  if (!base?.address) return empty;
+
+  return {
+    address: base.address,
+    balances: parseCoinString(base.coins ?? ""),
+    delegatedTotal: null,
+    delegationCount: null,
+    accountNumber: base.account_number ?? null,
+    sequence: base.sequence ?? null,
+    exists: true,
+  };
 }
 
 export interface GnoValidatorDetail {
