@@ -4,7 +4,7 @@ import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
-import { getValoperIndex } from "@/lib/gno-valopers";
+import { getValoperIndexNow, prewarmValoperIndex } from "@/lib/gno-valopers";
 
 /*
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
@@ -127,6 +127,10 @@ function toBlockSummary(item: ApiBlockItem): BlockSummary {
 }
 
 export async function gnoOverview(chain: ChainConfig): Promise<ChainOverview> {
+  // Landing on any gno page starts the realm index warming, so the validator
+  // list is usually ready by the time it is opened.
+  prewarmValoperIndex(chain);
+
   const [status, validators, blocks] = await Promise.allSettled([
     gnoRpc<StatusResult>(chain, "/status"),
     gnoRpc<ValidatorsResult>(chain, "/validators"),
@@ -351,10 +355,14 @@ interface ApiValidatorItem {
   firstCommittedTime: string | null;
 }
 
-/** signing address -> moniker, best-effort: never fails a validator listing. */
+/**
+ * signing address -> moniker. Best-effort and time-boxed: on a cold cache the
+ * realm index takes ~15s to build, so the listing renders with addresses rather
+ * than stalling, and the build continues for the next request.
+ */
 async function valoperMonikers(chain: ChainConfig): Promise<Map<string, string>> {
   try {
-    const index = await getValoperIndex(chain);
+    const index = await getValoperIndexNow(chain);
     const map = new Map<string, string>();
     for (const [signing, profile] of index.bySigning) {
       if (profile.moniker) map.set(signing, profile.moniker);

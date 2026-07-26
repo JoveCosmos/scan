@@ -139,7 +139,18 @@ interface ValoperIndex {
 }
 
 const INDEX_TTL_MS = 10 * 60 * 1000;
-const indexCache = new Map<string, { at: number; index: Promise<ValoperIndex> }>();
+
+interface CacheEntry {
+  at: number;
+  /** Resolved value, once the first build finishes. */
+  value: ValoperIndex | null;
+  /** In-flight build, if one is running. */
+  inflight: Promise<ValoperIndex> | null;
+}
+
+const indexCache = new Map<string, CacheEntry>();
+
+const EMPTY_INDEX: ValoperIndex = { bySigning: new Map(), byOperator: new Map() };
 
 async function buildIndex(chain: ChainConfig): Promise<ValoperIndex> {
   const entries: { moniker: string; operatorAddress: string }[] = [];
@@ -176,20 +187,83 @@ async function buildIndex(chain: ChainConfig): Promise<ValoperIndex> {
 }
 
 /**
- * Cached signing/operator index. Building it costs ~95 realm reads, so it is
- * memoised per chain for ten minutes; valoper registrations change rarely.
+ * Kick off a build if none is cached or the cache is stale. Returns the in-flight
+ * promise. Safe to call repeatedly — concurrent callers share one build.
+ */
+function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
+  const entry = indexCache.get(chain.chainId);
+
+  if (entry?.inflight) return entry.inflight;
+  if (entry?.value && Date.now() - entry.at < INDEX_TTL_MS) {
+    return Promise.resolve(entry.value);
+  }
+
+  const inflight = buildIndex(chain)
+    .then((index) => {
+      indexCache.set(chain.chainId, { at: Date.now(), value: index, inflight: null });
+      return index;
+    })
+    .catch((err) => {
+      // Keep any previously good value rather than losing it to a failed refresh.
+      const prev = indexCache.get(chain.chainId)?.value ?? null;
+      indexCache.set(chain.chainId, { at: 0, value: prev, inflight: null });
+      throw err;
+    });
+
+  indexCache.set(chain.chainId, {
+    at: entry?.at ?? 0,
+    value: entry?.value ?? null,
+    inflight,
+  });
+  return inflight;
+}
+
+/**
+ * Start (or refresh) the index without waiting for it. Called on any gno read so
+ * that by the time someone opens the validator list the cache is usually warm.
+ */
+export function prewarmValoperIndex(chain: ChainConfig): void {
+  if (chain.kind !== "gno") return;
+  void ensureIndex(chain).catch(() => {});
+}
+
+/**
+ * The signing/operator index, awaited to completion. Costs ~95 sequential realm
+ * executions on a cold cache — the node serialises them, so this is ~15s and
+ * cannot be parallelised away. Prefer getValoperIndexNow() on request paths.
  */
 export function getValoperIndex(chain: ChainConfig): Promise<ValoperIndex> {
-  const cached = indexCache.get(chain.chainId);
-  if (cached && Date.now() - cached.at < INDEX_TTL_MS) return cached.index;
+  return ensureIndex(chain);
+}
 
-  const index = buildIndex(chain).catch((err) => {
-    // Never cache a failed build.
-    indexCache.delete(chain.chainId);
-    throw err;
+/**
+ * Best-effort index for request paths: returns whatever is cached (even if
+ * stale) and otherwise waits only a short budget before giving up, leaving the
+ * build running for the next request. Never blocks a page for ~15s.
+ */
+export async function getValoperIndexNow(
+  chain: ChainConfig,
+  budgetMs = 1500
+): Promise<ValoperIndex> {
+  const entry = indexCache.get(chain.chainId);
+
+  // Serve stale immediately, refreshing in the background.
+  if (entry?.value) {
+    if (Date.now() - entry.at >= INDEX_TTL_MS) prewarmValoperIndex(chain);
+    return entry.value;
+  }
+
+  const build = ensureIndex(chain).catch(() => EMPTY_INDEX);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<ValoperIndex>((resolve) => {
+    timer = setTimeout(() => resolve(EMPTY_INDEX), budgetMs);
   });
-  indexCache.set(chain.chainId, { at: Date.now(), index });
-  return index;
+
+  try {
+    return await Promise.race([build, budget]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**
@@ -203,6 +277,8 @@ export async function getValoper(
   const direct = await getValoperByOperator(chain, address);
   if (direct) return direct;
 
+  // Only a signing address needs the reverse index. This runs inside a streamed
+  // Suspense boundary, so it may wait for a full build.
   try {
     const index = await getValoperIndex(chain);
     return index.bySigning.get(address) ?? index.byOperator.get(address) ?? null;

@@ -24,9 +24,12 @@ const NAV = [
 function ChainSwitcher({
   chains,
   activeChainId,
+  section,
 }: {
   chains: ChainSummary[];
   activeChainId: string | null;
+  /** Current tab ("blocks" | "txs" | "validators"), preserved across chains. */
+  section: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -79,7 +82,7 @@ function ChainSwitcher({
             return (
               <li key={chain.chainId}>
                 <Link
-                  href={`/${chain.chainId}`}
+                  href={`/${chain.chainId}${section}`}
                   onClick={() => setOpen(false)}
                   role="option"
                   aria-selected={isActive}
@@ -157,6 +160,13 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const maybeChain = segments[0] ?? null;
   const activeChainId = chains.some((c) => c.chainId === maybeChain) ? maybeChain : null;
 
+  // Switching chains keeps you on the same tab. Only the section survives — a
+  // block height, tx hash or validator address means nothing on another chain,
+  // so detail routes fall back to their list.
+  const SECTIONS = ["blocks", "txs", "validators"];
+  const section =
+    activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
@@ -191,7 +201,11 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           </span>
         )}
 
-        <ChainSwitcher chains={chains} activeChainId={activeChainId} />
+        <ChainSwitcher
+          chains={chains}
+          activeChainId={activeChainId}
+          section={section}
+        />
       </div>
 
       {activeChainId ? (

@@ -207,18 +207,28 @@ export async function getRecentTxs(
     .filter((b) => (b.block.data.txs?.length ?? 0) > 0)
     .sort((a, b) => Number(b.block.header.height) - Number(a.block.header.height));
 
-  const collected: TxSummary[] = [];
-
+  // Take enough blocks to satisfy maxTxs, then resolve them in parallel — doing
+  // this sequentially cost several seconds on chains with sparse blocks.
+  const needed: typeof withTxs = [];
+  let running = 0;
   for (const block of withTxs) {
-    if (collected.length >= maxTxs) break;
-    const summaries = await txsAtHeight(
-      chain,
-      block.block.header.height,
-      block.block.data.txs ?? [],
-      block.block.header.time
-    );
-    collected.push(...summaries);
+    if (running >= maxTxs) break;
+    needed.push(block);
+    running += block.block.data.txs?.length ?? 0;
   }
+
+  const resolved = await Promise.all(
+    needed.map((block) =>
+      txsAtHeight(
+        chain,
+        block.block.header.height,
+        block.block.data.txs ?? [],
+        block.block.header.time
+      )
+    )
+  );
+
+  const collected = resolved.flat();
 
   return {
     txs: collected.slice(0, maxTxs),
