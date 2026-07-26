@@ -13,6 +13,8 @@ export interface ChainSummary {
   prettyName: string;
   symbol: string;
   accent: string;
+  /** Chains without a gov module never show the Proposals tab. */
+  governance: boolean;
 }
 
 const NAV = [
@@ -21,6 +23,7 @@ const NAV = [
   // Shortened on narrow screens so all four tabs fit without a sideways swipe.
   { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/validators", label: "Validators", short: "Vals" },
+  { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
 ];
 
 function ChainSwitcher({
@@ -119,17 +122,19 @@ function ChainSwitcher({
 function NavLinks({
   activeChainId,
   pathname,
+  governance,
   className,
   itemClassName,
 }: {
   activeChainId: string;
   pathname: string;
+  governance: boolean;
   className?: string;
   itemClassName?: string;
 }) {
   return (
     <nav className={className}>
-      {NAV.map((item) => {
+      {NAV.filter((item) => governance || !item.governanceOnly).map((item) => {
         const href = `/${activeChainId}${item.href}`;
         const isActive =
           item.href === "" ? pathname === href : pathname.startsWith(href);
@@ -162,12 +167,13 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const maybeChain = segments[0] ?? null;
-  const activeChainId = chains.some((c) => c.chainId === maybeChain) ? maybeChain : null;
+  const activeChain = chains.find((c) => c.chainId === maybeChain) ?? null;
+  const activeChainId = activeChain?.chainId ?? null;
 
   // Switching chains keeps you on the same tab. Only the section survives — a
   // block height, tx hash or validator address means nothing on another chain,
   // so detail routes fall back to their list.
-  const SECTIONS = ["blocks", "txs", "validators"];
+  const SECTIONS = ["blocks", "txs", "validators", "proposals"];
   const section =
     activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
 
@@ -199,6 +205,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           <NavLinks
             activeChainId={activeChainId}
             pathname={pathname}
+            governance={activeChain?.governance ?? false}
             className="hidden items-center gap-1 lg:flex"
           />
         ) : (
@@ -225,6 +232,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
         <NavLinks
           activeChainId={activeChainId}
           pathname={pathname}
+          governance={activeChain?.governance ?? false}
           className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
         />
       ) : null}

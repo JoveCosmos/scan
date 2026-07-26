@@ -4,6 +4,7 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SiteHeader } from "@/components/site-header";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
+import { getAdapter } from "@/lib/adapter";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
     prettyName: chain.prettyName,
     symbol: symbolFor(chain),
     accent: accentFor(chain),
+    governance: getAdapter(chain).capabilities.governance,
   }));
 
   return (

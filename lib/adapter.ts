@@ -10,6 +10,8 @@ import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators } from "@/lib/validators";
 import type { AccountView } from "@/lib/accounts";
 import { getCosmosAccount } from "@/lib/accounts";
+import type { ProposalSummary, GovParams } from "@/lib/proposals";
+import { getProposals, getProposal, getGovParams } from "@/lib/proposals";
 import {
   gnoOverview,
   gnoRecentBlocks,
@@ -73,6 +75,8 @@ export interface ChainCapabilities {
   stakeWeighted: boolean;
   /** Chain has a validator registry separate from the active set. */
   registry: boolean;
+  /** Chain has an on-chain governance module. */
+  governance: boolean;
 }
 
 export interface ChainAdapter {
@@ -88,6 +92,11 @@ export interface ChainAdapter {
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
+  getProposals(
+    limit?: number
+  ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;
+  getProposal(id: string): Promise<ProposalSummary | null>;
+  getGovParams(): Promise<GovParams | null>;
 }
 
 export function getAdapter(chain: ChainConfig): ChainAdapter {
@@ -99,6 +108,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
         hexHashes: false,
         stakeWeighted: false,
         registry: true,
+        // gno.land governance lives in realms (GovDAO), not a gov module.
+        governance: false,
       },
       getOverview: () => gnoOverview(chain),
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
@@ -109,6 +120,9 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getValidators: () => gnoValidators(chain),
       getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
+      getProposals: async () => ({ proposals: [], total: null }),
+      getProposal: async () => null,
+      getGovParams: async () => null,
     };
   }
 
@@ -119,6 +133,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       hexHashes: true,
       stakeWeighted: true,
       registry: false,
+      governance: true,
     },
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
@@ -130,5 +145,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getValidators: () => getValidators(chain),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
+    getProposals: (limit) => getProposals(chain, limit),
+    getProposal: (id) => getProposal(chain, id),
+    getGovParams: () => getGovParams(chain),
   };
 }
