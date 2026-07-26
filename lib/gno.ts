@@ -161,20 +161,73 @@ export async function gnoRecentBlocks(
   return (data.items ?? []).map(toBlockSummary);
 }
 
-export async function gnoBlock(
+interface ApiBlockDetail {
+  blockHash: string;
+  chainID: string;
+  timestamp: string;
+  proposerAddress: string;
+  proposerLabel: string;
+  blockHeight: number;
+  gasUsed: number;
+  gasWanted: number;
+  totalFees: number;
+  transactionCount: number;
+}
+
+export interface GnoBlockDetail extends BlockSummary {
+  chainId: string | null;
+  proposerLabel: string | null;
+  gasUsed: string | null;
+  gasWanted: string | null;
+  totalFees: string | null;
+}
+
+export async function gnoBlockDetail(
   chain: ChainConfig,
   height: string | number
-): Promise<BlockSummary | null> {
+): Promise<GnoBlockDetail | null> {
+  let detail: ApiBlockDetail;
   try {
-    const data = await gnoApi<{ items: ApiBlockItem[] }>(chain, "/blocks", {
-      limit: 1,
-      fromBlockHeight: height,
-      toBlockHeight: height,
-    });
-    const hit = data.items?.find((b) => String(b.blockHeight) === String(height));
-    return hit ? toBlockSummary(hit) : null;
+    // Single-record endpoints nest their payload one level deeper than lists.
+    const wrapper = await gnoApi<{ data: ApiBlockDetail } | ApiBlockDetail>(
+      chain,
+      `/blocks/${height}`
+    );
+    detail = ("data" in wrapper ? wrapper.data : wrapper) as ApiBlockDetail;
   } catch {
     return null;
+  }
+
+  // A height that does not exist comes back as 200 with an all-zero record
+  // rather than a 404, so emptiness is the only available "missing" signal.
+  if (!detail || !detail.blockHash || detail.blockHeight === 0) return null;
+
+  return {
+    height: String(detail.blockHeight),
+    time: detail.timestamp,
+    txCount: detail.transactionCount ?? 0,
+    proposer: detail.proposerAddress,
+    hash: detail.blockHash,
+    chainId: detail.chainID || null,
+    proposerLabel: detail.proposerLabel || null,
+    gasUsed: detail.gasUsed ? String(detail.gasUsed) : null,
+    gasWanted: detail.gasWanted ? String(detail.gasWanted) : null,
+    totalFees: detail.totalFees ? String(detail.totalFees) : null,
+  };
+}
+
+export async function gnoBlockTxs(
+  chain: ChainConfig,
+  height: string | number
+): Promise<TxSummary[]> {
+  try {
+    const data = await gnoApi<{ items: ApiTxItem[] }>(
+      chain,
+      `/blocks/${height}/transactions`
+    );
+    return (data.items ?? []).map(toTxSummary);
+  } catch {
+    return [];
   }
 }
 

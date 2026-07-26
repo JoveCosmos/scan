@@ -3,8 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { getChain, symbolFor, accentFor } from "@/lib/chains";
-import { getBlockDetail } from "@/lib/blocks";
-import { txsAtHeight } from "@/lib/txs";
+import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
 import { CopyButton } from "@/components/copy-button";
@@ -29,7 +28,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-function HashRow({ label, value }: { label: string; value: string | null }) {
+function HashRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
   if (!value) return null;
   return (
     <Row label={label}>
@@ -49,7 +54,8 @@ export default async function BlockDetailPage({
 
   if (!/^\d+$/.test(height)) notFound();
 
-  const block = await getBlockDetail(chain, height);
+  const adapter = getAdapter(chain);
+  const block = await adapter.getBlockDetail(height);
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
 
@@ -75,8 +81,12 @@ export default async function BlockDetailPage({
     );
   }
 
-  const txs = await txsAtHeight(chain, block.height, block.rawTxs, block.time);
+  const txs = await adapter.getBlockTxs(block);
   const heightNum = Number(block.height);
+  const gasPct =
+    block.gasUsed && block.gasWanted && Number(block.gasWanted) > 0
+      ? (Number(block.gasUsed) / Number(block.gasWanted)) * 100
+      : null;
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -144,6 +154,16 @@ export default async function BlockDetailPage({
               >
                 {block.proposerMoniker}
               </Link>
+            ) : block.proposerLabel ? (
+              <span>
+                <span className="font-medium">{block.proposerLabel}</span>
+                <span
+                  className="ml-2 font-mono text-xs text-muted-foreground"
+                  title={block.proposer}
+                >
+                  {truncateMiddle(block.proposer, 10, 6)}
+                </span>
+              </span>
             ) : (
               <span
                 className="font-mono text-xs text-muted-foreground"
@@ -156,9 +176,43 @@ export default async function BlockDetailPage({
           <Row label="Transactions">
             <span className="font-mono">{block.txCount}</span>
           </Row>
-          <Row label="Signatures">
-            <span className="font-mono">{block.signatureCount ?? "—"}</span>
-          </Row>
+          {block.signatureCount != null ? (
+            <Row label="Signatures">
+              <span className="font-mono">{block.signatureCount}</span>
+            </Row>
+          ) : null}
+          {gasPct !== null ? (
+            <Row label="Gas">
+              <div className="space-y-1.5">
+                <span className="font-mono text-xs">
+                  {Number(block.gasUsed).toLocaleString()} /{" "}
+                  {Number(block.gasWanted).toLocaleString()}
+                  <span className="ml-2 text-muted-foreground">
+                    {gasPct.toFixed(1)}%
+                  </span>
+                </span>
+                <div
+                  className="h-1 w-full max-w-xs overflow-hidden rounded-full bg-muted"
+                  aria-hidden="true"
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(100, gasPct)}%`,
+                      background: gasPct > 90 ? "var(--gata-amber)" : accent,
+                    }}
+                  />
+                </div>
+              </div>
+            </Row>
+          ) : null}
+          {block.totalFees ? (
+            <Row label="Total Fees">
+              <span className="font-mono text-xs">
+                {formatToken(block.totalFees, chain.exponent, 6)} {symbol}
+              </span>
+            </Row>
+          ) : null}
           <Row label="Chain">
             <span className="font-mono text-xs">{block.chainId ?? chain.chainId}</span>
           </Row>

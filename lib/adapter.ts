@@ -2,7 +2,8 @@ import type { ChainConfig } from "@/lib/chains";
 import type { ChainOverview } from "@/lib/overview";
 import { getChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
-import { getRecentBlocks } from "@/lib/blocks";
+import { getRecentBlocks, getBlockDetail } from "@/lib/blocks";
+import { txsAtHeight } from "@/lib/txs";
 import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
@@ -13,6 +14,8 @@ import {
   gnoRecentTxs,
   gnoTx,
   gnoValidators,
+  gnoBlockDetail,
+  gnoBlockTxs,
 } from "@/lib/gno";
 
 /**
@@ -21,6 +24,28 @@ import {
  */
 export type TxView = TxSummary &
   Partial<Pick<TxDetail, "rawLog" | "signers" | "timeoutHeight">>;
+
+/**
+ * Union of what either chain kind can say about a single block. Cosmos supplies
+ * the Tendermint header hashes and a signature count; gno supplies gas totals
+ * and fees. Everything beyond the common summary is optional, and the page
+ * renders only the rows it actually has.
+ */
+export type BlockView = BlockSummary & {
+  chainId?: string | null;
+  appHash?: string | null;
+  dataHash?: string | null;
+  validatorsHash?: string | null;
+  signatureCount?: number | null;
+  proposerMoniker?: string | null;
+  proposerOperator?: string | null;
+  /** gno exposes a proposer label without a linkable validator profile. */
+  proposerLabel?: string | null;
+  gasUsed?: string | null;
+  gasWanted?: string | null;
+  totalFees?: string | null;
+  rawTxs?: string[];
+};
 
 export interface RecentTxs {
   txs: TxSummary[];
@@ -43,6 +68,9 @@ export interface ChainAdapter {
   capabilities: ChainCapabilities;
   getOverview(): Promise<ChainOverview>;
   getRecentBlocks(count?: number): Promise<BlockSummary[]>;
+  getBlockDetail(height: string): Promise<BlockView | null>;
+  /** Transactions contained in one block. */
+  getBlockTxs(block: BlockView): Promise<TxSummary[]>;
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
@@ -54,6 +82,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       capabilities: { staking: false, gas: false, hexHashes: false },
       getOverview: () => gnoOverview(chain),
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
+      getBlockDetail: (height) => gnoBlockDetail(chain, height),
+      getBlockTxs: (block) => gnoBlockTxs(chain, block.height),
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
@@ -64,6 +94,9 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     capabilities: { staking: true, gas: true, hexHashes: true },
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
+    getBlockDetail: (height) => getBlockDetail(chain, height),
+    getBlockTxs: (block) =>
+      txsAtHeight(chain, block.height, block.rawTxs ?? [], block.time),
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
     getValidators: () => getValidators(chain),
