@@ -396,13 +396,17 @@ interface ApiValidatorItem {
 }
 
 /**
- * signing address -> moniker. Best-effort and time-boxed: on a cold cache the
- * realm index takes ~15s to build, so the listing renders with addresses rather
- * than stalling, and the build continues for the next request.
+ * signing address -> moniker.
+ *
+ * Every consensus validator has a valopers profile, so falling back to raw
+ * addresses is always wrong rather than merely incomplete. The budget is
+ * therefore generous: a cold index takes ~25s to build and the listing sits
+ * behind a skeleton meanwhile, which beats rendering 87 unreadable addresses.
+ * The cap only exists so an unreachable realm cannot hang the page forever.
  */
 async function valoperMonikers(chain: ChainConfig): Promise<Map<string, string>> {
   try {
-    const index = await getValoperIndexNow(chain);
+    const index = await getValoperIndexNow(chain, 40_000);
     const map = new Map<string, string>();
     for (const [signing, profile] of index.bySigning) {
       if (profile.moniker) map.set(signing, profile.moniker);
@@ -445,6 +449,7 @@ function rankValidators(
  * no staking module, so commission and jailing have no meaning here.
  */
 export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  prewarmValoperIndex(chain);
   try {
     const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
       limit: 100,
@@ -544,10 +549,25 @@ export interface GnoValidatorDetail {
 }
 
 /** Consensus-side facts about one validator, keyed by its signing address. */
+/**
+ * How many validators have registered a profile in the valopers realm. This is
+ * the registry size, which is larger than the active consensus set — operators
+ * register before (or after) they hold a slot in the valset.
+ */
+export async function gnoRegisteredCount(chain: ChainConfig): Promise<number | null> {
+  try {
+    const index = await getValoperIndexNow(chain, 40_000);
+    return index.byOperator.size > 0 ? index.byOperator.size : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function gnoValidatorDetail(
   chain: ChainConfig,
   address: string
 ): Promise<GnoValidatorDetail | null> {
+  prewarmValoperIndex(chain);
   try {
     const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
       limit: 100,

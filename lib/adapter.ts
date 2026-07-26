@@ -19,6 +19,7 @@ import {
   gnoBlockDetail,
   gnoBlockTxs,
   gnoAccount,
+  gnoRegisteredCount,
 } from "@/lib/gno";
 
 /**
@@ -65,6 +66,13 @@ export interface ChainCapabilities {
   gas: boolean;
   /** Whether tx hashes are hex (Cosmos) or base64 (gno) — affects URL encoding. */
   hexHashes: boolean;
+  /**
+   * Voting power is assigned rather than staked, so power-share metrics measure
+   * consensus weight, not economic stake.
+   */
+  stakeWeighted: boolean;
+  /** Chain has a validator registry separate from the active set. */
+  registry: boolean;
 }
 
 export interface ChainAdapter {
@@ -77,13 +85,21 @@ export interface ChainAdapter {
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
+  /** Size of the validator registry, where one exists. */
+  getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
 }
 
 export function getAdapter(chain: ChainConfig): ChainAdapter {
   if (chain.kind === "gno") {
     return {
-      capabilities: { staking: false, gas: false, hexHashes: false },
+      capabilities: {
+        staking: false,
+        gas: false,
+        hexHashes: false,
+        stakeWeighted: false,
+        registry: true,
+      },
       getOverview: () => gnoOverview(chain),
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
       getBlockDetail: (height) => gnoBlockDetail(chain, height),
@@ -91,12 +107,19 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
+      getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
     };
   }
 
   return {
-    capabilities: { staking: true, gas: true, hexHashes: true },
+    capabilities: {
+      staking: true,
+      gas: true,
+      hexHashes: true,
+      stakeWeighted: true,
+      registry: false,
+    },
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
     getBlockDetail: (height) => getBlockDetail(chain, height),
@@ -105,6 +128,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
     getValidators: () => getValidators(chain),
+    getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
   };
 }

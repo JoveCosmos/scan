@@ -86,8 +86,11 @@ export default async function ValidatorsPage({
 async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
   const adapter = getAdapter(chain);
-  const validators = await adapter.getValidators();
-  const { staking } = adapter.capabilities;
+  const [validators, registered] = await Promise.all([
+    adapter.getValidators(),
+    adapter.getRegisteredCount(),
+  ]);
+  const { staking, stakeWeighted, registry } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -109,13 +112,25 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
           accent={accent}
           label="Active Validators"
           value={String(validators.length)}
+          sub={
+            registry && registered !== null
+              ? `${registered} registered in valopers`
+              : undefined
+          }
         />
         <StatPanel
           index={1}
           accent={accent}
           label="Nakamoto Coefficient"
           value={nakamoto > 0 ? String(nakamoto) : "—"}
-          sub="to exceed ⅓ of stake"
+          // On a chain without staking the same figure still measures how many
+          // validators must collude to halt consensus — but it is weighted by
+          // assigned voting power, not by stake.
+          sub={
+            stakeWeighted
+              ? "to exceed ⅓ of stake"
+              : "to exceed ⅓ of voting power"
+          }
         />
         {staking ? (
           <>
@@ -134,13 +149,22 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
             />
           </>
         ) : (
-          <StatPanel
-            index={2}
-            accent={accent}
-            label="Total Voting Power"
-            value={totalBonded.toLocaleString()}
-            sub="consensus weight"
-          />
+          <>
+            <StatPanel
+              index={2}
+              accent={accent}
+              label="Total Voting Power"
+              value={totalBonded.toLocaleString()}
+              sub="assigned, not staked"
+            />
+            <StatPanel
+              index={3}
+              accent={accent}
+              label="Registered"
+              value={registered !== null ? String(registered) : "—"}
+              sub="valopers realm profiles"
+            />
+          </>
         )}
       </div>
 
