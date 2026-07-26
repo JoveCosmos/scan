@@ -15,5 +15,6 @@
     "https://rpc.cosmos.directory/cosmoshub"
   ],
   "wsEndpoint": "wss://cosmos-rpc.publicnode.com/websocket",
-  "featuredValidator": null
+  "featuredValidator": null,
+  "accent": "#3B9EFF"
 }

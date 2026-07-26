@@ -54,27 +54,31 @@ export function BlocksTable({
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="relative flex h-2 w-2">
           {!isError ? (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+            <span className="gata-live-dot absolute inline-flex h-full w-full rounded-full bg-[var(--gata-green)]" />
           ) : null}
           <span
             className={cn(
               "relative inline-flex h-2 w-2 rounded-full",
-              isError ? "bg-red-500" : "bg-emerald-500"
+              isError ? "bg-[var(--gata-burn)]" : "bg-[var(--gata-green)]"
             )}
           />
         </span>
         <span>{isError ? "Connection lost — retrying" : "Streaming new blocks"}</span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="gata-panel overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left">
-              <th className="px-4 py-2.5 font-medium">Height</th>
-              <th className="px-4 py-2.5 font-medium">Age</th>
-              <th className="px-4 py-2.5 text-right font-medium">Txs</th>
-              <th className="px-4 py-2.5 font-medium">Proposer</th>
-              <th className="px-4 py-2.5 font-medium">Block Hash</th>
+            <tr className="border-b border-border text-left">
+              <th className="px-4 py-3 font-medium text-muted-foreground">Height</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Age</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                Txs
+              </th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Proposer</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">
+                Block Hash
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -82,8 +86,8 @@ export function BlocksTable({
               <tr
                 key={block.height}
                 className={cn(
-                  "border-b border-border/60 transition-colors duration-500 last:border-0",
-                  flashHeight === block.height ? "bg-primary/10" : "hover:bg-muted/30"
+                  "border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60",
+                  flashHeight === block.height && "gata-flash"
                 )}
               >
                 <td className="px-4 py-2.5 font-mono tabular-nums font-medium">

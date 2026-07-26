@@ -15,5 +15,6 @@
     "https://rpc.cosmos.directory/atomone"
   ],
   "wsEndpoint": "wss://atomone-rpc.publicnode.com/websocket",
-  "featuredValidator": null
+  "featuredValidator": null,
+  "accent": "#F5C66B"
 }

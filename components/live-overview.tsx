@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Card, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatToken, type ChainOverview } from "@/lib/overview";
 import { timeAgo } from "@/lib/format";
@@ -19,30 +18,42 @@ function StatCard({
   label,
   value,
   sub,
+  accent,
   flash,
+  index,
+  sheen,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: React.ReactNode;
+  accent: string;
   flash?: boolean;
+  index: number;
+  sheen?: boolean;
 }) {
   return (
-    <Card
+    <div
       className={cn(
-        "transition-colors duration-500",
-        flash && "border-primary/60 bg-primary/5"
+        "gata-panel gata-panel-interactive gata-rise p-5",
+        sheen && "gata-sheen"
       )}
+      style={{
+        ["--panel-accent" as string]: accent,
+        ["--panel-glow" as string]: `${accent}1f`,
+        animationDelay: `${index * 60}ms`,
+      }}
     >
-      <CardHeader className="gap-1">
-        <CardDescription className="text-xs uppercase tracking-wider">
-          {label}
-        </CardDescription>
-        <CardTitle className="font-mono text-3xl tabular-nums">{value}</CardTitle>
-        {sub ? (
-          <p className="text-xs text-muted-foreground">{sub}</p>
-        ) : null}
-      </CardHeader>
-    </Card>
+      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className="mt-2 font-mono text-3xl font-semibold leading-none transition-[text-shadow] duration-500"
+        style={flash ? { textShadow: `0 0 18px ${accent}` } : undefined}
+      >
+        {value}
+      </p>
+      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
+    </div>
   );
 }
 
@@ -50,11 +61,13 @@ export function LiveOverview({
   chainId,
   exponent,
   symbol,
+  accent,
   initialData,
 }: {
   chainId: string;
   exponent: number;
   symbol: string;
+  accent: string;
   initialData: ChainOverview;
 }) {
   const { data, isFetching, isError } = useQuery<ChainOverview>({
@@ -72,7 +85,6 @@ export function LiveOverview({
   // Re-render each second so "Xs ago" stays truthful between polls.
   useSecondsTicker();
 
-  // Flash the height card whenever a new block lands.
   const prevHeight = useRef(data.height);
   const [flash, setFlash] = useState(false);
   useEffect(() => {
@@ -91,37 +103,46 @@ export function LiveOverview({
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <span className="relative flex h-2 w-2">
           {live ? (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+            <span className="gata-live-dot absolute inline-flex h-full w-full rounded-full bg-[var(--gata-green)]" />
           ) : null}
           <span
             className={cn(
               "relative inline-flex h-2 w-2 rounded-full",
-              live ? "bg-emerald-500" : "bg-red-500"
+              live ? "bg-[var(--gata-green)]" : "bg-[var(--gata-burn)]"
             )}
           />
         </span>
         <span>{live ? "Live" : "Connection lost — retrying"}</span>
-        {isFetching && live ? <span className="opacity-60">· syncing</span> : null}
+        {isFetching && live ? <span className="opacity-50">· syncing</span> : null}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
+          index={0}
+          accent={accent}
+          sheen
           label="Latest Block"
           value={data.height ? Number(data.height).toLocaleString() : "—"}
           sub={timeAgo(data.blockTime)}
           flash={flash}
         />
         <StatCard
+          index={1}
+          accent={accent}
           label="Txs in Block"
           value={data.txCount ?? "—"}
-          sub="current height"
+          sub="at current height"
         />
         <StatCard
+          index={2}
+          accent={accent}
           label="Active Validators"
           value={data.activeValidators ?? "—"}
           sub="bonded set"
         />
         <StatCard
+          index={3}
+          accent={accent}
           label="Bonded Ratio"
           value={
             data.bondedRatio === null ? "—" : `${(data.bondedRatio * 100).toFixed(2)}%`

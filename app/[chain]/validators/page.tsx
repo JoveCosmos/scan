@@ -1,11 +1,41 @@
 import { notFound } from "next/navigation";
-import { getChain, symbolFor } from "@/lib/chains";
+import { getChain, symbolFor, accentFor } from "@/lib/chains";
 import { getValidators, statusLabel } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
-import { Card, CardHeader, CardDescription, CardTitle } from "@/components/ui/card";
 
 export const revalidate = 60;
+
+function StatPanel({
+  label,
+  value,
+  sub,
+  accent,
+  index,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent: string;
+  index: number;
+}) {
+  return (
+    <div
+      className="gata-panel gata-panel-interactive gata-rise p-5"
+      style={{
+        ["--panel-accent" as string]: accent,
+        ["--panel-glow" as string]: `${accent}1f`,
+        animationDelay: `${index * 60}ms`,
+      }}
+    >
+      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-2 font-mono text-3xl font-semibold leading-none">{value}</p>
+      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
+    </div>
+  );
+}
 
 export default async function ValidatorsPage({
   params,
@@ -18,6 +48,7 @@ export default async function ValidatorsPage({
 
   const validators = await getValidators(chain);
   const symbol = symbolFor(chain);
+  const accent = accentFor(chain);
 
   // Smallest number of validators that together exceed 1/3 of stake — i.e. the
   // number that would have to collude to halt the chain.
@@ -39,66 +70,52 @@ export default async function ValidatorsPage({
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="gap-1">
-            <CardDescription className="text-xs uppercase tracking-wider">
-              Active Validators
-            </CardDescription>
-            <CardTitle className="font-mono text-3xl">{validators.length}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="gap-1">
-            <CardDescription className="text-xs uppercase tracking-wider">
-              Nakamoto Coefficient
-            </CardDescription>
-            <CardTitle className="font-mono text-3xl">
-              {nakamoto > 0 ? nakamoto : "—"}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">to exceed ⅓ of stake</p>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="gap-1">
-            <CardDescription className="text-xs uppercase tracking-wider">
-              Bonded Stake
-            </CardDescription>
-            <CardTitle className="font-mono text-3xl">
-              {formatToken(String(totalBonded), chain.exponent)}
-            </CardTitle>
-            <p className="text-xs text-muted-foreground">{symbol}</p>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="gap-1">
-            <CardDescription className="text-xs uppercase tracking-wider">
-              Avg Commission
-            </CardDescription>
-            <CardTitle className="font-mono text-3xl">
-              {(avgCommission * 100).toFixed(1)}%
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        <StatPanel
+          index={0}
+          accent={accent}
+          label="Active Validators"
+          value={String(validators.length)}
+        />
+        <StatPanel
+          index={1}
+          accent={accent}
+          label="Nakamoto Coefficient"
+          value={nakamoto > 0 ? String(nakamoto) : "—"}
+          sub="to exceed ⅓ of stake"
+        />
+        <StatPanel
+          index={2}
+          accent={accent}
+          label="Bonded Stake"
+          value={formatToken(String(totalBonded), chain.exponent)}
+          sub={symbol}
+        />
+        <StatPanel
+          index={3}
+          accent={accent}
+          label="Avg Commission"
+          value={`${(avgCommission * 100).toFixed(1)}%`}
+        />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="gata-panel overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40 text-left">
-              <th className="px-4 py-2.5 font-medium">#</th>
-              <th className="px-4 py-2.5 font-medium">Validator</th>
-              <th className="px-4 py-2.5 text-right font-medium">Voting Power</th>
-              <th className="px-4 py-2.5 text-right font-medium">Cumulative</th>
-              <th className="px-4 py-2.5 text-right font-medium">Staked</th>
-              <th className="px-4 py-2.5 text-right font-medium">Commission</th>
-              <th className="px-4 py-2.5 font-medium">Status</th>
+            <tr className="border-b border-border text-left">
+              <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Validator</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Voting Power</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Cumulative</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
             </tr>
           </thead>
           <tbody>
             {validators.map((v) => (
               <tr
                 key={v.operatorAddress}
-                className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/30"
+                className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
               >
                 <td className="px-4 py-2.5 font-mono tabular-nums text-muted-foreground">
                   {v.rank}
@@ -123,9 +140,10 @@ export default async function ValidatorsPage({
                     aria-hidden="true"
                   >
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className="h-full rounded-full"
                       style={{
                         width: `${Math.min(100, (v.votingPower / (validators[0]?.votingPower || 1)) * 100)}%`,
+                        background: accent,
                       }}
                     />
                   </div>
@@ -143,8 +161,8 @@ export default async function ValidatorsPage({
                   <span
                     className={
                       v.jailed
-                        ? "rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-600 dark:text-red-400"
-                        : "rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600 dark:text-emerald-400"
+                        ? "rounded-full bg-[var(--gata-burn)]/12 px-2 py-0.5 text-xs text-[var(--gata-burn)]"
+                        : "rounded-full bg-[var(--gata-green)]/12 px-2 py-0.5 text-xs text-[var(--gata-green)]"
                     }
                   >
                     {v.jailed ? "Jailed" : statusLabel(v.status)}

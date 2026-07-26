@@ -1,20 +1,23 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Blocks, ChevronDown, Check } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface ChainSummary {
   chainId: string;
   prettyName: string;
   symbol: string;
+  accent: string;
 }
 
 const NAV = [
   { href: "", label: "Overview" },
   { href: "/blocks", label: "Blocks" },
+  { href: "/txs", label: "Transactions" },
   { href: "/validators", label: "Validators" },
 ];
 
@@ -46,14 +49,20 @@ function ChainSwitcher({
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative shrink-0" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent"
+        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-sm font-medium transition-colors hover:border-[var(--gata-border-hi)] hover:bg-secondary"
       >
+        {active ? (
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ background: active.accent, boxShadow: `0 0 10px ${active.accent}` }}
+          />
+        ) : null}
         <span>{active ? active.prettyName : "Select chain"}</span>
         <ChevronDown
           className={cn("h-4 w-4 opacity-60 transition-transform", open && "rotate-180")}
@@ -63,7 +72,7 @@ function ChainSwitcher({
       {open ? (
         <ul
           role="listbox"
-          className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-border bg-popover p-1 shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
         >
           {chains.map((chain) => {
             const isActive = chain.chainId === activeChainId;
@@ -74,11 +83,22 @@ function ChainSwitcher({
                   onClick={() => setOpen(false)}
                   role="option"
                   aria-selected={isActive}
-                  className="flex items-center justify-between rounded-sm px-2 py-2 text-sm hover:bg-accent"
+                  className="flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent"
                 >
-                  <span className="flex flex-col">
-                    <span className="font-medium">{chain.prettyName}</span>
-                    <span className="text-xs text-muted-foreground">{chain.chainId}</span>
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{
+                        background: chain.accent,
+                        boxShadow: `0 0 10px ${chain.accent}`,
+                      }}
+                    />
+                    <span className="flex flex-col">
+                      <span className="font-medium">{chain.prettyName}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {chain.chainId}
+                      </span>
+                    </span>
                   </span>
                   {isActive ? <Check className="h-4 w-4 text-primary" /> : null}
                 </Link>
@@ -91,6 +111,46 @@ function ChainSwitcher({
   );
 }
 
+function NavLinks({
+  activeChainId,
+  pathname,
+  className,
+  itemClassName,
+}: {
+  activeChainId: string;
+  pathname: string;
+  className?: string;
+  itemClassName?: string;
+}) {
+  return (
+    <nav className={className}>
+      {NAV.map((item) => {
+        const href = `/${activeChainId}${item.href}`;
+        const isActive =
+          item.href === "" ? pathname === href : pathname.startsWith(href);
+        return (
+          <Link
+            key={item.label}
+            href={href}
+            className={cn(
+              "relative whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors",
+              isActive
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+              itemClassName
+            )}
+          >
+            {item.label}
+            {isActive ? (
+              <span className="absolute inset-x-3 -bottom-[9px] h-px bg-primary shadow-[0_0_8px_var(--gata-glow)]" />
+            ) : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
@@ -98,37 +158,36 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const activeChainId = chains.some((c) => c.chainId === maybeChain) ? maybeChain : null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <Blocks className="h-5 w-5 text-primary" />
-          <span>Explorer</span>
+    <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+        <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+          <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg ring-1 ring-[var(--gata-border-hi)] transition-shadow group-hover:shadow-[0_0_18px_-4px_var(--gata-glow)]">
+            <Image
+              src="/gata_logo.jpg"
+              alt=""
+              width={36}
+              height={36}
+              priority
+              className="h-full w-full object-cover"
+            />
+          </span>
+          <span className="flex flex-col gap-0.5 leading-none">
+            <span className="text-[15px] font-bold tracking-tight">GATA HUB</span>
+            <span className="text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+              Explorer
+            </span>
+          </span>
         </Link>
 
         {activeChainId ? (
-          <nav className="hidden items-center gap-1 sm:flex">
-            {NAV.map((item) => {
-              const href = `/${activeChainId}${item.href}`;
-              const isActive = pathname === href;
-              return (
-                <Link
-                  key={item.label}
-                  href={href}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-sm transition-colors",
-                    isActive
-                      ? "bg-accent font-medium text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                  )}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <NavLinks
+            activeChainId={activeChainId}
+            pathname={pathname}
+            className="hidden items-center gap-1 md:flex"
+          />
         ) : (
-          <span className="hidden text-sm text-muted-foreground sm:block">
-            Multi-chain Cosmos block explorer
+          <span className="hidden text-sm text-muted-foreground md:block">
+            Multi-chain block explorer
           </span>
         )}
 
@@ -136,26 +195,11 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
       </div>
 
       {activeChainId ? (
-        <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 sm:hidden">
-          {NAV.map((item) => {
-            const href = `/${activeChainId}${item.href}`;
-            const isActive = pathname === href;
-            return (
-              <Link
-                key={item.label}
-                href={href}
-                className={cn(
-                  "whitespace-nowrap rounded-md px-3 py-1.5 text-sm",
-                  isActive
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <NavLinks
+          activeChainId={activeChainId}
+          pathname={pathname}
+          className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 md:hidden"
+        />
       ) : null}
     </header>
   );

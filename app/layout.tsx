@@ -1,23 +1,30 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SiteHeader } from "@/components/site-header";
-import { getAllChains, symbolFor } from "@/lib/chains";
+import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono-family",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Cosmos Explorer",
-  description: "Multi-chain Cosmos block explorer",
+  title: {
+    default: "GATA HUB Explorer",
+    template: "%s · GATA HUB Explorer",
+  },
+  description:
+    "Multi-chain Cosmos block explorer by GATA HUB — Cosmos Hub, AtomOne and Akash.",
+  icons: { icon: "/gata_logo.jpg" },
 };
 
 export default function RootLayout({
@@ -29,21 +36,33 @@ export default function RootLayout({
     chainId: chain.chainId,
     prettyName: chain.prettyName,
     symbol: symbolFor(chain),
+    accent: accentFor(chain),
   }));
 
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    // Font variables live on <html> because globals.css applies `font-sans`
+    // there; defining them only on <body> leaves the html rule unresolved.
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="antialiased">
+        {/* Fixed ambient grid, masked to the top of the viewport. */}
+        <div
+          aria-hidden="true"
+          className="gata-grid-lines pointer-events-none fixed inset-0 -z-10"
+        />
         <QueryProvider>
-          <SiteHeader chains={chains} />
-          {children}
-          <footer className="mt-16 border-t border-border py-6">
-            <div className="mx-auto max-w-6xl px-4 text-xs text-muted-foreground">
-              Data served directly from public full nodes. No indexer.
-            </div>
-          </footer>
+          <div className="flex min-h-screen flex-col">
+            <SiteHeader chains={chains} />
+            <div className="flex-1">{children}</div>
+            <footer className="mt-16 border-t border-border">
+              <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <span className="font-semibold text-foreground">GATA HUB</span>{" "}
+                  Explorer
+                </span>
+                <span>Served directly from full nodes — no indexer.</span>
+              </div>
+            </footer>
+          </div>
         </QueryProvider>
       </body>
     </html>

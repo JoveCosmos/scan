@@ -14,6 +14,8 @@ const chainConfigSchema = z.object({
   rpcEndpoints: z.array(z.string().url()).min(1),
   wsEndpoint: z.string().min(1),
   featuredValidator: z.string().nullable(),
+  /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
+  accent: z.string().optional(),
 });
 
 export type ChainConfig = z.infer<typeof chainConfigSchema>;
@@ -60,6 +62,12 @@ export function getAllChains(): ChainConfig[] {
 
 export function getChain(chainId: string): ChainConfig | undefined {
   return loadChains().find((c) => c.chainId === chainId);
+}
+
+export const GATA_BLUE = "#3B9EFF";
+
+export function accentFor(chain: ChainConfig): string {
+  return chain.accent ?? GATA_BLUE;
 }
 
 /** Display ticker derived from the base denom: "uatom" -> "ATOM". */
