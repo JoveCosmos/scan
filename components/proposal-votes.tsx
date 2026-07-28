@@ -32,18 +32,20 @@ export async function ProposalVotes({
   proposalId: string;
   status: string;
 }) {
-  const { votes, total, byOption } = await getAdapter(chain).getProposalVotes(
-    proposalId
-  );
+  const { votes, total, byOption, source, truncated, failed } = await getAdapter(
+    chain
+  ).getProposalVotes(proposalId);
 
   if (votes.length === 0) {
     return (
       <div className="gata-panel px-5 py-8 text-center">
         <p className="text-sm text-muted-foreground">
-          {isVoting(status)
-            ? "No votes cast yet."
-            : // Not an absence of votes: the gov module deletes them on tally.
-              "Individual votes are deleted from chain state once a proposal is tallied, so only the final tally above remains."}
+          {failed
+            ? // Never claim there are no votes when we simply could not read them.
+              "Could not load votes right now — the node did not respond."
+            : isVoting(status)
+              ? "No votes cast yet."
+              : "No votes found for this proposal, in state or in transaction history."}
         </p>
       </div>
     );
@@ -65,6 +67,14 @@ export async function ProposalVotes({
           ))}
         <span className="ml-auto">by voter count, not stake</span>
       </div>
+
+      {source === "history" ? (
+        <p className="mb-3 text-xs text-muted-foreground">
+          The gov module deletes votes from state when it tallies a proposal, so
+          these are reconstructed from the vote transactions in block history —
+          the last vote recorded per address.
+        </p>
+      ) : null}
 
       <div className="gata-panel overflow-x-auto">
         <table className="gata-table w-full text-sm sm:min-w-[420px]">
@@ -111,10 +121,10 @@ export async function ProposalVotes({
         </table>
       </div>
 
-      {counted > shown ? (
+      {truncated || counted > shown ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Showing the first {shown.toLocaleString()} of {counted.toLocaleString()}{" "}
-          votes.
+          Showing {shown.toLocaleString()}
+          {counted > shown ? ` of ${counted.toLocaleString()}` : " of more"} votes.
         </p>
       ) : null}
     </>

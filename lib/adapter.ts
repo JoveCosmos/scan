@@ -128,7 +128,14 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getAccount: (address) => gnoAccount(chain, address),
       getProposals: async () => ({ proposals: [], total: null }),
       getProposal: async () => null,
-      getProposalVotes: async () => ({ votes: [], total: null, byOption: {} }),
+      getProposalVotes: async () => ({
+        votes: [],
+        total: null,
+        byOption: {},
+        source: "state" as const,
+        truncated: false,
+        failed: false,
+      }),
       getGovParams: async () => null,
     };
   }

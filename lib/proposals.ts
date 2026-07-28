@@ -200,6 +200,20 @@ export interface ProposalVotes {
   total: number | null;
   /** Counts per option, by voter head-count rather than by stake. */
   byOption: Record<string, number>;
+  /**
+   * "state" — live votes still held by the gov module.
+   * "history" — reconstructed from MsgVote transactions after the gov module
+   *   deleted the votes on tally. Only the most recent vote per address, since
+   *   voters can change their mind while voting is open.
+   */
+  source: "state" | "history";
+  /** True when more votes exist than were fetched. */
+  truncated: boolean;
+  /**
+   * Both reads failed. Distinguishes "could not load" from "nobody voted" —
+   * without it a transient endpoint failure asserts that no votes exist.
+   */
+  failed: boolean;
 }
 
 const VOTE_LABEL: Record<string, string> = {
@@ -219,16 +233,129 @@ interface RawVote {
   options?: { option: string; weight: string }[];
 }
 
+function tallyByOption(votes: ProposalVote[]): Record<string, number> {
+  const byOption: Record<string, number> = {};
+  for (const vote of votes) {
+    byOption[vote.primary] = (byOption[vote.primary] ?? 0) + 1;
+  }
+  return byOption;
+}
+
+function toVote(voter: string, rawOptions: { option: string; weight: string }[]) {
+  const options: VoteOption[] = rawOptions.map((o) => ({
+    option: o.option,
+    weight: Number(o.weight) || 0,
+  }));
+  const primary =
+    [...options].sort((a, b) => b.weight - a.weight)[0]?.option ??
+    "VOTE_OPTION_UNSPECIFIED";
+  return { voter, options, primary, weighted: options.length > 1 };
+}
+
+interface VoteMessage {
+  "@type": string;
+  proposal_id?: string;
+  voter?: string;
+  option?: string;
+  options?: { option: string; weight: string }[];
+}
+
 /**
- * Individual votes. The gov module deletes votes once a proposal is tallied, so
- * this is normally empty for anything past its voting period — that is pruning,
- * not an absence of votes, and the UI says so.
+ * Rebuild the vote list from MsgVote transactions.
+ *
+ * The gov module deletes votes from state as it tallies them, so a finished
+ * proposal has none left — but the transactions that cast them are still in
+ * block history. Fetched newest-first and deduplicated by voter, because a
+ * voter may recast while voting is open and only their last vote counted.
+ */
+async function votesFromHistory(
+  chain: ChainConfig,
+  id: string,
+  limit: number
+): Promise<ProposalVotes | null> {
+  {
+    const res = await fetchLcd<{
+      txs?: { body?: { messages?: VoteMessage[] } }[];
+      tx_responses?: { code?: number }[];
+      /** Tx search reports its count here, not under pagination. */
+      total?: string;
+    }>(chain, "/cosmos/tx/v1beta1/txs", {
+      cache: "no-store",
+      timeoutMs: 20_000,
+      searchParams: {
+        query: `proposal_vote.proposal_id='${id}'`,
+        order_by: "ORDER_BY_DESC",
+        "pagination.limit": limit,
+      },
+    });
+
+    const txs = res.txs ?? [];
+    if (txs.length === 0) return null;
+
+    const seen = new Set<string>();
+    const votes: ProposalVote[] = [];
+
+    txs.forEach((tx, i) => {
+      // A failed transaction never recorded a vote.
+      if ((res.tx_responses?.[i]?.code ?? 0) !== 0) return;
+
+      for (const msg of tx.body?.messages ?? []) {
+        if (!/MsgVote(Weighted)?$/.test(msg["@type"])) continue;
+        if (msg.proposal_id !== undefined && msg.proposal_id !== id) continue;
+
+        const voter = msg.voter;
+        if (!voter || seen.has(voter)) continue;
+        seen.add(voter);
+
+        const rawOptions = msg.options?.length
+          ? msg.options
+          : msg.option
+            ? [{ option: msg.option, weight: "1" }]
+            : [];
+        if (rawOptions.length === 0) continue;
+
+        votes.push(toVote(voter, rawOptions));
+      }
+    });
+
+    if (votes.length === 0) return null;
+
+    // Tx search pages are capped server-side (100), so the requested limit is
+    // not a reliable signal — compare against the reported total instead.
+    const matched = Number(res.total);
+    const total = Number.isFinite(matched) && matched > 0 ? matched : votes.length;
+
+    return {
+      votes,
+      total,
+      byOption: tallyByOption(votes),
+      source: "history",
+      truncated: total > votes.length,
+      failed: false,
+    };
+  }
+}
+
+/**
+ * Individual votes, preferring live state and falling back to transaction
+ * history once the gov module has deleted them at tally time.
  */
 export async function getProposalVotes(
   chain: ChainConfig,
   id: string,
   limit = 300
 ): Promise<ProposalVotes> {
+  const empty: ProposalVotes = {
+    votes: [],
+    total: null,
+    byOption: {},
+    source: "state",
+    truncated: false,
+    failed: false,
+  };
+
+  let stateFailed = false;
+
   try {
     const res = await fetchLcd<{
       votes?: RawVote[];
@@ -239,32 +366,34 @@ export async function getProposalVotes(
       searchParams: { "pagination.limit": limit, "pagination.count_total": true },
     });
 
-    const byOption: Record<string, number> = {};
+    const votes: ProposalVote[] = (res.votes ?? []).map((v) =>
+      toVote(v.voter, v.options ?? [])
+    );
 
-    const votes: ProposalVote[] = (res.votes ?? []).map((v) => {
-      const options: VoteOption[] = (v.options ?? []).map((o) => ({
-        option: o.option,
-        weight: Number(o.weight) || 0,
-      }));
-      const sorted = [...options].sort((a, b) => b.weight - a.weight);
-      const primary = sorted[0]?.option ?? "VOTE_OPTION_UNSPECIFIED";
-      byOption[primary] = (byOption[primary] ?? 0) + 1;
-
+    if (votes.length > 0) {
+      const total = res.pagination?.total ? Number(res.pagination.total) : votes.length;
       return {
-        voter: v.voter,
-        options,
-        primary,
-        weighted: options.length > 1,
+        votes,
+        total,
+        byOption: tallyByOption(votes),
+        source: "state",
+        truncated: total > votes.length,
+        failed: false,
       };
-    });
-
-    return {
-      votes,
-      total: res.pagination?.total ? Number(res.pagination.total) : votes.length,
-      byOption,
-    };
+    }
   } catch {
-    return { votes: [], total: null, byOption: {} };
+    // Endpoint problem rather than an empty result — remember which, so an
+    // empty render can tell the difference.
+    stateFailed = true;
+  }
+
+  try {
+    const fromHistory = await votesFromHistory(chain, id, limit);
+    if (fromHistory) return fromHistory;
+    // No vote transactions found: a genuine empty result, not a failure.
+    return { ...empty, failed: stateFailed };
+  } catch {
+    return { ...empty, failed: true };
   }
 }
 
