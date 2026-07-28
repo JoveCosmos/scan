@@ -169,7 +169,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       </div>
 
       <div className="gata-panel overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="gata-table w-full text-sm sm:min-w-[760px]">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
@@ -193,10 +193,10 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                 key={v.operatorAddress}
                 className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
               >
-                <td className="px-4 py-2.5 font-mono tabular-nums text-muted-foreground">
+                <td data-label="Rank" className="px-4 py-2.5 font-mono tabular-nums text-muted-foreground">
                   {v.rank}
                 </td>
-                <td className="max-w-[240px] px-4 py-2.5">
+                <td data-label="Validator" data-primary className="px-4 py-2.5 sm:max-w-[240px]">
                   {/* Cosmos links to a staking profile; gno links to its
                       valopers-realm profile, keyed by consensus address. */}
                   <Link
@@ -217,7 +217,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                     </div>
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-right">
+                <td data-label="Voting Power" className="px-4 py-2.5 text-right">
                   <div className="font-mono tabular-nums">
                     {(v.votingPower * 100).toFixed(2)}%
                   </div>
@@ -234,22 +234,22 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                     />
                   </div>
                 </td>
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
+                <td data-label="Cumulative" className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
                   {(v.cumulativePower * 100).toFixed(1)}%
                 </td>
                 {!staking ? (
-                  <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                  <td data-label="Power" className="px-4 py-2.5 text-right font-mono tabular-nums">
                     {Number(v.tokens).toLocaleString()}
                   </td>
                 ) : (
                   <>
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                <td data-label="Staked" className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {formatToken(v.tokens, chain.exponent)}
                 </td>
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                <td data-label="Commission" className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {(v.commissionRate * 100).toFixed(1)}%
                 </td>
-                <td className="px-4 py-2.5">
+                <td data-label="Status" className="px-4 py-2.5">
                   <span
                     className={
                       v.jailed

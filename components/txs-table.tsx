@@ -139,7 +139,7 @@ export function TxsTable({
         </div>
       ) : (
         <div className="gata-panel overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="gata-table w-full text-sm sm:min-w-[820px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 font-medium text-muted-foreground">Hash</th>
@@ -162,7 +162,7 @@ export function TxsTable({
                   key={tx.hash}
                   className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
                 >
-                  <td className="px-4 py-3">
+                  <td data-label="Hash" data-primary className="px-4 py-3">
                     <Link
                       href={`/${chainId}/txs/${encodeURIComponent(tx.hash)}`}
                       // -my-2 keeps the row height while giving a ~32px tap target.
@@ -172,13 +172,13 @@ export function TxsTable({
                       {truncateMiddle(tx.hash, 10, 8)}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Type" className="px-4 py-3">
                     <MessagePills tx={tx} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td data-label="Status" className="px-4 py-3">
                     <StatusIcon code={tx.code} />
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td data-label="Height" className="px-4 py-3 text-right">
                     <Link
                       href={`/${chainId}/blocks/${tx.height}`}
                       className="-my-2 inline-block py-2 font-mono text-xs text-muted-foreground hover:text-foreground"
@@ -186,12 +186,18 @@ export function TxsTable({
                       {Number(tx.height).toLocaleString()}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td
+                    data-label="Fee"
+                    className="px-4 py-3 text-right font-mono text-xs"
+                  >
                     {tx.fee.length > 0
                       ? `${formatToken(tx.fee[0].amount, exponent, 4)} ${symbol}`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                  <td
+                    data-label="Age"
+                    className="px-4 py-3 text-right text-xs text-muted-foreground"
+                  >
                     {timeAgo(tx.time)}
                   </td>
                 </tr>

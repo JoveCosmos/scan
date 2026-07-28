@@ -68,7 +68,7 @@ export function BlocksTable({
       </div>
 
       <div className="gata-panel overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="gata-table w-full text-sm sm:min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">Height</th>
@@ -91,18 +91,25 @@ export function BlocksTable({
                   flashHeight === block.height && "gata-flash"
                 )}
               >
-                <td className="px-4 py-2.5 font-mono font-medium tabular-nums">
+                <td
+                  data-label="Height"
+                  data-primary
+                  className="px-4 py-2.5 font-mono font-medium tabular-nums"
+                >
                   <Link
                     href={`/${chainId}/blocks/${block.height}`}
                     className="-my-2 inline-block py-2 text-primary hover:underline"
                   >
-                    {Number(block.height).toLocaleString()}
+                    #{Number(block.height).toLocaleString()}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-muted-foreground">
+                <td data-label="Age" className="px-4 py-2.5 text-muted-foreground">
                   {timeAgo(block.time)}
                 </td>
-                <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                <td
+                  data-label="Txs"
+                  className="px-4 py-2.5 text-right font-mono tabular-nums"
+                >
                   {block.txCount > 0 ? (
                     block.txCount
                   ) : (
@@ -110,12 +117,15 @@ export function BlocksTable({
                   )}
                 </td>
                 <td
+                  data-label="Proposer"
                   className="px-4 py-2.5 font-mono text-xs text-muted-foreground"
                   title={block.proposer}
                 >
                   {truncateMiddle(block.proposer, 8, 6)}
                 </td>
                 <td
+                  data-label="Block Hash"
+                  data-hide-mobile
                   className="px-4 py-2.5 font-mono text-xs text-muted-foreground"
                   title={block.hash ?? undefined}
                 >

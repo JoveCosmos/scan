@@ -181,7 +181,7 @@ export default async function AccountPage({
                 Balances ({account.balances.length})
               </h2>
               <div className="gata-panel overflow-x-auto">
-                <table className="w-full min-w-[420px] text-sm">
+                <table className="gata-table w-full text-sm sm:min-w-[420px]">
                   <thead>
                     <tr className="border-b border-border text-left">
                       <th className="px-4 py-3 font-medium text-muted-foreground">
@@ -198,10 +198,18 @@ export default async function AccountPage({
                         key={b.denom}
                         className="border-b border-border/50 last:border-0 hover:bg-[var(--gata-card-hi)]/60"
                       >
-                        <td className="px-4 py-3 font-mono text-xs" title={b.denom}>
+                        <td
+                          data-label="Denom"
+                          data-primary
+                          className="px-4 py-3 font-mono text-xs"
+                          title={b.denom}
+                        >
                           {denomLabel(b.denom, symbol, chain.denom)}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono tabular-nums">
+                        <td
+                          data-label="Amount"
+                          className="px-4 py-3 text-right font-mono tabular-nums"
+                        >
                           {b.denom === chain.denom
                             ? exactAmount(b.amount, chain.exponent)
                             : Number(b.amount).toLocaleString()}

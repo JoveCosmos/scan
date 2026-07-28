@@ -234,7 +234,7 @@ export default async function BlockDetailPage({
         </div>
       ) : (
         <div className="gata-panel overflow-x-auto">
-          <table className="w-full min-w-[560px] text-sm">
+          <table className="gata-table w-full text-sm sm:min-w-[560px]">
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 font-medium text-muted-foreground">Hash</th>
@@ -251,7 +251,7 @@ export default async function BlockDetailPage({
                   key={tx.hash}
                   className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
                 >
-                  <td className="px-4 py-3">
+                  <td data-label="Hash" data-primary className="px-4 py-3">
                     <Link
                       href={`/${chainId}/txs/${encodeURIComponent(tx.hash)}`}
                       className="font-mono text-xs text-primary hover:underline"
@@ -260,7 +260,7 @@ export default async function BlockDetailPage({
                       {truncateMiddle(tx.hash, 10, 8)}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td data-label="Type" className="px-4 py-3 text-xs">
                     {tx.messages[0]?.label ?? "—"}
                     {tx.messages.length > 1 ? (
                       <span className="ml-1 text-muted-foreground">
@@ -268,7 +268,7 @@ export default async function BlockDetailPage({
                       </span>
                     ) : null}
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td data-label="Status" className="px-4 py-3 text-xs">
                     {tx.code === null ? (
                       <span className="text-muted-foreground">Unindexed</span>
                     ) : tx.code === 0 ? (
@@ -277,7 +277,7 @@ export default async function BlockDetailPage({
                       <span className="text-[var(--gata-burn)]">Failed</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
+                  <td data-label="Fee" className="px-4 py-3 text-right font-mono text-xs">
                     {tx.fee.length > 0
                       ? `${formatToken(tx.fee[0].amount, chain.exponent, 4)} ${symbol}`
                       : "—"}

@@ -67,7 +67,7 @@ export async function ProposalVotes({
       </div>
 
       <div className="gata-panel overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+        <table className="gata-table w-full text-sm sm:min-w-[420px]">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">Voter</th>
@@ -80,7 +80,7 @@ export async function ProposalVotes({
                 key={vote.voter}
                 className="border-b border-border/50 last:border-0 hover:bg-[var(--gata-card-hi)]/60"
               >
-                <td className="px-4 py-3">
+                <td data-label="Voter" data-primary className="px-4 py-3">
                   <Link
                     href={`/${chain.chainId}/accounts/${vote.voter}`}
                     className="-my-2 inline-block py-2 font-mono text-xs text-primary hover:underline"
@@ -89,7 +89,7 @@ export async function ProposalVotes({
                     {truncateMiddle(vote.voter, 14, 8)}
                   </Link>
                 </td>
-                <td className="px-4 py-3">
+                <td data-label="Vote" className="px-4 py-3">
                   {vote.weighted ? (
                     <span className="flex flex-wrap items-center gap-1.5">
                       {vote.options.map((o) => (

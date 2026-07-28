@@ -211,6 +211,78 @@
     animation: gataFlash 0.9s ease-out both;
   }
 
+  /*
+   * Responsive data tables.
+   *
+   * Below sm a table collapses into one stacked card per row, each cell
+   * becoming a label/value line. The label comes from the cell's data-label,
+   * so the markup stays a single real <table> — no duplicated mobile markup,
+   * and the semantics and header stay intact for assistive tech at every size.
+   */
+  @media (width < 40rem) {
+    .gata-table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .gata-table,
+    .gata-table tbody,
+    .gata-table tr,
+    .gata-table td {
+      display: block;
+      width: auto;
+      min-width: 0;
+    }
+
+    .gata-table tr {
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid color-mix(in srgb, var(--gata-border) 60%, transparent);
+    }
+
+    .gata-table tr:last-child {
+      border-bottom: 0;
+    }
+
+    .gata-table td {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.2rem 0 !important;
+      text-align: right !important;
+    }
+
+    .gata-table td::before {
+      content: attr(data-label);
+      flex: none;
+      color: var(--gata-sub);
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-align: left;
+    }
+
+    /* A cell marked as the row's headline reads as its title, not a field. */
+    .gata-table td[data-primary]::before {
+      display: none;
+    }
+
+    .gata-table td[data-primary] {
+      justify-content: flex-start;
+      padding-bottom: 0.4rem !important;
+      text-align: left !important;
+      font-size: 0.9375rem;
+    }
+
+    /* Cells with nothing useful on a phone drop out entirely. */
+    .gata-table td[data-hide-mobile] {
+      display: none;
+    }
+  }
+
   .gata-grid-lines {
     background-image:
       linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
