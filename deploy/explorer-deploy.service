@@ -1,0 +1,19 @@
+[Unit]
+Description=Pull and rebuild the explorer if git moved
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=explorer
+Group=explorer
+WorkingDirectory=/srv/explorer
+Environment=APP_DIR=/srv/explorer
+Environment=BRANCH=master
+Environment=SERVICE=explorer
+ExecStart=/srv/explorer/deploy/deploy.sh
+# A build plus the dependency install can take a while on a small box.
+TimeoutStartSec=900
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=explorer-deploy

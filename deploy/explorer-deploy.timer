@@ -1,0 +1,14 @@
+[Unit]
+Description=Poll git for explorer updates
+
+[Timer]
+# First check shortly after boot, then every 5 minutes. A run with no new
+# commits costs one `git fetch` and exits.
+OnBootSec=2min
+OnUnitActiveSec=5min
+# Avoids every server on the same schedule hitting GitHub simultaneously.
+RandomizedDelaySec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
