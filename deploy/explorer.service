@@ -6,16 +6,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=explorer
-Group=explorer
-WorkingDirectory=/srv/explorer
+User=gata
+Group=gata
+WorkingDirectory=/srv/explorer/current
 
 Environment=NODE_ENV=production
 Environment=PORT=3200
 # Bind to loopback only — nginx is the only thing that should reach it.
 Environment=HOSTNAME=127.0.0.1
-# Keeps the valopers realm index outside the app dir so a deploy cannot wipe it.
-Environment=VALOPER_CACHE_DIR=/var/lib/explorer/valopers
+# Cache lives in shared/ so it survives release swaps.
+Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
 
 ExecStart=/usr/bin/npm run start
 Restart=always
@@ -30,7 +30,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/explorer/.next /var/lib/explorer
+ReadWritePaths=/srv/explorer
 
 StandardOutput=journal
 StandardError=journal

@@ -1,7 +1,22 @@
 # Deploying to explorer.gatahub.zone
 
-Target: `37.27.63.150` (the host `gatahub.zone` already resolves to).
+Runs on the gata box (`37.27.63.150`), the same host that serves
+`reward.gatahub.zone`, and deliberately mirrors that pipeline: release
+directories, atomic symlink swap, health check, auto-rollback.
+
+```
+/srv/explorer/repo               clone, only ever fetched
+/srv/explorer/releases/<sha>/    one built copy per deployed commit
+/srv/explorer/current -> releases/<sha>
+/srv/explorer/shared/valopers/   gno realm index, survives releases
+/opt/explorer/deploy.sh
+```
+
 The app listens on `127.0.0.1:3200`; nginx is the only thing that reaches it.
+
+> **Never build in the live directory.** `next build` rewrites `.next`
+> underneath the running server, so an in-place build serves 404s until the
+> restart lands. That is why releases exist — same reason as `gata-hub`.
 
 ## 0. DNS — do this first
 
@@ -12,107 +27,108 @@ certificate until it does. In GoDaddy DNS for `gatahub.zone`, add:
 | ---- | ---------- | -------------- | --- |
 | A    | `explorer` | `37.27.63.150` | 600 |
 
-Verify before continuing:
-
 ```bash
 dig +short explorer.gatahub.zone   # expect 37.27.63.150
 ```
 
-## 1. One-time server setup
+## 1. Layout and clone
 
-Run as a user with sudo.
+Runs as the existing `gata` user, same as gata-hub.
 
 ```bash
-# Node 22 LTS, if not already present
-node -v || curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs
-
-# Service account that owns the checkout
-sudo useradd --system --create-home --home-dir /var/lib/explorer --shell /usr/sbin/nologin explorer
-sudo mkdir -p /srv/explorer /var/lib/explorer/valopers
-sudo chown -R explorer:explorer /srv/explorer /var/lib/explorer
+sudo mkdir -p /srv/explorer/{repo,releases,shared/valopers} /opt/explorer
+sudo chown -R gata:gata /srv/explorer /opt/explorer
 ```
 
-Clone the repo. It is private, so give the box a **read-only deploy key**
-rather than a personal token:
+The repo is private, so give the box a **read-only deploy key** rather than a
+personal token. If the existing gata-hub deploy key cannot be reused, make one:
 
 ```bash
-sudo -u explorer ssh-keygen -t ed25519 -f /var/lib/explorer/.ssh/id_ed25519 -N ''
-sudo -u explorer cat /var/lib/explorer/.ssh/id_ed25519.pub
-# Add that key at:
-#   https://github.com/JoveCosmos/explorer/settings/keys  (Add deploy key, leave write access OFF)
+sudo -u gata ssh-keygen -t ed25519 -f /home/gata/.ssh/explorer_deploy -N ''
+sudo -u gata cat /home/gata/.ssh/explorer_deploy.pub
+# Add at https://github.com/JoveCosmos/explorer/settings/keys — leave write access OFF
 
-sudo -u explorer git clone git@github.com:JoveCosmos/explorer.git /srv/explorer
+sudo -u gata tee -a /home/gata/.ssh/config >/dev/null <<'EOF'
+Host github-explorer
+  HostName github.com
+  User git
+  IdentityFile /home/gata/.ssh/explorer_deploy
+  IdentitiesOnly yes
+EOF
+
+sudo -u gata git clone git@github-explorer:JoveCosmos/explorer.git /srv/explorer/repo
+sudo install -o gata -g gata -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
 ```
 
-## 2. Build and run
+## 2. systemd
 
 ```bash
-cd /srv/explorer
-sudo -u explorer npm ci --no-audit --no-fund
-sudo -u explorer npm run build
-
-sudo cp deploy/explorer.service /etc/systemd/system/
+sudo cp /srv/explorer/repo/deploy/explorer.service /etc/systemd/system/
+sudo cp /srv/explorer/repo/deploy/explorer-deploy.service /etc/systemd/system/
+sudo cp /srv/explorer/repo/deploy/explorer-deploy.timer   /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now explorer
-sudo systemctl status explorer --no-pager
+```
 
-# Should return HTML
-curl -sI http://127.0.0.1:3200/ | head -1
+`deploy.sh` restarts the app, so `gata` needs exactly that one sudo right:
+
+```bash
+echo 'gata ALL=(root) NOPASSWD: /bin/systemctl restart explorer' | \
+  sudo tee /etc/sudoers.d/explorer-deploy
+sudo chmod 440 /etc/sudoers.d/explorer-deploy
+```
+
+First deploy builds the release and creates `current`:
+
+```bash
+sudo -u gata /opt/explorer/deploy.sh
+sudo systemctl enable --now explorer
+curl -sI http://127.0.0.1:3200/ | head -1     # expect HTTP/1.1 200
 ```
 
 ## 3. nginx
 
 ```bash
-sudo cp deploy/nginx-explorer.conf /etc/nginx/sites-available/explorer.gatahub.zone
-sudo ln -sf /etc/nginx/sites-available/explorer.gatahub.zone /etc/nginx/sites-enabled/
+sudo cp /srv/explorer/repo/deploy/nginx-explorer.conf /etc/nginx/sites-available/explorer
+sudo ln -sf /etc/nginx/sites-available/explorer /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-```
 
-Then issue the certificate (needs step 0 done):
-
-```bash
 sudo certbot --nginx -d explorer.gatahub.zone --redirect
 ```
 
-Certbot rewrites the file in place to add the TLS block and the HTTP redirect.
-
 ## 4. Auto-pull
 
-A timer checks the remote every 5 minutes and rebuilds only when the branch
-has actually moved — a run with no new commits is one `git fetch`.
-
 ```bash
-sudo chmod +x /srv/explorer/deploy/deploy.sh
-sudo cp deploy/explorer-deploy.service deploy/explorer-deploy.timer /etc/systemd/system/
-sudo systemctl daemon-reload
 sudo systemctl enable --now explorer-deploy.timer
 systemctl list-timers explorer-deploy --no-pager
 ```
 
-`deploy.sh` restarts the service, so the `explorer` user needs exactly that one
-sudo right and nothing else:
-
-```bash
-echo 'explorer ALL=(root) NOPASSWD: /bin/systemctl restart explorer' | \
-  sudo tee /etc/sudoers.d/explorer-deploy
-sudo chmod 440 /etc/sudoers.d/explorer-deploy
-```
+Checks every 5 minutes; a run with no new commits is one `git fetch` and exits.
+On a new commit it builds a fresh release, swaps the symlink, restarts, health
+checks, and **rolls back automatically** if the new release does not answer.
 
 ## Operating it
 
 ```bash
-journalctl -u explorer -f              # app logs
-journalctl -u explorer-deploy -n 50    # last deploy run
-sudo systemctl start explorer-deploy   # deploy right now, do not wait for the timer
-cd /srv/explorer && sudo -u explorer ./deploy/deploy.sh --force   # rebuild unchanged code
+journalctl -u explorer -f                    # app logs
+journalctl -u explorer-deploy -n 80          # last deploy run
+sudo systemctl start explorer-deploy         # deploy now, do not wait
+sudo -u gata /opt/explorer/deploy.sh --force # rebuild the same commit
+readlink -f /srv/explorer/current            # which sha is live
+```
+
+After changing `deploy.sh` itself, reinstall it — the timer runs the copy in
+`/opt/explorer`, not the one in the checkout:
+
+```bash
+sudo install -o gata -g gata -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
 ```
 
 ## Notes
 
-- **Cache location.** `VALOPER_CACHE_DIR=/var/lib/explorer/valopers` keeps the
-  gno.land realm index outside the checkout, so a deploy never discards it. It
-  costs ~25s of serialised realm calls to rebuild and only the first boot on a
-  machine should pay that.
-- **First boot is slow by design.** `instrumentation.ts` warms that index at
-  startup; `TimeoutStartSec=120` stops systemd mistaking it for a hung boot.
-- **Port.** 3200, to stay clear of anything already on 3000/3001.
+- **Port 3200**, clear of gata-hub on 3000.
+- **First boot is slow by design.** `instrumentation.ts` warms the gno realm
+  index (~96 serialised realm calls, ~25s). `TimeoutStartSec=120` stops systemd
+  mistaking that for a hung boot, and the cache in `shared/` means only the
+  first deploy on the box pays it.
+- **No build-time env vars.** Unlike gata-hub there are no `NEXT_PUBLIC_*` to
+  source before building; every endpoint is in `config/chains/*.json`.
