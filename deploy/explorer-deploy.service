@@ -5,19 +5,37 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=gata
-Group=gata
+User=explorer
+Group=explorer
 WorkingDirectory=/srv/explorer/repo
+
 Environment=ROOT=/srv/explorer
 Environment=BRANCH=master
 Environment=SERVICE=explorer
-# gata is a system account whose home may not be writable (or may not exist),
-# so give npm somewhere of its own rather than depending on it.
-Environment=HOME=/srv/explorer/shared
+Environment=HOME=/srv/explorer
 Environment=npm_config_cache=/srv/explorer/shared/.npm
+
 ExecStart=/opt/explorer/deploy.sh
-# A build plus the dependency install can take a while on a small box.
+# npm ci plus next build on a small box.
 TimeoutStartSec=900
+
+# Builds need to write the release tree, but nothing outside it.
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/explorer
+PrivateTmp=true
+InaccessiblePaths=/srv/gata-hub /etc/gata
+
+# Must stay false: deploy.sh calls sudo to restart the app, and sudo is setuid,
+# which NoNewPrivileges blocks outright. The app service itself sets it true —
+# that is the process actually exposed to the internet.
+NoNewPrivileges=false
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=explorer-deploy

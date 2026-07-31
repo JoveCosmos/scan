@@ -33,26 +33,29 @@ dig +short explorer.gatahub.zone   # expect 37.27.63.150
 
 ## 1. Layout and clone
 
-Runs as the existing `gata` user, same as gata-hub.
+Runs as its own `explorer` system account — **not** `gata`. The gata account
+can read `/etc/gata/app.env` (`root:gata 0640`), so running a public-facing
+service as gata would put gata-hub's secrets one compromise away.
 
 ```bash
-sudo mkdir -p /srv/explorer/{repo,releases,shared/valopers} /opt/explorer
-sudo chown -R gata:gata /srv/explorer /opt/explorer
+sudo useradd --system --home-dir /srv/explorer --shell /usr/sbin/nologin explorer
+sudo mkdir -p /srv/explorer/{repo,releases,shared/valopers,shared/.npm} /opt/explorer
+sudo chown -R explorer:explorer /srv/explorer /opt/explorer
+sudo chmod 750 /srv/explorer
 ```
 
-The repo is private, so give the box a **read-only deploy key** rather than a
-personal token. If the existing gata-hub deploy key cannot be reused, make one:
+The repo is private, so the box gets its own **read-only deploy key** — a
+separate one from gata-hub's, so neither service can pull the other's code.
 
-The key is referenced by **absolute path**, not through an ssh config alias.
-`gata` is a system account whose home is `/srv/gata-hub`, and sudo and systemd
-disagree about `HOME` — an alias only resolves when ssh happens to find the
-right config, which it did not.
+The key is referenced by **absolute path**, not through an ssh config alias:
+sudo and systemd disagree about `HOME`, so an alias only resolves when ssh
+happens to find the right config.
 
 ```bash
-sudo -u gata mkdir -p /srv/explorer/shared/.ssh
-sudo -u gata chmod 700 /srv/explorer/shared/.ssh
-sudo -u gata ssh-keygen -t ed25519 -f /srv/explorer/shared/.ssh/explorer_deploy -N '' -C 'explorer-deploy@gata-box'
-sudo -u gata cat /srv/explorer/shared/.ssh/explorer_deploy.pub
+sudo -u explorer mkdir -p /srv/explorer/.ssh
+sudo -u explorer chmod 700 /srv/explorer/.ssh
+sudo -u explorer ssh-keygen -t ed25519 -f /srv/explorer/.ssh/explorer_deploy -N '' -C 'explorer-deploy@gata-box'
+sudo -u explorer cat /srv/explorer/.ssh/explorer_deploy.pub
 # Add at https://github.com/JoveCosmos/explorer/settings/keys — leave write access OFF
 ```
 
@@ -60,13 +63,13 @@ Clone with that key, then persist it into the repo config so every later fetch
 uses it regardless of environment:
 
 ```bash
-KEY='ssh -i /srv/explorer/shared/.ssh/explorer_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/explorer/shared/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
+KEY='ssh -i /srv/explorer/.ssh/explorer_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/explorer/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
 
-sudo -u gata git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/explorer/repo
-sudo -u gata git -C /srv/explorer/repo config core.sshCommand "$KEY"
-sudo -u gata git -C /srv/explorer/repo fetch --dry-run origin master   # must succeed
+sudo -u explorer git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/explorer/repo
+sudo -u explorer git -C /srv/explorer/repo config core.sshCommand "$KEY"
+sudo -u explorer git -C /srv/explorer/repo fetch --dry-run origin master   # must succeed
 
-sudo install -o gata -g gata -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
+sudo install -o explorer -g explorer -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
 ```
 
 ## 2. systemd
@@ -78,10 +81,10 @@ sudo cp /srv/explorer/repo/deploy/explorer-deploy.timer   /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
-`deploy.sh` restarts the app, so `gata` needs exactly that one sudo right:
+`deploy.sh` restarts the app, so the `explorer` user needs exactly that and nothing more:
 
 ```bash
-echo 'gata ALL=(root) NOPASSWD: /usr/bin/systemctl restart explorer' | \
+echo 'explorer ALL=(root) NOPASSWD: /usr/bin/systemctl restart explorer' | \
   sudo tee /etc/sudoers.d/explorer-deploy
 sudo chmod 440 /etc/sudoers.d/explorer-deploy
 ```
@@ -89,7 +92,7 @@ sudo chmod 440 /etc/sudoers.d/explorer-deploy
 First deploy builds the release and creates `current`:
 
 ```bash
-sudo -u gata /opt/explorer/deploy.sh
+sudo -u explorer /opt/explorer/deploy.sh
 sudo systemctl enable --now explorer
 curl -sI http://127.0.0.1:3200/ | head -1     # expect HTTP/1.1 200
 ```
@@ -121,7 +124,7 @@ checks, and **rolls back automatically** if the new release does not answer.
 journalctl -u explorer -f                    # app logs
 journalctl -u explorer-deploy -n 80          # last deploy run
 sudo systemctl start explorer-deploy         # deploy now, do not wait
-sudo -u gata /opt/explorer/deploy.sh --force # rebuild the same commit
+sudo -u explorer /opt/explorer/deploy.sh --force # rebuild the same commit
 readlink -f /srv/explorer/current            # which sha is live
 ```
 
@@ -129,7 +132,7 @@ After changing `deploy.sh` itself, reinstall it — the timer runs the copy in
 `/opt/explorer`, not the one in the checkout:
 
 ```bash
-sudo install -o gata -g gata -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
+sudo install -o explorer -g explorer -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
 ```
 
 ## Notes

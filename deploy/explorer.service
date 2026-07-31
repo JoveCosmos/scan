@@ -6,35 +6,59 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=gata
-Group=gata
+# Dedicated account. Deliberately NOT the gata user: that account can read
+# /etc/gata/app.env (root:gata 0640), so running a public-facing explorer as
+# gata would put gata-hub's secrets one compromise away.
+User=explorer
+Group=explorer
 WorkingDirectory=/srv/explorer/current
 
 Environment=NODE_ENV=production
 Environment=PORT=3200
-# Bind to loopback only — nginx is the only thing that should reach it.
+# Loopback only — nginx is the sole way in.
 Environment=HOSTNAME=127.0.0.1
-# Cache lives in shared/ so it survives release swaps.
-Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
-# ProtectHome hides /home/gata, so npm needs a HOME and cache it can still
-# write to — without these it fails to start rather than falling back.
-Environment=HOME=/srv/explorer/shared
+Environment=HOME=/srv/explorer
 Environment=npm_config_cache=/srv/explorer/shared/.npm
+# Realm index lives in shared/ so a release swap never discards it.
+Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
 
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5
-
-# The startup warm makes ~96 realm calls before it is ready; do not let a slow
-# node look like a failed boot.
+# The startup warm makes ~96 serialised realm calls before the app is ready.
 TimeoutStartSec=120
 
-# Hardening: the app only needs to read its own directory and write its cache.
-NoNewPrivileges=true
-PrivateTmp=true
+# --- Filesystem isolation -------------------------------------------------
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/srv/explorer
+PrivateTmp=true
+# Explicitly out of reach even if ownership is ever loosened by mistake.
+InaccessiblePaths=/srv/gata-hub /etc/gata
+
+# --- Privilege and kernel isolation ---------------------------------------
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Outbound HTTPS to public chain nodes, plus the loopback listener.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# NOTE: MemoryDenyWriteExecute is intentionally NOT set — it breaks V8's JIT
+# and Node will not start.
 
 StandardOutput=journal
 StandardError=journal
