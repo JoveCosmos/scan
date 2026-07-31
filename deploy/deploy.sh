@@ -20,6 +20,9 @@ CURRENT="$ROOT/current"
 BRANCH="${BRANCH:-master}"
 SERVICE="${SERVICE:-explorer}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3200/}"
+# Absolute path on purpose: sudoers matches the literal command, so resolving
+# systemctl via PATH would silently stop matching the NOPASSWD rule.
+SYSTEMCTL="${SYSTEMCTL:-/usr/bin/systemctl}"
 KEEP="${KEEP:-3}"
 FORCE="${1:-}"
 
@@ -73,7 +76,7 @@ mv -T "$ROOT/.current.tmp" "$CURRENT"
 log "swapped current -> $short"
 
 log "restarting $SERVICE"
-sudo systemctl restart "$SERVICE"
+sudo "$SYSTEMCTL" restart "$SERVICE"
 
 # The startup warm makes ~96 gno realm calls, so allow a generous window before
 # calling it unhealthy.
@@ -89,7 +92,7 @@ if [ "$healthy" -ne 1 ]; then
     log "rolling back to ${previous_sha:0:8}"
     ln -sfn "$RELEASES/$previous_sha" "$ROOT/.current.tmp"
     mv -T "$ROOT/.current.tmp" "$CURRENT"
-    sudo systemctl restart "$SERVICE"
+    sudo "$SYSTEMCTL" restart "$SERVICE"
     fail "rolled back to ${previous_sha:0:8}"
   fi
   fail "unhealthy and no previous release to roll back to"

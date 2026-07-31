@@ -43,20 +43,29 @@ sudo chown -R gata:gata /srv/explorer /opt/explorer
 The repo is private, so give the box a **read-only deploy key** rather than a
 personal token. If the existing gata-hub deploy key cannot be reused, make one:
 
+The key is referenced by **absolute path**, not through an ssh config alias.
+`gata` is a system account whose home is `/srv/gata-hub`, and sudo and systemd
+disagree about `HOME` — an alias only resolves when ssh happens to find the
+right config, which it did not.
+
 ```bash
-sudo -u gata ssh-keygen -t ed25519 -f /home/gata/.ssh/explorer_deploy -N ''
-sudo -u gata cat /home/gata/.ssh/explorer_deploy.pub
+sudo -u gata mkdir -p /srv/explorer/shared/.ssh
+sudo -u gata chmod 700 /srv/explorer/shared/.ssh
+sudo -u gata ssh-keygen -t ed25519 -f /srv/explorer/shared/.ssh/explorer_deploy -N '' -C 'explorer-deploy@gata-box'
+sudo -u gata cat /srv/explorer/shared/.ssh/explorer_deploy.pub
 # Add at https://github.com/JoveCosmos/explorer/settings/keys — leave write access OFF
+```
 
-sudo -u gata tee -a /home/gata/.ssh/config >/dev/null <<'EOF'
-Host github-explorer
-  HostName github.com
-  User git
-  IdentityFile /home/gata/.ssh/explorer_deploy
-  IdentitiesOnly yes
-EOF
+Clone with that key, then persist it into the repo config so every later fetch
+uses it regardless of environment:
 
-sudo -u gata git clone git@github-explorer:JoveCosmos/explorer.git /srv/explorer/repo
+```bash
+KEY='ssh -i /srv/explorer/shared/.ssh/explorer_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/explorer/shared/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
+
+sudo -u gata git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/explorer/repo
+sudo -u gata git -C /srv/explorer/repo config core.sshCommand "$KEY"
+sudo -u gata git -C /srv/explorer/repo fetch --dry-run origin master   # must succeed
+
 sudo install -o gata -g gata -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
 ```
 
@@ -72,7 +81,7 @@ sudo systemctl daemon-reload
 `deploy.sh` restarts the app, so `gata` needs exactly that one sudo right:
 
 ```bash
-echo 'gata ALL=(root) NOPASSWD: /bin/systemctl restart explorer' | \
+echo 'gata ALL=(root) NOPASSWD: /usr/bin/systemctl restart explorer' | \
   sudo tee /etc/sudoers.d/explorer-deploy
 sudo chmod 440 /etc/sudoers.d/explorer-deploy
 ```
