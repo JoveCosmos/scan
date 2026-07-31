@@ -16,6 +16,10 @@ Environment=PORT=3200
 Environment=HOSTNAME=127.0.0.1
 # Cache lives in shared/ so it survives release swaps.
 Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
+# ProtectHome hides /home/gata, so npm needs a HOME and cache it can still
+# write to — without these it fails to start rather than falling back.
+Environment=HOME=/srv/explorer/shared
+Environment=npm_config_cache=/srv/explorer/shared/.npm
 
 ExecStart=/usr/bin/npm run start
 Restart=always
