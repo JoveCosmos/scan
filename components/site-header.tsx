@@ -87,7 +87,11 @@ function ChainSwitcher({
             return (
               <li key={chain.chainId}>
                 <Link
-                  href={`/${chain.chainId}${section}`}
+                  // Sections the target chain does not have would 404, so fall
+                  // back to its overview.
+                  href={`/${chain.chainId}${
+                    section === "/proposals" && !chain.governance ? "" : section
+                  }`}
                   onClick={() => setOpen(false)}
                   role="option"
                   aria-selected={isActive}
@@ -208,11 +212,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             governance={activeChain?.governance ?? false}
             className="hidden items-center gap-1 lg:flex"
           />
-        ) : (
-          <span className="hidden text-sm text-muted-foreground lg:block">
-            Multi-chain block explorer
-          </span>
-        )}
+        ) : null}
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           {activeChainId ? (

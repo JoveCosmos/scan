@@ -61,7 +61,6 @@ export default function RootLayout({
                   <span className="font-semibold text-foreground">GATA HUB</span>{" "}
                   Explorer
                 </span>
-                <span>Served directly from full nodes — no indexer.</span>
               </div>
             </footer>
           </div>

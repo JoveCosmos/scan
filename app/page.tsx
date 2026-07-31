@@ -96,8 +96,7 @@ export default function HomePage() {
           Explorer
         </h1>
         <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-          Blocks, transactions and validators across the Cosmos networks GATA
-          validates — read straight from full nodes, with no indexer in between.
+          Blocks, transactions and validators across the networks GATA validates.
         </p>
       </div>
 
