@@ -11,6 +11,10 @@ WorkingDirectory=/srv/explorer/repo
 Environment=ROOT=/srv/explorer
 Environment=BRANCH=master
 Environment=SERVICE=explorer
+# gata is a system account whose home may not be writable (or may not exist),
+# so give npm somewhere of its own rather than depending on it.
+Environment=HOME=/srv/explorer/shared
+Environment=npm_config_cache=/srv/explorer/shared/.npm
 ExecStart=/opt/explorer/deploy.sh
 # A build plus the dependency install can take a while on a small box.
 TimeoutStartSec=900
