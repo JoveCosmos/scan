@@ -12,7 +12,7 @@ read straight from full nodes with no indexer of our own.
 | Mainnet | Akash              | `akashnet-2`        |
 | Testnet | Cosmos Hub Testnet | `provider`          |
 | Testnet | AtomOne Testnet    | `atomone-testnet-1` |
-| Testnet | gno.land           | `topaz-1`           |
+| Testnet | Gno.land Testnet   | `topaz-1`           |
 
 ## Develop
 

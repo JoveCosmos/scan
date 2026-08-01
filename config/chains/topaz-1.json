@@ -1,7 +1,7 @@
 {
   "chainId": "topaz-1",
   "name": "gnoland",
-  "prettyName": "gno.land",
+  "prettyName": "Gno.land Testnet",
   "logo": "/chains/gnoland.svg",
   "kind": "gno",
   "network": "testnet",
