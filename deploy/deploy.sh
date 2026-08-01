@@ -83,7 +83,7 @@ sudo "$SYSTEMCTL" restart "$SERVICE"
 healthy=0
 for _ in $(seq 1 30); do
   sleep 3
-  if curl -fsS --max-time 5 -o /dev/null "$HEALTH_URL"; then healthy=1; break; fi
+  if curl -fs --max-time 5 -o /dev/null "$HEALTH_URL" 2>/dev/null; then healthy=1; break; fi
 done
 
 if [ "$healthy" -ne 1 ]; then

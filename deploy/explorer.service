@@ -14,15 +14,15 @@ Group=explorer
 WorkingDirectory=/srv/explorer/current
 
 Environment=NODE_ENV=production
-Environment=PORT=3200
-# Loopback only — nginx is the sole way in.
-Environment=HOSTNAME=127.0.0.1
 Environment=HOME=/srv/explorer
 Environment=npm_config_cache=/srv/explorer/shared/.npm
 # Realm index lives in shared/ so a release swap never discards it.
 Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
 
-ExecStart=/usr/bin/npm run start
+# Bind explicitly on the command line. The HOSTNAME env var did NOT restrict
+# next start — it still listened on 0.0.0.0, which would expose port 3200
+# directly to the internet and bypass nginx. --hostname is authoritative.
+ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3200
 Restart=always
 RestartSec=5
 # The startup warm makes ~96 serialised realm calls before the app is ready.
