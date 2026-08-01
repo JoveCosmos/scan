@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
+import { cached } from "@/lib/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,10 @@ export async function GET(
     return NextResponse.json({ error: `Unknown chain "${chainId}"` }, { status: 404 });
   }
 
-  const blocks = await getAdapter(chain).getRecentBlocks();
+  // One upstream fan-out per interval regardless of how many tabs are open.
+  const blocks = await cached(`blocks:${chainId}`, 2500, () =>
+    getAdapter(chain).getRecentBlocks()
+  );
 
   return NextResponse.json({ blocks }, { headers: { "cache-control": "no-store" } });
 }

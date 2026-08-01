@@ -16,6 +16,25 @@ interface FetchLcdOptions {
 
 const DEFAULT_TIMEOUT_MS = 5000;
 
+/*
+ * Which endpoint answered last, per endpoint list. Endpoint health is sticky in
+ * practice — a node that just failed is likely to fail again — so remembering
+ * the winner avoids paying the timeout repeatedly. Held on globalThis because
+ * route handlers and instrumentation are bundled separately.
+ */
+const HEALTH_KEY = Symbol.for("gata.endpointHealth");
+const healthStore = globalThis as typeof globalThis & {
+  [HEALTH_KEY]?: Map<string, string>;
+};
+const lastGood: Map<string, string> = (healthStore[HEALTH_KEY] ??= new Map());
+
+function orderByHealth(endpoints: string[]): string[] {
+  if (endpoints.length < 2) return endpoints;
+  const preferred = lastGood.get(endpoints.join("|"));
+  if (!preferred || endpoints[0] === preferred) return endpoints;
+  return [preferred, ...endpoints.filter((e) => e !== preferred)];
+}
+
 function buildUrl(
   base: string,
   requestPath: string,
@@ -54,7 +73,9 @@ export async function fetchFrom<T>(
 
   let lastError: unknown;
 
-  for (const endpoint of endpoints) {
+  // Try whichever endpoint last answered first. Without this a dead primary
+  // costs the full timeout on *every* request before the fallback is reached.
+  for (const endpoint of orderByHealth(endpoints)) {
     const url = buildUrl(endpoint, requestPath, searchParams);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -72,7 +93,9 @@ export async function fetchFrom<T>(
         continue;
       }
 
-      return (await res.json()) as T;
+      const body = (await res.json()) as T;
+      if (endpoints.length > 1) lastGood.set(endpoints.join("|"), endpoint);
+      return body;
     } catch (err) {
       lastError = err instanceof Error ? err : new LcdError(String(err));
       continue;
