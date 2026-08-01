@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GATA HUB Explorer
 
-## Getting Started
+Multi-chain block explorer, live at **https://explorer.gatahub.zone**.
 
-First, run the development server:
+Blocks, transactions, validators, governance and accounts across six networks,
+read straight from full nodes with no indexer of our own.
+
+| Network | Chain              | ID                  |
+| ------- | ------------------ | ------------------- |
+| Mainnet | Cosmos Hub         | `cosmoshub-4`       |
+| Mainnet | AtomOne            | `atomone-1`         |
+| Mainnet | Akash              | `akashnet-2`        |
+| Testnet | Cosmos Hub Testnet | `provider`          |
+| Testnet | AtomOne Testnet    | `atomone-testnet-1` |
+| Testnet | gno.land           | `topaz-1`           |
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
+npm test             # unit tests
+npm run build        # runs tsc --noEmit && vitest run first
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+No environment variables are needed — every endpoint lives in
+`config/chains/*.json`. Adding a chain is a JSON file, not code; see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`git push` to `master`. A timer on the server picks it up within 5 minutes,
+builds into a new release directory, swaps a symlink atomically, health-checks,
+and rolls back automatically if the new release does not answer.
 
-## Learn More
+Server setup and runbook: [`deploy/README.md`](deploy/README.md).
 
-To learn more about Next.js, take a look at the following resources:
+## Documentation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how one UI serves two
+  incompatible chain kinds, how to add a chain, the performance mechanisms, and
+  the non-obvious platform behaviours that cost time to discover.
+- [`deploy/README.md`](deploy/README.md) — server layout, isolation, operations.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Stack
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 15 (App Router), React 19, TypeScript, Tailwind v4, TanStack Query for
+the live tickers only, vitest.
