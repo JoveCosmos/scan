@@ -15,7 +15,8 @@ export function SearchBar({
   // and the empty search page carry the full explanation.
   placeholder = "Search…",
 }: {
-  chainId: string;
+  /** Optional hint: prefer this chain when a query matches several. */
+  chainId?: string;
   placeholder?: string;
 }) {
   const router = useRouter();
@@ -42,7 +43,7 @@ export function SearchBar({
   return (
     <form
       role="search"
-      action={`/${chainId}/search`}
+      action="/search"
       onSubmit={(e) => {
         const q = value.trim();
         if (!q) {
@@ -50,7 +51,8 @@ export function SearchBar({
           return;
         }
         e.preventDefault();
-        router.push(`/${chainId}/search?q=${encodeURIComponent(q)}`);
+        const hint = chainId ? `&chain=${encodeURIComponent(chainId)}` : "";
+        router.push(`/search?q=${encodeURIComponent(q)}${hint}`);
         setValue("");
         inputRef.current?.blur();
       }}

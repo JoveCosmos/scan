@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { rawTxToSummary, type RawTxResponse, type TxSummary } from "@/lib/txs";
 
 export interface Coin {
   denom: string;
@@ -82,6 +83,65 @@ export async function getCosmosAccount(
       (delegationCount ?? 0) > 0 ||
       (auth.status === "fulfilled" && !!auth.value.account),
   };
+}
+
+/**
+ * Transactions an address sent or received.
+ *
+ * Two searches, because the gov module indexes them differently: `message.sender`
+ * catches what the address signed, `transfer.recipient` catches what was sent to
+ * it. Results are merged and de-duplicated, since a self-transfer hits both.
+ */
+export async function getCosmosAccountTxs(
+  chain: ChainConfig,
+  address: string,
+  limit = 50
+): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+  const queries = [
+    `message.sender='${address}'`,
+    `transfer.recipient='${address}'`,
+  ];
+
+  const results = await Promise.allSettled(
+    queries.map((query) =>
+      fetchLcd<{ tx_responses?: RawTxResponse[]; total?: string }>(
+        chain,
+        "/cosmos/tx/v1beta1/txs",
+        {
+          cache: "no-store",
+          timeoutMs: 15_000,
+          searchParams: {
+            query,
+            order_by: "ORDER_BY_DESC",
+            "pagination.limit": limit,
+          },
+        }
+      )
+    )
+  );
+
+  if (results.every((r) => r.status === "rejected")) {
+    return { txs: [], total: null, failed: true };
+  }
+
+  const seen = new Set<string>();
+  const txs: TxSummary[] = [];
+  let total = 0;
+
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    total += Number(result.value.total) || 0;
+    for (const raw of result.value.tx_responses ?? []) {
+      if (seen.has(raw.txhash)) continue;
+      seen.add(raw.txhash);
+      txs.push(rawTxToSummary(raw));
+    }
+  }
+
+  // Merged from two independently ordered lists, so re-sort by height.
+  txs.sort((a, b) => Number(b.height) - Number(a.height));
+
+  return { txs: txs.slice(0, limit), total: total || txs.length, failed: false };
 }
 
 /** "999999997125000000ugnot" -> { amount, denom }. */

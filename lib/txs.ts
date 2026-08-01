@@ -27,7 +27,7 @@ export interface TxDetail extends TxSummary {
   timeoutHeight: string | null;
 }
 
-interface RawTxResponse {
+export interface RawTxResponse {
   txhash: string;
   height: string;
   code: number;
@@ -110,7 +110,8 @@ export function labelForType(typeUrl: string): string {
   return name.replace(/^Msg/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
-function toSummary(raw: RawTxResponse): TxSummary {
+/** Shared with the account history reader, which hits the same tx endpoint. */
+export function rawTxToSummary(raw: RawTxResponse): TxSummary {
   const messages = (raw.tx?.body?.messages ?? []).map((m) => ({
     typeUrl: m["@type"],
     label: labelForType(m["@type"]),
@@ -142,7 +143,7 @@ export async function txsAtHeight(
       timeoutMs: 8000,
       searchParams: { query: `tx.height=${height}`, "pagination.limit": 100 },
     });
-    if (res.tx_responses?.length) return res.tx_responses.map(toSummary);
+    if (res.tx_responses?.length) return res.tx_responses.map(rawTxToSummary);
   } catch {
     // Indexing disabled or endpoint unhappy — fall through to hashes-only.
   }
@@ -251,7 +252,7 @@ export async function getTx(
 
     const raw = res.tx_response;
     return {
-      ...toSummary(raw),
+      ...rawTxToSummary(raw),
       rawLog: raw.raw_log ?? "",
       signers: [],
       timeoutHeight: raw.tx?.body?.timeout_height ?? null,

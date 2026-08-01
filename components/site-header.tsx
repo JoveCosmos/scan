@@ -228,11 +228,10 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
         ) : null}
 
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
-          {activeChainId ? (
-            <div className="min-w-0 max-w-xs flex-1">
-              <SearchBar chainId={activeChainId} />
-            </div>
-          ) : null}
+          <div className="min-w-0 max-w-xs flex-1">
+            {/* Search is global; the active chain is only a tie-breaker hint. */}
+            <SearchBar chainId={activeChainId ?? undefined} />
+          </div>
           <ChainSwitcher
             chains={chains}
             activeChainId={activeChainId}

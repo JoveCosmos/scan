@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
+import { cn } from "@/lib/utils";
 import { getAdapter } from "@/lib/adapter";
 
 export const dynamic = "force-dynamic";
@@ -78,51 +79,70 @@ async function ChainCard({
   );
 }
 
-export default function HomePage() {
+const TABS = [
+  { key: "mainnet", label: "Mainnet" },
+  { key: "testnet", label: "Testnet" },
+] as const;
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ net?: string }>;
+}) {
+  const { net } = await searchParams;
   const chains = getAllChains();
+  const active = net === "testnet" ? "testnet" : "mainnet";
+  const visible = chains.filter((c) => c.network === active);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-16 sm:py-24">
+    <main className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
       <div className="max-w-2xl">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-muted-foreground">
           <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
           Live across {chains.length} networks
         </span>
-
-        <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-5xl">
-          <span className="bg-gradient-to-r from-[var(--gata-blue)] to-[var(--gata-cyan)] bg-clip-text text-transparent">
-            GATA HUB
-          </span>{" "}
-          Explorer
-        </h1>
-        <p className="mt-4 text-base leading-relaxed text-muted-foreground">
-          Blocks, transactions and validators across the networks GATA validates.
-        </p>
       </div>
 
-      {(["mainnet", "testnet"] as const).map((group) => {
-        const inGroup = chains.filter((c) => c.network === group);
-        if (inGroup.length === 0) return null;
-        return (
-          <section key={group} className="mt-12">
-            <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-              {group}
-            </h2>
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {inGroup.map((chain, i) => (
-                <ChainCard
-                  key={chain.chainId}
-                  chainId={chain.chainId}
-                  prettyName={chain.prettyName}
-                  accent={accentFor(chain)}
-                  symbol={symbolFor(chain)}
-                  index={i}
-                />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {/* Plain links rather than client state: the tab survives a reload and is
+          shareable, and the page stays a server component. */}
+      <nav className="mt-6 flex items-center gap-1 border-b border-border">
+        {TABS.map((tab) => {
+          const isActive = tab.key === active;
+          return (
+            <Link
+              key={tab.key}
+              href={tab.key === "mainnet" ? "/" : `/?net=${tab.key}`}
+              className={cn(
+                "relative px-3 py-2.5 text-sm transition-colors",
+                isActive
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              <span className="ml-1.5 text-xs text-muted-foreground">
+                {chains.filter((c) => c.network === tab.key).length}
+              </span>
+              {isActive ? (
+                <span className="absolute inset-x-3 -bottom-px h-px bg-primary shadow-[0_0_8px_var(--gata-glow)]" />
+              ) : null}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {visible.map((chain, i) => (
+          <ChainCard
+            key={chain.chainId}
+            chainId={chain.chainId}
+            prettyName={chain.prettyName}
+            accent={accentFor(chain)}
+            symbol={symbolFor(chain)}
+            index={i}
+          />
+        ))}
+      </div>
     </main>
   );
 }

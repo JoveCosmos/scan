@@ -9,7 +9,7 @@ import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators } from "@/lib/validators";
 import type { AccountView } from "@/lib/accounts";
-import { getCosmosAccount } from "@/lib/accounts";
+import { getCosmosAccount, getCosmosAccountTxs } from "@/lib/accounts";
 import type { ProposalSummary, GovParams, ProposalVotes } from "@/lib/proposals";
 import {
   getProposals,
@@ -27,6 +27,7 @@ import {
   gnoBlockTxs,
   gnoAccount,
   gnoRegisteredCount,
+  gnoAccountTxs,
 } from "@/lib/gno";
 
 /**
@@ -97,6 +98,10 @@ export interface ChainAdapter {
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
+  /** Transactions this address sent or received. */
+  getAccountTxs(
+    address: string
+  ): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }>;
   getProposals(
     limit?: number
   ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;
@@ -126,6 +131,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getValidators: () => gnoValidators(chain),
       getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
+      getAccountTxs: (address) => gnoAccountTxs(chain, address),
       getProposals: async () => ({ proposals: [], total: null }),
       getProposal: async () => null,
       getProposalVotes: async () => ({
@@ -159,6 +165,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getValidators: () => getValidators(chain),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
+    getAccountTxs: (address) => getCosmosAccountTxs(chain, address),
     getProposals: (limit) => getProposals(chain, limit),
     getProposal: (id) => getProposal(chain, id),
     getProposalVotes: (id) => getProposalVotes(chain, id),

@@ -7,6 +7,11 @@ import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { decodeParam } from "@/lib/format";
 import { CopyButton } from "@/components/copy-button";
+import { LinkedAddresses } from "@/components/linked-addresses";
+import { AccountTxs } from "@/components/account-txs";
+import { Skeleton } from "@/components/ui/skeleton";
+import { linkedAddresses } from "@/lib/bech32";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +72,9 @@ export default async function AccountPage({
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
   const account = await getAdapter(chain).getAccount(address);
+  // Same key, different prefix — offered so one account can be followed across
+  // chains without deriving the address by hand.
+  const links = linkedAddresses(address);
 
   const primary = account.balances.find((b) => b.denom === chain.denom);
   const others = account.balances.filter((b) => b.denom !== chain.denom);
@@ -86,10 +94,11 @@ export default async function AccountPage({
           className="h-9 w-1 rounded-full"
           style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
         />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
           <p className="truncate font-mono text-sm text-muted-foreground">{address}</p>
         </div>
+        <LinkedAddresses links={links} currentChainId={chainId} />
       </div>
 
       {!account.exists ? (
@@ -223,6 +232,15 @@ export default async function AccountPage({
           ) : null}
         </>
       )}
+
+      {/* Outside the exists check on purpose: an address can have history and a
+          zero balance, and that history is the interesting part. */}
+      <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
+        Transactions
+      </h2>
+      <Suspense fallback={<Skeleton className="h-[240px] rounded-xl" />}>
+        <AccountTxs chain={chain} address={address} />
+      </Suspense>
     </main>
   );
 }

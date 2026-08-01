@@ -1,0 +1,70 @@
+import { describe, it, expect } from "vitest";
+import {
+  convertAddress,
+  decodePrefix,
+  linkedAddresses,
+  LINKED_CHAINS,
+} from "@/lib/bech32";
+
+const COSMOS = "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu";
+
+describe("convertAddress", () => {
+  it("re-encodes the same payload under a new prefix", () => {
+    expect(convertAddress(COSMOS, "akash")).toBe(
+      "akash1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5jepelx"
+    );
+    expect(convertAddress(COSMOS, "g")).toBe("g1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5v7sa8c");
+  });
+
+  it("round-trips back to the original", () => {
+    const atone = convertAddress(COSMOS, "atone")!;
+    expect(convertAddress(atone, "cosmos")).toBe(COSMOS);
+  });
+
+  it("returns null rather than throwing on junk", () => {
+    expect(convertAddress("not-an-address", "cosmos")).toBeNull();
+    expect(convertAddress("", "cosmos")).toBeNull();
+    // Correct bech32 shape, wrong checksum.
+    expect(convertAddress("cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xz", "akash")).toBeNull();
+  });
+});
+
+describe("decodePrefix", () => {
+  it("reads the human-readable part", () => {
+    expect(decodePrefix(COSMOS)).toBe("cosmos");
+    expect(decodePrefix("g1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5v7sa8c")).toBe("g");
+  });
+
+  it("returns null for undecodable input", () => {
+    expect(decodePrefix("hello")).toBeNull();
+  });
+});
+
+describe("linkedAddresses", () => {
+  it("returns the account on every linked chain, including its own", () => {
+    const links = linkedAddresses(COSMOS);
+    expect(links).toHaveLength(LINKED_CHAINS.length);
+    expect(links.map((l) => l.chainId)).toEqual([
+      "cosmoshub-4",
+      "atomone-1",
+      "akashnet-2",
+      "topaz-1",
+    ]);
+    expect(links.find((l) => l.chainId === "cosmoshub-4")!.address).toBe(COSMOS);
+  });
+
+  it("gives the same set whichever chain you start from", () => {
+    const fromGno = linkedAddresses("g1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5v7sa8c");
+    expect(fromGno.find((l) => l.chainId === "cosmoshub-4")!.address).toBe(COSMOS);
+  });
+
+  it("refuses validator operator addresses — a different namespace", () => {
+    expect(
+      linkedAddresses("cosmosvaloper1qphf0ferqcch0jca9hlqfm3x0eds3dpkcvpafp")
+    ).toEqual([]);
+  });
+
+  it("returns nothing for junk instead of throwing", () => {
+    expect(linkedAddresses("nonsense")).toEqual([]);
+  });
+});

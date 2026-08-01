@@ -542,6 +542,25 @@ export async function gnoAccount(
   };
 }
 
+/** Transactions this account sent or received, newest first. */
+export async function gnoAccountTxs(
+  chain: ChainConfig,
+  address: string,
+  limit = 50
+): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+  try {
+    const data = await gnoApi<{ items: ApiTxItem[] }>(
+      chain,
+      `/accounts/${address}/transactions`,
+      { limit }
+    );
+    const txs = (data.items ?? []).map(toTxSummary);
+    return { txs, total: txs.length, failed: false };
+  } catch {
+    return { txs: [], total: null, failed: true };
+  }
+}
+
 export interface GnoValidatorDetail {
   address: string;
   moniker: string | null;
