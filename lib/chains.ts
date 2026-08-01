@@ -17,6 +17,8 @@ const chainConfigSchema = z
      * plus an indexing REST API, so they need a different adapter entirely.
      */
     kind: z.enum(["cosmos", "gno"]).default("cosmos"),
+    /** Groups chains in the switcher and on the landing page. */
+    network: z.enum(["mainnet", "testnet"]).default("mainnet"),
     lcdEndpoints: z.array(z.string().url()).default([]),
     rpcEndpoints: z.array(z.string().url()).min(1),
     /** Indexing REST API. Required for gno, where the RPC cannot list txs. */

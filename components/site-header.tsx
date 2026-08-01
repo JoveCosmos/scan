@@ -15,6 +15,7 @@ export interface ChainSummary {
   accent: string;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
+  network: "mainnet" | "testnet";
 }
 
 const NAV = [
@@ -82,7 +83,17 @@ function ChainSwitcher({
           role="listbox"
           className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
         >
-          {chains.map((chain) => {
+          {(["mainnet", "testnet"] as const).flatMap((group) => {
+            const inGroup = chains.filter((c) => c.network === group);
+            if (inGroup.length === 0) return [];
+            return [
+              <li
+                key={`h-${group}`}
+                className="px-2.5 pb-1 pt-2 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                {group}
+              </li>,
+              ...inGroup.map((chain) => {
             const isActive = chain.chainId === activeChainId;
             return (
               <li key={chain.chainId}>
@@ -116,6 +127,8 @@ function ChainSwitcher({
                 </Link>
               </li>
             );
+          }),
+            ];
           })}
         </ul>
       ) : null}

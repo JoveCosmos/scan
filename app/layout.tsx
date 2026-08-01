@@ -25,7 +25,6 @@ export const metadata: Metadata = {
   },
   description:
     "Multi-chain Cosmos block explorer by GATA HUB — Cosmos Hub, AtomOne and Akash.",
-  icons: { icon: "/gata_logo.jpg" },
 };
 
 export default function RootLayout({
@@ -39,6 +38,7 @@ export default function RootLayout({
     symbol: symbolFor(chain),
     accent: accentFor(chain),
     governance: getAdapter(chain).capabilities.governance,
+    network: chain.network,
   }));
 
   return (

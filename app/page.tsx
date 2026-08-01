@@ -100,18 +100,29 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {chains.map((chain, i) => (
-          <ChainCard
-            key={chain.chainId}
-            chainId={chain.chainId}
-            prettyName={chain.prettyName}
-            accent={accentFor(chain)}
-            symbol={symbolFor(chain)}
-            index={i}
-          />
-        ))}
-      </div>
+      {(["mainnet", "testnet"] as const).map((group) => {
+        const inGroup = chains.filter((c) => c.network === group);
+        if (inGroup.length === 0) return null;
+        return (
+          <section key={group} className="mt-12">
+            <h2 className="mb-4 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {group}
+            </h2>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {inGroup.map((chain, i) => (
+                <ChainCard
+                  key={chain.chainId}
+                  chainId={chain.chainId}
+                  prettyName={chain.prettyName}
+                  accent={accentFor(chain)}
+                  symbol={symbolFor(chain)}
+                  index={i}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </main>
   );
 }

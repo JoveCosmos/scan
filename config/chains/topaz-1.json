@@ -4,6 +4,7 @@
   "prettyName": "gno.land",
   "logo": "/chains/gnoland.svg",
   "kind": "gno",
+  "network": "testnet",
   "bech32Prefix": "g",
   "denom": "ugnot",
   "exponent": 6,
@@ -12,8 +13,12 @@
     "https://gnoland-test6-rpc.gatadao.com",
     "https://topaz.rpc.onbloc.xyz"
   ],
-  "apiEndpoints": ["https://topaz.api.onbloc.xyz/v1"],
-  "indexerEndpoints": ["https://topaz.indexer.onbloc.xyz/graphql/query"],
+  "apiEndpoints": [
+    "https://topaz.api.onbloc.xyz/v1"
+  ],
+  "indexerEndpoints": [
+    "https://topaz.indexer.onbloc.xyz/graphql/query"
+  ],
   "wsEndpoint": "wss://topaz.rpc.onbloc.xyz/websocket",
   "featuredValidator": null,
   "accent": "#62D9FF"

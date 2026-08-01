@@ -1,0 +1,19 @@
+{
+  "chainId": "provider",
+  "name": "cosmoshub-testnet",
+  "prettyName": "Cosmos Hub Testnet",
+  "logo": "/chains/cosmoshub.svg",
+  "network": "testnet",
+  "bech32Prefix": "cosmos",
+  "denom": "uatom",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://provider-api.gatadao.com"
+  ],
+  "rpcEndpoints": [
+    "https://provider-rpc.gatadao.com"
+  ],
+  "wsEndpoint": "wss://provider-rpc.gatadao.com/websocket",
+  "featuredValidator": null,
+  "accent": "#36D399"
+}

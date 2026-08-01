@@ -1,0 +1,19 @@
+{
+  "chainId": "atomone-testnet-1",
+  "name": "atomone-testnet",
+  "prettyName": "AtomOne Testnet",
+  "logo": "/chains/atomone.svg",
+  "network": "testnet",
+  "bech32Prefix": "atone",
+  "denom": "uatone",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://atomone-testnet-api.gatadao.com"
+  ],
+  "rpcEndpoints": [
+    "https://atomone-testnet-rpc.gatadao.com"
+  ],
+  "wsEndpoint": "wss://atomone-testnet-rpc.gatadao.com/websocket",
+  "featuredValidator": null,
+  "accent": "#FFB155"
+}
