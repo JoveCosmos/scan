@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchFrom } from "@/lib/lcd";
+import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary } from "@/lib/txs";
@@ -431,6 +432,9 @@ function rankValidators(
       rank: i + 1,
       operatorAddress: v.address,
       moniker: v.moniker,
+      // gno consensus addresses are already the identifier used everywhere;
+      // there is no separate pubkey-derived address to carry.
+      consensusPubkey: null,
       website: "",
       jailed: false,
       status: v.status,
@@ -559,6 +563,82 @@ export async function gnoAccountTxs(
   } catch {
     return { txs: [], total: null, failed: true };
   }
+}
+
+interface GnoBlockCommit {
+  result?: {
+    block?: {
+      header?: { height?: string };
+      last_commit?: {
+        precommits?: ({ validator_address?: string } | null)[];
+      };
+    };
+  };
+}
+
+/**
+ * Signing history over the last N blocks, keyed by the validator's g1 address.
+ *
+ * gno.land has no slashing module, so there is no long-window uptime to read —
+ * the ratio here is measured over these blocks only, and is labelled as such.
+ * Absent precommits are null entries, which is what makes a miss visible.
+ */
+export async function gnoUptime(
+  chain: ChainConfig,
+  count = RECENT_BAR_COUNT
+): Promise<Map<string, ValidatorUptime>> {
+  const out = new Map<string, ValidatorUptime>();
+
+  let head: number;
+  try {
+    const status = await gnoRpc<StatusResult>(chain, "/status");
+    head = Number(status.sync_info.latest_block_height);
+  } catch {
+    return out;
+  }
+  if (!Number.isFinite(head)) return out;
+
+  const heights = Array.from({ length: count }, (_, i) => head - i)
+    .filter((h) => h > 0)
+    .reverse();
+
+  const blocks = await Promise.allSettled(
+    heights.map((h) =>
+      fetchFrom<GnoBlockCommit>(
+        chain.rpcEndpoints,
+        `/block?height=${h}`,
+        { cache: "no-store", timeoutMs: 8000 },
+        `${chain.chainId} rpc`
+      )
+    )
+  );
+
+  const perBlock: Set<string>[] = [];
+  for (const result of blocks) {
+    if (result.status !== "fulfilled") continue;
+    const set = new Set<string>();
+    for (const pc of result.value.result?.block?.last_commit?.precommits ?? []) {
+      if (pc?.validator_address) set.add(pc.validator_address);
+    }
+    perBlock.push(set);
+  }
+
+  const seen = new Set<string>();
+  for (const set of perBlock) for (const addr of set) seen.add(addr);
+
+  for (const addr of seen) {
+    const bars = perBlock.map((set) => set.has(addr));
+    const signed = bars.filter(Boolean).length;
+    out.set(addr, {
+      ratio: bars.length > 0 ? signed / bars.length : null,
+      missed: bars.length - signed,
+      window: bars.length,
+      bars,
+      tombstoned: false,
+    });
+  }
+
+  return out;
 }
 
 export interface GnoValidatorDetail {

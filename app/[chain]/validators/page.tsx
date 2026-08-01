@@ -7,6 +7,8 @@ import { statusLabel } from "@/lib/validators";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
+import { UptimeBars } from "@/components/uptime-bars";
+import { emptyUptime } from "@/lib/uptime";
 
 export const revalidate = 60;
 
@@ -90,7 +92,9 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     adapter.getValidators(),
     adapter.getRegisteredCount(),
   ]);
-  const { staking, stakeWeighted, registry } = adapter.capabilities;
+  // Needs the validator set first: uptime is keyed by the same identifier.
+  const uptime = await adapter.getUptime(validators).catch(() => new Map());
+  const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -175,7 +179,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Validator</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Voting Power</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Cumulative</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Uptime</th>
               {staking ? (
                 <>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
@@ -234,8 +238,12 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                     />
                   </div>
                 </td>
-                <td data-label="Cumulative" className="px-4 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
-                  {(v.cumulativePower * 100).toFixed(1)}%
+                <td data-label="Uptime" className="px-4 py-2.5 text-right">
+                  <UptimeBars
+                    uptime={uptime.get(v.operatorAddress) ?? emptyUptime()}
+                    slashingWindow={slashingWindow}
+                    className="items-end"
+                  />
                 </td>
                 {!staking ? (
                   <td data-label="Power" className="px-4 py-2.5 text-right font-mono tabular-nums">

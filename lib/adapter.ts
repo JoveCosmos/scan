@@ -8,6 +8,9 @@ import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators } from "@/lib/validators";
+import type { ValidatorUptime } from "@/lib/uptime";
+import { getCosmosUptime } from "@/lib/uptime";
+import { cached } from "@/lib/cache";
 import type { AccountView } from "@/lib/accounts";
 import { getCosmosAccount, getCosmosAccountTxs } from "@/lib/accounts";
 import type { ProposalSummary, GovParams, ProposalVotes } from "@/lib/proposals";
@@ -28,6 +31,7 @@ import {
   gnoAccount,
   gnoRegisteredCount,
   gnoAccountTxs,
+  gnoUptime,
 } from "@/lib/gno";
 
 /**
@@ -83,6 +87,8 @@ export interface ChainCapabilities {
   registry: boolean;
   /** Chain has an on-chain governance module. */
   governance: boolean;
+  /** Uptime comes from a slashing window, not just recent blocks. */
+  slashingWindow: boolean;
 }
 
 export interface ChainAdapter {
@@ -95,6 +101,10 @@ export interface ChainAdapter {
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
+  /** Signing history keyed by the same id the validator list uses. */
+  getUptime(
+    validators: ValidatorSummary[]
+  ): Promise<Map<string, ValidatorUptime>>;
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
@@ -121,6 +131,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
         registry: true,
         // gno.land governance lives in realms (GovDAO), not a gov module.
         governance: false,
+        slashingWindow: false,
       },
       getOverview: () => gnoOverview(chain),
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
@@ -129,6 +140,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
+      getUptime: () =>
+        cached(`uptime:${chain.chainId}`, 15_000, () => gnoUptime(chain)),
       getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
       getAccountTxs: (address) => gnoAccountTxs(chain, address),
@@ -154,6 +167,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       stakeWeighted: true,
       registry: false,
       governance: true,
+      slashingWindow: true,
     },
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
@@ -163,6 +177,10 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
     getValidators: () => getValidators(chain),
+    getUptime: (validators) =>
+      cached(`uptime:${chain.chainId}`, 15_000, () =>
+        getCosmosUptime(chain, validators)
+      ),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
     getAccountTxs: (address) => getCosmosAccountTxs(chain, address),

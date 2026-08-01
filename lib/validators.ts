@@ -3,6 +3,7 @@ import { fetchLcd } from "@/lib/lcd";
 
 interface RawValidator {
   operator_address: string;
+  consensus_pubkey?: { key?: string };
   jailed: boolean;
   status: string;
   tokens: string;
@@ -30,6 +31,8 @@ export interface ValidatorSummary {
   jailed: boolean;
   status: string;
   tokens: string;
+  /** Base64 ed25519 key; uptime derives the consensus address from it. */
+  consensusPubkey: string | null;
   /** Share of total bonded stake, 0–1. */
   votingPower: number;
   /** Running total of votingPower down the ranked list, 0–1. */
@@ -218,6 +221,7 @@ export async function getValidators(chain: ChainConfig): Promise<ValidatorSummar
       jailed: v.jailed,
       status: v.status,
       tokens: v.tokens,
+      consensusPubkey: v.consensus_pubkey?.key ?? null,
       votingPower: power,
       cumulativePower: running,
       commissionRate: Number(v.commission?.commission_rates?.rate ?? 0),
