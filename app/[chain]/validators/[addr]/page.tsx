@@ -8,6 +8,7 @@ import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { decodeParam } from "@/lib/format";
+import { accountFromOperator } from "@/lib/bech32";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,7 @@ export default async function ValidatorDetailPage({
   const validator = await getValidator(chain, addr);
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
+  const selfDelegation = accountFromOperator(addr, chain.bech32Prefix);
 
   if (!validator) {
     return (
@@ -208,6 +210,19 @@ export default async function ValidatorDetailPage({
               <CopyButton value={validator.operatorAddress} label="operator address" />
             </div>
           </Row>
+          {selfDelegation ? (
+            <Row label="Account">
+              {/* Same key as the operator address, under the account prefix —
+                  the validator's self-delegation address. Links onward to its
+                  balances, history and the cross-chain address switcher. */}
+              <Link
+                href={`/${chainId}/accounts/${selfDelegation}`}
+                className="break-all font-mono text-xs text-primary hover:underline"
+              >
+                {selfDelegation}
+              </Link>
+            </Row>
+          ) : null}
           {validator.website ? (
             <Row label="Website">
               <a

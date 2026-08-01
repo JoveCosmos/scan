@@ -3,6 +3,7 @@ import {
   convertAddress,
   decodePrefix,
   linkedAddresses,
+  accountFromOperator,
   LINKED_CHAINS,
 } from "@/lib/bech32";
 
@@ -37,6 +38,30 @@ describe("decodePrefix", () => {
 
   it("returns null for undecodable input", () => {
     expect(decodePrefix("hello")).toBeNull();
+  });
+});
+
+describe("accountFromOperator", () => {
+  const OP = "cosmosvaloper1qphf0ferqcch0jca9hlqfm3x0eds3dpkcvpafp";
+
+  it("derives the validator's self-delegation account", () => {
+    const account = accountFromOperator(OP, "cosmos")!;
+    expect(account.startsWith("cosmos1")).toBe(true);
+    // Same payload, so converting back reproduces the operator address.
+    expect(convertAddress(account, "cosmosvaloper")).toBe(OP);
+  });
+
+  it("uses the chain's own prefix", () => {
+    const op = convertAddress(OP, "atonevaloper")!;
+    expect(accountFromOperator(op, "atone")!.startsWith("atone1")).toBe(true);
+  });
+
+  it("refuses a plain account address, which has no operator to unwrap", () => {
+    expect(accountFromOperator(COSMOS, "cosmos")).toBeNull();
+  });
+
+  it("returns null for junk", () => {
+    expect(accountFromOperator("nonsense", "cosmos")).toBeNull();
   });
 });
 

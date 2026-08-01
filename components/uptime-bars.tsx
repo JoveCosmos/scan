@@ -9,11 +9,14 @@ import type { ValidatorUptime } from "@/lib/uptime";
 export function UptimeBars({
   uptime,
   slashingWindow,
+  jailed = false,
   className,
 }: {
   uptime: ValidatorUptime;
   /** True when the percentage comes from the chain's slashing window. */
   slashingWindow: boolean;
+  /** Shown here because this column replaced the separate status column. */
+  jailed?: boolean;
   className?: string;
 }) {
   const { bars, ratio, missed, window } = uptime;
@@ -37,9 +40,15 @@ export function UptimeBars({
 
   return (
     <div className={cn("flex flex-col items-end gap-1", className)} title={title}>
-      <span className={cn("font-mono text-xs tabular-nums", tone)}>
-        {pct === null ? "—" : `${pct.toFixed(2)}%`}
-      </span>
+      {jailed || uptime.tombstoned ? (
+        <span className="rounded-full bg-[var(--gata-burn)]/12 px-2 py-0.5 text-xs text-[var(--gata-burn)]">
+          {uptime.tombstoned ? "Tombstoned" : "Jailed"}
+        </span>
+      ) : (
+        <span className={cn("font-mono text-xs tabular-nums", tone)}>
+          {pct === null ? "—" : `${pct.toFixed(2)}%`}
+        </span>
+      )}
 
       {bars.length > 0 ? (
         <span className="flex items-end gap-[2px]" aria-hidden="true">

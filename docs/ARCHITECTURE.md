@@ -35,7 +35,9 @@ The adapter publishes what a chain can actually do, so the UI hides what would
 otherwise render as a misleading zero:
 
 - `staking` — gno has no staking module, so the validator table drops the
-  Staked/Commission/Status columns.
+  Staked and Commission columns.
+- `slashingWindow` — gno has no slashing module, so its uptime percentage is
+  measured over recent blocks only and the tooltip says so.
 - `stakeWeighted` — gno voting power is *assigned*, so the Nakamoto coefficient
   is labelled "of voting power" rather than "of stake".
 - `registry` — gno has a validator registry (96) larger than its active set (87).
@@ -63,6 +65,29 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
   "accent": "#36D399"               // must be unique across chains
 }
 ```
+
+## Addresses are all the same key
+
+A bech32 address is a prefix plus a 20-byte payload, so several things that look
+like lookups are pure local re-encodings:
+
+| From | To | Used for |
+| --- | --- | --- |
+| `cosmos1…` | `akash1…`, `atone1…`, `g1…` | the cross-chain address switcher |
+| `cosmosvaloper1…` | `cosmos1…` | a validator's self-delegation account |
+| ed25519 pubkey | `cosmosvalcons1…` + base64 | matching slashing records and block signatures |
+
+That last one is not bech32 — a consensus address is the first 20 bytes of
+`sha256(pubkey)`, which blocks carry base64-encoded and the slashing module
+keys bech32-encoded. One derivation feeds both.
+
+The switcher deliberately **refuses operator addresses**: re-encoding one yields
+a valid-looking address that is not the same entity. `accountFromOperator` is
+the opposite direction and is explicitly allowed, because that account *is* the
+validator.
+
+This makes the navigation loop close: validator → its account → the same account
+on other chains → that chain's validator, all without a network call.
 
 ## Performance
 
@@ -103,12 +128,16 @@ Hard-won, and each one cost time to find:
   transactions and says so.
 - **Tx search reports its count in a top-level `total`**, not under
   `pagination`, and caps pages at 100 regardless of the requested limit.
+- **`Buffer.from(x, "base64")` is lenient** — it drops invalid characters
+  instead of throwing, so junk still yields bytes, which hash to a valid-looking
+  consensus address that matches nothing. Consensus keys are checked for exactly
+  32 bytes.
 - **AtomOne's gov module has no `NoWithVeto`.** `Tally.veto` is nullable and the
   bar omits that segment rather than drawing a permanent zero.
 
 ## Testing
 
-`npm test` — 50 vitest tests over the pure logic. `npm run build` runs
+`npm test` — 69 vitest tests over the pure logic. `npm run build` runs
 `tsc --noEmit && vitest run` first, so a type error or a failing test stops a
 deploy before the symlink swaps.
 

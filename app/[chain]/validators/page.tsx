@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
 import { Skeleton } from "@/components/ui/skeleton";
-import { statusLabel } from "@/lib/validators";
+
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
@@ -179,16 +179,17 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Validator</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Voting Power</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Uptime</th>
               {staking ? (
                 <>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
-                  <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
                 </>
               ) : (
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Power</th>
               )}
+              {/* Uptime reads as the validator's status, so it is named that
+                  and sits last where a status column is expected. */}
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -238,13 +239,6 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                     />
                   </div>
                 </td>
-                <td data-label="Uptime" className="px-4 py-2.5 text-right">
-                  <UptimeBars
-                    uptime={uptime.get(v.operatorAddress) ?? emptyUptime()}
-                    slashingWindow={slashingWindow}
-                    className="items-end"
-                  />
-                </td>
                 {!staking ? (
                   <td data-label="Power" className="px-4 py-2.5 text-right font-mono tabular-nums">
                     {Number(v.tokens).toLocaleString()}
@@ -257,19 +251,16 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                 <td data-label="Commission" className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {(v.commissionRate * 100).toFixed(1)}%
                 </td>
-                <td data-label="Status" className="px-4 py-2.5">
-                  <span
-                    className={
-                      v.jailed
-                        ? "rounded-full bg-[var(--gata-burn)]/12 px-2 py-0.5 text-xs text-[var(--gata-burn)]"
-                        : "rounded-full bg-[var(--gata-green)]/12 px-2 py-0.5 text-xs text-[var(--gata-green)]"
-                    }
-                  >
-                    {v.jailed ? "Jailed" : statusLabel(v.status)}
-                  </span>
-                </td>
                   </>
                 )}
+                <td data-label="Status" className="px-4 py-2.5 text-right">
+                  <UptimeBars
+                    uptime={uptime.get(v.operatorAddress) ?? emptyUptime()}
+                    slashingWindow={slashingWindow}
+                    jailed={v.jailed}
+                    className="items-end"
+                  />
+                </td>
               </tr>
             ))}
           </tbody>

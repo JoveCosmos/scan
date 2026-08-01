@@ -35,6 +35,25 @@ export function convertAddress(address: string, toPrefix: string): string | null
   }
 }
 
+/**
+ * The account behind a validator operator address.
+ *
+ * `cosmosvaloper1abc…` and `cosmos1abc…` carry the same 20 bytes — the operator
+ * form is just the same key under a different prefix. That account is the
+ * validator's self-delegation address, so this is the link from a validator
+ * page to its balances and transaction history.
+ */
+export function accountFromOperator(
+  operatorAddress: string,
+  bech32Prefix: string
+): string | null {
+  const prefix = decodePrefix(operatorAddress);
+  if (!prefix) return null;
+  // Only meaningful for an operator address; a plain account is already there.
+  if (!prefix.endsWith("valoper")) return null;
+  return convertAddress(operatorAddress, bech32Prefix);
+}
+
 export function decodePrefix(address: string): string | null {
   try {
     return bech32.decode(address).prefix;

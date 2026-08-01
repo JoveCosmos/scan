@@ -80,10 +80,15 @@ async function ValoperProfilePanel({
       <div className="gata-panel mb-5" style={{ ["--panel-accent" as string]: accent }}>
         <dl>
           <Row label="Operator Address">
+            {/* On gno this is already a plain account address, so it links
+                straight to balances, history and the address switcher. */}
             <div className="flex items-start gap-2">
-              <span className="min-w-0 break-all font-mono text-xs">
+              <Link
+                href={`/${chain.chainId}/accounts/${profile.operatorAddress}`}
+                className="min-w-0 break-all font-mono text-xs text-primary hover:underline"
+              >
                 {profile.operatorAddress}
-              </span>
+              </Link>
               <CopyButton value={profile.operatorAddress} label="operator address" />
             </div>
           </Row>
@@ -235,7 +240,12 @@ export async function GnoValidatorDetail({
         <dl>
           <Row label="Consensus Address">
             <div className="flex items-start gap-2">
-              <span className="min-w-0 break-all font-mono text-xs">{address}</span>
+              <Link
+                href={`/${chain.chainId}/accounts/${address}`}
+                className="min-w-0 break-all font-mono text-xs text-primary hover:underline"
+              >
+                {address}
+              </Link>
               <CopyButton value={address} label="consensus address" />
             </div>
           </Row>
