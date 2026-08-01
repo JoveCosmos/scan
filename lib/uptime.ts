@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
-import { fetchLcd, fetchFrom } from "@/lib/lcd";
+import { fetchLcd } from "@/lib/lcd";
 
 export interface ValidatorUptime {
   /** Signed share of the chain's slashing window, 0–1. Null when unknown. */
