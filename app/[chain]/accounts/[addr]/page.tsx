@@ -9,8 +9,10 @@ import { decodeParam } from "@/lib/format";
 import { CopyButton } from "@/components/copy-button";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { AccountTxs } from "@/components/account-txs";
+import { AddressElsewhere } from "@/components/address-elsewhere";
 import { Skeleton } from "@/components/ui/skeleton";
 import { linkedAddresses } from "@/lib/bech32";
+import { resolveIbcDenoms, type DenomTrace } from "@/lib/ibc";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +35,15 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** IBC denoms are opaque hashes; show a short form with the full value on hover. */
-function denomLabel(denom: string, symbol: string, baseDenom: string): string {
+/** IBC denoms are opaque hashes until resolved through a denom trace. */
+function denomLabel(
+  denom: string,
+  symbol: string,
+  baseDenom: string,
+  trace?: DenomTrace
+): string {
   if (denom === baseDenom) return symbol;
+  if (trace) return trace.symbol;
   if (denom.startsWith("ibc/")) return `IBC ${denom.slice(4, 10)}…`;
   return denom;
 }
@@ -75,6 +83,11 @@ export default async function AccountPage({
   // Same key, different prefix — offered so one account can be followed across
   // chains without deriving the address by hand.
   const links = linkedAddresses(address);
+  // Turns "IBC 3EF74C…" into the asset it actually is.
+  const traces = await resolveIbcDenoms(
+    chain,
+    account.balances.map((b) => b.denom)
+  );
 
   const primary = account.balances.find((b) => b.denom === chain.denom);
   const others = account.balances.filter((b) => b.denom !== chain.denom);
@@ -102,13 +115,19 @@ export default async function AccountPage({
       </div>
 
       {!account.exists ? (
-        <div className="gata-panel px-6 py-12 text-center">
-          <h2 className="text-lg font-semibold">No on-chain activity</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {chain.prettyName} has no record for this address. It may never have
-            been used, or it may belong to a different network.
-          </p>
-        </div>
+        <>
+          <div className="gata-panel px-6 py-12 text-center">
+            <h2 className="text-lg font-semibold">No on-chain activity</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {chain.prettyName} has no record for this address. It may never
+              have been used, or it may belong to a different network.
+            </p>
+          </div>
+          {/* Streamed: checks the same key on every linked chain. */}
+          <Suspense fallback={null}>
+            <AddressElsewhere links={links} currentChainId={chainId} />
+          </Suspense>
+        </>
       ) : (
         <>
           <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -213,7 +232,12 @@ export default async function AccountPage({
                           className="px-4 py-3 font-mono text-xs"
                           title={b.denom}
                         >
-                          {denomLabel(b.denom, symbol, chain.denom)}
+                          {denomLabel(b.denom, symbol, chain.denom, traces.get(b.denom))}
+                          {traces.get(b.denom)?.channels.length ? (
+                            <span className="ml-2 font-sans text-[11px] text-muted-foreground">
+                              via {traces.get(b.denom)!.channels.join(" → ")}
+                            </span>
+                          ) : null}
                         </td>
                         <td
                           data-label="Amount"

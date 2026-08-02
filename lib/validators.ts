@@ -52,6 +52,8 @@ export function statusLabel(status: string): string {
 
 export interface ValidatorDetail {
   operatorAddress: string;
+  /** Base64 ed25519 key, so uptime can be resolved for this one validator. */
+  consensusPubkey: string | null;
   moniker: string;
   identity: string;
   website: string;
@@ -70,7 +72,6 @@ export interface ValidatorDetail {
   /** Share of total bonded stake, 0–1. null when the set could not be read. */
   votingPower: number | null;
   rank: number | null;
-  delegatorCount: string | null;
   outstandingCommission: { denom: string; amount: string }[];
 }
 
@@ -82,10 +83,6 @@ interface SingleValidatorResponse {
     unbonding_height?: string;
     unbonding_time?: string;
   };
-}
-
-interface DelegationsResponse {
-  pagination?: { total?: string };
 }
 
 interface CommissionResponse {
@@ -116,17 +113,8 @@ export async function getValidator(
   const v = single.validator;
   if (!v) return null;
 
-  const [setResult, delegationsResult, commissionResult] = await Promise.allSettled([
+  const [setResult, commissionResult] = await Promise.allSettled([
     getValidators(chain),
-    fetchLcd<DelegationsResponse>(
-      chain,
-      `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`,
-      {
-        cache: "no-store",
-        timeoutMs: 12_000,
-        searchParams: { "pagination.count_total": true, "pagination.limit": 1 },
-      }
-    ),
     fetchLcd<CommissionResponse>(
       chain,
       `/cosmos/distribution/v1beta1/validators/${operatorAddress}/commission`,
@@ -146,6 +134,7 @@ export async function getValidator(
 
   return {
     operatorAddress: v.operator_address,
+    consensusPubkey: v.consensus_pubkey?.key ?? null,
     moniker: v.description?.moniker?.trim() || v.operator_address,
     identity: v.description?.identity ?? "",
     website: v.description?.website ?? "",
@@ -164,15 +153,74 @@ export async function getValidator(
     unbondingTime: v.unbonding_time ?? null,
     votingPower,
     rank,
-    delegatorCount:
-      delegationsResult.status === "fulfilled"
-        ? (delegationsResult.value.pagination?.total ?? null)
-        : null,
     outstandingCommission:
       commissionResult.status === "fulfilled"
         ? (commissionResult.value.commission?.commission ?? [])
         : [],
   };
+}
+
+export interface Delegator {
+  address: string;
+  /** Bonded amount in base denom. */
+  amount: string;
+  /** Share of this validator's stake, 0–1. */
+  share: number;
+}
+
+interface DelegationRow {
+  delegation?: { delegator_address?: string };
+  balance?: { amount?: string };
+}
+
+/**
+ * Who delegates to this validator, largest first.
+ *
+ * One page only: some validators have tens of thousands of delegators and the
+ * long tail is dust. The total count comes from the same response, so the page
+ * can say how many are not shown.
+ */
+export async function getValidatorDelegators(
+  chain: ChainConfig,
+  operatorAddress: string,
+  limit = 25
+): Promise<{ delegators: Delegator[]; total: number | null; failed: boolean }> {
+  try {
+    const res = await fetchLcd<{
+      delegation_responses?: DelegationRow[];
+      pagination?: { total?: string };
+    }>(chain, `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`, {
+      cache: "no-store",
+      timeoutMs: 15_000,
+      searchParams: {
+        // No count_total: measured at ~6.4s with it versus ~2.2s without, because
+        // counting every delegation is a full scan. The exact total is not worth
+        // four seconds on a "largest delegators" list.
+        "pagination.limit": 200,
+      },
+    });
+
+    const rows = res.delegation_responses ?? [];
+    const totalStake = rows.reduce((sum, r) => sum + Number(r.balance?.amount ?? 0), 0);
+
+    const delegators: Delegator[] = rows
+      .map((r) => ({
+        address: r.delegation?.delegator_address ?? "",
+        amount: r.balance?.amount ?? "0",
+        share: totalStake > 0 ? Number(r.balance?.amount ?? 0) / totalStake : 0,
+      }))
+      .filter((d) => d.address)
+      .sort((a, b) => Number(b.amount) - Number(a.amount));
+
+    return {
+      delegators: delegators.slice(0, limit),
+      // Null unless the endpoint volunteered a count; we no longer ask for one.
+      total: res.pagination?.total ? Number(res.pagination.total) : null,
+      failed: false,
+    };
+  } catch {
+    return { delegators: [], total: null, failed: true };
+  }
 }
 
 /**

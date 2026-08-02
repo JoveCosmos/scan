@@ -110,6 +110,30 @@ built once, cached to disk (`VALOPER_CACHE_DIR`, outside the release tree so a
 deploy never discards it), warmed at boot by `instrumentation.ts`, and refreshed
 stale-while-revalidate.
 
+**Validator uptime** (`lib/uptime.ts`). Signing history comes from two sources
+combined: the slashing module's `signing_infos` gives the missed-block counter
+over the chain's full window (the percentage), and the last `RECENT_BAR_COUNT`
+block commits give the ping-style bars. Both key off the consensus address —
+the first 20 bytes of `sha256(ed25519 pubkey)` — which appears base64-encoded
+in block commits and as `<prefix>valcons` in slashing. Cached 15s and shared
+between the validator list and the detail page, so opening a validator straight
+from the list costs nothing extra.
+
+**Cross-chain addresses** (`lib/bech32.ts`). Every address here is the same
+20-byte payload under a different human-readable prefix, so one key can be
+re-encoded for any chain in `LINKED_CHAINS`. This powers three things: the
+address switcher, the validator's self-delegation account link
+(`accountFromOperator`, valoper → account prefix), and the "active elsewhere"
+hint shown when an address has no activity on the current chain. Validator
+addresses are deliberately excluded from the switcher — a `…valoper1…` and the
+account sharing its payload are not interchangeable identities.
+
+**IBC denominations** (`lib/ibc.ts`). An `ibc/<HASH>` balance is meaningless
+without its trace, so balances resolve each hash to its home denom and the
+channel it arrived through. Traces are immutable, hence a one-hour cache; a 404
+is a normal answer (unknown hash on this chain) and is cached as such rather
+than retried per page view.
+
 ## Things that are not bugs
 
 Hard-won, and each one cost time to find:
@@ -132,12 +156,21 @@ Hard-won, and each one cost time to find:
   instead of throwing, so junk still yields bytes, which hash to a valid-looking
   consensus address that matches nothing. Consensus keys are checked for exactly
   32 bytes.
+- **`denom_traces` returns 501 Not Implemented on every chain here.** The
+  current IBC path is `/ibc/apps/transfer/v1/denoms/{hash}`; the older one is
+  gone.
+- **`pagination.count_total=true` is a full scan.** On the validator
+  delegations query it measured 6.4s versus 2.2s without, so the delegator list
+  asks for one page and reports what it shows rather than an exact total.
+- **publicnode 503s the validator-delegations path entirely**, at every page
+  size, so that read always fails over. It is streamed behind Suspense for
+  exactly this reason.
 - **AtomOne's gov module has no `NoWithVeto`.** `Tally.veto` is nullable and the
   bar omits that segment rather than drawing a permanent zero.
 
 ## Testing
 
-`npm test` — 69 vitest tests over the pure logic. `npm run build` runs
+`npm test` — 73 vitest tests over the pure logic. `npm run build` runs
 `tsc --noEmit && vitest run` first, so a type error or a failing test stops a
 deploy before the symlink swaps.
 

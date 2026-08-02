@@ -3,12 +3,19 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { getChain, symbolFor, accentFor } from "@/lib/chains";
-import { getValidator, statusLabel } from "@/lib/validators";
+import { getValidator } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { decodeParam } from "@/lib/format";
 import { accountFromOperator } from "@/lib/bech32";
+import { ValidatorDelegators } from "@/components/validator-delegators";
+import { ValidatorStatus } from "@/components/validator-status";
+import { UptimeBars } from "@/components/uptime-bars";
+import { getAdapter } from "@/lib/adapter";
+import { emptyUptime } from "@/lib/uptime";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +96,13 @@ export default async function ValidatorDetailPage({
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
   const selfDelegation = accountFromOperator(addr, chain.bech32Prefix);
+  const adapter = getAdapter(chain);
+  // Shares the validators-page cache key, so opening a validator right after
+  // the list costs nothing extra.
+  const uptime = validator
+    ? (await adapter.getUptime([validator]).catch(() => new Map())).get(addr) ??
+      emptyUptime()
+    : emptyUptime();
 
   if (!validator) {
     return (
@@ -113,7 +127,6 @@ export default async function ValidatorDetailPage({
     );
   }
 
-  const active = !validator.jailed && validator.status === "BOND_STATUS_BONDED";
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -142,17 +155,11 @@ export default async function ValidatorDetailPage({
           </div>
         </div>
 
-        <span
-          className={
-            validator.jailed
-              ? "rounded-full bg-[var(--gata-burn)]/12 px-3 py-1 text-xs font-medium text-[var(--gata-burn)]"
-              : active
-                ? "rounded-full bg-[var(--gata-green)]/12 px-3 py-1 text-xs font-medium text-[var(--gata-green)]"
-                : "rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground"
-          }
-        >
-          {validator.jailed ? "Jailed" : statusLabel(validator.status)}
-        </span>
+        <ValidatorStatus
+          jailed={validator.jailed}
+          status={validator.status}
+          tombstoned={uptime.tombstoned}
+        />
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -183,11 +190,14 @@ export default async function ValidatorDetailPage({
         <StatPanel
           index={3}
           accent={accent}
-          label="Delegators"
+          label="Uptime"
           value={
-            validator.delegatorCount
-              ? Number(validator.delegatorCount).toLocaleString()
-              : "—"
+            uptime.ratio === null ? "—" : `${(uptime.ratio * 100).toFixed(2)}%`
+          }
+          sub={
+            uptime.window && uptime.missed !== null
+              ? `${uptime.missed} missed / ${uptime.window.toLocaleString()}`
+              : undefined
           }
         />
       </div>
@@ -281,6 +291,32 @@ export default async function ValidatorDetailPage({
           ) : null}
         </dl>
       </div>
+
+      {uptime.bars.length > 0 ? (
+        <>
+          <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+            Recent signing
+          </h2>
+          <div
+            className="gata-panel px-5 py-4"
+            style={{ ["--panel-accent" as string]: accent }}
+          >
+            <UptimeBars uptime={uptime} slashingWindow className="items-start" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Last {uptime.bars.length} blocks, oldest first. The percentage above
+              covers the chain&apos;s full slashing window.
+            </p>
+          </div>
+        </>
+      ) : null}
+
+      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+        Delegators
+      </h2>
+      {/* Streamed: a large validator makes this the slowest read on the page. */}
+      <Suspense fallback={<Skeleton className="h-[240px] rounded-xl" />}>
+        <ValidatorDelegators chain={chain} operatorAddress={addr} />
+      </Suspense>
     </main>
   );
 }

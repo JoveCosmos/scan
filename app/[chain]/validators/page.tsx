@@ -8,6 +8,7 @@ import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
 import { UptimeBars } from "@/components/uptime-bars";
+import { ValidatorStatus } from "@/components/validator-status";
 import { emptyUptime } from "@/lib/uptime";
 
 export const revalidate = 60;
@@ -187,9 +188,8 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               ) : (
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Power</th>
               )}
-              {/* Uptime reads as the validator's status, so it is named that
-                  and sits last where a status column is expected. */}
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Status</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Uptime</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -253,12 +253,18 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                 </td>
                   </>
                 )}
-                <td data-label="Status" className="px-4 py-2.5 text-right">
+                <td data-label="Uptime" className="px-4 py-2.5 text-right">
                   <UptimeBars
                     uptime={uptime.get(v.operatorAddress) ?? emptyUptime()}
                     slashingWindow={slashingWindow}
-                    jailed={v.jailed}
                     className="items-end"
+                  />
+                </td>
+                <td data-label="Status" className="px-4 py-2.5">
+                  <ValidatorStatus
+                    jailed={v.jailed}
+                    status={v.status}
+                    tombstoned={uptime.get(v.operatorAddress)?.tombstoned ?? false}
                   />
                 </td>
               </tr>

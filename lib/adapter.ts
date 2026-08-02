@@ -7,7 +7,8 @@ import { txsAtHeight } from "@/lib/txs";
 import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
-import { getValidators } from "@/lib/validators";
+import { getValidators, getValidatorDelegators } from "@/lib/validators";
+import type { Delegator } from "@/lib/validators";
 import type { ValidatorUptime } from "@/lib/uptime";
 import { getCosmosUptime } from "@/lib/uptime";
 import { cached } from "@/lib/cache";
@@ -101,9 +102,13 @@ export interface ChainAdapter {
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
+  /** Largest delegators to one validator. */
+  getDelegators(
+    operatorAddress: string
+  ): Promise<{ delegators: Delegator[]; total: number | null; failed: boolean }>;
   /** Signing history keyed by the same id the validator list uses. */
   getUptime(
-    validators: ValidatorSummary[]
+    validators: { operatorAddress: string; consensusPubkey: string | null }[]
   ): Promise<Map<string, ValidatorUptime>>;
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
@@ -140,6 +145,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
+      getDelegators: async () => ({ delegators: [], total: null, failed: false }),
       getUptime: () =>
         cached(`uptime:${chain.chainId}`, 15_000, () => gnoUptime(chain)),
       getRegisteredCount: () => gnoRegisteredCount(chain),
@@ -176,7 +182,12 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       txsAtHeight(chain, block.height, block.rawTxs ?? [], block.time),
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
-    getValidators: () => getValidators(chain),
+    getValidators: () =>
+      cached(`validators:${chain.chainId}`, 30_000, () => getValidators(chain)),
+    getDelegators: (operatorAddress) =>
+      cached(`delegators:${chain.chainId}:${operatorAddress}`, 30_000, () =>
+        getValidatorDelegators(chain, operatorAddress)
+      ),
     getUptime: (validators) =>
       cached(`uptime:${chain.chainId}`, 15_000, () =>
         getCosmosUptime(chain, validators)
