@@ -1,8 +1,7 @@
-import Link from "next/link";
 import type { ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
-import { voteOptionLabel, isVoting } from "@/lib/proposals";
-import { truncateMiddle } from "@/lib/format";
+import { voteOptionLabel, isVoting, indexValidatorAccounts } from "@/lib/proposals";
+import { VotesTable, type VoteRow } from "@/components/votes-table";
 
 const OPTION_STYLE: Record<string, string> = {
   VOTE_OPTION_YES: "bg-[var(--gata-green)]/12 text-[var(--gata-green)]",
@@ -32,9 +31,21 @@ export async function ProposalVotes({
   proposalId: string;
   status: string;
 }) {
-  const { votes, total, byOption, source, truncated, failed } = await getAdapter(
-    chain
-  ).getProposalVotes(proposalId);
+  const adapter = getAdapter(chain);
+  // Fetched together: the validator set is already cached from the validators
+  // page, and the join is what lets votes be filtered to the active set.
+  const [{ votes, byOption, source, truncated, failed }, validators] =
+    await Promise.all([
+      adapter.getProposalVotes(proposalId),
+      adapter.getValidators().catch(() => []),
+    ]);
+
+  const byAccount = indexValidatorAccounts(validators, chain.bech32Prefix);
+
+  const rows: VoteRow[] = votes.map((vote) => ({
+    ...vote,
+    validator: byAccount.get(vote.voter) ?? null,
+  }));
 
   if (votes.length === 0) {
     return (
@@ -52,7 +63,6 @@ export async function ProposalVotes({
   }
 
   const shown = votes.length;
-  const counted = total ?? shown;
 
   return (
     <>
@@ -76,55 +86,12 @@ export async function ProposalVotes({
         </p>
       ) : null}
 
-      <div className="gata-panel overflow-x-auto">
-        <table className="gata-table w-full text-sm sm:min-w-[420px]">
-          <thead>
-            <tr className="border-b border-border text-left">
-              <th className="px-4 py-3 font-medium text-muted-foreground">Voter</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Vote</th>
-            </tr>
-          </thead>
-          <tbody>
-            {votes.map((vote) => (
-              <tr
-                key={vote.voter}
-                className="border-b border-border/50 last:border-0 hover:bg-[var(--gata-card-hi)]/60"
-              >
-                <td data-label="Voter" data-primary className="px-4 py-3">
-                  <Link
-                    href={`/${chain.chainId}/accounts/${vote.voter}`}
-                    className="-my-2 inline-block py-2 font-mono text-xs text-primary hover:underline"
-                    title={vote.voter}
-                  >
-                    {truncateMiddle(vote.voter, 14, 8)}
-                  </Link>
-                </td>
-                <td data-label="Vote" className="px-4 py-3">
-                  {vote.weighted ? (
-                    <span className="flex flex-wrap items-center gap-1.5">
-                      {vote.options.map((o) => (
-                        <span key={o.option} className="inline-flex items-center gap-1">
-                          <OptionBadge option={o.option} />
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {(o.weight * 100).toFixed(0)}%
-                          </span>
-                        </span>
-                      ))}
-                    </span>
-                  ) : (
-                    <OptionBadge option={vote.primary} />
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <VotesTable chainId={chain.chainId} votes={rows} />
 
-      {truncated || counted > shown ? (
+      {truncated ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Showing {shown.toLocaleString()}
-          {counted > shown ? ` of ${counted.toLocaleString()}` : " of more"} votes.
+          More votes exist than could be read in one request; the list above is
+          capped at {shown.toLocaleString()}.
         </p>
       ) : null}
     </>

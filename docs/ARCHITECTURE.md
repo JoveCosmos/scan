@@ -159,18 +159,31 @@ Hard-won, and each one cost time to find:
 - **`denom_traces` returns 501 Not Implemented on every chain here.** The
   current IBC path is `/ibc/apps/transfer/v1/denoms/{hash}`; the older one is
   gone.
-- **`pagination.count_total=true` is a full scan.** On the validator
-  delegations query it measured 6.4s versus 2.2s without, so the delegator list
-  asks for one page and reports what it shows rather than an exact total.
+- **`pagination.count_total=true` is a full scan**, and never needed: reading
+  every page gives an exact total for free.
 - **publicnode 503s the validator-delegations path entirely**, at every page
   size, so that read always fails over. It is streamed behind Suspense for
   exactly this reason.
+- **Delegations and gov votes come back in key order, not by size.** Ranking a
+  single page ranks an arbitrary subset — GATA HUB has 4,598 delegators, and
+  sorting the first 200 silently omitted the largest. Both reads page in full.
+- **Tx search silently ignores `pagination.offset`.** Every offset returns the
+  identical first page, so offset paging looks like it works and quietly
+  deduplicates down to one page of results. `page=N` is the parameter that
+  advances. This capped a 3,080-voter proposal at 98 voters.
+- **Public LCD pools contain nodes with no tx index.** They answer 200 with zero
+  results rather than erroring, punching silent holes in a paged read. Vote
+  pages retry once, which lands on an indexed node.
+- **A client component must not import from `lib/proposals` (or any module
+  reaching `lib/lcd`).** Pulling a server data module into the client bundle
+  can stop the component hydrating at all — no console error, just a section
+  that never becomes interactive. Duplicate the small pure helper instead.
 - **AtomOne's gov module has no `NoWithVeto`.** `Tally.veto` is nullable and the
   bar omits that segment rather than drawing a permanent zero.
 
 ## Testing
 
-`npm test` — 73 vitest tests over the pure logic. `npm run build` runs
+`npm test` — 77 vitest tests over the pure logic. `npm run build` runs
 `tsc --noEmit && vitest run` first, so a type error or a failing test stops a
 deploy before the symlink swaps.
 

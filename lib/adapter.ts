@@ -105,7 +105,13 @@ export interface ChainAdapter {
   /** Largest delegators to one validator. */
   getDelegators(
     operatorAddress: string
-  ): Promise<{ delegators: Delegator[]; total: number | null; failed: boolean }>;
+  ): Promise<{
+    delegators: Delegator[];
+    total: number | null;
+    /** True when the delegation read hit its page cap, so ranking may be partial. */
+    truncated: boolean;
+    failed: boolean;
+  }>;
   /** Signing history keyed by the same id the validator list uses. */
   getUptime(
     validators: { operatorAddress: string; consensusPubkey: string | null }[]
@@ -145,7 +151,12 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
-      getDelegators: async () => ({ delegators: [], total: null, failed: false }),
+      getDelegators: async () => ({
+        delegators: [],
+        total: null,
+        truncated: false,
+        failed: false,
+      }),
       getUptime: () =>
         cached(`uptime:${chain.chainId}`, 15_000, () => gnoUptime(chain)),
       getRegisteredCount: () => gnoRegisteredCount(chain),
@@ -197,7 +208,13 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getAccountTxs: (address) => getCosmosAccountTxs(chain, address),
     getProposals: (limit) => getProposals(chain, limit),
     getProposal: (id) => getProposal(chain, id),
-    getProposalVotes: (id) => getProposalVotes(chain, id),
+    // Cached and coalesced: a finished proposal is reconstructed from tens of
+    // paged tx-search requests, and without this every viewer repeats all of
+    // them. Votes only change while voting is open, so 60s is conservative.
+    getProposalVotes: (id) =>
+      cached(`votes:${chain.chainId}:${id}`, 60_000, () =>
+        getProposalVotes(chain, id)
+      ),
     getGovParams: () => getGovParams(chain),
   };
 }

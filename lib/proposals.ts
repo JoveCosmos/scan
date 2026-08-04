@@ -1,6 +1,7 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import type { Coin } from "@/lib/accounts";
+import { accountFromOperator } from "@/lib/bech32";
 
 export interface Tally {
   yes: string;
@@ -233,6 +234,29 @@ interface RawVote {
   options?: { option: string; weight: string }[];
 }
 
+/**
+ * Index the validator set by the account each one votes from.
+ *
+ * A validator casts its vote from its own account, never from the operator
+ * address, so the two are joined through the bech32 payload they share.
+ */
+export function indexValidatorAccounts(
+  validators: { operatorAddress: string; moniker: string }[],
+  bech32Prefix: string
+): Map<string, { moniker: string; operatorAddress: string }> {
+  const byAccount = new Map<string, { moniker: string; operatorAddress: string }>();
+  for (const v of validators) {
+    const account = accountFromOperator(v.operatorAddress, bech32Prefix);
+    if (account) {
+      byAccount.set(account, {
+        moniker: v.moniker,
+        operatorAddress: v.operatorAddress,
+      });
+    }
+  }
+  return byAccount;
+}
+
 function tallyByOption(votes: ProposalVote[]): Record<string, number> {
   const byOption: Record<string, number> = {};
   for (const vote of votes) {
@@ -268,26 +292,100 @@ interface VoteMessage {
  * block history. Fetched newest-first and deduplicated by voter, because a
  * voter may recast while voting is open and only their last vote counted.
  */
+/** Votes per gov-state request. Large pages are almost free here. */
+const STATE_VOTE_PAGE = 5000;
+/** 20,000 votes, well past the largest turnout seen on these chains. */
+const STATE_VOTE_MAX_PAGES = 4;
+
+/** Tx search caps a page at 100 server-side regardless of the limit asked for. */
+const TX_PAGE = 100;
+/** 60 pages = 6,000 vote transactions. */
+const TX_MAX_PAGES = 60;
+/** Pages are independent, so they are fetched concurrently. Kept low enough not
+ *  to hammer a public endpoint. */
+const TX_CONCURRENCY = 8;
+
+interface VoteTxPage {
+  txs?: { body?: { messages?: VoteMessage[] } }[];
+  tx_responses?: { code?: number }[];
+  /** Tx search reports its count here, not under pagination. */
+  total?: string;
+}
+
+/**
+ * One page of vote transactions. `page` is 1-indexed.
+ *
+ * Note the parameter: tx search **silently ignores `pagination.offset`** and
+ * returns the first page for every value, so paging by offset yields the same
+ * 100 transactions over and over. Only `page` advances the cursor.
+ */
+async function voteTxPage(
+  chain: ChainConfig,
+  id: string,
+  page: number
+): Promise<VoteTxPage> {
+  const fetchPage = () =>
+    fetchLcd<VoteTxPage>(chain, "/cosmos/tx/v1beta1/txs", {
+      cache: "no-store",
+      // Deliberately short. A healthy page answers in ~1s; a node that has not
+      // replied in 8s is wedged, and waiting out a long timeout on each of tens
+      // of pages is what turns one bad node into a 45s page load. The retry
+      // below lands on a different node instead.
+      timeoutMs: 8_000,
+      searchParams: {
+        query: `proposal_vote.proposal_id='${id}'`,
+        order_by: "ORDER_BY_DESC",
+        "pagination.limit": TX_PAGE,
+        page,
+      },
+    });
+
+  const res = await fetchPage();
+  // Public pools contain nodes without a full tx index; those answer 200 with
+  // zero results instead of erroring, which would silently punch a hole in the
+  // vote list. One retry usually lands on an indexed node.
+  if ((res.txs?.length ?? 0) === 0) {
+    try {
+      return await fetchPage();
+    } catch {
+      return res;
+    }
+  }
+  return res;
+}
+
 async function votesFromHistory(
   chain: ChainConfig,
   id: string,
   limit: number
 ): Promise<ProposalVotes | null> {
   {
-    const res = await fetchLcd<{
-      txs?: { body?: { messages?: VoteMessage[] } }[];
-      tx_responses?: { code?: number }[];
-      /** Tx search reports its count here, not under pagination. */
-      total?: string;
-    }>(chain, "/cosmos/tx/v1beta1/txs", {
-      cache: "no-store",
-      timeoutMs: 20_000,
-      searchParams: {
-        query: `proposal_vote.proposal_id='${id}'`,
-        order_by: "ORDER_BY_DESC",
-        "pagination.limit": limit,
-      },
-    });
+    const first = await voteTxPage(chain, id, 1);
+    if ((first.txs?.length ?? 0) === 0) return null;
+
+    const matchedTxs = Number(first.total);
+    const pageCount = Number.isFinite(matchedTxs)
+      ? Math.min(Math.ceil(matchedTxs / TX_PAGE), TX_MAX_PAGES)
+      : 1;
+
+    const pages: VoteTxPage[] = [first];
+    for (let start = 1; start < pageCount; start += TX_CONCURRENCY) {
+      const batch = Array.from(
+        { length: Math.min(TX_CONCURRENCY, pageCount - start) },
+        // +1 because page 1 is the one already fetched above.
+        (_, k) => voteTxPage(chain, id, start + k + 1)
+      );
+      // One dead page must not discard the pages that did arrive.
+      for (const settled of await Promise.allSettled(batch)) {
+        if (settled.status === "fulfilled") pages.push(settled.value);
+      }
+    }
+
+    const res: VoteTxPage = {
+      total: first.total,
+      txs: pages.flatMap((p) => p.txs ?? []),
+      tx_responses: pages.flatMap((p) => p.tx_responses ?? []),
+    };
 
     const txs = res.txs ?? [];
     if (txs.length === 0) return null;
@@ -320,17 +418,20 @@ async function votesFromHistory(
 
     if (votes.length === 0) return null;
 
-    // Tx search pages are capped server-side (100), so the requested limit is
-    // not a reliable signal — compare against the reported total instead.
-    const matched = Number(res.total);
-    const total = Number.isFinite(matched) && matched > 0 ? matched : votes.length;
+    // `res.total` counts vote *transactions*, not voters — a voter who recast
+    // appears more than once and was deduplicated above. So once every page has
+    // been read, the voter count is what we resolved, not what tx search
+    // reported. Only a capped read leaves voters genuinely unseen.
+    const truncated = Number.isFinite(matchedTxs)
+      ? Math.ceil(matchedTxs / TX_PAGE) > TX_MAX_PAGES
+      : false;
 
     return {
-      votes,
-      total,
+      votes: votes.slice(0, limit),
+      total: votes.length,
       byOption: tallyByOption(votes),
       source: "history",
-      truncated: total > votes.length,
+      truncated: truncated || votes.length > limit,
       failed: false,
     };
   }
@@ -343,7 +444,7 @@ async function votesFromHistory(
 export async function getProposalVotes(
   chain: ChainConfig,
   id: string,
-  limit = 300
+  limit = 20_000
 ): Promise<ProposalVotes> {
   const empty: ProposalVotes = {
     votes: [],
@@ -357,27 +458,44 @@ export async function getProposalVotes(
   let stateFailed = false;
 
   try {
-    const res = await fetchLcd<{
-      votes?: RawVote[];
-      pagination?: { total?: string };
-    }>(chain, `/cosmos/gov/v1/proposals/${id}/votes`, {
-      cache: "no-store",
-      timeoutMs: 15_000,
-      searchParams: { "pagination.limit": limit, "pagination.count_total": true },
-    });
+    // Paged in full. The gov module returns votes in key order, so reading one
+    // page and stopping shows an arbitrary subset — and the tally underneath
+    // would disagree with the list above it. Measured on a 2,616-vote proposal:
+    // the whole set comes back in ~1.2s.
+    const raw: RawVote[] = [];
+    let nextKey: string | null = null;
+    let capped = true;
 
-    const votes: ProposalVote[] = (res.votes ?? []).map((v) =>
-      toVote(v.voter, v.options ?? [])
-    );
+    for (let page = 0; page < STATE_VOTE_MAX_PAGES; page++) {
+      const res: {
+        votes?: RawVote[];
+        pagination?: { next_key?: string | null };
+      } = await fetchLcd(chain, `/cosmos/gov/v1/proposals/${id}/votes`, {
+        cache: "no-store",
+        timeoutMs: 20_000,
+        searchParams: {
+          "pagination.limit": STATE_VOTE_PAGE,
+          ...(nextKey ? { "pagination.key": nextKey } : {}),
+        },
+      });
+
+      raw.push(...(res.votes ?? []));
+      nextKey = res.pagination?.next_key || null;
+      if (!nextKey) {
+        capped = false;
+        break;
+      }
+    }
+
+    const votes: ProposalVote[] = raw.map((v) => toVote(v.voter, v.options ?? []));
 
     if (votes.length > 0) {
-      const total = res.pagination?.total ? Number(res.pagination.total) : votes.length;
       return {
-        votes,
-        total,
+        votes: votes.slice(0, limit),
+        total: votes.length,
         byOption: tallyByOption(votes),
         source: "state",
-        truncated: total > votes.length,
+        truncated: capped || votes.length > limit,
         failed: false,
       };
     }

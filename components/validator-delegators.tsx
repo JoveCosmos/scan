@@ -17,9 +17,9 @@ export async function ValidatorDelegators({
   chain: ChainConfig;
   operatorAddress: string;
 }) {
-  const { delegators, total, failed } = await getAdapter(chain).getDelegators(
-    operatorAddress
-  );
+  const { delegators, total, truncated, failed } = await getAdapter(
+    chain
+  ).getDelegators(operatorAddress);
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -111,8 +111,8 @@ export async function ValidatorDelegators({
 
       <p className="mt-2 text-xs text-muted-foreground">
         {total !== null && total > delegators.length
-          ? `Showing the ${delegators.length} largest of ${total.toLocaleString()} delegators.`
-          : `Showing the ${delegators.length} largest delegations.`}
+          ? `Showing the ${delegators.length} largest of ${total.toLocaleString()} delegators${truncated ? "+" : ""}.`
+          : `Showing all ${delegators.length} delegations.`}
       </p>
     </>
   );

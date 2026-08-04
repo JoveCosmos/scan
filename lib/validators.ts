@@ -173,53 +173,90 @@ interface DelegationRow {
   balance?: { amount?: string };
 }
 
+/** Rows per delegations request. Measured on a 4,598-delegator validator:
+ *  500 rows 0.54s, 1,000 rows 0.94s, 2,000 rows 1.13s — the per-request
+ *  overhead dominates, so ask for large pages and make few requests. */
+const DELEGATION_PAGE = 2000;
+/** Ceiling of 50,000 delegations. Beyond this the tail is dust and the wait
+ *  stops being worth it; the caller is told the ranking is partial. */
+const DELEGATION_MAX_PAGES = 25;
+
 /**
  * Who delegates to this validator, largest first.
  *
- * One page only: some validators have tens of thousands of delegators and the
- * long tail is dust. The total count comes from the same response, so the page
- * can say how many are not shown.
+ * This reads *every* delegation, not one page. The LCD returns delegations in
+ * key order, not by size, so ranking a single page ranks an arbitrary subset —
+ * GATA HUB has 4,598 delegators, and sorting the first 200 of them silently
+ * omitted the largest. Paging the lot costs ~4.7s there, which is why the
+ * caller streams this section separately.
+ *
+ * Reading everything also makes the total exact by construction, with no
+ * `count_total` scan.
  */
 export async function getValidatorDelegators(
   chain: ChainConfig,
   operatorAddress: string,
   limit = 25
-): Promise<{ delegators: Delegator[]; total: number | null; failed: boolean }> {
+): Promise<{
+  delegators: Delegator[];
+  total: number | null;
+  /** True when the page cap was hit, so the ranking may miss a delegator. */
+  truncated: boolean;
+  failed: boolean;
+}> {
   try {
-    const res = await fetchLcd<{
-      delegation_responses?: DelegationRow[];
-      pagination?: { total?: string };
-    }>(chain, `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`, {
-      cache: "no-store",
-      timeoutMs: 15_000,
-      searchParams: {
-        // No count_total: measured at ~6.4s with it versus ~2.2s without, because
-        // counting every delegation is a full scan. The exact total is not worth
-        // four seconds on a "largest delegators" list.
-        "pagination.limit": 200,
-      },
-    });
+    const rows: DelegationRow[] = [];
+    let nextKey: string | null = null;
+    let truncated = true;
 
-    const rows = res.delegation_responses ?? [];
-    const totalStake = rows.reduce((sum, r) => sum + Number(r.balance?.amount ?? 0), 0);
+    for (let page = 0; page < DELEGATION_MAX_PAGES; page++) {
+      const res: {
+        delegation_responses?: DelegationRow[];
+        pagination?: { next_key?: string | null };
+      } = await fetchLcd(chain, `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`, {
+        cache: "no-store",
+        timeoutMs: 20_000,
+        searchParams: {
+          "pagination.limit": DELEGATION_PAGE,
+          ...(nextKey ? { "pagination.key": nextKey } : {}),
+        },
+      });
 
-    const delegators: Delegator[] = rows
+      rows.push(...(res.delegation_responses ?? []));
+      nextKey = res.pagination?.next_key || null;
+      if (!nextKey) {
+        truncated = false;
+        break;
+      }
+    }
+
+    // BigInt: a large validator's stake exceeds what a double can hold exactly,
+    // and an off-by-a-few-uatom sort would reorder equal-looking delegations.
+    const parsed = rows
       .map((r) => ({
         address: r.delegation?.delegator_address ?? "",
         amount: r.balance?.amount ?? "0",
-        share: totalStake > 0 ? Number(r.balance?.amount ?? 0) / totalStake : 0,
+        raw: BigInt(r.balance?.amount ?? "0"),
       }))
-      .filter((d) => d.address)
-      .sort((a, b) => Number(b.amount) - Number(a.amount));
+      .filter((d) => d.address);
 
-    return {
-      delegators: delegators.slice(0, limit),
-      // Null unless the endpoint volunteered a count; we no longer ask for one.
-      total: res.pagination?.total ? Number(res.pagination.total) : null,
-      failed: false,
-    };
+    const totalStake = parsed.reduce((sum, d) => sum + d.raw, BigInt(0));
+    parsed.sort((a, b) => (a.raw < b.raw ? 1 : a.raw > b.raw ? -1 : 0));
+
+    const delegators: Delegator[] = parsed.slice(0, limit).map((d) => ({
+      address: d.address,
+      amount: d.amount,
+      // Scaled through BigInt before the division so the ratio survives stakes
+      // beyond Number.MAX_SAFE_INTEGER.
+      share:
+        totalStake > BigInt(0)
+          ? Number((d.raw * BigInt(1_000_000)) / totalStake) / 1_000_000
+          : 0,
+    }));
+
+    return { delegators, total: parsed.length, truncated, failed: false };
   } catch {
-    return { delegators: [], total: null, failed: true };
+    return { delegators: [], total: null, truncated: false, failed: true };
   }
 }
 
