@@ -174,6 +174,11 @@ Hard-won, and each one cost time to find:
 - **Public LCD pools contain nodes with no tx index.** They answer 200 with zero
   results rather than erroring, punching silent holes in a paged read. Vote
   pages retry once, which lands on an indexed node.
+- **Tailwind generated no rule for `[&[open]_.summary-chevron]:rotate-90`** —
+  nested brackets inside an arbitrary variant. The chevron rotation is plain
+  CSS in `globals.css`, using the standalone `rotate` property (a `transform`
+  shorthand computed to an identity matrix) and no transition (interpolating
+  `rotate` from `none` left it stuck at 0deg).
 - **A client component must not import from `lib/proposals` (or any module
   reaching `lib/lcd`).** Pulling a server data module into the client bundle
   can stop the component hydrating at all — no console error, just a section
@@ -183,7 +188,7 @@ Hard-won, and each one cost time to find:
 
 ## Testing
 
-`npm test` — 77 vitest tests over the pure logic. `npm run build` runs
+`npm test` — 84 vitest tests over the pure logic. `npm run build` runs
 `tsc --noEmit && vitest run` first, so a type error or a failing test stops a
 deploy before the symlink swaps.
 

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { truncateMiddle } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,23 @@ export interface VoteRow {
   primary: string;
   weighted: boolean;
   validator: { moniker: string; operatorAddress: string } | null;
+}
+
+/**
+ * Votes matching a free-text query, by either identity a voter is known by:
+ * the moniker for validators, the address for everyone else.
+ *
+ * Matched against the full address rather than the truncated form shown in the
+ * table, so a pasted address still finds its row.
+ */
+export function filterVotes(votes: VoteRow[], query: string): VoteRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return votes;
+  return votes.filter(
+    (v) =>
+      v.voter.toLowerCase().includes(q) ||
+      (v.validator?.moniker.toLowerCase().includes(q) ?? false)
+  );
 }
 
 const OPTION_STYLE: Record<string, string> = {
@@ -60,14 +78,24 @@ export function VotesTable({
   votes: VoteRow[];
 }) {
   const [tab, setTab] = useState<"all" | "validators">("all");
+  const [query, setQuery] = useState("");
   const [shown, setShown] = useState(PAGE);
 
   const validatorVotes = useMemo(() => votes.filter((v) => v.validator), [votes]);
-  const active = tab === "validators" ? validatorVotes : votes;
+  const inTab = tab === "validators" ? validatorVotes : votes;
+
+  const active = useMemo(() => filterVotes(inTab, query), [inTab, query]);
+
   const visible = active.slice(0, shown);
 
   const select = (next: "all" | "validators") => {
     setTab(next);
+    setShown(PAGE);
+  };
+
+  const search = (next: string) => {
+    setQuery(next);
+    // A new query should start from the top, not keep a deep scroll position.
     setShown(PAGE);
   };
 
@@ -112,10 +140,28 @@ export function VotesTable({
         ))}
       </div>
 
+      <div className="relative mb-3">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => search(e.target.value)}
+          placeholder={
+            tab === "validators"
+              ? "Filter by validator name…"
+              : "Filter by validator name or voter address…"
+          }
+          aria-label="Filter votes"
+          className="w-full rounded-lg border border-border bg-transparent py-2.5 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+        />
+      </div>
+
       {active.length === 0 ? (
         <div className="gata-panel px-5 py-8 text-center">
           <p className="text-sm text-muted-foreground">
-            No validator in the active set voted on this proposal.
+            {query.trim()
+              ? `No vote matches “${query.trim()}”.`
+              : "No validator in the active set voted on this proposal."}
           </p>
         </div>
       ) : (
@@ -181,6 +227,13 @@ export function VotesTable({
               </tbody>
             </table>
           </div>
+
+          {query.trim() && visible.length === active.length ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {active.length.toLocaleString()} of {inTab.length.toLocaleString()}{" "}
+              {tab === "validators" ? "validator votes" : "votes"} match.
+            </p>
+          ) : null}
 
           {visible.length < active.length ? (
             <button

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { getChain, symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
@@ -27,6 +27,13 @@ export async function generateMetadata({
   }
   const proposal = await getAdapter(chain).getProposal(id);
   return { title: proposal ? `#${id} ${proposal.title}` : `Proposal #${id}` };
+}
+
+/** One-line hint shown while the summary is collapsed, so the closed panel
+ *  still says something about what is inside it. */
+function summaryPreview(summary: string): string {
+  const flat = summary.replace(/\s+/g, " ").trim();
+  return flat.length > 80 ? `${flat.slice(0, 80)}…` : flat;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -159,15 +166,26 @@ export default async function ProposalDetailPage({
       </div>
 
       {proposal.summary ? (
-        <>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Summary</h2>
-          <div className="gata-panel mb-5 px-5 py-4">
+        // A native <details>: collapsed by default, keyboard accessible, and it
+        // works without JavaScript — this section sits above the streamed vote
+        // list, so it should never depend on hydration to open.
+        // The chevron rotation lives in globals.css; Tailwind's group-open:
+        // variant generated no rule for it.
+        <details className="gata-panel mb-5 sm:[&:not([open])_.summary-preview]:block">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="summary-chevron h-4 w-4 shrink-0" />
+            Summary
+            <span className="summary-preview ml-auto hidden truncate text-xs font-normal text-muted-foreground">
+              {summaryPreview(proposal.summary)}
+            </span>
+          </summary>
+          <div className="border-t border-border/50 px-5 py-4">
             {/* Proposer-authored text: rendered as plain text, never as HTML. */}
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {proposal.summary}
             </p>
           </div>
-        </>
+        </details>
       ) : null}
 
       <div className="gata-panel" style={{ ["--panel-accent" as string]: accent }}>

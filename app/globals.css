@@ -346,3 +346,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Collapsible panel chevron.
+   Written as plain CSS on purpose: Tailwind generated no rule for
+   `[&[open]_.summary-chevron]:rotate-90`, seemingly because of the nested
+   brackets in the arbitrary variant, so the rotation silently never applied. */
+details[open] .summary-chevron {
+  /* The standalone rotate property, not transform: Tailwind v4 composes
+     transforms from translate/rotate/scale, and a transform shorthand here
+     computed to an identity matrix. The chevron carries no transition either —
+     interpolating rotate from `none` left it stuck at 0deg. */
+  rotate: 90deg;
+}
