@@ -10,7 +10,7 @@ import { CopyButton } from "@/components/copy-button";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { AccountTxs } from "@/components/account-txs";
 import { AddressElsewhere } from "@/components/address-elsewhere";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingPanel } from "@/components/loading-panel";
 import { linkedAddresses } from "@/lib/bech32";
 import { resolveIbcDenoms, type DenomTrace } from "@/lib/ibc";
 import { Suspense } from "react";
@@ -262,7 +262,7 @@ export default async function AccountPage({
       <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
         Transactions
       </h2>
-      <Suspense fallback={<Skeleton className="h-[240px] rounded-xl" />}>
+      <Suspense fallback={<LoadingPanel label="Loading transactions…" rows={5} />}>
         <AccountTxs chain={chain} address={address} />
       </Suspense>
     </main>

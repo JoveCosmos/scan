@@ -11,7 +11,7 @@ import { isVoting, tallyShares } from "@/lib/proposals";
 import { TallyBar } from "@/components/tally-bar";
 import { StatusBadge } from "@/components/proposal-status-badge";
 import { ProposalVotes } from "@/components/proposal-votes";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingPanel } from "@/components/loading-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -246,7 +246,22 @@ export default async function ProposalDetailPage({
       <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">Votes</h2>
       {/* Streamed separately: fetching every vote is the slowest read on the
           page and the tally above does not depend on it. */}
-      <Suspense fallback={<Skeleton className="h-[280px] rounded-xl" />}>
+      <Suspense
+        fallback={
+          <LoadingPanel
+            label="Loading votes…"
+            hint={
+              voting
+                ? undefined
+                : // The gov module deletes votes once it tallies, so a finished
+                  // proposal is rebuilt from tens of paged transaction reads.
+                  // Saying so turns a ten-second wait into an explained one.
+                  "Rebuilding this proposal's votes from transaction history — this can take a few seconds."
+            }
+            rows={6}
+          />
+        }
+      >
         <ProposalVotes
           chain={chain}
           proposalId={proposal.id}

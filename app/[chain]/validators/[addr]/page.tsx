@@ -14,7 +14,7 @@ import { ValidatorStatus } from "@/components/validator-status";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
 import { emptyUptime } from "@/lib/uptime";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingPanel } from "@/components/loading-panel";
 import { Suspense } from "react";
 
 export const dynamic = "force-dynamic";
@@ -314,7 +314,15 @@ export default async function ValidatorDetailPage({
         Delegators
       </h2>
       {/* Streamed: a large validator makes this the slowest read on the page. */}
-      <Suspense fallback={<Skeleton className="h-[240px] rounded-xl" />}>
+      <Suspense
+        fallback={
+          <LoadingPanel
+            label="Loading delegators…"
+            hint="Reading every delegation so the largest are ranked correctly."
+            rows={5}
+          />
+        }
+      >
         <ValidatorDelegators chain={chain} operatorAddress={addr} />
       </Suspense>
     </main>
