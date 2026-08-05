@@ -18,13 +18,15 @@ export interface ChainSummary {
   network: "mainnet" | "testnet";
 }
 
+// Validators first: it is the chain's landing page and the most-used tab.
+// Params last — it is reference material, not something you watch.
 const NAV = [
-  { href: "", label: "Overview", short: "Overview" },
-  { href: "/blocks", label: "Blocks", short: "Blocks" },
-  // Shortened on narrow screens so all four tabs fit without a sideways swipe.
-  { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/validators", label: "Validators", short: "Vals" },
+  { href: "/blocks", label: "Blocks", short: "Blocks" },
+  // Shortened on narrow screens so all tabs fit without a sideways swipe.
+  { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
+  { href: "/params", label: "Params", short: "Params" },
 ];
 
 function ChainSwitcher({
@@ -153,8 +155,8 @@ function NavLinks({
     <nav className={className}>
       {NAV.filter((item) => governance || !item.governanceOnly).map((item) => {
         const href = `/${activeChainId}${item.href}`;
-        const isActive =
-          item.href === "" ? pathname === href : pathname.startsWith(href);
+        // startsWith so a detail page keeps its section tab lit.
+        const isActive = pathname.startsWith(href);
         return (
           <Link
             key={item.label}

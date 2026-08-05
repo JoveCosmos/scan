@@ -12,6 +12,9 @@ interface FetchLcdOptions {
   next?: NextFetchRequestConfig;
   cache?: RequestCache;
   searchParams?: Record<string, string | number | boolean | undefined>;
+  /** Extra request headers — notably x-cosmos-block-height for state at a past
+   *  height, which is how the 24h stake delta is measured. */
+  headers?: Record<string, string>;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -69,7 +72,7 @@ export async function fetchFrom<T>(
   opts: FetchLcdOptions = {},
   label = "chain"
 ): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, next, cache, searchParams } = opts;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, next, cache, searchParams, headers } = opts;
 
   let lastError: unknown;
 
@@ -85,7 +88,7 @@ export async function fetchFrom<T>(
         signal: controller.signal,
         cache,
         next,
-        headers: { accept: "application/json" },
+        headers: { accept: "application/json", ...headers },
       });
 
       if (!res.ok) {

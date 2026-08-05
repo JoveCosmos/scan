@@ -8,6 +8,7 @@ import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
 import { UptimeBars } from "@/components/uptime-bars";
+import { StakeChange } from "@/components/stake-change";
 import { ValidatorStatus } from "@/components/validator-status";
 import { emptyUptime } from "@/lib/uptime";
 
@@ -89,12 +90,20 @@ export default async function ValidatorsPage({
 async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
   const adapter = getAdapter(chain);
-  const [validators, registered] = await Promise.all([
+  const [validators, registered, overview] = await Promise.all([
     adapter.getValidators(),
     adapter.getRegisteredCount(),
+    // Head height is what anchors the 24h window.
+    adapter.getOverview().catch(() => null),
   ]);
-  // Needs the validator set first: uptime is keyed by the same identifier.
-  const uptime = await adapter.getUptime(validators).catch(() => new Map());
+  // Both need the validator set first: they are keyed by the same identifier.
+  const [uptime, deltas] = await Promise.all([
+    adapter.getUptime(validators).catch(() => new Map()),
+    adapter
+      .getStakeDeltas(validators, overview?.height ?? null)
+      .catch(() => new Map()),
+  ]);
+  const hasDeltas = deltas.size > 0;
   const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
@@ -183,6 +192,11 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               {staking ? (
                 <>
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
+                  {hasDeltas ? (
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      24h
+                    </th>
+                  ) : null}
                   <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
                 </>
               ) : (
@@ -248,6 +262,14 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                 <td data-label="Staked" className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {formatToken(v.tokens, chain.exponent)}
                 </td>
+                {hasDeltas ? (
+                  <td data-label="24h" className="px-4 py-2.5 text-right">
+                    <StakeChange
+                      delta={deltas.get(v.operatorAddress)}
+                      exponent={chain.exponent}
+                    />
+                  </td>
+                ) : null}
                 <td data-label="Commission" className="px-4 py-2.5 text-right font-mono tabular-nums">
                   {(v.commissionRate * 100).toFixed(1)}%
                 </td>

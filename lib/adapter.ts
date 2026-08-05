@@ -10,6 +10,8 @@ import type { ValidatorSummary } from "@/lib/validators";
 import { getValidators, getValidatorDelegators } from "@/lib/validators";
 import type { Delegator } from "@/lib/validators";
 import type { ValidatorUptime } from "@/lib/uptime";
+import type { StakeDelta } from "@/lib/stake-delta";
+import { getStakeDeltas } from "@/lib/stake-delta";
 import { getCosmosUptime } from "@/lib/uptime";
 import { cached } from "@/lib/cache";
 import type { AccountView } from "@/lib/accounts";
@@ -116,6 +118,12 @@ export interface ChainAdapter {
   getUptime(
     validators: { operatorAddress: string; consensusPubkey: string | null }[]
   ): Promise<Map<string, ValidatorUptime>>;
+  /** 24h change in each validator's bonded stake. Empty when the endpoints
+   *  cannot serve historical state. */
+  getStakeDeltas(
+    validators: { operatorAddress: string; tokens: string }[],
+    headHeight: string | null
+  ): Promise<Map<string, StakeDelta>>;
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
@@ -159,6 +167,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       }),
       getUptime: () =>
         cached(`uptime:${chain.chainId}`, 15_000, () => gnoUptime(chain)),
+      getStakeDeltas: async () => new Map(),
       getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
       getAccountTxs: (address) => gnoAccountTxs(chain, address),
@@ -202,6 +211,10 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getUptime: (validators) =>
       cached(`uptime:${chain.chainId}`, 15_000, () =>
         getCosmosUptime(chain, validators)
+      ),
+    getStakeDeltas: (validators, headHeight) =>
+      cached(`stakedelta:${chain.chainId}`, 60_000, () =>
+        getStakeDeltas(chain, validators, headHeight)
       ),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
