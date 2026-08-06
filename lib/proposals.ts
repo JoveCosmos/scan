@@ -282,6 +282,39 @@ interface VoteMessage {
   voter?: string;
   option?: string;
   options?: { option: string; weight: string }[];
+  /** Present on authz MsgExec: the messages it executes on the granter's behalf. */
+  msgs?: VoteMessage[];
+}
+
+/** Deepest authz nesting we will unwrap. MsgExec inside MsgExec is legal but
+ *  vanishingly rare; the cap stops a malformed tx from recursing forever. */
+const MAX_AUTHZ_DEPTH = 4;
+
+/**
+ * Flatten authz wrappers so nested votes are visible.
+ *
+ * Validators very commonly vote from a hot key holding an authz grant, which
+ * puts the real MsgVote inside `MsgExec.msgs` rather than at the top level.
+ * Reading only top-level messages silently drops those votes — GATA HUB's vote
+ * on AtomOne proposal 21 was cast exactly this way and did not appear.
+ *
+ * The voter recorded inside the nested message is the granter, which is the
+ * identity we want; the grantee is only the key that broadcast it.
+ */
+export function flattenVoteMessages(
+  messages: VoteMessage[] | undefined,
+  depth = 0
+): VoteMessage[] {
+  if (!messages || depth > MAX_AUTHZ_DEPTH) return [];
+  const out: VoteMessage[] = [];
+  for (const msg of messages) {
+    if (/MsgExec$/.test(msg["@type"])) {
+      out.push(...flattenVoteMessages(msg.msgs, depth + 1));
+    } else {
+      out.push(msg);
+    }
+  }
+  return out;
 }
 
 /**
@@ -397,7 +430,7 @@ async function votesFromHistory(
       // A failed transaction never recorded a vote.
       if ((res.tx_responses?.[i]?.code ?? 0) !== 0) return;
 
-      for (const msg of tx.body?.messages ?? []) {
+      for (const msg of flattenVoteMessages(tx.body?.messages)) {
         if (!/MsgVote(Weighted)?$/.test(msg["@type"])) continue;
         if (msg.proposal_id !== undefined && msg.proposal_id !== id) continue;
 

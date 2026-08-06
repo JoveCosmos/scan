@@ -1,15 +1,11 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { truncateMiddle } from "@/lib/format";
-import { UptimeBars } from "@/components/uptime-bars";
-import { StakeChange } from "@/components/stake-change";
-import { ValidatorStatus } from "@/components/validator-status";
+import { ValidatorsTable, type ValidatorRow } from "@/components/validators-table";
 import { emptyUptime } from "@/lib/uptime";
 
 export const revalidate = 60;
@@ -104,6 +100,21 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       .catch(() => new Map()),
   ]);
   const hasDeltas = deltas.size > 0;
+
+  // Flattened for the client table: it sorts and renders, but owns no fetching.
+  const rows: ValidatorRow[] = validators.map((v) => ({
+    rank: v.rank,
+    operatorAddress: v.operatorAddress,
+    moniker: v.moniker,
+    votingPower: v.votingPower,
+    tokens: v.tokens,
+    tokensLabel: formatToken(v.tokens, chain.exponent),
+    commissionRate: v.commissionRate,
+    jailed: v.jailed,
+    status: v.status,
+    uptime: uptime.get(v.operatorAddress) ?? emptyUptime(),
+    delta: deltas.get(v.operatorAddress) ?? null,
+  }));
   const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
@@ -182,118 +193,15 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         )}
       </div>
 
-      <div className="gata-panel overflow-x-auto">
-        <table className="gata-table w-full text-sm sm:min-w-[760px]">
-          <thead>
-            <tr className="border-b border-border text-left">
-              <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Validator</th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Voting Power</th>
-              {staking ? (
-                <>
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Staked</th>
-                  {hasDeltas ? (
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                      24h
-                    </th>
-                  ) : null}
-                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Commission</th>
-                </>
-              ) : (
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Power</th>
-              )}
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Uptime</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {validators.map((v) => (
-              <tr
-                key={v.operatorAddress}
-                className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
-              >
-                <td data-label="Rank" className="px-4 py-2.5 font-mono tabular-nums text-muted-foreground">
-                  {v.rank}
-                </td>
-                <td data-label="Validator" data-primary className="px-4 py-2.5 sm:max-w-[240px]">
-                  {/* Cosmos links to a staking profile; gno links to its
-                      valopers-realm profile, keyed by consensus address. */}
-                  <Link
-                    href={`/${chainId}/validators/${v.operatorAddress}`}
-                    className="block min-w-0"
-                  >
-                    <div
-                      className="truncate font-medium text-primary hover:underline"
-                      title={v.moniker}
-                    >
-                      {v.moniker}
-                    </div>
-                    <div
-                      className="truncate font-mono text-xs text-muted-foreground"
-                      title={v.operatorAddress}
-                    >
-                      {truncateMiddle(v.operatorAddress, 14, 8)}
-                    </div>
-                  </Link>
-                </td>
-                <td data-label="Voting Power" className="px-4 py-2.5 text-right">
-                  <div className="font-mono tabular-nums">
-                    {(v.votingPower * 100).toFixed(2)}%
-                  </div>
-                  <div
-                    className="mt-1 ml-auto h-1 w-20 overflow-hidden rounded-full bg-muted"
-                    aria-hidden="true"
-                  >
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, (v.votingPower / (validators[0]?.votingPower || 1)) * 100)}%`,
-                        background: accent,
-                      }}
-                    />
-                  </div>
-                </td>
-                {!staking ? (
-                  <td data-label="Power" className="px-4 py-2.5 text-right font-mono tabular-nums">
-                    {Number(v.tokens).toLocaleString()}
-                  </td>
-                ) : (
-                  <>
-                <td data-label="Staked" className="px-4 py-2.5 text-right font-mono tabular-nums">
-                  {formatToken(v.tokens, chain.exponent)}
-                </td>
-                {hasDeltas ? (
-                  <td data-label="24h" className="px-4 py-2.5 text-right">
-                    <StakeChange
-                      delta={deltas.get(v.operatorAddress)}
-                      exponent={chain.exponent}
-                    />
-                  </td>
-                ) : null}
-                <td data-label="Commission" className="px-4 py-2.5 text-right font-mono tabular-nums">
-                  {(v.commissionRate * 100).toFixed(1)}%
-                </td>
-                  </>
-                )}
-                <td data-label="Uptime" className="px-4 py-2.5 text-right">
-                  <UptimeBars
-                    uptime={uptime.get(v.operatorAddress) ?? emptyUptime()}
-                    slashingWindow={slashingWindow}
-                    className="items-end"
-                  />
-                </td>
-                <td data-label="Status" className="px-4 py-2.5">
-                  <ValidatorStatus
-                    jailed={v.jailed}
-                    status={v.status}
-                    tombstoned={uptime.get(v.operatorAddress)?.tombstoned ?? false}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ValidatorsTable
+        chainId={chainId}
+        rows={rows}
+        accent={accent}
+        staking={staking}
+        hasDeltas={hasDeltas}
+        slashingWindow={slashingWindow}
+        exponent={chain.exponent}
+      />
     </>
   );
 }

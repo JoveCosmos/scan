@@ -1,4 +1,15 @@
-import { statusLabel } from "@/lib/validators";
+// Inlined rather than imported from lib/validators: that module reaches the LCD
+// layer, and pulling a server data module into the client bundle stops the
+// component hydrating at all.
+const STATUS_LABEL: Record<string, string> = {
+  BOND_STATUS_BONDED: "Active",
+  BOND_STATUS_UNBONDING: "Unbonding",
+  BOND_STATUS_UNBONDED: "Inactive",
+};
+
+function statusLabel(status: string): string {
+  return STATUS_LABEL[status] ?? status;
+}
 
 /**
  * Consensus standing, which is separate from uptime: a validator can be signing

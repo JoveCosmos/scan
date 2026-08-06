@@ -12,12 +12,41 @@ export interface ValidatorUptime {
   /** Most recent blocks, oldest first. true = signed. Empty when unavailable. */
   bars: boolean[];
   tombstoned: boolean;
+  /**
+   * When the validator's most recent jail ends (ISO), or null if never jailed.
+   *
+   * The slashing module keeps no jail *count* — only this one timestamp — so
+   * "how many times" is not answerable from a node. A date in the past means
+   * the validator has been jailed and is since released; a future date means it
+   * is jailed right now.
+   */
+  jailedUntil: string | null;
 }
 
 export const RECENT_BAR_COUNT = 20;
 
+/**
+ * The slashing module writes the zero time for a validator that has never been
+ * jailed. Different chains serialise that as 1970-01-01, 0001-01-01 or an empty
+ * string, so anything at or before 1971 counts as "never" rather than as a jail
+ * that ended 55 years ago.
+ */
+function neverJailed(jailedUntil: string | undefined): boolean {
+  if (!jailedUntil) return true;
+  const t = new Date(jailedUntil).getTime();
+  if (!Number.isFinite(t)) return true;
+  return t <= Date.UTC(1971, 0, 1);
+}
+
 export function emptyUptime(): ValidatorUptime {
-  return { ratio: null, missed: null, window: null, bars: [], tombstoned: false };
+  return {
+    ratio: null,
+    missed: null,
+    window: null,
+    bars: [],
+    tombstoned: false,
+    jailedUntil: null,
+  };
 }
 
 /**
@@ -52,6 +81,8 @@ interface SigningInfo {
   index_offset?: string;
   missed_blocks_counter?: string;
   tombstoned?: boolean;
+  /** Epoch (1970) for a validator that has never been jailed. */
+  jailed_until?: string;
 }
 
 /** Slashing-window misses, keyed by valcons. One paged read for the whole set. */
@@ -198,6 +229,9 @@ export async function getCosmosUptime(
         entry.missed = Number.isFinite(missed) ? missed : null;
         entry.window = effective;
         entry.tombstoned = info.tombstoned ?? false;
+        entry.jailedUntil = neverJailed(info.jailed_until)
+          ? null
+          : (info.jailed_until ?? null);
         if (effective && effective > 0 && entry.missed !== null) {
           entry.ratio = Math.max(0, Math.min(1, (effective - entry.missed) / effective));
         }

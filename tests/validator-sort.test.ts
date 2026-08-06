@@ -1,0 +1,101 @@
+import { describe, expect, it } from "vitest";
+import { sortValidators, type ValidatorRow } from "@/components/validators-table";
+import { emptyUptime } from "@/lib/uptime";
+
+function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {
+  return {
+    rank: 1,
+    operatorAddress: `cosmosvaloper1${over.moniker.toLowerCase()}`,
+    votingPower: 0.1,
+    tokens: "1000",
+    tokensLabel: "1K",
+    commissionRate: 0.05,
+    jailed: false,
+    status: "BOND_STATUS_BONDED",
+    uptime: emptyUptime(),
+    delta: null,
+    ...over,
+  };
+}
+
+const names = (rows: ValidatorRow[]) => rows.map((r) => r.moniker);
+
+describe("sortValidators", () => {
+  it("sorts stake with BigInt, not float precision", () => {
+    // These differ only in the last digit, well beyond a double's exact range.
+    const rows = [
+      row({ moniker: "small", tokens: "9007199254740993000" }),
+      row({ moniker: "big", tokens: "9007199254740993001" }),
+    ];
+    expect(names(sortValidators(rows, "tokens", "desc"))).toEqual(["big", "small"]);
+  });
+
+  it("does not mutate the array it was given", () => {
+    const rows = [row({ moniker: "b" }), row({ moniker: "a" })];
+    sortValidators(rows, "moniker", "asc");
+    expect(names(rows)).toEqual(["b", "a"]);
+  });
+
+  it("sorts monikers case-insensitively", () => {
+    const rows = [row({ moniker: "zeta" }), row({ moniker: "Alpha" })];
+    expect(names(sortValidators(rows, "moniker", "asc"))).toEqual(["Alpha", "zeta"]);
+  });
+
+  it("ranks a positive 24h delta above a negative one", () => {
+    const rows = [
+      row({ moniker: "lost", delta: { change: BigInt(-500), ratio: -0.1 } }),
+      row({ moniker: "gained", delta: { change: BigInt(900), ratio: 0.2 } }),
+    ];
+    expect(names(sortValidators(rows, "delta", "desc"))).toEqual(["gained", "lost"]);
+  });
+
+  it("sinks unknown deltas below real ones in both directions", () => {
+    const rows = [
+      row({ moniker: "unknown", delta: null }),
+      row({ moniker: "down", delta: { change: BigInt(-10), ratio: -0.01 } }),
+    ];
+    // A missing reading must never outrank a real loss, nor pose as the best.
+    expect(names(sortValidators(rows, "delta", "desc"))).toEqual(["down", "unknown"]);
+    expect(names(sortValidators(rows, "delta", "asc"))).toEqual(["unknown", "down"]);
+  });
+
+  it("sinks unknown uptime below measured uptime", () => {
+    const rows = [
+      row({ moniker: "unmeasured", uptime: emptyUptime() }),
+      row({ moniker: "poor", uptime: { ...emptyUptime(), ratio: 0.5 } }),
+    ];
+    expect(names(sortValidators(rows, "uptime", "desc"))).toEqual([
+      "poor",
+      "unmeasured",
+    ]);
+  });
+
+  it("puts the most recently jailed first, never-jailed last", () => {
+    const rows = [
+      row({ moniker: "never", uptime: emptyUptime() }),
+      row({
+        moniker: "old",
+        uptime: { ...emptyUptime(), jailedUntil: "2023-01-01T00:00:00Z" },
+      }),
+      row({
+        moniker: "recent",
+        uptime: { ...emptyUptime(), jailedUntil: "2026-07-01T00:00:00Z" },
+      }),
+    ];
+    expect(names(sortValidators(rows, "jailed", "desc"))).toEqual([
+      "recent",
+      "old",
+      "never",
+    ]);
+  });
+
+  it("reverses cleanly for every key", () => {
+    const rows = [
+      row({ moniker: "a", rank: 1, commissionRate: 0.01 }),
+      row({ moniker: "b", rank: 2, commissionRate: 0.2 }),
+    ];
+    expect(names(sortValidators(rows, "commission", "asc"))).toEqual(["a", "b"]);
+    expect(names(sortValidators(rows, "commission", "desc"))).toEqual(["b", "a"]);
+    expect(names(sortValidators(rows, "rank", "desc"))).toEqual(["b", "a"]);
+  });
+});

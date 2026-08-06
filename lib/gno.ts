@@ -634,6 +634,8 @@ export async function gnoUptime(
       missed: bars.length - signed,
       window: bars.length,
       bars,
+      // gno has no slashing module, so no validator is ever jailed.
+      jailedUntil: null,
       tombstoned: false,
     });
   }
