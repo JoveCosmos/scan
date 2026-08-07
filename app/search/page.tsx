@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SearchX } from "lucide-react";
-import { getAllChains, accentFor, type ChainConfig } from "@/lib/chains";
+import {
+  getAllChains,
+  getDefaultChain,
+  accentFor,
+  type ChainConfig,
+} from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { classifyQuery } from "@/lib/search";
 import { decodePrefix } from "@/lib/bech32";
@@ -131,8 +136,10 @@ export default async function GlobalSearchPage({
   if (!query) return <NoResult query="" />;
 
   const all = getAllChains();
-  // Classification only needs a prefix, and address handling re-checks per chain.
-  const guess = classifyQuery(all[0], query);
+  // Classification only needs a prefix, and address handling re-checks per
+  // chain — but the default chain is a more defensible reference point than
+  // whichever config file happens to sort first.
+  const guess = classifyQuery(getDefaultChain(), query);
 
   const prefer = (chains: ChainConfig[]) =>
     hint && chains.some((c) => c.chainId === hint)

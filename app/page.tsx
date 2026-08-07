@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getAllChains, accentFor, DEFAULT_CHAIN_ID } from "@/lib/chains";
+import { getAllChains, accentFor } from "@/lib/chains";
+import { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
 import { SearchBar } from "@/components/search-bar";
 
 export const dynamic = "force-dynamic";

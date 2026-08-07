@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
 import { SearchBar } from "@/components/search-bar";
 
 export interface ChainSummary {
@@ -189,6 +190,12 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const activeChain = chains.find((c) => c.chainId === maybeChain) ?? null;
   const activeChainId = activeChain?.chainId ?? null;
 
+  // With no chain in the URL the default one is still the selected network:
+  // the switcher names it, and search resolves against it. Kept separate from
+  // activeChainId, which stays null off a chain page so the landing page does
+  // not sprout chain tabs.
+  const selectedChainId = activeChainId ?? DEFAULT_CHAIN_ID;
+
   // Switching chains keeps you on the same tab. Only the section survives — a
   // block height, tx hash or validator address means nothing on another chain,
   // so detail routes fall back to their list.
@@ -232,11 +239,11 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           <div className="min-w-0 max-w-xs flex-1">
             {/* Search is global; the active chain is only a tie-breaker hint. */}
-            <SearchBar chainId={activeChainId ?? undefined} />
+            <SearchBar chainId={selectedChainId} />
           </div>
           <ChainSwitcher
             chains={chains}
-            activeChainId={activeChainId}
+            activeChainId={selectedChainId}
             section={section}
           />
         </div>
