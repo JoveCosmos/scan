@@ -23,7 +23,7 @@ export interface ChainSummary {
 const NAV = [
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
-  { href: "/blocks", label: "Blocks", short: "Blocks" },
+  // Blocks has no tab: recent blocks hang off the latest-block figure in Params.
   // Shortened on narrow screens so all tabs fit without a sideways swipe.
   { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },

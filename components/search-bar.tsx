@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Deliberately thin: it only routes to /[chain]/search, which resolves the term
@@ -14,11 +15,15 @@ export function SearchBar({
   // Kept short so it is not clipped in the narrow mobile field; the aria-label
   // and the empty search page carry the full explanation.
   placeholder = "Search…",
+  size = "sm",
 }: {
   /** Optional hint: prefer this chain when a query matches several. */
   chainId?: string;
   placeholder?: string;
+  /** "lg" is the landing page, where search is the whole page. */
+  size?: "sm" | "lg";
 }) {
+  const large = size === "lg";
   const router = useRouter();
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +63,12 @@ export function SearchBar({
       }}
       className="relative min-w-0 flex-1"
     >
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Search
+        className={cn(
+          "pointer-events-none absolute top-1/2 -translate-y-1/2 text-muted-foreground",
+          large ? "left-4 h-4 w-4" : "left-3 h-3.5 w-3.5"
+        )}
+      />
       <input
         ref={inputRef}
         name="q"
@@ -68,10 +78,18 @@ export function SearchBar({
         aria-label="Search block height, transaction hash or address"
         spellCheck={false}
         autoComplete="off"
-        className="h-9 w-full rounded-lg border border-border bg-secondary/50 pl-9 pr-8 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)] focus:bg-secondary"
+        className={cn(
+          "w-full rounded-lg border border-border bg-secondary/50 outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)] focus:bg-secondary",
+          large ? "h-12 pl-11 pr-10 text-base" : "h-9 pl-9 pr-8 text-sm"
+        )}
       />
       {!value ? (
-        <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:block">
+        <kbd
+          className={cn(
+            "pointer-events-none absolute top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:block",
+            large ? "right-3.5" : "right-2.5"
+          )}
+        >
           /
         </kbd>
       ) : null}

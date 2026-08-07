@@ -97,10 +97,12 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams] = await Promise.all([
+  const [overview, chainParams, recentBlocks] = await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
+    // Seeds the recent-blocks dialog so it opens populated.
+    adapter.getRecentBlocks(12).catch(() => []),
   ]);
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
@@ -122,6 +124,7 @@ export default async function ChainParamsPage({
         chainId={chain.chainId}
         accent={accent}
         initialData={overview}
+        initialBlocks={recentBlocks}
       />
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

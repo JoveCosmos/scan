@@ -91,6 +91,19 @@ export function getChain(chainId: string): ChainConfig | undefined {
   return loadChains().find((c) => c.chainId === chainId);
 }
 
+/**
+ * The chain assumed when none is named — searching from the landing page, or
+ * any entry point without a chain in the URL.
+ *
+ * AtomOne is the network GATA cares most about; falling back to the first
+ * configured chain keeps this working if that config is ever removed.
+ */
+export const DEFAULT_CHAIN_ID = "atomone-1";
+
+export function getDefaultChain(): ChainConfig {
+  return getChain(DEFAULT_CHAIN_ID) ?? loadChains()[0];
+}
+
 export const GATA_BLUE = "#3B9EFF";
 
 export function accentFor(chain: ChainConfig): string {
