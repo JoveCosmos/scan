@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { cached } from "@/lib/cache";
 import type { Coin } from "@/lib/accounts";
 
 /**
@@ -192,8 +193,6 @@ export function humanDuration(value: string | null): string {
 export interface ChainEconomics {
   /** Community pool, native denom only. Pools also hold IBC dust. */
   communityPool: string | null;
-  /** Distinct addresses holding the native denom. */
-  holders: number | null;
   /** Gross annual staking yield before validator commission, 0–1. */
   stakingApr: number | null;
   /** Yield after the chain's minimum commission — the best any validator offers. */
@@ -218,24 +217,12 @@ export async function getChainEconomics(
   communityTax: number | null,
   minCommission: number | null
 ): Promise<ChainEconomics> {
-  const [pool, owners, provisions, staking] = await Promise.all([
+  const [pool, provisions, staking] = await Promise.all([
     attempt(() =>
       fetchLcd<{ pool?: { denom: string; amount: string }[] }>(
         chain,
         "/cosmos/distribution/v1beta1/community_pool",
         { timeoutMs: 8000 }
-      )
-    ),
-    attempt(() =>
-      fetchLcd<{ pagination?: { total?: string } }>(
-        chain,
-        `/cosmos/bank/v1beta1/denom_owners/${encodeURIComponent(chain.denom)}`,
-        {
-          // A full scan of every account holding the denom: ~2.7s on Cosmos Hub.
-          // Worth one slow read for a number nothing else provides.
-          timeoutMs: 20_000,
-          searchParams: { "pagination.limit": 1, "pagination.count_total": true },
-        }
       )
     ),
     attempt(() =>
@@ -255,7 +242,6 @@ export async function getChainEconomics(
   ]);
 
   const native = pool?.pool?.find((c) => c.denom === chain.denom);
-  const holdersTotal = owners?.pagination?.total;
 
   const annual = Number(provisions?.annual_provisions ?? NaN);
   const bonded = Number(staking?.pool?.bonded_tokens ?? NaN);
@@ -267,10 +253,6 @@ export async function getChainEconomics(
   return {
     // Amounts come back with a decimal tail; the UI formats whole tokens.
     communityPool: native ? native.amount.split(".")[0] : null,
-    holders:
-      holdersTotal && Number.isFinite(Number(holdersTotal))
-        ? Number(holdersTotal)
-        : null,
     stakingApr,
     stakingAprAfterMinCommission:
       stakingApr !== null && minCommission !== null
@@ -313,4 +295,34 @@ export async function getNodeInfo(chain: ChainConfig): Promise<NodeInfo | null> 
     version: v.version ?? null,
     cosmosSdkVersion: v.cosmos_sdk_version ?? null,
   };
+}
+
+/**
+ * How many addresses hold the native denom.
+ *
+ * Its own function because it is a full scan of every account holding the
+ * denom — 2.7s on Cosmos Hub, 25s on AtomOne, whose airdrop left it with over
+ * three million holders. Split out so it cannot hold up the rest of the
+ * economics, and cached for an hour: a holder count moves slowly, and nothing
+ * about it needs to be fresh to the second.
+ */
+export async function getHolderCount(chain: ChainConfig): Promise<number | null> {
+  try {
+    return await cached(`holders:${chain.chainId}`, 3_600_000, async () => {
+      const res = await fetchLcd<{ pagination?: { total?: string } }>(
+        chain,
+        `/cosmos/bank/v1beta1/denom_owners/${encodeURIComponent(chain.denom)}`,
+        {
+          timeoutMs: 30_000,
+          searchParams: { "pagination.limit": 1, "pagination.count_total": true },
+        }
+      );
+      const total = Number(res.pagination?.total);
+      // Thrown rather than returned so a failure is not cached for an hour.
+      if (!Number.isFinite(total)) throw new Error("no holder total");
+      return total;
+    });
+  } catch {
+    return null;
+  }
 }

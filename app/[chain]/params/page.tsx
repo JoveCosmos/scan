@@ -173,7 +173,18 @@ export default async function ChainParamsPage({
 
       {adapter.capabilities.staking ? (
         <Suspense
-          fallback={<LoadingPanel label="Loading economics…" rows={4} />}
+          fallback={
+            // Mirrors ChainEconomics' own <section className="mt-6"> and
+            // heading. Without the wrapper the fallback had no top margin and
+            // collided with the supply cards above it, then the layout jumped
+            // when the real section replaced it.
+            <section className="mt-6">
+              <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+                Economics
+              </h2>
+              <LoadingPanel label="Loading price and yield…" rows={4} />
+            </section>
+          }
         >
           <ChainEconomics
             chain={chain}

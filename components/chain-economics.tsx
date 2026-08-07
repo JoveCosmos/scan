@@ -1,7 +1,8 @@
 import type { ChainConfig } from "@/lib/chains";
 import { symbolFor } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
-import { getChainEconomics } from "@/lib/params";
+import { Suspense } from "react";
+import { getChainEconomics, getHolderCount } from "@/lib/params";
 import { getMarketData, formatUsd, formatUsdCompact } from "@/lib/market";
 
 /**
@@ -109,17 +110,11 @@ export async function ChainEconomics({
             />
           ) : null}
 
-          {economics?.holders != null ? (
-            <Row
-              label={`${symbol} holders`}
-              value={economics.holders.toLocaleString()}
-              trailing={
-                <span className="text-muted-foreground">
-                  addresses with a non-zero balance
-                </span>
-              }
-            />
-          ) : null}
+          {/* Its own boundary: the holder scan takes 25s on AtomOne and must
+              not hold back the rows above it. */}
+          <Suspense fallback={<HolderRow symbol={symbol} value="counting…" />}>
+            <HolderCount chain={chain} symbol={symbol} />
+          </Suspense>
         </dl>
       </div>
     </section>
@@ -132,6 +127,32 @@ function poolShare(pool: string, supply: string | null): string {
   const s = Number(supply);
   if (!Number.isFinite(p) || !Number.isFinite(s) || s <= 0) return "";
   return `${((p / s) * 100).toFixed(2)}% of supply`;
+}
+
+async function HolderCount({
+  chain,
+  symbol,
+}: {
+  chain: ChainConfig;
+  symbol: string;
+}) {
+  const holders = await getHolderCount(chain).catch(() => null);
+  if (holders === null) return null;
+  return <HolderRow symbol={symbol} value={holders.toLocaleString()} />;
+}
+
+function HolderRow({ symbol, value }: { symbol: string; value: string }) {
+  return (
+    <Row
+      label={`${symbol} holders`}
+      value={value}
+      trailing={
+        <span className="text-muted-foreground">
+          addresses with a non-zero balance
+        </span>
+      }
+    />
+  );
 }
 
 function Row({

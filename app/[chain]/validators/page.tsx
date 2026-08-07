@@ -22,13 +22,15 @@ function StatPanel({
   label: string;
   value: string;
   sub?: string;
-  /** Plain-language explanation, shown under the panel. */
+  /** Explanation on hover. Kept out of the panel so it stays a number, not a
+   *  paragraph — these are read at a glance. */
   hint?: string;
   accent: string;
   index: number;
 }) {
   return (
     <div
+      title={hint}
       className="gata-panel gata-panel-interactive gata-rise p-5"
       style={{
         ["--panel-accent" as string]: accent,
@@ -41,11 +43,6 @@ function StatPanel({
       </p>
       <p className="mt-2 font-mono text-3xl font-semibold leading-none">{value}</p>
       {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
-      {hint ? (
-        <p className="mt-2 border-t border-border/50 pt-2 text-[11px] leading-relaxed text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -162,12 +159,8 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
           label="Could Halt The Chain"
           value={nakamoto > 0 ? String(nakamoto) : "—"}
           // "Nakamoto coefficient" means nothing to most readers, so the panel
-          // states the consequence and keeps the term as the explanation.
-          sub={
-            nakamoto > 0
-              ? `of ${validators.length} validators, if they colluded — the Nakamoto coefficient`
-              : undefined
-          }
+          // states the consequence and the term lives in the tooltip.
+          sub={nakamoto > 0 ? `of ${validators.length} validators` : undefined}
           hint={
             stakeWeighted
               ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
@@ -183,10 +176,10 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               value={`${formatToken(String(totalBonded), chain.exponent)} ${symbol}`}
               sub={
                 overview?.bondedRatio != null
-                  ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply is staked`
+                  ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply`
                   : undefined
               }
-              hint="Stake secures the chain, so a higher share bonded means a more expensive chain to attack — and less supply free to trade."
+              hint="Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack — and less supply free to trade."
             />
             <StatPanel
               index={3}
@@ -195,7 +188,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               value={
                 minCommission !== null ? `${(minCommission * 100).toFixed(1)}%` : "—"
               }
-              sub="floor set by the chain"
+              sub="chain floor"
               hint="No validator on this chain may charge less than this. It is a consensus parameter, not an average of what validators actually charge."
             />
           </>

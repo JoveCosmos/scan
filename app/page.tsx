@@ -32,7 +32,7 @@ export default function HomePage() {
           <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
         ) : null}
         {testnet.map((chain) => (
-          <NetworkChip key={chain.chainId} chain={chain} testnet />
+          <NetworkChip key={chain.chainId} chain={chain} />
         ))}
       </div>
 
@@ -48,13 +48,7 @@ export default function HomePage() {
   );
 }
 
-function NetworkChip({
-  chain,
-  testnet = false,
-}: {
-  chain: ReturnType<typeof getAllChains>[number];
-  testnet?: boolean;
-}) {
+function NetworkChip({ chain }: { chain: ReturnType<typeof getAllChains>[number] }) {
   const accent = accentFor(chain);
   return (
     <Link
@@ -66,10 +60,8 @@ function NetworkChip({
         className="h-1.5 w-1.5 rounded-full"
         style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
       />
+      {/* No "test" badge: every testnet already says so in its name. */}
       {chain.prettyName}
-      {testnet ? (
-        <span className="text-[10px] uppercase tracking-wide opacity-60">test</span>
-      ) : null}
     </Link>
   );
 }
