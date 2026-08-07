@@ -40,6 +40,7 @@ export default async function TxsPage({
         chainId={chain.chainId}
         exponent={chain.exponent}
         symbol={symbolFor(chain)}
+        denom={chain.denom}
         initial={initial}
       />
     </main>

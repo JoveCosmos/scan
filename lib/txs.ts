@@ -1,10 +1,19 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import {
+  flattenMessages,
+  primaryTransfer,
+  transferOf,
+  type RawMessage,
+  type TxTransfer,
+} from "@/lib/tx-parties";
 
 export interface TxMessage {
   typeUrl: string;
   label: string;
+  /** Parties and amount, where the message type has them. */
+  transfer: TxTransfer | null;
 }
 
 export interface TxSummary {
@@ -15,6 +24,8 @@ export interface TxSummary {
   code: number | null;
   messages: TxMessage[];
   messageCount: number;
+  /** One-line summary of what the transaction moved, for list views. */
+  transfer: TxTransfer | null;
   fee: { denom: string; amount: string }[];
   gasUsed: string | null;
   gasWanted: string | null;
@@ -112,9 +123,15 @@ export function labelForType(typeUrl: string): string {
 
 /** Shared with the account history reader, which hits the same tx endpoint. */
 export function rawTxToSummary(raw: RawTxResponse): TxSummary {
-  const messages = (raw.tx?.body?.messages ?? []).map((m) => ({
+  // Flattened first: an authz MsgExec would otherwise present as a transaction
+  // with one opaque message and no parties.
+  const rawMessages = flattenMessages(
+    (raw.tx?.body?.messages ?? []) as RawMessage[]
+  );
+  const messages = rawMessages.map((m) => ({
     typeUrl: m["@type"],
     label: labelForType(m["@type"]),
+    transfer: transferOf(m),
   }));
 
   return {
@@ -124,6 +141,7 @@ export function rawTxToSummary(raw: RawTxResponse): TxSummary {
     code: raw.code ?? 0,
     messages,
     messageCount: messages.length,
+    transfer: primaryTransfer(rawMessages),
     fee: raw.tx?.auth_info?.fee?.amount ?? [],
     gasUsed: raw.gas_used ?? null,
     gasWanted: raw.gas_wanted ?? null,
@@ -157,6 +175,7 @@ export async function txsAtHeight(
     code: null,
     messages: [],
     messageCount: 0,
+    transfer: null,
     fee: [],
     gasUsed: null,
     gasWanted: null,

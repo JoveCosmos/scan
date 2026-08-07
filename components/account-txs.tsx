@@ -5,6 +5,50 @@ import { symbolFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { timeAgo, truncateMiddle } from "@/lib/format";
+import { TxAmount } from "@/components/tx-amount";
+import { AddressLink } from "@/components/address-link";
+import { directionFor, type TxTransfer } from "@/lib/tx-parties";
+
+/**
+ * The other side of a transfer, from this account's point of view.
+ *
+ * An arrow alone is ambiguous on a page that is already about one address, so
+ * the direction is spelled out: "from X" for value arriving, "to Y" for value
+ * leaving.
+ */
+function Counterparty({
+  chainId,
+  transfer,
+  viewer,
+}: {
+  chainId: string;
+  transfer: TxTransfer | null;
+  viewer: string;
+}) {
+  if (!transfer) return <span className="text-muted-foreground">—</span>;
+
+  const direction = directionFor(transfer, viewer);
+  const other =
+    direction === "out" ? transfer.to : direction === "in" ? transfer.from : null;
+
+  if (direction === "self") {
+    return <span className="text-xs text-muted-foreground">self</span>;
+  }
+  // The account is not a party — a vote, a grant — so there is no counterparty
+  // to name rather than an unknown one.
+  if (!direction || !other) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="text-[11px] text-muted-foreground">
+        {direction === "out" ? "to" : "from"}
+      </span>
+      <AddressLink chainId={chainId} address={other} />
+    </span>
+  );
+}
 
 /**
  * Transactions this address sent or received. Streamed separately from the
@@ -48,6 +92,12 @@ export async function AccountTxs({
             <tr className="border-b border-border text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">Hash</th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">
+                Counterparty
+              </th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                Amount
+              </th>
               <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                 Height
@@ -82,6 +132,22 @@ export async function AccountTxs({
                       +{tx.messages.length - 1}
                     </span>
                   ) : null}
+                </td>
+                <td data-label="Counterparty" className="px-4 py-3">
+                  <Counterparty
+                    chainId={chain.chainId}
+                    transfer={tx.transfer}
+                    viewer={address}
+                  />
+                </td>
+                <td data-label="Amount" className="px-4 py-3 text-right">
+                  <TxAmount
+                    denom={chain.denom}
+                    exponent={chain.exponent}
+                    symbol={symbolFor(chain)}
+                    transfer={tx.transfer}
+                    viewer={address}
+                  />
                 </td>
                 <td data-label="Status" className="px-4 py-3">
                   {tx.code === null ? (

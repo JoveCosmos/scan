@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { formatToken } from "@/lib/overview";
 import type { TxSummary } from "@/lib/txs";
+import { TxAmount } from "@/components/tx-amount";
 
 interface TxsPayload {
   txs: TxSummary[];
@@ -83,11 +84,13 @@ export function TxsTable({
   chainId,
   exponent,
   symbol,
+  denom,
   initial,
 }: {
   chainId: string;
   exponent: number;
   symbol: string;
+  denom: string;
   initial: TxsPayload;
 }) {
   const { data, isError } = useQuery<TxsPayload>({
@@ -144,6 +147,9 @@ export function TxsTable({
               <tr className="border-b border-border text-left">
                 <th className="px-4 py-3 font-medium text-muted-foreground">Hash</th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                  Amount
+                </th>
                 <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">
                   Height
@@ -174,6 +180,14 @@ export function TxsTable({
                   </td>
                   <td data-label="Type" className="px-4 py-3">
                     <MessagePills tx={tx} />
+                  </td>
+                  <td data-label="Amount" className="px-4 py-3 text-right">
+                    <TxAmount
+                      denom={denom}
+                      exponent={exponent}
+                      symbol={symbol}
+                      transfer={tx.transfer}
+                    />
                   </td>
                   <td data-label="Status" className="px-4 py-3">
                     <StatusIcon code={tx.code} />

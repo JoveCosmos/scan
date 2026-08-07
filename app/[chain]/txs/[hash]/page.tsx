@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
 import { getChain, symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
+import { AddressLink } from "@/components/address-link";
+import { TxAmount } from "@/components/tx-amount";
 import { decodeParam } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -191,11 +193,32 @@ export default async function TxDetailPage({
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary font-mono text-xs text-muted-foreground">
                   {i + 1}
                 </span>
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium">{msg.label}</span>
                   <span className="block truncate font-mono text-xs text-muted-foreground">
                     {msg.typeUrl}
                   </span>
+
+                  {msg.transfer && (msg.transfer.from || msg.transfer.to) ? (
+                    <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                      <AddressLink
+                        chainId={chainId}
+                        address={msg.transfer.from}
+                      />
+                      <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <AddressLink chainId={chainId} address={msg.transfer.to} />
+                      {msg.transfer.amount.length > 0 ? (
+                        <span className="ml-1">
+                          <TxAmount
+                            denom={chain.denom}
+                            exponent={chain.exponent}
+                            symbol={symbol}
+                            transfer={msg.transfer}
+                          />
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : null}
                 </span>
               </li>
             ))}

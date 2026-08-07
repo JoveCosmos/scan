@@ -3,7 +3,7 @@ import { fetchFrom } from "@/lib/lcd";
 import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
-import type { TxSummary } from "@/lib/txs";
+import type { TxSummary, TxMessage } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValoperIndexNow, prewarmValoperIndex } from "@/lib/gno-valopers";
 import { parseCoinString, type AccountView } from "@/lib/accounts";
@@ -137,6 +137,8 @@ function toTxSummary(item: ApiTxItem): TxSummary {
   const messages = (item.func ?? []).map((fn) => ({
     typeUrl: fn.pkgPath ? `${fn.messageType} ${fn.pkgPath}` : fn.messageType,
     label: labelForGnoMessage(fn),
+    // The indexing API exposes no per-message parties or amounts.
+    transfer: null,
   }));
 
   return {
@@ -148,6 +150,8 @@ function toTxSummary(item: ApiTxItem): TxSummary {
     code: item.successYn ? 0 : 1,
     messages,
     messageCount: item.messageCount ?? messages.length,
+    // gno's indexing API exposes no transfer parties or amounts.
+    transfer: null,
     fee: item.fee?.value
       ? [{ denom: item.fee.denom, amount: item.fee.value }]
       : [],
@@ -310,7 +314,7 @@ interface ApiTxDetail {
 async function gnoTxMessages(
   chain: ChainConfig,
   hash: string
-): Promise<{ typeUrl: string; label: string }[]> {
+): Promise<TxMessage[]> {
   const endpoint = chain.indexerEndpoints[0];
   if (!endpoint) return [];
 
@@ -331,6 +335,7 @@ async function gnoTxMessages(
     };
     const messages = json.data?.transactions?.[0]?.messages ?? [];
     return messages.map((m) => ({
+      transfer: null,
       typeUrl: `/${m.route}.${m.typeUrl}`,
       label: labelForGnoMessage({
         messageType: `/${m.route}.${m.typeUrl}`,
@@ -376,6 +381,7 @@ export async function gnoTx(
     code: detail.success ? 0 : 1,
     messages,
     messageCount: messages.length,
+    transfer: null,
     fee: detail.transactionFee?.value
       ? [{ denom: detail.transactionFee.denom, amount: detail.transactionFee.value }]
       : [],
