@@ -104,8 +104,9 @@ export function getChain(chainId: string): ChainConfig | undefined {
 export { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
 
 /**
- * The default chain's full config. Falls back to the first configured chain so
- * this keeps working if atomone-1 is ever removed from config.
+ * The reference chain's full config, for query classification. Falls back to
+ * the first configured chain so this keeps working if atomone-1 is ever
+ * removed from config.
  */
 export function getDefaultChain(): ChainConfig {
   return getChain(DEFAULT_CHAIN_ID) ?? loadChains()[0];

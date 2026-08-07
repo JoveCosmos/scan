@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { getAllChains, accentFor } from "@/lib/chains";
-import { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
 import { SearchBar } from "@/components/search-bar";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +37,10 @@ export default function HomePage() {
       </div>
 
       <div className="mt-8 w-full max-w-xl">
-        {/* Searching without a chain in the URL resolves against the default
-            network; an address carrying another chain's prefix still wins. */}
-        <SearchBar chainId={DEFAULT_CHAIN_ID} size="lg" />
+        {/* No chain hint on purpose: an ambiguous query — a bare block height,
+            an address valid on several chains — should ask which chain rather
+            than quietly picking one. */}
+        <SearchBar size="lg" />
         <p className="mt-3 text-center text-xs text-muted-foreground">
           Search an address, a transaction hash, or a block height.
         </p>
