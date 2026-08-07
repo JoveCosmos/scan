@@ -7,6 +7,7 @@ import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { ValidatorsTable, type ValidatorRow } from "@/components/validators-table";
 import { emptyUptime } from "@/lib/uptime";
+import { getChainParams } from "@/lib/params";
 
 export const revalidate = 60;
 
@@ -14,12 +15,15 @@ function StatPanel({
   label,
   value,
   sub,
+  hint,
   accent,
   index,
 }: {
   label: string;
   value: string;
   sub?: string;
+  /** Plain-language explanation, shown under the panel. */
+  hint?: string;
   accent: string;
   index: number;
 }) {
@@ -37,6 +41,11 @@ function StatPanel({
       </p>
       <p className="mt-2 font-mono text-3xl font-semibold leading-none">{value}</p>
       {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
+      {hint ? (
+        <p className="mt-2 border-t border-border/50 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -86,12 +95,18 @@ export default async function ValidatorsPage({
 async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
   const adapter = getAdapter(chain);
-  const [validators, registered, overview] = await Promise.all([
+  const [validators, registered, overview, chainParams] = await Promise.all([
     adapter.getValidators(),
     adapter.getRegisteredCount(),
     // Head height is what anchors the 24h window.
     adapter.getOverview().catch(() => null),
+    // The commission floor is a consensus parameter, not something derived
+    // from the set.
+    adapter.capabilities.staking
+      ? getChainParams(chain).catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const minCommission = chainParams?.staking?.minCommissionRate ?? null;
   // Both need the validator set first: they are keyed by the same identifier.
   const [uptime, deltas] = await Promise.all([
     adapter.getUptime(validators).catch(() => new Map()),
@@ -119,15 +134,13 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
-  // Smallest number of validators that together exceed 1/3 of stake — i.e. the
-  // number that would have to collude to halt the chain.
+  // Smallest number of validators that together exceed 1/3 of voting power.
+  // One third is the halt threshold: Tendermint needs +2/3 to make progress, so
+  // anything over 1/3 colluding can stop the chain. Verified against Cosmos Hub
+  // (3 of 200) and AtomOne (6 of 100).
   const nakamoto = validators.findIndex((v) => v.cumulativePower > 1 / 3) + 1;
 
   const totalBonded = validators.reduce((sum, v) => sum + Number(v.tokens), 0);
-  const avgCommission =
-    validators.length > 0
-      ? validators.reduce((sum, v) => sum + v.commissionRate, 0) / validators.length
-      : 0;
 
   return (
     <>
@@ -146,15 +159,19 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         <StatPanel
           index={1}
           accent={accent}
-          label="Nakamoto Coefficient"
+          label="Could Halt The Chain"
           value={nakamoto > 0 ? String(nakamoto) : "—"}
-          // On a chain without staking the same figure still measures how many
-          // validators must collude to halt consensus — but it is weighted by
-          // assigned voting power, not by stake.
+          // "Nakamoto coefficient" means nothing to most readers, so the panel
+          // states the consequence and keeps the term as the explanation.
           sub={
+            nakamoto > 0
+              ? `of ${validators.length} validators, if they colluded — the Nakamoto coefficient`
+              : undefined
+          }
+          hint={
             stakeWeighted
-              ? "to exceed ⅓ of stake"
-              : "to exceed ⅓ of voting power"
+              ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
+              : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`
           }
         />
         {staking ? (
@@ -163,14 +180,23 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               index={2}
               accent={accent}
               label="Bonded Stake"
-              value={formatToken(String(totalBonded), chain.exponent)}
-              sub={symbol}
+              value={`${formatToken(String(totalBonded), chain.exponent)} ${symbol}`}
+              sub={
+                overview?.bondedRatio != null
+                  ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply is staked`
+                  : undefined
+              }
+              hint="Stake secures the chain, so a higher share bonded means a more expensive chain to attack — and less supply free to trade."
             />
             <StatPanel
               index={3}
               accent={accent}
-              label="Avg Commission"
-              value={`${(avgCommission * 100).toFixed(1)}%`}
+              label="Min Commission"
+              value={
+                minCommission !== null ? `${(minCommission * 100).toFixed(1)}%` : "—"
+              }
+              sub="floor set by the chain"
+              hint="No validator on this chain may charge less than this. It is a consensus parameter, not an average of what validators actually charge."
             />
           </>
         ) : (

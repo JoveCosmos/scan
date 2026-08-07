@@ -59,11 +59,22 @@ export async function getChainOverview(chain: ChainConfig): Promise<ChainOvervie
   let bondedRatio: number | null = null;
   let bondedTokens: string | null = null;
   if (pool.status === "fulfilled") {
-    const bonded = Number(pool.value.pool.bonded_tokens);
-    const notBonded = Number(pool.value.pool.not_bonded_tokens);
-    const total = bonded + notBonded;
     bondedTokens = pool.value.pool.bonded_tokens;
-    if (Number.isFinite(total) && total > 0) bondedRatio = bonded / total;
+
+    // Against total supply, not against the staking pool.
+    //
+    // `not_bonded_tokens` is only the unbonding queue — tokens on their way out
+    // of staking — not the circulating remainder. Dividing by
+    // bonded + not_bonded gave Cosmos Hub 94.44% when the real figure is
+    // 62.59% (327.81M bonded of 523.75M supply), because it was measuring
+    // "share of tokens involved in staking at all" rather than "share of supply
+    // that is staked".
+    const bonded = Number(pool.value.pool.bonded_tokens);
+    const total =
+      supply.status === "fulfilled" ? Number(supply.value.amount.amount) : NaN;
+    if (Number.isFinite(bonded) && Number.isFinite(total) && total > 0) {
+      bondedRatio = bonded / total;
+    }
   }
 
   return {

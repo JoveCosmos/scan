@@ -120,8 +120,6 @@ export default async function ChainParamsPage({
 
       <LiveOverview
         chainId={chain.chainId}
-        exponent={chain.exponent}
-        symbol={symbol}
         accent={accent}
         initialData={overview}
       />

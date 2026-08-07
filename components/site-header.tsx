@@ -18,15 +18,15 @@ export interface ChainSummary {
   network: "mainnet" | "testnet";
 }
 
-// Validators first: it is the chain's landing page and the most-used tab.
-// Params last — it is reference material, not something you watch.
+// Params first: it is the chain's identity card. Validators follows as the
+// most-used working tab.
 const NAV = [
+  { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
   { href: "/blocks", label: "Blocks", short: "Blocks" },
   // Shortened on narrow screens so all tabs fit without a sideways swipe.
   { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
-  { href: "/params", label: "Params", short: "Params" },
 ];
 
 function ChainSwitcher({

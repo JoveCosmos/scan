@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { formatToken, type ChainOverview } from "@/lib/overview";
+import type { ChainOverview } from "@/lib/overview";
 import { timeAgo } from "@/lib/format";
 
 function useSecondsTicker() {
@@ -59,14 +59,10 @@ function StatCard({
 
 export function LiveOverview({
   chainId,
-  exponent,
-  symbol,
   accent,
   initialData,
 }: {
   chainId: string;
-  exponent: number;
-  symbol: string;
   accent: string;
   initialData: ChainOverview;
 }) {
@@ -139,19 +135,6 @@ export function LiveOverview({
           label="Active Validators"
           value={data.activeValidators ?? "—"}
           sub="bonded set"
-        />
-        <StatCard
-          index={3}
-          accent={accent}
-          label="Bonded Ratio"
-          value={
-            data.bondedRatio === null ? "—" : `${(data.bondedRatio * 100).toFixed(2)}%`
-          }
-          sub={
-            data.bondedTokens
-              ? `${formatToken(data.bondedTokens, exponent)} ${symbol} staked`
-              : undefined
-          }
         />
       </div>
     </div>
