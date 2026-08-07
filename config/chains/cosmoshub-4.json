@@ -16,5 +16,8 @@
   ],
   "wsEndpoint": "wss://cosmos-rpc.publicnode.com/websocket",
   "featuredValidator": null,
-  "accent": "#3B9EFF"
+  "accent": "#3B9EFF",
+  "coingeckoId": "cosmos",
+  "website": "https://cosmos.network",
+  "repo": "https://github.com/cosmos/gaia"
 }

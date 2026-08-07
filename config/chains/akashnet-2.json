@@ -16,5 +16,8 @@
   ],
   "wsEndpoint": "wss://akash-rpc.publicnode.com/websocket",
   "featuredValidator": null,
-  "accent": "#FF7A45"
+  "accent": "#FF7A45",
+  "coingeckoId": "akash-network",
+  "website": "https://akash.network",
+  "repo": "https://github.com/akash-network/node"
 }

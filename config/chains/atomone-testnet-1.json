@@ -15,5 +15,7 @@
   ],
   "wsEndpoint": "wss://atomone-testnet-rpc.gatadao.com/websocket",
   "featuredValidator": null,
-  "accent": "#FFB155"
+  "accent": "#FFB155",
+  "website": "https://atom.one",
+  "repo": "https://github.com/atomone-hub/atomone"
 }

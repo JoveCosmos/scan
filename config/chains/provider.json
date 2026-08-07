@@ -15,5 +15,7 @@
   ],
   "wsEndpoint": "wss://provider-rpc.gatadao.com/websocket",
   "featuredValidator": null,
-  "accent": "#36D399"
+  "accent": "#36D399",
+  "website": "https://cosmos.network",
+  "repo": "https://github.com/cosmos/gaia"
 }

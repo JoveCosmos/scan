@@ -19,6 +19,15 @@ const chainConfigSchema = z
     kind: z.enum(["cosmos", "gno"]).default("cosmos"),
     /** Groups chains in the switcher and on the landing page. */
     network: z.enum(["mainnet", "testnet"]).default("mainnet"),
+    /**
+     * CoinGecko id, for price and market cap. Absent on testnets and on chains
+     * with no traded token, which simply show no market figures.
+     */
+    coingeckoId: z.string().optional(),
+    /** Project homepage, shown on the Params tab. */
+    website: z.string().url().optional(),
+    /** Source repository, shown on the Params tab. */
+    repo: z.string().url().optional(),
     lcdEndpoints: z.array(z.string().url()).default([]),
     rpcEndpoints: z.array(z.string().url()).min(1),
     /** Indexing REST API. Required for gno, where the RPC cannot list txs. */

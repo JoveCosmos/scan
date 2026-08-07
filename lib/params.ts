@@ -188,3 +188,129 @@ export function humanDuration(value: string | null): string {
   }
   return `${seconds}s`;
 }
+
+export interface ChainEconomics {
+  /** Community pool, native denom only. Pools also hold IBC dust. */
+  communityPool: string | null;
+  /** Distinct addresses holding the native denom. */
+  holders: number | null;
+  /** Gross annual staking yield before validator commission, 0–1. */
+  stakingApr: number | null;
+  /** Yield after the chain's minimum commission — the best any validator offers. */
+  stakingAprAfterMinCommission: number | null;
+}
+
+/**
+ * The economic picture: what the chain pays stakers, what it has banked, and
+ * how many addresses hold its token.
+ *
+ * Staking APR is derived, not published by any endpoint:
+ *
+ *   annual provisions / bonded tokens × (1 − community tax)
+ *
+ * Newly minted tokens go to stakers in proportion to stake, less the slice
+ * diverted to the community pool. The result is before validator commission,
+ * which is why the commission-adjusted figure is given alongside it — a
+ * headline APR nobody actually receives is worse than no APR.
+ */
+export async function getChainEconomics(
+  chain: ChainConfig,
+  communityTax: number | null,
+  minCommission: number | null
+): Promise<ChainEconomics> {
+  const [pool, owners, provisions, staking] = await Promise.all([
+    attempt(() =>
+      fetchLcd<{ pool?: { denom: string; amount: string }[] }>(
+        chain,
+        "/cosmos/distribution/v1beta1/community_pool",
+        { timeoutMs: 8000 }
+      )
+    ),
+    attempt(() =>
+      fetchLcd<{ pagination?: { total?: string } }>(
+        chain,
+        `/cosmos/bank/v1beta1/denom_owners/${encodeURIComponent(chain.denom)}`,
+        {
+          // A full scan of every account holding the denom: ~2.7s on Cosmos Hub.
+          // Worth one slow read for a number nothing else provides.
+          timeoutMs: 20_000,
+          searchParams: { "pagination.limit": 1, "pagination.count_total": true },
+        }
+      )
+    ),
+    attempt(() =>
+      fetchLcd<{ annual_provisions?: string }>(
+        chain,
+        "/cosmos/mint/v1beta1/annual_provisions",
+        { timeoutMs: 8000 }
+      )
+    ),
+    attempt(() =>
+      fetchLcd<{ pool?: { bonded_tokens?: string } }>(
+        chain,
+        "/cosmos/staking/v1beta1/pool",
+        { timeoutMs: 8000 }
+      )
+    ),
+  ]);
+
+  const native = pool?.pool?.find((c) => c.denom === chain.denom);
+  const holdersTotal = owners?.pagination?.total;
+
+  const annual = Number(provisions?.annual_provisions ?? NaN);
+  const bonded = Number(staking?.pool?.bonded_tokens ?? NaN);
+  let stakingApr: number | null = null;
+  if (Number.isFinite(annual) && Number.isFinite(bonded) && bonded > 0) {
+    stakingApr = (annual / bonded) * (1 - (communityTax ?? 0));
+  }
+
+  return {
+    // Amounts come back with a decimal tail; the UI formats whole tokens.
+    communityPool: native ? native.amount.split(".")[0] : null,
+    holders:
+      holdersTotal && Number.isFinite(Number(holdersTotal))
+        ? Number(holdersTotal)
+        : null,
+    stakingApr,
+    stakingAprAfterMinCommission:
+      stakingApr !== null && minCommission !== null
+        ? stakingApr * (1 - minCommission)
+        : null,
+  };
+}
+
+export interface NodeInfo {
+  /** Application name, e.g. "gaia". */
+  app: string | null;
+  /** Running version, e.g. "v27.6.0". */
+  version: string | null;
+  cosmosSdkVersion: string | null;
+}
+
+/**
+ * What software the chain is actually running, read live rather than pinned in
+ * config — an upgrade should show up here without a redeploy.
+ *
+ * This describes the node that answered, which on a public pool is one of
+ * several. They are normally on the same release; a lagging node would report
+ * its own older version, which is still a true statement about that node.
+ */
+export async function getNodeInfo(chain: ChainConfig): Promise<NodeInfo | null> {
+  const res = await attempt(() =>
+    fetchLcd<{
+      application_version?: {
+        name?: string;
+        version?: string;
+        cosmos_sdk_version?: string;
+      };
+    }>(chain, "/cosmos/base/tendermint/v1beta1/node_info", { timeoutMs: 8000 })
+  );
+
+  const v = res?.application_version;
+  if (!v) return null;
+  return {
+    app: v.name ?? null,
+    version: v.version ?? null,
+    cosmosSdkVersion: v.cosmos_sdk_version ?? null,
+  };
+}

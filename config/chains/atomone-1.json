@@ -16,5 +16,8 @@
   ],
   "wsEndpoint": "wss://atomone-rpc.publicnode.com/websocket",
   "featuredValidator": null,
-  "accent": "#F5C66B"
+  "accent": "#F5C66B",
+  "coingeckoId": "atomone",
+  "website": "https://atom.one",
+  "repo": "https://github.com/atomone-hub/atomone"
 }

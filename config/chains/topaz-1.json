@@ -21,5 +21,7 @@
   ],
   "wsEndpoint": "wss://topaz.rpc.onbloc.xyz/websocket",
   "featuredValidator": null,
-  "accent": "#62D9FF"
+  "accent": "#62D9FF",
+  "website": "https://gno.land",
+  "repo": "https://github.com/gnolang/gno"
 }

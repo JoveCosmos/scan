@@ -1,10 +1,34 @@
+import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAllChains, getChain, symbolFor, accentFor } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
 import { LiveOverview } from "@/components/live-overview";
-import { getChainParams, humanDuration } from "@/lib/params";
+import { Suspense } from "react";
+import { getChainParams, getNodeInfo, humanDuration } from "@/lib/params";
+import { ChainEconomics } from "@/components/chain-economics";
+import { LoadingPanel } from "@/components/loading-panel";
+
+/** An external link row — chain homepage, repository. */
+function ParamLink({ label, href }: { label: string; href: string }) {
+  return (
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3 last:border-0 sm:grid-cols-[260px_1fr] sm:gap-4">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="min-w-0">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="inline-flex items-center gap-1 break-all font-mono text-sm text-primary hover:underline"
+        >
+          {href.replace(/^https?:\/\//, "")}
+          <ExternalLink className="h-3 w-3 shrink-0" />
+        </a>
+      </dd>
+    </div>
+  );
+}
 
 /** Cosmos decimal (0.05) as a percentage. */
 function pct(value: number | null, decimals = 2): string {
@@ -97,13 +121,17 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams, recentBlocks] = await Promise.all([
+  const [overview, chainParams, recentBlocks, nodeInfo] = await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
     // Seeds the recent-blocks dialog so it opens populated.
     adapter.getRecentBlocks(12).catch(() => []),
+    adapter.capabilities.staking
+      ? getNodeInfo(chain).catch(() => null)
+      : Promise.resolve(null),
   ]);
+
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -142,6 +170,36 @@ export default async function ChainParamsPage({
           value={chain.bech32Prefix}
         />
       </div>
+
+      {adapter.capabilities.staking ? (
+        <Suspense
+          fallback={<LoadingPanel label="Loading economics…" rows={4} />}
+        >
+          <ChainEconomics
+            chain={chain}
+            communityTax={chainParams?.distribution?.communityTax ?? null}
+            minCommission={chainParams?.staking?.minCommissionRate ?? null}
+          />
+        </Suspense>
+      ) : null}
+
+      <ParamSection title="Network">
+        <ParamRow label="Chain ID" value={chain.chainId} />
+        {nodeInfo?.version ? (
+          <ParamRow
+            label="Node version"
+            value={`${nodeInfo.app ?? "node"} ${nodeInfo.version}${
+              nodeInfo.cosmosSdkVersion
+                ? `  ·  Cosmos SDK ${nodeInfo.cosmosSdkVersion}`
+                : ""
+            }`}
+          />
+        ) : null}
+        {chain.website ? (
+          <ParamLink label="Website" href={chain.website} />
+        ) : null}
+        {chain.repo ? <ParamLink label="Repository" href={chain.repo} /> : null}
+      </ParamSection>
 
       {chainParams?.staking ? (
         <ParamSection title="Staking">
