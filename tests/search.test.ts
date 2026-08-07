@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyQuery } from "@/lib/search";
+import { classifyQuery, classifyChainless } from "@/lib/search";
 import type { ChainConfig } from "@/lib/chains";
 
 const cosmos = { bech32Prefix: "cosmos" } as ChainConfig;
@@ -63,5 +63,43 @@ describe("classifyQuery", () => {
     // An atone address pasted on cosmoshub must not resolve as a local account.
     expect(classifyQuery(cosmos, "atone1z946llvyk5v2hatfha3xhgq5dd5mll53qr4w63").kind)
       .toBe("unknown");
+  });
+});
+
+describe("classifyChainless", () => {
+  it("recognises a block height without knowing the chain", () => {
+    expect(classifyChainless("32203000")).toEqual({
+      kind: "height",
+      value: "32203000",
+    });
+  });
+
+  it("recognises and upper-cases a Cosmos tx hash", () => {
+    const lower = "a".repeat(64);
+    expect(classifyChainless(lower)).toEqual({
+      kind: "tx",
+      value: "A".repeat(64),
+    });
+  });
+
+  it("recognises a gno base64 tx hash", () => {
+    expect(classifyChainless(`${"A".repeat(43)}=`).kind).toBe("tx");
+  });
+
+  it("does not classify an address, which needs a chain prefix", () => {
+    // Addresses are resolved against every chain by the caller instead.
+    expect(
+      classifyChainless("cosmos1qphf0ferqcch0jca9hlqfm3x0eds3dpkzcqmvq").kind
+    ).toBe("unknown");
+  });
+
+  it("agrees with the chain-aware classifier on heights and hashes", () => {
+    for (const q of ["32203000", "b".repeat(64)]) {
+      expect(classifyChainless(q)).toEqual(classifyQuery(cosmos, q));
+    }
+  });
+
+  it("treats blank input as unknown", () => {
+    expect(classifyChainless("   ").kind).toBe("unknown");
   });
 });

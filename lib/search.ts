@@ -15,6 +15,29 @@ export interface SearchGuess {
 }
 
 /**
+ * Classify what can be recognised without knowing the chain: a block height and
+ * a transaction hash look the same everywhere.
+ *
+ * This is what chain-agnostic search needs. It exists so that page does not
+ * have to nominate an arbitrary chain purely to satisfy a parameter it never
+ * uses — there is no default chain, and search should not invent one.
+ */
+export function classifyChainless(raw: string): SearchGuess {
+  const q = raw.trim();
+  if (!q) return { kind: "unknown", value: q };
+
+  if (/^\d+$/.test(q)) return { kind: "height", value: q };
+  if (/^[0-9a-fA-F]{64}$/.test(q)) return { kind: "tx", value: q.toUpperCase() };
+
+  // gno tx hashes are base64: 43 chars plus "=". Safe to match here even though
+  // a bech32 address could in principle collide, because the caller resolves
+  // addresses before it considers transactions.
+  if (/^[A-Za-z0-9+/]{43}=$/.test(q)) return { kind: "tx", value: q };
+
+  return { kind: "unknown", value: q };
+}
+
+/**
  * Classify a search term for one chain. Deliberately syntactic — it never hits
  * the network — so the caller decides how to resolve an ambiguous "address"
  * (which on gno may be either a consensus validator or a plain account).

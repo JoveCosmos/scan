@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
 
 const chainConfigSchema = z
   .object({
@@ -99,17 +98,6 @@ export function getAllChains(): ChainConfig[] {
 
 export function getChain(chainId: string): ChainConfig | undefined {
   return loadChains().find((c) => c.chainId === chainId);
-}
-
-export { DEFAULT_CHAIN_ID } from "@/lib/default-chain";
-
-/**
- * The reference chain's full config, for query classification. Falls back to
- * the first configured chain so this keeps working if atomone-1 is ever
- * removed from config.
- */
-export function getDefaultChain(): ChainConfig {
-  return getChain(DEFAULT_CHAIN_ID) ?? loadChains()[0];
 }
 
 export const GATA_BLUE = "#3B9EFF";
