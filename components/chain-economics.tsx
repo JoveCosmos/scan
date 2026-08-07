@@ -15,10 +15,13 @@ export async function ChainEconomics({
   chain,
   communityTax,
   minCommission,
+  supply,
 }: {
   chain: ChainConfig;
   communityTax: number | null;
   minCommission: number | null;
+  /** Total supply in base denom, for the community pool's share of it. */
+  supply: string | null;
 }) {
   const [economics, market] = await Promise.all([
     getChainEconomics(chain, communityTax, minCommission).catch(() => null),
@@ -93,7 +96,14 @@ export async function ChainEconomics({
               value={`${formatToken(economics.communityPool, chain.exponent)} ${symbol}`}
               trailing={
                 <span className="text-muted-foreground">
-                  native denom only; pools also hold IBC assets
+                  {poolShare(economics.communityPool, supply)}
+                  {market
+                    ? ` · ${formatUsdCompact(
+                        (Number(economics.communityPool) / 10 ** chain.exponent) *
+                          market.usd
+                      )}`
+                    : ""}
+                  {" · native denom only"}
                 </span>
               }
             />
@@ -114,6 +124,14 @@ export async function ChainEconomics({
       </div>
     </section>
   );
+}
+
+/** The pool's share of total supply — how much of the token the chain itself holds. */
+function poolShare(pool: string, supply: string | null): string {
+  const p = Number(pool);
+  const s = Number(supply);
+  if (!Number.isFinite(p) || !Number.isFinite(s) || s <= 0) return "";
+  return `${((p / s) * 100).toFixed(2)}% of supply`;
 }
 
 function Row({

@@ -179,6 +179,7 @@ export default async function ChainParamsPage({
             chain={chain}
             communityTax={chainParams?.distribution?.communityTax ?? null}
             minCommission={chainParams?.staking?.minCommissionRate ?? null}
+            supply={overview.supply}
           />
         </Suspense>
       ) : null}

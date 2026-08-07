@@ -30,7 +30,7 @@ const BLOCK_SAMPLE = 2000;
  * error here only shifts the window slightly, e.g. 23.5h instead of 24h, which
  * a "24h change" indicator tolerates.
  */
-async function blockSeconds(chain: ChainConfig, head: number): Promise<number> {
+export async function blockSeconds(chain: ChainConfig, head: number): Promise<number> {
   return cached(`blocktime:${chain.chainId}`, 3_600_000, async () => {
     try {
       const [now, before] = await Promise.all([

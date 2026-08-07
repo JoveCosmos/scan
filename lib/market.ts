@@ -33,8 +33,13 @@ export async function getMarketData(
   const id = chain.coingeckoId;
   if (!id) return null;
 
-  return cached(`market:${id}`, 300_000, async () => {
-    try {
+  // Throws inside the cache callback rather than returning null, so a failure
+  // is not cached. cached() only treats a rejection as a failure — a returned
+  // null looks like a perfectly good value and would blank the price for the
+  // full five minutes after one transient blip. On failure it keeps serving the
+  // last good price instead.
+  try {
+    return await cached(`market:${id}`, 300_000, async () => {
       const url = new URL("https://api.coingecko.com/api/v3/simple/price");
       url.searchParams.set("ids", id);
       url.searchParams.set("vs_currencies", "usd");
@@ -46,21 +51,23 @@ export async function getMarketData(
         headers: { accept: "application/json" },
         signal: AbortSignal.timeout(6000),
       });
-      if (!res.ok) return null;
+      if (!res.ok) throw new Error(`coingecko responded ${res.status}`);
 
       const json = (await res.json()) as CoinGeckoResponse;
       const entry = json[id];
-      if (!entry || typeof entry.usd !== "number") return null;
+      if (!entry || typeof entry.usd !== "number") {
+        throw new Error(`coingecko returned no price for ${id}`);
+      }
 
       return {
         usd: entry.usd,
         marketCapUsd: entry.usd_market_cap ?? null,
         change24h: entry.usd_24h_change ?? null,
       };
-    } catch {
-      return null;
-    }
-  });
+    });
+  } catch {
+    return null;
+  }
 }
 
 /** "$1.35", or "$0.146510" when a cent-scale price would round to nothing. */
