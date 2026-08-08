@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
-import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
+import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
@@ -278,9 +279,7 @@ export default async function BlockDetailPage({
                     )}
                   </td>
                   <td data-label="Fee" className="px-4 py-3 text-right font-mono text-xs">
-                    {tx.fee.length > 0
-                      ? `${formatToken(tx.fee[0].amount, chain.exponent, 4)} ${symbol}`
-                      : "—"}
+                    {formatCoins(tx.fee, chainDenoms(chain))}
                   </td>
                 </tr>
               ))}

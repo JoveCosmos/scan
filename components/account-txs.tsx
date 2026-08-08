@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import type { ChainConfig } from "@/lib/chains";
-import { symbolFor } from "@/lib/chains";
+import { symbolFor, chainDenoms } from "@/lib/chains";
+import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
-import { formatToken } from "@/lib/overview";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { TxAmount } from "@/components/tx-amount";
 import { AddressLink } from "@/components/address-link";
@@ -62,7 +62,6 @@ export async function AccountTxs({
   address: string;
 }) {
   const { txs, total, failed } = await getAdapter(chain).getAccountTxs(address);
-  const symbol = symbolFor(chain);
 
   if (failed) {
     return (
@@ -179,9 +178,7 @@ export async function AccountTxs({
                   data-label="Fee"
                   className="px-4 py-3 text-right font-mono text-xs"
                 >
-                  {tx.fee.length > 0
-                    ? `${formatToken(tx.fee[0].amount, chain.exponent, 4)} ${symbol}`
-                    : "—"}
+                  {formatCoins(tx.fee, chainDenoms(chain))}
                 </td>
                 <td
                   data-label="Age"

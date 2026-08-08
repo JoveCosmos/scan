@@ -17,5 +17,6 @@
   "featuredValidator": null,
   "accent": "#FFB155",
   "website": "https://atom.one",
-  "repo": "https://github.com/atomone-hub/atomone"
+  "repo": "https://github.com/atomone-hub/atomone",
+  "feeDenom": "uphoton"
 }

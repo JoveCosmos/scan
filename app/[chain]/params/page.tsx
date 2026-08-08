@@ -1,12 +1,23 @@
 import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getAllChains, getChain, symbolFor, accentFor } from "@/lib/chains";
+import {
+  getAllChains,
+  getChain,
+  symbolFor,
+  symbolForDenom,
+  accentFor,
+} from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
 import { LiveOverview } from "@/components/live-overview";
 import { Suspense } from "react";
-import { getChainParams, getNodeInfo, humanDuration } from "@/lib/params";
+import {
+  getChainParams,
+  getNodeInfo,
+  getSupplyOf,
+  humanDuration,
+} from "@/lib/params";
 import { getLatestRelease, isBehind } from "@/lib/github";
 import { ChainEconomics } from "@/components/chain-economics";
 import { LoadingPanel } from "@/components/loading-panel";
@@ -139,7 +150,8 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams, recentBlocks, nodeInfo, release] = await Promise.all([
+  const [overview, chainParams, recentBlocks, nodeInfo, release, feeSupply] =
+    await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
@@ -149,9 +161,13 @@ export default async function ChainParamsPage({
       ? getNodeInfo(chain).catch(() => null)
       : Promise.resolve(null),
     getLatestRelease(chain.repo).catch(() => null),
+    chain.feeDenom
+      ? getSupplyOf(chain, chain.feeDenom).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   const symbol = symbolFor(chain);
+  const feeSymbol = chain.feeDenom ? symbolForDenom(chain.feeDenom) : "";
   const accent = accentFor(chain);
 
   return (
@@ -189,6 +205,24 @@ export default async function ChainParamsPage({
           value={chain.bech32Prefix}
         />
       </div>
+
+      {chain.feeDenom ? (
+        <ParamSection
+          title="Tokens"
+          note="AtomOne separates the two: one token secures the chain and votes, the other pays fees."
+        >
+          <ParamRow
+            label={`${symbol} — ${chain.denom}`}
+            value={`${formatToken(overview.supply, chain.exponent)} ${symbol}  ·  staking & governance`}
+          />
+          <ParamRow
+            label={`${feeSymbol} — ${chain.feeDenom}`}
+            value={`${
+              feeSupply ? formatToken(feeSupply, chain.exponent) : "—"
+            } ${feeSymbol}  ·  transaction fees`}
+          />
+        </ParamSection>
+      ) : null}
 
       {adapter.capabilities.staking ? (
         <Suspense

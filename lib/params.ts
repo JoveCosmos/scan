@@ -326,3 +326,18 @@ export async function getHolderCount(chain: ChainConfig): Promise<number | null>
     return null;
   }
 }
+
+/** Total supply of one denom, whole tokens (base units). Null on failure. */
+export async function getSupplyOf(
+  chain: ChainConfig,
+  denom: string
+): Promise<string | null> {
+  const res = await attempt(() =>
+    fetchLcd<{ amount?: { amount?: string } }>(
+      chain,
+      `/cosmos/bank/v1beta1/supply/by_denom`,
+      { timeoutMs: 8000, searchParams: { denom } }
+    )
+  );
+  return res?.amount?.amount ?? null;
+}

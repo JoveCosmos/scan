@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, XCircle } from "lucide-react";
-import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
+import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
-import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
 import { AddressLink } from "@/components/address-link";
 import { TxAmount } from "@/components/tx-amount";
@@ -130,11 +130,7 @@ export default async function TxDetailPage({
             )}
           </Row>
           <Row label="Fee">
-            {tx.fee.length > 0
-              ? tx.fee
-                  .map((f) => `${formatToken(f.amount, chain.exponent, 6)} ${symbol}`)
-                  .join(", ")
-              : "—"}
+            {formatCoins(tx.fee, chainDenoms(chain), 6)}
           </Row>
           <Row label="Gas">
             {tx.gasUsed && tx.gasWanted ? (

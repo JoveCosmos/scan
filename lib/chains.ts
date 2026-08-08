@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import type { DenomInfo } from "@/lib/coin";
 
 const chainConfigSchema = z
   .object({
@@ -11,6 +12,13 @@ const chainConfigSchema = z
     bech32Prefix: z.string().min(1),
     denom: z.string().min(1),
     exponent: z.number().int().nonnegative(),
+    /**
+     * Fee token, when it is not the staking token. AtomOne pays fees in PHOTON
+     * (uphoton) while staking and governance use ATONE, so a fee shown with the
+     * ATONE symbol is simply wrong. Same exponent as `denom` unless a chain
+     * ever needs otherwise.
+     */
+    feeDenom: z.string().optional(),
     /**
      * "cosmos" chains are read over the Cosmos SDK REST (LCD) API. "gno" chains
      * expose no /cosmos/* modules at all — they are read over Tendermint2 JSON-RPC
@@ -106,7 +114,27 @@ export function accentFor(chain: ChainConfig): string {
   return chain.accent ?? GATA_BLUE;
 }
 
-/** Display ticker derived from the base denom: "uatom" -> "ATOM". */
+/** Display ticker derived from a base denom: "uatom" -> "ATOM". */
+export function symbolForDenom(denom: string): string {
+  return denom.replace(/^u/, "").toUpperCase();
+}
+
+/** Display ticker for the staking token. */
 export function symbolFor(chain: ChainConfig): string {
-  return chain.denom.replace(/^u/, "").toUpperCase();
+  return symbolForDenom(chain.denom);
+}
+
+/** The staking token, and the fee token when it differs. */
+export function chainDenoms(chain: ChainConfig): DenomInfo[] {
+  const out: DenomInfo[] = [
+    { denom: chain.denom, symbol: symbolFor(chain), exponent: chain.exponent },
+  ];
+  if (chain.feeDenom && chain.feeDenom !== chain.denom) {
+    out.push({
+      denom: chain.feeDenom,
+      symbol: symbolForDenom(chain.feeDenom),
+      exponent: chain.exponent,
+    });
+  }
+  return out;
 }

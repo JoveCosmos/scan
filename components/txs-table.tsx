@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, XCircle, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { timeAgo, truncateMiddle } from "@/lib/format";
-import { formatToken } from "@/lib/overview";
 import type { TxSummary } from "@/lib/txs";
 import { TxAmount } from "@/components/tx-amount";
+import { formatCoins, type DenomInfo } from "@/lib/coin";
 
 interface TxsPayload {
   txs: TxSummary[];
@@ -85,12 +85,15 @@ export function TxsTable({
   exponent,
   symbol,
   denom,
+  denoms,
   initial,
 }: {
   chainId: string;
   exponent: number;
   symbol: string;
   denom: string;
+  /** Known denoms for fee formatting — a chain may pay fees in another token. */
+  denoms: DenomInfo[];
   initial: TxsPayload;
 }) {
   const { data, isError } = useQuery<TxsPayload>({
@@ -204,9 +207,7 @@ export function TxsTable({
                     data-label="Fee"
                     className="px-4 py-3 text-right font-mono text-xs"
                   >
-                    {tx.fee.length > 0
-                      ? `${formatToken(tx.fee[0].amount, exponent, 4)} ${symbol}`
-                      : "—"}
+                    {formatCoins(tx.fee, denoms)}
                   </td>
                   <td
                     data-label="Age"

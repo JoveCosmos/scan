@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getChain, symbolFor } from "@/lib/chains";
+import { getChain, symbolFor, chainDenoms } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { TxsTable } from "@/components/txs-table";
 
@@ -41,6 +41,7 @@ export default async function TxsPage({
         exponent={chain.exponent}
         symbol={symbolFor(chain)}
         denom={chain.denom}
+        denoms={chainDenoms(chain)}
         initial={initial}
       />
     </main>
