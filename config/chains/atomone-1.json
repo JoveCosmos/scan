@@ -20,5 +20,6 @@
   "coingeckoId": "atomone",
   "website": "https://atom.one",
   "repo": "https://github.com/atomone-hub/atomone",
-  "feeDenom": "uphoton"
+  "feeDenom": "uphoton",
+  "feeCoingeckoId": "photon-2"
 }

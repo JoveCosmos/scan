@@ -19,6 +19,8 @@ const chainConfigSchema = z
      * ever needs otherwise.
      */
     feeDenom: z.string().optional(),
+    /** CoinGecko id for the fee token, when it is separately traded. */
+    feeCoingeckoId: z.string().optional(),
     /**
      * "cosmos" chains are read over the Cosmos SDK REST (LCD) API. "gno" chains
      * expose no /cosmos/* modules at all — they are read over Tendermint2 JSON-RPC

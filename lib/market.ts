@@ -30,7 +30,13 @@ interface CoinGeckoResponse {
 export async function getMarketData(
   chain: ChainConfig
 ): Promise<MarketData | null> {
-  const id = chain.coingeckoId;
+  return getMarketDataById(chain.coingeckoId);
+}
+
+/** Market data for one CoinGecko id, or null when there is none to fetch. */
+export async function getMarketDataById(
+  id: string | undefined
+): Promise<MarketData | null> {
   if (!id) return null;
 
   // Throws inside the cache callback rather than returning null, so a failure

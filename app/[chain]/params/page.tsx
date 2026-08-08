@@ -19,6 +19,7 @@ import {
   humanDuration,
 } from "@/lib/params";
 import { getLatestRelease, isBehind } from "@/lib/github";
+import { getMarketDataById, formatUsd } from "@/lib/market";
 import { ChainEconomics } from "@/components/chain-economics";
 import { LoadingPanel } from "@/components/loading-panel";
 
@@ -150,8 +151,15 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams, recentBlocks, nodeInfo, release, feeSupply] =
-    await Promise.all([
+  const [
+    overview,
+    chainParams,
+    recentBlocks,
+    nodeInfo,
+    release,
+    feeSupply,
+    feeMarket,
+  ] = await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
@@ -164,6 +172,7 @@ export default async function ChainParamsPage({
     chain.feeDenom
       ? getSupplyOf(chain, chain.feeDenom).catch(() => null)
       : Promise.resolve(null),
+    getMarketDataById(chain.feeCoingeckoId).catch(() => null),
   ]);
 
   const symbol = symbolFor(chain);
@@ -219,7 +228,9 @@ export default async function ChainParamsPage({
             label={`${feeSymbol} — ${chain.feeDenom}`}
             value={`${
               feeSupply ? formatToken(feeSupply, chain.exponent) : "—"
-            } ${feeSymbol}  ·  transaction fees`}
+            } ${feeSymbol}${
+              feeMarket ? `  ·  ${formatUsd(feeMarket.usd)}` : ""
+            }  ·  transaction fees`}
           />
         </ParamSection>
       ) : null}
