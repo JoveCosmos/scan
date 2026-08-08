@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s · GATA HUB Explorer",
   },
   description:
-    "Multi-chain Cosmos block explorer by GATA HUB — Cosmos Hub, AtomOne and Akash.",
+    "Multi-chain Cosmos block explorer by GATA HUB - Cosmos Hub, AtomOne and Akash.",
 };
 
 export default function RootLayout({

@@ -108,11 +108,11 @@ export function LiveOverview({
             )}
           />
         </span>
-        <span>{live ? "Live" : "Connection lost — retrying"}</span>
+        <span>{live ? "Live" : "Connection lost - retrying"}</span>
         {isFetching && live ? <span className="opacity-50">· syncing</span> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <StatCard
           index={0}
           accent={accent}
@@ -128,13 +128,6 @@ export function LiveOverview({
           label="Txs in Block"
           value={data.txCount ?? "—"}
           sub="at current height"
-        />
-        <StatCard
-          index={2}
-          accent={accent}
-          label="Active Validators"
-          value={data.activeValidators ?? "—"}
-          sub="bonded set"
         />
       </div>
     </div>

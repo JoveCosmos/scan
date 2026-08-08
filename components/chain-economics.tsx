@@ -3,7 +3,7 @@ import { symbolFor } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { Suspense } from "react";
 import { getChainEconomics, getHolderCount } from "@/lib/params";
-import { getMarketData, formatUsd, formatUsdCompact } from "@/lib/market";
+import { formatUsdCompact, type MarketData } from "@/lib/market";
 
 /**
  * Price, yield and token distribution.
@@ -17,59 +17,35 @@ export async function ChainEconomics({
   communityTax,
   minCommission,
   supply,
+  market,
 }: {
   chain: ChainConfig;
   communityTax: number | null;
   minCommission: number | null;
-  /** Total supply in base denom, for the community pool's share of it. */
+  /** Total supply in base denom, shown here and used for the pool's share. */
   supply: string | null;
+  /** Fetched by the page for the price box; reused here for the pool's USD value. */
+  market: MarketData | null;
 }) {
-  const [economics, market] = await Promise.all([
-    getChainEconomics(chain, communityTax, minCommission).catch(() => null),
-    getMarketData(chain).catch(() => null),
-  ]);
+  const economics = await getChainEconomics(
+    chain,
+    communityTax,
+    minCommission
+  ).catch(() => null);
 
-  if (!economics && !market) return null;
+  if (!economics && !supply) return null;
   const symbol = symbolFor(chain);
 
   return (
     <section className="mt-6">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Economics</h2>
-      <p className="mb-3 -mt-2 text-xs text-muted-foreground">
-        Price and market cap come from CoinGecko; everything else is read from the
-        chain.
-      </p>
+      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Tokenomics</h2>
       <div className="gata-panel">
         <dl>
-          {market ? (
-            <>
-              <Row
-                label="Price"
-                value={formatUsd(market.usd)}
-                trailing={
-                  market.change24h !== null ? (
-                    <span
-                      className={
-                        market.change24h >= 0
-                          ? "text-[var(--gata-green)]"
-                          : "text-[var(--gata-burn)]"
-                      }
-                    >
-                      {market.change24h >= 0 ? "+" : ""}
-                      {market.change24h.toFixed(2)}% 24h
-                    </span>
-                  ) : null
-                }
-              />
-              <Row
-                label="Market cap"
-                value={
-                  market.marketCapUsd !== null
-                    ? formatUsdCompact(market.marketCapUsd)
-                    : "—"
-                }
-              />
-            </>
+          {supply ? (
+            <Row
+              label="Total supply"
+              value={`${formatToken(supply, chain.exponent)} ${symbol}`}
+            />
           ) : null}
 
           {economics?.stakingApr != null ? (

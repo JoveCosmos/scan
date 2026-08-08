@@ -53,7 +53,7 @@ export async function ProposalVotes({
         <p className="text-sm text-muted-foreground">
           {failed
             ? // Never claim there are no votes when we simply could not read them.
-              "Could not load votes right now — the node did not respond."
+              "Could not load votes right now - the node did not respond."
             : isVoting(status)
               ? "No votes cast yet."
               : "No votes found for this proposal, in state or in transaction history."}

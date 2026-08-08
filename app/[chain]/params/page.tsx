@@ -19,7 +19,12 @@ import {
   humanDuration,
 } from "@/lib/params";
 import { getLatestRelease, isBehind } from "@/lib/github";
-import { getMarketDataById, formatUsd } from "@/lib/market";
+import {
+  getMarketDataById,
+  formatUsd,
+  formatUsdCompact,
+  type MarketData,
+} from "@/lib/market";
 import { ChainEconomics } from "@/components/chain-economics";
 import { LoadingPanel } from "@/components/loading-panel";
 
@@ -114,17 +119,18 @@ export async function generateMetadata({
   return { title: chain?.prettyName ?? "Chain" };
 }
 
-function MetaCard({
-  label,
-  value,
+function PriceCard({
+  symbol,
+  market,
   accent,
   index,
 }: {
-  label: string;
-  value: string;
+  symbol: string;
+  market: MarketData;
   accent: string;
   index: number;
 }) {
+  const up = market.change24h !== null && market.change24h >= 0;
   return (
     <div
       className="gata-panel gata-rise p-5"
@@ -134,9 +140,22 @@ function MetaCard({
       }}
     >
       <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
+        {symbol}
       </p>
-      <p className="mt-2 font-mono text-2xl font-semibold">{value}</p>
+      <p className="mt-2 font-mono text-2xl font-semibold">{formatUsd(market.usd)}</p>
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs">
+        {market.change24h !== null ? (
+          <span className={up ? "text-[var(--gata-green)]" : "text-[var(--gata-burn)]"}>
+            {up ? "+" : ""}
+            {market.change24h.toFixed(2)}% 24h
+          </span>
+        ) : null}
+        {market.marketCapUsd !== null ? (
+          <span className="text-muted-foreground">
+            {formatUsdCompact(market.marketCapUsd)} cap
+          </span>
+        ) : null}
+      </p>
     </div>
   );
 }
@@ -157,6 +176,7 @@ export default async function ChainParamsPage({
     nodeInfo,
     release,
     feeSupply,
+    market,
     feeMarket,
   ] = await Promise.all([
     adapter.getOverview(),
@@ -169,12 +189,20 @@ export default async function ChainParamsPage({
     chain.feeDenom
       ? getSupplyOf(chain, chain.feeDenom).catch(() => null)
       : Promise.resolve(null),
+    getMarketDataById(chain.coingeckoId).catch(() => null),
     getMarketDataById(chain.feeCoingeckoId).catch(() => null),
   ]);
 
   const symbol = symbolFor(chain);
   const feeSymbol = chain.feeDenom ? symbolForDenom(chain.feeDenom) : "";
   const accent = accentFor(chain);
+
+  // One price box per token that has a market. AtomOne gets two (ATONE,
+  // PHOTON); a single-token chain gets one; a testnet with no listing gets none.
+  const priceCards = [
+    market ? { symbol, market } : null,
+    chain.feeDenom && feeMarket ? { symbol: feeSymbol, market: feeMarket } : null,
+  ].filter((c): c is { symbol: string; market: NonNullable<typeof market> } => c !== null);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -195,21 +223,25 @@ export default async function ChainParamsPage({
         initialData={overview}
       />
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetaCard
-          index={0}
-          accent={accent}
-          label="Total Supply"
-          value={`${formatToken(overview.supply, chain.exponent)} ${symbol}`}
-        />
-        <MetaCard index={1} accent={accent} label="Base Denom" value={chain.denom} />
-        <MetaCard
-          index={2}
-          accent={accent}
-          label="Address Prefix"
-          value={chain.bech32Prefix}
-        />
-      </div>
+      {priceCards.length > 0 ? (
+        // One row, one column per token — never wraps to a second row.
+        <div
+          className="mt-6 grid gap-4"
+          style={{
+            gridTemplateColumns: `repeat(${priceCards.length}, minmax(0, 1fr))`,
+          }}
+        >
+          {priceCards.map((card, i) => (
+            <PriceCard
+              key={card.symbol}
+              symbol={card.symbol}
+              market={card.market}
+              accent={accent}
+              index={i}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {chain.feeDenom ? (
         <ParamSection
@@ -217,16 +249,14 @@ export default async function ChainParamsPage({
           note="AtomOne separates the two: one token secures the chain and votes, the other pays fees."
         >
           <ParamRow
-            label={`${symbol} — ${chain.denom}`}
+            label={`${symbol} - ${chain.denom}`}
             value={`${formatToken(overview.supply, chain.exponent)} ${symbol}  ·  staking & governance`}
           />
           <ParamRow
-            label={`${feeSymbol} — ${chain.feeDenom}`}
+            label={`${feeSymbol} - ${chain.feeDenom}`}
             value={`${
               feeSupply ? formatToken(feeSupply, chain.exponent) : "—"
-            } ${feeSymbol}${
-              feeMarket ? `  ·  ${formatUsd(feeMarket.usd)}` : ""
-            }  ·  transaction fees`}
+            } ${feeSymbol}  ·  transaction fees`}
           />
         </ParamSection>
       ) : null}
@@ -240,9 +270,9 @@ export default async function ChainParamsPage({
             // when the real section replaced it.
             <section className="mt-6">
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-                Economics
+                Tokenomics
               </h2>
-              <LoadingPanel label="Loading price and yield…" rows={4} />
+              <LoadingPanel label="Loading tokenomics…" rows={4} />
             </section>
           }
         >
@@ -251,12 +281,15 @@ export default async function ChainParamsPage({
             communityTax={chainParams?.distribution?.communityTax ?? null}
             minCommission={chainParams?.staking?.minCommissionRate ?? null}
             supply={overview.supply}
+            market={market}
           />
         </Suspense>
       ) : null}
 
       <ParamSection title="Network">
         <ParamRow label="Chain ID" value={chain.chainId} />
+        <ParamRow label="Base denom" value={chain.denom} />
+        <ParamRow label="Address prefix" value={chain.bech32Prefix} />
         {nodeInfo?.version ? (
           <ParamRow
             // "Node version" read as the chain's version; it is the version of

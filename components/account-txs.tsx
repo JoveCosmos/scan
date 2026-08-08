@@ -67,7 +67,7 @@ export async function AccountTxs({
     return (
       <div className="gata-panel px-5 py-8 text-center">
         <p className="text-sm text-muted-foreground">
-          Could not load transaction history — the node did not respond.
+          Could not load transaction history - the node did not respond.
         </p>
       </div>
     );

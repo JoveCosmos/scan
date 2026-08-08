@@ -179,7 +179,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
                   ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply`
                   : undefined
               }
-              hint="Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack — and less supply free to trade."
+              hint="Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack - and less supply free to trade."
             />
             <StatPanel
               index={3}

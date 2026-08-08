@@ -64,7 +64,7 @@ export function BlocksTable({
             )}
           />
         </span>
-        <span>{isError ? "Connection lost — retrying" : "Streaming new blocks"}</span>
+        <span>{isError ? "Connection lost - retrying" : "Streaming new blocks"}</span>
       </div>
 
       <div className="gata-panel overflow-x-auto">

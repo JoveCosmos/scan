@@ -159,7 +159,7 @@ export default async function ProposalDetailPage({
           <p className="text-sm text-muted-foreground">
             No votes recorded
             {proposal.status === "PROPOSAL_STATUS_DEPOSIT_PERIOD"
-              ? " — still in the deposit period."
+              ? " - still in the deposit period."
               : "."}
           </p>
         )}
@@ -256,7 +256,7 @@ export default async function ProposalDetailPage({
                 : // The gov module deletes votes once it tallies, so a finished
                   // proposal is rebuilt from tens of paged transaction reads.
                   // Saying so turns a ten-second wait into an explained one.
-                  "Rebuilding this proposal's votes from transaction history — this can take a few seconds."
+                  "Rebuilding this proposal's votes from transaction history - this can take a few seconds."
             }
             rows={6}
           />

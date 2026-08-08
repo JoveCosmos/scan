@@ -27,7 +27,7 @@ export async function ValidatorDelegators({
     return (
       <div className="gata-panel px-5 py-8 text-center">
         <p className="text-sm text-muted-foreground">
-          Could not load delegators — the node did not respond. Several public
+          Could not load delegators - the node did not respond. Several public
           endpoints disable this query on validators with very large sets.
         </p>
       </div>

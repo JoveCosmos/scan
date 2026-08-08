@@ -29,7 +29,7 @@ function StatusIcon({ code }: { code: number | null }) {
     return (
       <span
         className="inline-flex items-center gap-1.5 text-muted-foreground"
-        title="Node has transaction indexing disabled — only the hash is known"
+        title="Node has transaction indexing disabled - only the hash is known"
       >
         <HelpCircle className="h-3.5 w-3.5" />
         <span className="text-xs">Unindexed</span>
@@ -127,7 +127,7 @@ export function TxsTable({
               )}
             />
           </span>
-          {isError ? "Connection lost — retrying" : "Streaming"}
+          {isError ? "Connection lost - retrying" : "Streaming"}
         </span>
         <span>
           scanned last {data.scannedBlocks} blocks
