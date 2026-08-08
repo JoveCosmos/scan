@@ -21,5 +21,6 @@
   "website": "https://atom.one",
   "repo": "https://github.com/atomone-hub/atomone",
   "feeDenom": "uphoton",
-  "feeCoingeckoId": "photon-2"
+  "feeCoingeckoId": "photon-2",
+  "feeSupplyCap": 1000000000
 }

@@ -21,6 +21,9 @@ const chainConfigSchema = z
     feeDenom: z.string().optional(),
     /** CoinGecko id for the fee token, when it is separately traded. */
     feeCoingeckoId: z.string().optional(),
+    /** Hard cap on the fee token's supply, in whole tokens. PHOTON is capped
+     *  at 1 billion; ATONE has no cap. */
+    feeSupplyCap: z.number().optional(),
     /**
      * "cosmos" chains are read over the Cosmos SDK REST (LCD) API. "gno" chains
      * expose no /cosmos/* modules at all — they are read over Tendermint2 JSON-RPC

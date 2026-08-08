@@ -65,6 +65,14 @@ function missableBlocks(
   return `${allowed.toLocaleString()} of ${window.toLocaleString()} blocks`;
 }
 
+/** A round whole-token count in words: 1_000_000_000 -> "1 billion". */
+function bigCount(n: number): string {
+  if (n >= 1e9) return `${+(n / 1e9).toFixed(2)} billion`;
+  if (n >= 1e6) return `${+(n / 1e6).toFixed(2)} million`;
+  if (n >= 1e3) return `${+(n / 1e3).toFixed(2)}k`;
+  return n.toLocaleString();
+}
+
 /** Cosmos decimal (0.05) as a percentage. */
 function pct(value: number | null, decimals = 2): string {
   return value === null ? "—" : `${(value * 100).toFixed(decimals)}%`;
@@ -256,7 +264,11 @@ export default async function ChainParamsPage({
             label={`${feeSymbol} - ${chain.feeDenom}`}
             value={`${
               feeSupply ? formatToken(feeSupply, chain.exponent) : "—"
-            } ${feeSymbol}  ·  transaction fees`}
+            } ${feeSymbol}  ·  transaction fees${
+              chain.feeSupplyCap
+                ? `  ·  supply cap ${bigCount(chain.feeSupplyCap)}`
+                : ""
+            }`}
           />
         </ParamSection>
       ) : null}
