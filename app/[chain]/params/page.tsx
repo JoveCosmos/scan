@@ -330,10 +330,7 @@ export default async function ChainParamsPage({
       ) : null}
 
       {chainParams?.slashing ? (
-        <ParamSection
-          title="Slashing"
-          note="What it takes to be jailed, and what it costs."
-        >
+        <ParamSection title="Slashing">
           <ParamRow
             label="Jailed after missing"
             // The parameter is a floor on blocks signed; what people want to
