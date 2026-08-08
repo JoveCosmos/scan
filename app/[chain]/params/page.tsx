@@ -12,13 +12,8 @@ import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
 import { LiveOverview } from "@/components/live-overview";
 import { Suspense } from "react";
-import {
-  getChainParams,
-  getNodeInfo,
-  getSupplyOf,
-  humanDuration,
-} from "@/lib/params";
-import { getLatestRelease, isBehind } from "@/lib/github";
+import { getChainParams, getSupplyOf, humanDuration } from "@/lib/params";
+import { getLatestRelease } from "@/lib/github";
 import {
   getMarketDataById,
   formatUsd,
@@ -178,21 +173,11 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [
-    overview,
-    chainParams,
-    nodeInfo,
-    release,
-    feeSupply,
-    market,
-    feeMarket,
-  ] = await Promise.all([
+  const [overview, chainParams, release, feeSupply, market, feeMarket] =
+    await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
-    adapter.capabilities.staking
-      ? getNodeInfo(chain).catch(() => null)
-      : Promise.resolve(null),
     getLatestRelease(chain.repo).catch(() => null),
     chain.feeDenom
       ? getSupplyOf(chain, chain.feeDenom).catch(() => null)
@@ -302,28 +287,8 @@ export default async function ChainParamsPage({
         <ParamRow label="Chain ID" value={chain.chainId} />
         <ParamRow label="Base denom" value={chain.denom} />
         <ParamRow label="Address prefix" value={chain.bech32Prefix} />
-        {nodeInfo?.version ? (
-          <ParamRow
-            // "Node version" read as the chain's version; it is the version of
-            // whichever public node answered, which can trail the release by
-            // weeks when an upgrade needs no coordination.
-            label="Node running"
-            value={`${nodeInfo.app ?? "node"} ${nodeInfo.version}${
-              nodeInfo.cosmosSdkVersion
-                ? `  ·  Cosmos SDK ${nodeInfo.cosmosSdkVersion}`
-                : ""
-            }`}
-          />
-        ) : null}
         {release ? (
-          <ParamRow
-            label="Latest release"
-            value={`${release.tag}${
-              isBehind(nodeInfo?.version ?? null, release.tag)
-                ? "  ·  the node above has not upgraded yet"
-                : ""
-            }`}
-          />
+          <ParamRow label="Latest release" value={release.tag} />
         ) : null}
         {chain.website ? (
           <ParamLink label="Website" href={chain.website} />
