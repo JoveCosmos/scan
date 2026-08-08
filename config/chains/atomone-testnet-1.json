@@ -18,6 +18,5 @@
   "accent": "#FFB155",
   "website": "https://atom.one",
   "repo": "https://github.com/atomone-hub/atomone",
-  "feeDenom": "uphoton",
-  "feeCoingeckoId": "photon-2"
+  "feeDenom": "uphoton"
 }

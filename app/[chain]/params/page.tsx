@@ -246,7 +246,7 @@ export default async function ChainParamsPage({
       {chain.feeDenom ? (
         <ParamSection
           title="Tokens"
-          note="AtomOne separates the two: one token secures the chain and votes, the other pays fees."
+          note="AtomOne separates the two: Atone token secures the chain and votes, the Photon pays fees."
         >
           <ParamRow
             label={`${symbol} - ${chain.denom}`}
