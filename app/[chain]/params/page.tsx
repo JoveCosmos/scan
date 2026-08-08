@@ -154,7 +154,6 @@ export default async function ChainParamsPage({
   const [
     overview,
     chainParams,
-    recentBlocks,
     nodeInfo,
     release,
     feeSupply,
@@ -163,8 +162,6 @@ export default async function ChainParamsPage({
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
-    // Seeds the recent-blocks dialog so it opens populated.
-    adapter.getRecentBlocks(12).catch(() => []),
     adapter.capabilities.staking
       ? getNodeInfo(chain).catch(() => null)
       : Promise.resolve(null),
@@ -196,7 +193,6 @@ export default async function ChainParamsPage({
         chainId={chain.chainId}
         accent={accent}
         initialData={overview}
-        initialBlocks={recentBlocks}
       />
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

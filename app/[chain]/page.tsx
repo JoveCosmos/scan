@@ -5,9 +5,8 @@ import { getChain } from "@/lib/chains";
 /**
  * A chain's landing page is its validator set.
  *
- * Validators are what this explorer is mostly for, so the chain root goes
- * straight there rather than to a summary page. Chain parameters keep their own
- * tab at /params.
+ * Params is the chain's identity card, so the chain root opens there. Every
+ * other tab keeps its own route.
  */
 export default async function ChainRootPage({
   params,
@@ -19,5 +18,5 @@ export default async function ChainRootPage({
   // another 404 one hop later.
   if (!getChain(chainId)) notFound();
 
-  redirect(`/${chainId}/validators`);
+  redirect(`/${chainId}/params`);
 }

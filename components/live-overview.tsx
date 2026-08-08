@@ -3,9 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { LiveBlocksDialog } from "@/components/live-blocks-dialog";
 import type { ChainOverview } from "@/lib/overview";
-import type { BlockSummary } from "@/lib/blocks";
 import { timeAgo } from "@/lib/format";
 
 function useSecondsTicker() {
@@ -63,12 +61,10 @@ export function LiveOverview({
   chainId,
   accent,
   initialData,
-  initialBlocks,
 }: {
   chainId: string;
   accent: string;
   initialData: ChainOverview;
-  initialBlocks: BlockSummary[];
 }) {
   const { data, isFetching, isError } = useQuery<ChainOverview>({
     queryKey: ["chain-head", chainId],
@@ -117,17 +113,15 @@ export function LiveOverview({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <LiveBlocksDialog chainId={chainId} initialBlocks={initialBlocks}>
-          <StatCard
-            index={0}
-            accent={accent}
-            sheen
-            label="Latest Block"
-            value={data.height ? Number(data.height).toLocaleString() : "—"}
-            sub={timeAgo(data.blockTime)}
-            flash={flash}
-          />
-        </LiveBlocksDialog>
+        <StatCard
+          index={0}
+          accent={accent}
+          sheen
+          label="Latest Block"
+          value={data.height ? Number(data.height).toLocaleString() : "—"}
+          sub={timeAgo(data.blockTime)}
+          flash={flash}
+        />
         <StatCard
           index={1}
           accent={accent}

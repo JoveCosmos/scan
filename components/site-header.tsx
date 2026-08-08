@@ -18,15 +18,15 @@ export interface ChainSummary {
   network: "mainnet" | "testnet";
 }
 
-// Params first: it is the chain's identity card. Validators follows as the
-// most-used working tab.
+// Params first: the chain's identity card and the default landing tab.
+// Governance sits by validators; blocks is a firehose, so it goes last.
+// Labels shorten on narrow screens so every tab fits without a sideways swipe.
 const NAV = [
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
-  // Blocks has no tab: recent blocks hang off the latest-block figure in Params.
-  // Shortened on narrow screens so all tabs fit without a sideways swipe.
-  { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
+  { href: "/txs", label: "Transactions", short: "Txs" },
+  { href: "/blocks", label: "Blocks", short: "Blocks" },
 ];
 
 function ChainSwitcher({
@@ -103,7 +103,9 @@ function ChainSwitcher({
                   // Sections the target chain does not have would 404, so fall
                   // back to its overview.
                   href={`/${chain.chainId}${
-                    section === "/proposals" && !chain.governance ? "" : section
+                    section === "/proposals" && !chain.governance
+                      ? "/params"
+                      : section || "/params"
                   }`}
                   onClick={() => setOpen(false)}
                   role="option"
@@ -193,7 +195,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   // Switching chains keeps you on the same tab. Only the section survives — a
   // block height, tx hash or validator address means nothing on another chain,
   // so detail routes fall back to their list.
-  const SECTIONS = ["blocks", "txs", "validators", "proposals"];
+  const SECTIONS = ["params", "blocks", "txs", "validators", "proposals"];
   const section =
     activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
 
