@@ -7,6 +7,7 @@ import { getAdapter } from "@/lib/adapter";
 import { LiveOverview } from "@/components/live-overview";
 import { Suspense } from "react";
 import { getChainParams, getNodeInfo, humanDuration } from "@/lib/params";
+import { getLatestRelease, isBehind } from "@/lib/github";
 import { ChainEconomics } from "@/components/chain-economics";
 import { LoadingPanel } from "@/components/loading-panel";
 
@@ -28,6 +29,23 @@ function ParamLink({ label, href }: { label: string; href: string }) {
       </dd>
     </div>
   );
+}
+
+/**
+ * How many blocks a validator may miss before being jailed.
+ *
+ * The chain states a minimum share it must *sign*, which inverts awkwardly: on
+ * Cosmos Hub "5% of 10,000" means you are jailed only after missing more than
+ * 9,500 of the last 10,000 blocks. Stating the miss budget directly stops the
+ * parameter reading as a far stricter rule than it is.
+ */
+function missableBlocks(
+  window: number | null,
+  minSigned: number | null
+): string {
+  if (window === null || minSigned === null) return "—";
+  const allowed = Math.floor(window * (1 - minSigned));
+  return `${allowed.toLocaleString()} of ${window.toLocaleString()} blocks`;
 }
 
 /** Cosmos decimal (0.05) as a percentage. */
@@ -121,7 +139,7 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams, recentBlocks, nodeInfo] = await Promise.all([
+  const [overview, chainParams, recentBlocks, nodeInfo, release] = await Promise.all([
     adapter.getOverview(),
     // gno has none of these modules; the sections simply do not render.
     adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
@@ -130,6 +148,7 @@ export default async function ChainParamsPage({
     adapter.capabilities.staking
       ? getNodeInfo(chain).catch(() => null)
       : Promise.resolve(null),
+    getLatestRelease(chain.repo).catch(() => null),
   ]);
 
   const symbol = symbolFor(chain);
@@ -199,10 +218,23 @@ export default async function ChainParamsPage({
         <ParamRow label="Chain ID" value={chain.chainId} />
         {nodeInfo?.version ? (
           <ParamRow
-            label="Node version"
+            // "Node version" read as the chain's version; it is the version of
+            // whichever public node answered, which can trail the release by
+            // weeks when an upgrade needs no coordination.
+            label="Node running"
             value={`${nodeInfo.app ?? "node"} ${nodeInfo.version}${
               nodeInfo.cosmosSdkVersion
                 ? `  ·  Cosmos SDK ${nodeInfo.cosmosSdkVersion}`
+                : ""
+            }`}
+          />
+        ) : null}
+        {release ? (
+          <ParamRow
+            label="Latest release"
+            value={`${release.tag}${
+              isBehind(nodeInfo?.version ?? null, release.tag)
+                ? "  ·  the node above has not upgraded yet"
                 : ""
             }`}
           />
@@ -228,9 +260,25 @@ export default async function ChainParamsPage({
           title="Slashing"
           note="What it takes to be jailed, and what it costs."
         >
-          <ParamRow label="Signed blocks window" value={chainParams.slashing.signedBlocksWindow?.toLocaleString() ?? "—"} />
-          <ParamRow label="Min signed per window" value={pct(chainParams.slashing.minSignedPerWindow)} />
-          <ParamRow label="Downtime jail duration" value={humanDuration(chainParams.slashing.downtimeJailDuration)} />
+          <ParamRow
+            label="Jailed after missing"
+            // The parameter is a floor on blocks signed; what people want to
+            // know is how many they may miss before being jailed.
+            value={missableBlocks(
+              chainParams.slashing.signedBlocksWindow,
+              chainParams.slashing.minSignedPerWindow
+            )}
+          />
+          <ParamRow
+            label="Measured over"
+            value={`${chainParams.slashing.signedBlocksWindow?.toLocaleString() ?? "—"} blocks`}
+          />
+          <ParamRow
+            // Not the downtime that causes jailing — the wait afterwards. The
+            // old label read as "10 minutes of downtime gets you slashed".
+            label="Jailed for at least"
+            value={`${humanDuration(chainParams.slashing.downtimeJailDuration)}, then may unjail`}
+          />
           <ParamRow label="Slash: downtime" value={pct(chainParams.slashing.slashFractionDowntime, 4)} />
           <ParamRow label="Slash: double sign" value={pct(chainParams.slashing.slashFractionDoubleSign)} />
         </ParamSection>
