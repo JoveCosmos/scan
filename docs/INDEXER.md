@@ -268,11 +268,15 @@ does; verify before relying on one.
   about `cosmoshub-4`, so genesis-of-4 is the real start.
 
 **AtomOne (`atomone-1`)**
-- Young chain (launched 2024) — a **full node from genesis is cheap**, so the
-  simplest backfill is to run one on the box with
-  `discard_abci_responses = false` and replay locally. Genesis:
-  `https://atomone.fra1.digitaloceanspaces.com/atomone-1/genesis.json`.
-  Endpoints and seeds: `cosmos.directory/atomone`, Polkachu.
+- **Public archive found and verified:** Citizen Web3's
+  `https://rpc.atomone-archive.citizenweb3.com:443`. Confirmed serving from
+  `earliest_block_height: 1` (genesis) to head, and — the part that matters —
+  `/block_results?height=1` returns the begin/finalize block events, so it keeps
+  ABCI responses. This is directly usable for backfill; throttle politely.
+- Alternatively, the chain is young (2024) so a **full node from genesis is
+  cheap** to run on the box with `discard_abci_responses = false`. Genesis:
+  `https://atomone.fra1.digitaloceanspaces.com/atomone-1/genesis.json`. Other
+  endpoints and seeds: `cosmos.directory/atomone`, Polkachu.
 
 **Akash (`akashnet-2`)**
 - Snapshots from Polkachu (`https://akash-rpc.polkachu.com`) and ChainLayer
