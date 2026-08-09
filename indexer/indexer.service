@@ -1,0 +1,69 @@
+[Unit]
+Description=GATA HUB Explorer indexer
+Documentation=https://github.com/JoveCosmos/explorer/blob/master/docs/INDEXER.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Its own account, like the explorer. Deliberately NOT the gata user, and not
+# the explorer user either: the indexer writes to a database the explorer only
+# reads.
+User=indexer
+Group=indexer
+WorkingDirectory=/srv/indexer/current
+
+Environment=NODE_ENV=production
+Environment=HOME=/srv/indexer
+Environment=npm_config_cache=/srv/indexer/shared/.npm
+# DATABASE_URL and INDEXER_CHAINS live here, not in the unit — the connection
+# string carries a password, so the file is root:indexer 0640.
+EnvironmentFile=/etc/gata/indexer.env
+
+ExecStart=/usr/bin/npm run indexer
+Restart=always
+RestartSec=10
+
+# --- Filesystem isolation -------------------------------------------------
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/indexer
+PrivateTmp=true
+# The explorer's rule applies here too: never reach into the other setups.
+InaccessiblePaths=/srv/gata-hub /etc/gata/app.env
+
+# --- Privilege and kernel isolation ---------------------------------------
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Loopback to Postgres and the node; outbound HTTPS only for backfill.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# NOTE: MemoryDenyWriteExecute stays off — it breaks V8's JIT, as on the
+# explorer unit.
+
+# Background work must never crowd out the node or the explorer.
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=20
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=indexer
+
+[Install]
+WantedBy=multi-user.target

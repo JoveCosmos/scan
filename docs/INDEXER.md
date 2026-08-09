@@ -5,8 +5,19 @@ history in Postgres, so the explorer can answer questions no node can: jail and
 slash history, uptime beyond the signing window, fast vote and delegator
 queries, and trends over time.
 
-Status: **spec, not yet built.** This document is the plan to review before any
-code lands.
+Status: **phase 1 built** (`indexer/`) — blocks, transactions and transfers,
+following the head. Nothing in the explorer reads Postgres yet; that is phase 2.
+Later phases below are still plan.
+
+Two things phase 1 settled that the plan had left open:
+
+- **No transaction index needed.** A tx hash is `sha256(raw bytes)`, derived
+  locally from the block and verified against the chain, so `tx_index: off` is
+  fine.
+- **No protobuf decoding needed.** The ABCI events carry *more* than the
+  messages: a reward withdrawal's amount exists only in the event, and
+  authz-wrapped transfers appear without unwrapping. So the schema's `transfer`
+  table is populated from events, and the worker's only dependency is `pg`.
 
 ## Decisions (settled)
 

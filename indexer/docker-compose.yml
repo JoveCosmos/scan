@@ -1,0 +1,38 @@
+# Postgres for the indexer.
+#
+# Pinned to a specific minor version on purpose: an upgrade should be a
+# deliberate act, not something a `docker compose pull` does silently.
+#
+# Bound to 127.0.0.1 only. Nothing about this database is reachable from the
+# network; the explorer and the worker both connect over loopback.
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: gata-indexer-db
+    restart: unless-stopped
+    # Host port is configurable so this cannot collide with any Postgres that
+    # already exists on the box.
+    ports:
+      - "127.0.0.1:${INDEXER_DB_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gata_indexer}
+      POSTGRES_USER: ${POSTGRES_USER:-indexer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      # Deterministic collation, so ordering does not shift under a locale change.
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      - ${INDEXER_DB_DATA:-./data}:/var/lib/postgresql/data
+      # Applied once, on an empty data directory.
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-indexer} -d ${POSTGRES_DB:-gata_indexer}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # The indexer is a background service; it must never crowd out the node or
+    # the explorer on a shared box.
+    deploy:
+      resources:
+        limits:
+          memory: 1g

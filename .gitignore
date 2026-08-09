@@ -42,3 +42,5 @@ next-env.d.ts
 
 # valopers realm index, rebuilt on demand
 /.cache
+indexer/.env
+indexer/data/
