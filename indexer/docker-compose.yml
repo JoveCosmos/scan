@@ -22,7 +22,12 @@ services:
       # Deterministic collation, so ordering does not shift under a locale change.
       POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
     volumes:
-      - ${INDEXER_DB_DATA:-./data}:/var/lib/postgresql/data
+      # A named volume, not a host bind mount. Docker owns the storage, which
+      # avoids two real problems: the daemon may run in a confined mount
+      # namespace where /srv is not writable, and a bind mount would need the
+      # host directory chowned to the image's postgres uid. Backups come from
+      # pg_dump, not from copying this directory.
+      - pgdata:/var/lib/postgresql/data
       # Applied once, on an empty data directory.
       - ./sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -36,3 +41,8 @@ services:
       resources:
         limits:
           memory: 1g
+
+volumes:
+  # Managed by Docker under its data root. `docker volume inspect
+  # indexer_pgdata` shows where it lives on disk.
+  pgdata:

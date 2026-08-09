@@ -25,9 +25,12 @@ cp .env.example .env        # set POSTGRES_PASSWORD
 docker compose up -d
 ```
 
-The schema in `sql/` is applied automatically on an empty data directory.
-Postgres binds `127.0.0.1:5433` by default so it cannot collide with an
-existing install.
+The schema in `sql/` is applied automatically the first time the volume is
+created. Postgres binds `127.0.0.1:5433` by default so it cannot collide with
+an existing install, and stores data in a Docker-managed named volume
+(`indexer_pgdata`) rather than a host path — the daemon may run in a confined
+mount namespace where `/srv` is not writable, and a named volume also avoids
+having to chown a host directory to the image's postgres uid.
 
 Run the worker from the repo root:
 
