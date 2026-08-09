@@ -28,8 +28,10 @@ services:
       # host directory chowned to the image's postgres uid. Backups come from
       # pg_dump, not from copying this directory.
       - pgdata:/var/lib/postgresql/data
-      # Applied once, on an empty data directory.
-      - ./sql:/docker-entrypoint-initdb.d:ro
+      # No bind mount for the schema either. Snap-packaged Docker cannot see
+      # /srv at all, and this box runs the snap for other things, so the schema
+      # is applied by `npm run indexer:migrate` (piped over stdin) instead of
+      # mounting sql/ into docker-entrypoint-initdb.d.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-indexer} -d ${POSTGRES_DB:-gata_indexer}"]
       interval: 10s

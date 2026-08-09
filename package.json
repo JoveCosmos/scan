@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prebuild": "tsc --noEmit && vitest run",
-    "indexer": "tsx indexer/src/index.ts"
+    "indexer": "tsx indexer/src/index.ts",
+    "indexer:migrate": "bash indexer/migrate.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

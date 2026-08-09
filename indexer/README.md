@@ -25,12 +25,21 @@ cp .env.example .env        # set POSTGRES_PASSWORD
 docker compose up -d
 ```
 
-The schema in `sql/` is applied automatically the first time the volume is
-created. Postgres binds `127.0.0.1:5433` by default so it cannot collide with
-an existing install, and stores data in a Docker-managed named volume
-(`indexer_pgdata`) rather than a host path — the daemon may run in a confined
-mount namespace where `/srv` is not writable, and a named volume also avoids
-having to chown a host directory to the image's postgres uid.
+Then apply the schema:
+
+```bash
+npm run indexer:migrate
+```
+
+Postgres binds `127.0.0.1:5433` by default so it cannot collide with an
+existing install, and keeps data in a Docker-managed named volume
+(`indexer_pgdata`).
+
+**No bind mounts, deliberately.** Snap-packaged Docker cannot mount anything
+under `/srv`, and a box may run the snap for other workloads. So the data lives
+in a named volume and the schema is piped in over stdin by `migrate.sh` rather
+than mounted into `docker-entrypoint-initdb.d`. It is re-runnable — every
+statement is `CREATE ... IF NOT EXISTS`.
 
 Run the worker from the repo root:
 
