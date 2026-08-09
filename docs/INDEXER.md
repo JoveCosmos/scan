@@ -8,6 +8,29 @@ queries, and trends over time.
 Status: **spec, not yet built.** This document is the plan to review before any
 code lands.
 
+## Decisions (settled)
+
+- **Chains in scope:** `cosmoshub-4`, `atomone-1`, `akashnet-2` (mainnet) plus
+  `atomone-testnet-1` and `topaz-1` (gno.land testnet). Keep the design flexible
+  for a **gno.land mainnet** later.
+- **gno.land is a different chain kind** — Tendermint2, no `/cosmos/*` modules,
+  no staking/gov/slashing. It gets blocks and txs only, from its own RPC +
+  indexing API, mirroring the explorer's existing cosmos/gno adapter split. The
+  event tables below (`vote`, `slash_event`, `validator_snapshot`) are
+  Cosmos-only and simply do not populate for gno.
+- **Read source:** **backfill from public full/archive nodes on the internet**
+  (heavy, off our box), then **follow the head from our own local validator
+  node** for ongoing writes. This split is deliberate — backfill is thousands of
+  rapid requests (kept off the validator), while ongoing head-follow is ~one
+  `/block` + `/block_results` every block time, light enough not to disturb
+  consensus.
+- **Backfill depth:** genesis for AtomOne (mainnet + testnet, cheap, verified
+  archive); **~1 year** for Cosmos Hub and Akash — recent proposals, jail
+  history and charts without the slow full-archive replay.
+- **Postgres:** a **pinned-version Docker container**, localhost-bound.
+- **`transfer` retention:** **full, indefinitely** to start; add thinning only
+  if it actually grows large.
+
 ## Why
 
 Some facts an explorer wants are simply not answerable from a node:
@@ -43,23 +66,27 @@ Some facts an explorer wants are simply not answerable from a node:
 ## Architecture
 
 ```
- companion full node (pruned, few-days block buffer)
-        │  RPC on localhost: /block, /block_results
+ backfill (once):  public archive / full nodes on the internet
+                          │  historical /block_results, throttled
+                          ▼
+ ongoing:  local validator node (pruned, few-days buffer)
+        │  RPC on localhost: /block, /block_results, ~1 req per block
         ▼
  indexer worker  ── follows head, extracts events + periodic snapshots
         │  writes
         ▼
- Postgres (localhost)  ── the projection
+ Postgres (localhost, Docker)  ── the projection
         │  reads (localhost, sub-ms)
         ▼
  explorer  ── Postgres first, live-node fallback when the cursor lags
 ```
 
-**Read from a companion full node, not the validator.** Heavy indexer queries
-must not disturb consensus on the validating node. Use a separate non-validating
-full node on the box (or read the validator gently if a companion is not
-available). The node's own uptime incentive makes it a reliable local source —
-that was the point of keeping this on the box.
+**Ongoing reads come from our own validator node; backfill does not.** The
+head-follow is light — one `/block` + `/block_results` per block time — so it
+does not disturb consensus, and the validator's own uptime incentive makes it a
+reliable local source. The **heavy** part, backfilling months or years of
+history in thousands of rapid requests, is deliberately kept **off** the
+validator and pointed at public archive/full nodes instead (see Backfill).
 
 **The key endpoint is `/block_results`.** It carries the ABCI events —
 `begin_block_events`, `end_block_events`, and per-tx events — which is where
@@ -237,8 +264,9 @@ Notes:
   (the head, not a pending block).
 - **Catch-up is the same code path** as following — just a wider gap between
   cursor and head. Batch a few hundred heights, keep transactions small.
-- **Gentle on the node.** Bounded concurrency, localhost so no network cost, and
-  it is a companion node whose only job is to be read.
+- **Gentle on the node.** The ongoing feed is ~one request per block against the
+  local validator over localhost — negligible load. Backfill's heavy traffic
+  stays off it (public archives instead).
 - **Crash-safe.** On restart, resume from `indexer_cursor`. Because the node
   keeps a few-days buffer, a long outage still catches up without an archive.
 
@@ -246,10 +274,9 @@ Notes:
 
 Following the head gives history *from now on*. To get the past — old proposals'
 votes, historical slash events, a stake chart that predates the indexer — replay
-old `/block_results` from an **archive source once**, write into the same
-tables, then discard the archive. Decide depth per feature: forward-only is fine
-for jail-going-forward and new-proposal votes; charts and old-proposal votes
-need backfill.
+old `/block_results` from a **public archive/full node once** (off our
+validator), write into the same tables, then stop. **Depth (settled):** genesis
+for AtomOne mainnet and testnet; **~1 year** for Cosmos Hub and Akash.
 
 **Requirement:** the archive must serve historical `/block_results` — i.e. it
 kept ABCI responses (`discard_abci_responses = false`). Not every "archive" node
@@ -286,10 +313,18 @@ does; verify before relying on one.
   (v0.10 → v0.14 → …) — replay must cross them, which a from-genesis node
   handles automatically.
 
-**Practical order:** AtomOne is the cheapest to backfill fully (small, young),
-and it is the network GATA cares most about — start there. Cosmos Hub uses the
-CryptoCrew archive. Akash backfills as far back as a snapshot allows unless a
-full archive is stood up.
+**AtomOne testnet (`atomone-testnet-1`)** — young, so backfill from genesis via
+its own public endpoints (`cosmos.directory/atomone-testnet`, Polkachu testnet).
+
+**gno.land testnet (`topaz-1`)** — not Cosmos SDK. No `/block_results` events to
+mine; it yields blocks and txs only, read through its RPC + indexing API the
+same way the explorer's gno adapter already does. Backfill depth here is just
+"as far as its public indexing API serves." A future gno.land **mainnet** slots
+in the same way.
+
+**Practical order:** AtomOne (mainnet + testnet) first — cheapest, and the
+network GATA cares most about. Cosmos Hub ~1yr via the CryptoCrew archive. Akash
+~1yr as a snapshot allows. gno.land last, blocks/txs only.
 
 ## Retention and size
 
@@ -297,9 +332,8 @@ Bounded by design:
 
 - `block`, `tx`, `slash_event`, `vote` — grow with chain activity but slowly;
   votes and slashes are small. Keep indefinitely.
-- `transfer` — the largest, grows with transaction volume. Options if it grows:
-  keep full for N months, then thin to staking/large transfers, or drop the
-  oldest. Decide a policy; it is not urgent early.
+- `transfer` — the largest, grows with transaction volume. **Kept full,
+  indefinitely** for now; add a thinning policy only if it actually grows large.
 - `validator_snapshot` — the one to actively manage. Hourly × ~200 validators ×
   chains adds up. **Declining resolution:** hourly for 7 days, daily beyond,
   weekly past a year. A retention job rolls old rows up. Keeps it to hundreds of
@@ -326,12 +360,15 @@ A new adapter reads Postgres, chosen per-query behind the existing
 
 Mirrors `deploy/`:
 
-- Dedicated `indexer` system user; Postgres as its own service, **listening on
-  localhost only**; database owned by a role the explorer reads with a
-  least-privilege (read-only) user.
-- systemd: `indexer.service` (the worker, `Restart=always`) and a
-  `postgres`/managed service; same hardening flags as `explorer.service`
-  (`ProtectSystem=strict`, `NoNewPrivileges`, etc.).
+- **Postgres in a pinned-version Docker container**, published on `127.0.0.1`
+  only, data on a named volume backed by a host path outside the release tree.
+  Pinning the tag makes the setup reproducible and upgrades a deliberate act.
+- Dedicated `indexer` system user for the worker; the database has a
+  least-privilege **read-only** role that the explorer connects as.
+- systemd: `indexer.service` (the worker, `Restart=always`), and the Postgres
+  container managed by systemd or its own compose unit; same hardening flags as
+  `explorer.service` (`ProtectSystem=strict`, `NoNewPrivileges`, …) on the
+  worker.
 - **Never touch `gata-hub`** — separate user, directory, and unit, per the
   standing rule.
 - **Backups:** nightly `pg_dump` to a path outside the release tree. The
@@ -339,22 +376,24 @@ Mirrors `deploy/`:
 
 ## Rollout phases
 
-1. **Schema + worker skeleton**, cursor + block/tx/transfer, following the head
-   on AtomOne only. Prove the loop and idempotency.
+1. **Postgres container + schema + worker skeleton**, cursor + block/tx/transfer,
+   following the head on AtomOne only. Prove the loop and idempotency.
 2. **Votes** into Postgres + read-path fallback for the vote list. Immediate,
    visible win (30s → milliseconds).
 3. **Slash/jail history** — the feature no node can provide. New "Jailed N
    times" and a slash timeline on validator pages.
 4. **Snapshots** — 24h delta from Postgres (unblocks aggressive node pruning),
    then uptime history and stake/commission charts.
-5. **Backfill** each chain to the agreed depth; Akash last.
+5. **Backfill** to the settled depths (AtomOne genesis; Cosmos Hub, Akash ~1yr),
+   then the testnets; gno.land last, blocks/txs only.
 
-## Open decisions
+## Deferred
 
-- **Backfill depth per chain** — genesis for AtomOne (cheap); how far for Cosmos
-  Hub and Akash?
-- **Companion node** — stand up dedicated non-validating full nodes for the
-  indexer to read, or read existing nodes gently?
-- **Postgres** — managed by the OS package, or a pinned container? (Either fits
-  the isolation rule; container is easier to reproduce.)
-- **`transfer` retention policy** — full forever, or thin after N months?
+Not decisions to make now, but worth naming:
+
+- **Which validator node** the worker reads for each chain, and confirming
+  `discard_abci_responses = false` on it so the few-days buffer is usable.
+- **gno.land extraction detail** — its indexing API differs from Cosmos; the
+  block/tx tables are shared but the reader is the gno path, and it populates no
+  event tables.
+- **A `transfer` thinning policy**, only if the table actually grows large.
