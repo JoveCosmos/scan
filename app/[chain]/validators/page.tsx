@@ -6,8 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { ValidatorsTable, type ValidatorRow } from "@/components/validators-table";
-import { emptyUptime } from "@/lib/uptime";
+import { emptyUptime, consensusIdsFromPubkey } from "@/lib/uptime";
 import { getChainParams } from "@/lib/params";
+import { jailCounts } from "@/lib/indexer-db";
 
 export const revalidate = 60;
 
@@ -105,13 +106,27 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   ]);
   const minCommission = chainParams?.staking?.minCommissionRate ?? null;
   // Both need the validator set first: they are keyed by the same identifier.
-  const [uptime, deltas] = await Promise.all([
+  const [uptime, deltas, jailings] = await Promise.all([
     adapter.getUptime(validators).catch(() => new Map()),
     adapter
       .getStakeDeltas(validators, overview?.height ?? null)
       .catch(() => new Map()),
+    // Null whenever the indexer cannot answer, which hides the column entirely
+    // rather than showing every validator a confident zero.
+    jailCounts(chainId).catch(() => null),
   ]);
   const hasDeltas = deltas.size > 0;
+
+  /** Slashing events carry the consensus address, so rows are matched on that. */
+  const jailingsFor = (consensusPubkey: string | null) => {
+    if (!jailings || !consensusPubkey) return null;
+    const ids = consensusIdsFromPubkey(consensusPubkey, chain.bech32Prefix);
+    if (!ids) return null;
+    return {
+      count: jailings.byConsAddr.get(ids.valcons) ?? 0,
+      tombstoned: jailings.tombstoned.has(ids.valcons),
+    };
+  };
 
   // Flattened for the client table: it sorts and renders, but owns no fetching.
   const rows: ValidatorRow[] = validators.map((v) => ({
@@ -126,6 +141,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     status: v.status,
     uptime: uptime.get(v.operatorAddress) ?? emptyUptime(),
     delta: deltas.get(v.operatorAddress) ?? null,
+    jailings: jailingsFor(v.consensusPubkey),
   }));
   const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
   const symbol = symbolFor(chain);
@@ -220,6 +236,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         hasDeltas={hasDeltas}
         slashingWindow={slashingWindow}
         exponent={chain.exponent}
+        jailingsSince={jailings?.since ?? null}
       />
     </>
   );

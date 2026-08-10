@@ -207,6 +207,59 @@ export async function slashHistory(
   }
 }
 
+export interface JailCounts {
+  /** Times jailed, keyed by consensus address. Absent means zero. */
+  byConsAddr: Map<string, number>;
+  /** Consensus addresses that have been tombstoned. */
+  tombstoned: Set<string>;
+  /** Start of the window these counts were taken from. */
+  since: string;
+}
+
+/**
+ * How many times each validator has been jailed, for the whole set at once.
+ *
+ * The validator list needs one number per row, and asking per validator would
+ * be one query per row. This is a single grouped read instead.
+ *
+ * Same reason as slashHistory for existing at all: the chain reports a current
+ * jailed flag and a jailed_until date, so a validator jailed three times is
+ * indistinguishable from one jailed once, and the list could only ever show
+ * "when", never "how often".
+ */
+export async function jailCounts(chainId: string): Promise<JailCounts | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  return cached(`idx:jailcounts:${chainId}`, 60_000, async () => {
+    const res = await pool.query<{
+      cons_addr: string;
+      jailings: string;
+      tombstoned: boolean;
+    }>(
+      `SELECT cons_addr,
+              count(*) FILTER (WHERE kind = 'jailed')::text AS jailings,
+              bool_or(kind = 'tombstoned')                  AS tombstoned
+         FROM slash_event
+        WHERE chain_id = $1 AND height BETWEEN $2 AND $3
+        GROUP BY cons_addr`,
+      [chainId, c.lowest, c.highest]
+    );
+
+    const byConsAddr = new Map<string, number>();
+    const tombstoned = new Set<string>();
+    for (const r of res.rows) {
+      const n = Number(r.jailings);
+      if (n > 0) byConsAddr.set(r.cons_addr, n);
+      if (r.tombstoned) tombstoned.add(r.cons_addr);
+    }
+    return { byConsAddr, tombstoned, since: c.from };
+  }).catch(() => null);
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

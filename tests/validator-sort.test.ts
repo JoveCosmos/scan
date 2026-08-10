@@ -14,6 +14,7 @@ function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {
     status: "BOND_STATUS_BONDED",
     uptime: emptyUptime(),
     delta: null,
+    jailings: null,
     ...over,
   };
 }
@@ -86,6 +87,21 @@ describe("sortValidators", () => {
       "recent",
       "old",
       "never",
+    ]);
+  });
+
+  it("sorts jailing counts, with unknown below never-jailed", () => {
+    // "We have no history for this validator" must not outrank "this validator
+    // has a clean record" — that would read as the opposite of what it means.
+    const rows = [
+      row({ moniker: "unknown", jailings: null }),
+      row({ moniker: "clean", jailings: { count: 0, tombstoned: false } }),
+      row({ moniker: "twice", jailings: { count: 2, tombstoned: false } }),
+    ];
+    expect(names(sortValidators(rows, "jailings", "desc"))).toEqual([
+      "twice",
+      "clean",
+      "unknown",
     ]);
   });
 

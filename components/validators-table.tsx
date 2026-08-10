@@ -25,6 +25,12 @@ export interface ValidatorRow {
   status: string;
   uptime: ValidatorUptime;
   delta: StakeDelta | null;
+  /**
+   * Times jailed within the indexed window, or null when the indexer cannot
+   * say. Null and zero are different claims: zero means "never, in the window
+   * shown", null means the column has no basis at all.
+   */
+  jailings: { count: number; tombstoned: boolean } | null;
 }
 
 export type SortKey =
@@ -34,7 +40,8 @@ export type SortKey =
   | "delta"
   | "commission"
   | "uptime"
-  | "jailed";
+  | "jailed"
+  | "jailings";
 
 /** Ascending by default for names; everything numeric reads better biggest-first. */
 const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
@@ -45,6 +52,7 @@ const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   commission: "asc",
   uptime: "desc",
   jailed: "desc",
+  jailings: "desc",
 };
 
 /** Exported for tests: the sort is the substantive logic in this component. */
@@ -98,7 +106,36 @@ function compare(a: ValidatorRow, b: ValidatorRow, key: SortKey): number {
       const y = b.uptime.jailedUntil ? Date.parse(b.uptime.jailedUntil) : 0;
       return x - y;
     }
+    case "jailings": {
+      // Unknown sorts below zero: a validator we have no history for should not
+      // outrank one we know was never jailed.
+      const x = a.jailings ? a.jailings.count : -1;
+      const y = b.jailings ? b.jailings.count : -1;
+      return x - y;
+    }
   }
+}
+
+function Jailings({ jailings }: { jailings: ValidatorRow["jailings"] }) {
+  if (!jailings) return <span className="text-xs text-muted-foreground">-</span>;
+
+  if (jailings.tombstoned) {
+    return (
+      <span className="text-xs font-medium text-[var(--gata-burn)]">
+        Tombstoned
+      </span>
+    );
+  }
+
+  if (jailings.count === 0) {
+    return <span className="text-xs text-muted-foreground">0</span>;
+  }
+
+  return (
+    <span className="tabular-nums text-[var(--gata-burn)]">
+      {jailings.count}
+    </span>
+  );
 }
 
 function LastJailed({ uptime }: { uptime: ValidatorUptime }) {
@@ -183,6 +220,7 @@ export function ValidatorsTable({
   hasDeltas,
   slashingWindow,
   exponent,
+  jailingsSince,
 }: {
   chainId: string;
   rows: ValidatorRow[];
@@ -191,6 +229,11 @@ export function ValidatorsTable({
   hasDeltas: boolean;
   slashingWindow: boolean;
   exponent: number;
+  /**
+   * Start of the indexed window the jailing counts came from, or null when the
+   * indexer has nothing to say — in which case the column is not shown at all.
+   */
+  jailingsSince: string | null;
 }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "rank",
@@ -246,6 +289,7 @@ export function ValidatorsTable({
             )}
             {header("Uptime", "uptime", "right")}
             {slashingWindow ? header("Last Jailed", "jailed", "right") : null}
+            {jailingsSince ? header("Jailed", "jailings", "right") : null}
             <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
@@ -341,6 +385,11 @@ export function ValidatorsTable({
                   <LastJailed uptime={v.uptime} />
                 </td>
               ) : null}
+              {jailingsSince ? (
+                <td data-label="Jailed" className="px-4 py-2.5 text-right">
+                  <Jailings jailings={v.jailings} />
+                </td>
+              ) : null}
               <td data-label="Status" className="px-4 py-2.5">
                 <ValidatorStatus
                   jailed={v.jailed}
@@ -352,6 +401,19 @@ export function ValidatorsTable({
           ))}
         </tbody>
       </table>
+
+      {jailingsSince ? (
+        <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
+          Jailed counts how many times each validator has been jailed since{" "}
+          {new Date(jailingsSince).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
+          , from indexed block events. The chain keeps only the most recent jail
+          date, shown under Last Jailed, so counts cannot be read from a node.
+        </p>
+      ) : null}
     </div>
   );
 }
