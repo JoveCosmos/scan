@@ -91,6 +91,15 @@ export interface ExtractedBlock {
   block: BlockRow;
   txs: TxRow[];
   transfers: TransferRow[];
+  /**
+   * The block has transactions but the node returned no ABCI results for them.
+   *
+   * Symptom of `discard_abci_responses = true`, or of an archive that pruned
+   * responses beyond a window. The rows are then hollow — no fee, no signer, no
+   * transfers — which looks like a quiet success rather than missing data, so
+   * the worker surfaces it instead of writing on silently.
+   */
+  abciResultsMissing: boolean;
 }
 
 /** Attributes as a plain object; later keys of the same name win. */
@@ -314,5 +323,8 @@ export function extractBlock(
     },
     txs,
     transfers,
+    // `txs_results: null` with transactions present means the node dropped its
+    // ABCI responses for this height.
+    abciResultsMissing: rawTxs.length > 0 && txResults.length === 0,
   };
 }

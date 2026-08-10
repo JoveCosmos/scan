@@ -168,3 +168,38 @@ describe("blockEvents", () => {
     ]);
   });
 });
+
+describe("abciResultsMissing", () => {
+  it("is false on a healthy block", () => {
+    expect(extractBlock(block, results)!.abciResultsMissing).toBe(false);
+  });
+
+  it("flags a block whose node dropped its ABCI responses", () => {
+    // Exactly what an AtomOne node with discard_abci_responses returns: the
+    // block still lists its transactions, but txs_results is null.
+    const dropped: BlockResultsResponse = {
+      result: { height: "9823288", txs_results: null },
+    };
+    const out = extractBlock(block, dropped)!;
+    expect(out.abciResultsMissing).toBe(true);
+    // The rows exist but are hollow — no fee, no signer, no transfers.
+    expect(out.txs).toHaveLength(1);
+    expect(out.txs[0].feeAmount).toBeNull();
+    expect(out.txs[0].signer).toBeNull();
+    expect(out.transfers).toEqual([]);
+  });
+
+  it("is false for an empty block, which legitimately has no results", () => {
+    const empty: BlockResponse = {
+      result: {
+        block: {
+          header: { height: "1", time: "2024-01-01T00:00:00Z" },
+          data: { txs: null },
+        },
+      },
+    };
+    expect(extractBlock(empty, { result: { height: "1" } })!.abciResultsMissing).toBe(
+      false
+    );
+  });
+});

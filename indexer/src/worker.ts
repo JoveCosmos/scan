@@ -101,6 +101,19 @@ export async function indexOnce(
   log(
     `${target.chainId}: +${blocks.length} blocks to ${last} (${txs} txs, head ${head})`
   );
+
+  // Loud on purpose. Hollow rows — transactions with no fee, signer or
+  // transfers — look identical to a healthy quiet block in the counts above,
+  // so without this a backfill against a node that drops ABCI responses would
+  // appear to succeed while writing nothing of use.
+  const hollow = blocks.filter((b) => b.abciResultsMissing);
+  if (hollow.length > 0) {
+    log(
+      `${target.chainId}: WARNING ${hollow.length} block(s) had transactions but no ABCI results ` +
+        `(${hollow[0].block.height}…): this node discards them, so those rows have no fees or transfers`
+    );
+  }
+
   return blocks.length;
 }
 
