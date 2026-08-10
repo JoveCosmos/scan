@@ -104,3 +104,26 @@ filesystem isolation, `gata-hub` explicitly out of reach, and `Nice=10` /
 `IOSchedulingClass=idle` so background indexing never crowds out the node.
 
 Secrets go in `/etc/gata/indexer.env` (root:indexer, 0640), not the unit file.
+
+## Backups
+
+Everything here is a projection of chain history, so a lost database costs time
+rather than data — but rebuilding means roughly 33 hours of archive requests, so
+`backup.sh` dumps it nightly and keeps the newest seven:
+
+```sh
+sudo install -m 0755 backup.sh /srv/indexer/current/indexer/backup.sh
+sudo cp indexer-backup.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now indexer-backup.timer
+```
+
+Restore into an empty database with `pg_restore`:
+
+```sh
+docker exec -i gata-indexer-db pg_restore -U indexer -d gata_indexer --clean < backup.dump
+```
+
+The Postgres password is worth recording off the box, but losing it is not fatal
+— `ALTER USER indexer WITH PASSWORD '…'` inside the container resets it without
+touching the volume.

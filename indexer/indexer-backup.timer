@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly dump of the GATA indexer database
+
+[Timer]
+OnCalendar=*-*-* 04:17:00
+# Run on next boot if the box was down at 04:17 rather than skipping a night.
+Persistent=yes
+# Spread the start so the dump never lands exactly on another job's minute.
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

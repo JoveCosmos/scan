@@ -1,0 +1,23 @@
+[Unit]
+Description=Dump the GATA indexer database
+Documentation=https://github.com/JoveCosmos/explorer
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/srv/indexer/current/indexer
+ExecStart=/srv/indexer/current/indexer/backup.sh
+
+# The dump competes with the indexer for the same database; give it the same
+# background priority so neither the follower nor the node ever waits on it.
+Nice=15
+IOSchedulingClass=idle
+CPUWeight=20
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
