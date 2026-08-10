@@ -24,6 +24,20 @@ export interface BackfillTarget {
   floor: number;
   /** Anchor for the first pass when the chain has nothing indexed yet. */
   from?: number;
+  /**
+   * Re-read heights that are already stored.
+   *
+   * Resume mode derives its position from `min(height)`, so it can only ever
+   * extend history downward — it will not revisit a block it already has. That
+   * is right for filling gaps and wrong for the other job: re-extracting a
+   * range after the extractor learned something new, such as votes and slash
+   * events arriving after a Phase 1 backfill had already run.
+   *
+   * In refill mode the range is walked from `from` down to `floor` regardless
+   * of what is stored, and every write upserts, so the rows gain the new
+   * columns without duplicating anything.
+   */
+  refill?: boolean;
 }
 
 export interface BackfillOptions {
@@ -56,12 +70,22 @@ async function fetchHeight(
 export async function nextRange(
   pool: Pool,
   target: BackfillTarget,
-  batchSize: number
+  batchSize: number,
+  /** Refill's own descending position; resume mode reads the database instead. */
+  position?: number
 ): Promise<{ from: number; to: number } | null> {
-  const lowest = await lowestIndexed(pool, target.chainId);
+  let start: number | null;
 
-  // Nothing indexed yet: start just below the anchor the caller gave us.
-  const start = (lowest ?? target.from ?? null) === null ? null : (lowest ?? target.from!) - 1;
+  if (target.refill) {
+    // Explicit range: ignore what is stored and walk it top-down.
+    start = position ?? target.from ?? null;
+  } else {
+    const lowest = await lowestIndexed(pool, target.chainId);
+    // Nothing indexed yet: start just below the anchor the caller gave us.
+    const anchor = lowest ?? target.from ?? null;
+    start = anchor === null ? null : anchor - 1;
+  }
+
   if (start === null) return null;
   if (start < target.floor) return null;
 
@@ -79,13 +103,14 @@ export async function nextRange(
 export async function backfillOnce(
   pool: Pool,
   target: BackfillTarget,
-  options: BackfillOptions = {}
+  options: BackfillOptions = {},
+  position?: number
 ): Promise<number> {
   const { batchSize, concurrency } = { ...DEFAULTS, ...options };
   const log = options.log ?? (() => {});
   const rpc = new Rpc(target.rpcUrl);
 
-  const range = await nextRange(pool, target, batchSize);
+  const range = await nextRange(pool, target, batchSize, position);
   if (!range) return 0;
 
   // Ascending within the batch so the rows land in a natural order.
@@ -131,11 +156,13 @@ export async function runBackfill(
 
   const started = Date.now();
   let done = 0;
+  // Refill walks its own cursor; resume mode re-reads min(height) each pass.
+  let position: number | undefined = target.refill ? target.from : undefined;
 
   while (!signal.aborted) {
     let written: number;
     try {
-      written = await backfillOnce(pool, target, options);
+      written = await backfillOnce(pool, target, options, position);
     } catch (err) {
       // Nothing was committed, so the next pass retries the same range.
       log(`${target.chainId}: ${(err as Error).message}`);
@@ -144,15 +171,22 @@ export async function runBackfill(
     }
 
     if (written === 0) {
-      const low = await lowestIndexed(pool, target.chainId);
-      log(
-        `${target.chainId}: backfill complete — history now starts at ${low ?? "?"}`
-      );
+      if (target.refill) {
+        log(`${target.chainId}: refill complete down to ${target.floor}`);
+      } else {
+        const low = await lowestIndexed(pool, target.chainId);
+        log(
+          `${target.chainId}: backfill complete — history now starts at ${low ?? "?"}`
+        );
+      }
       return;
     }
 
     done += written;
-    const low = await lowestIndexed(pool, target.chainId);
+    if (target.refill && position !== undefined) position -= written;
+    const low = target.refill
+      ? position
+      : await lowestIndexed(pool, target.chainId);
     const remaining = (low ?? target.floor) - target.floor;
     const rate = done / Math.max(1, (Date.now() - started) / 1000);
     const eta = rate > 0 ? remaining / rate : 0;

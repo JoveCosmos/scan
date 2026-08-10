@@ -85,3 +85,67 @@ maybe("backfill range", () => {
     await pool.query("DELETE FROM block WHERE chain_id = 'other-chain'");
   });
 });
+
+describe.skipIf(!url)("refill mode", () => {
+  let pool: Pool;
+  const chainId = "refill-test";
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: url });
+    await pool.query("DELETE FROM block WHERE chain_id = $1", [chainId]);
+    // Pretend this range was already indexed by an older extractor.
+    for (const h of [500, 499, 498]) {
+      await pool.query(
+        `INSERT INTO block (chain_id, height, time, tx_count)
+         VALUES ($1,$2,now(),0) ON CONFLICT DO NOTHING`,
+        [chainId, h]
+      );
+    }
+  });
+
+  afterAll(async () => {
+    await pool.query("DELETE FROM block WHERE chain_id = $1", [chainId]);
+    await pool.end();
+  });
+
+  it("re-reads heights that are already stored", async () => {
+    // Resume mode would refuse: min(height) is 498, so it only looks below 498.
+    // Refill must revisit 500 to pick up newly extractable data.
+    const range = await nextRange(
+      pool,
+      { chainId, rpcUrl: "http://unused", floor: 498, from: 500, refill: true },
+      100
+    );
+    expect(range).toEqual({ from: 500, to: 498 });
+  });
+
+  it("walks from the caller's position, not the database", async () => {
+    const range = await nextRange(
+      pool,
+      { chainId, rpcUrl: "http://unused", floor: 1, from: 500, refill: true },
+      50,
+      450
+    );
+    expect(range).toEqual({ from: 450, to: 401 });
+  });
+
+  it("stops at the floor", async () => {
+    const range = await nextRange(
+      pool,
+      { chainId, rpcUrl: "http://unused", floor: 400, from: 500, refill: true },
+      100,
+      399
+    );
+    expect(range).toBeNull();
+  });
+
+  it("resume mode still refuses to revisit stored heights", async () => {
+    // The contrast that makes refill necessary.
+    const range = await nextRange(
+      pool,
+      { chainId, rpcUrl: "http://unused", floor: 498, from: 500 },
+      100
+    );
+    expect(range).toBeNull();
+  });
+});
