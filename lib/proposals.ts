@@ -2,6 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import type { Coin } from "@/lib/accounts";
 import { accountFromOperator } from "@/lib/bech32";
+import { votesFromIndexer, coverage, covers } from "@/lib/indexer-db";
 
 export interface Tally {
   yes: string;
@@ -206,8 +207,11 @@ export interface ProposalVotes {
    * "history" — reconstructed from MsgVote transactions after the gov module
    *   deleted the votes on tally. Only the most recent vote per address, since
    *   voters can change their mind while voting is open.
+   * "indexer" — read from our own index, which stores the latest vote per
+   *   voter as the chain emitted it. Same answer as "history", without the
+   *   tens of paged requests.
    */
-  source: "state" | "history";
+  source: "state" | "history" | "indexer";
   /** True when more votes exist than were fetched. */
   truncated: boolean;
   /**
@@ -477,7 +481,12 @@ async function votesFromHistory(
 export async function getProposalVotes(
   chain: ChainConfig,
   id: string,
-  limit = 20_000
+  limit = 20_000,
+  /**
+   * Voting window, used only to decide whether the indexer covers this
+   * proposal. Absent means "do not trust the index", which is the safe default.
+   */
+  window?: { start: string | null; end: string | null }
 ): Promise<ProposalVotes> {
   const empty: ProposalVotes = {
     votes: [],
@@ -487,6 +496,33 @@ export async function getProposalVotes(
     truncated: false,
     failed: false,
   };
+
+  // Tried first, and only when the index demonstrably covers the whole voting
+  // period. A partially backfilled proposal would otherwise report a subset of
+  // its votes as though that were the complete picture — worse than being slow,
+  // because it looks like a fact.
+  if (window) {
+    const indexed = await votesFromIndexer(chain.chainId, id).catch(() => null);
+    if (indexed && indexed.length > 0) {
+      const c = await coverage(chain.chainId);
+      if (covers(c, window.start, window.end)) {
+        const votes: ProposalVote[] = indexed.map((v) =>
+          toVote(
+            v.voter,
+            v.options ?? [{ option: v.option, weight: "1" }]
+          )
+        );
+        return {
+          votes: votes.slice(0, limit),
+          total: votes.length,
+          byOption: tallyByOption(votes),
+          source: "indexer",
+          truncated: votes.length > limit,
+          failed: false,
+        };
+      }
+    }
+  }
 
   let stateFailed = false;
 

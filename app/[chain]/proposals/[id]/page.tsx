@@ -266,6 +266,10 @@ export default async function ProposalDetailPage({
           chain={chain}
           proposalId={proposal.id}
           status={proposal.status}
+          votingWindow={{
+            start: proposal.votingStartTime,
+            end: proposal.votingEndTime,
+          }}
         />
       </Suspense>
     </main>

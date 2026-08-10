@@ -135,7 +135,11 @@ export interface ChainAdapter {
     limit?: number
   ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;
   getProposal(id: string): Promise<ProposalSummary | null>;
-  getProposalVotes(id: string): Promise<ProposalVotes>;
+  getProposalVotes(
+    id: string,
+    /** Voting window, so the indexer can be trusted only where it has cover. */
+    window?: { start: string | null; end: string | null }
+  ): Promise<ProposalVotes>;
   getGovParams(): Promise<GovParams | null>;
 }
 
@@ -224,9 +228,9 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     // Cached and coalesced: a finished proposal is reconstructed from tens of
     // paged tx-search requests, and without this every viewer repeats all of
     // them. Votes only change while voting is open, so 60s is conservative.
-    getProposalVotes: (id) =>
+    getProposalVotes: (id, window) =>
       cached(`votes:${chain.chainId}:${id}`, 60_000, () =>
-        getProposalVotes(chain, id)
+        getProposalVotes(chain, id, undefined, window)
       ),
     getGovParams: () => getGovParams(chain),
   };

@@ -26,17 +26,20 @@ export async function ProposalVotes({
   chain,
   proposalId,
   status,
+  votingWindow,
 }: {
   chain: ChainConfig;
   proposalId: string;
   status: string;
+  /** Passed to the adapter so an indexed answer is only used where covered. */
+  votingWindow?: { start: string | null; end: string | null };
 }) {
   const adapter = getAdapter(chain);
   // Fetched together: the validator set is already cached from the validators
   // page, and the join is what lets votes be filtered to the active set.
   const [{ votes, byOption, source, truncated, failed }, validators] =
     await Promise.all([
-      adapter.getProposalVotes(proposalId),
+      adapter.getProposalVotes(proposalId, votingWindow),
       adapter.getValidators().catch(() => []),
     ]);
 
@@ -78,11 +81,13 @@ export async function ProposalVotes({
         <span className="ml-auto">by voter count, not stake</span>
       </div>
 
-      {source === "history" ? (
+      {source !== "state" ? (
         <p className="mb-3 text-xs text-muted-foreground">
           The gov module deletes votes from state when it tallies a proposal, so
-          these are reconstructed from the vote transactions in block history —
-          the last vote recorded per address.
+          these are the last vote recorded per address
+          {source === "indexer"
+            ? ", read from our index of the chain's own vote events."
+            : ", reconstructed from the vote transactions in block history."}
         </p>
       ) : null}
 
