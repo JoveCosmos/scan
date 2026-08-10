@@ -187,7 +187,9 @@ export async function runBackfill(
     const low = target.refill
       ? position
       : await lowestIndexed(pool, target.chainId);
-    const remaining = (low ?? target.floor) - target.floor;
+    // Clamped: the final batch overshoots the floor by design, and a negative
+    // count in the log reads like a bug rather than the last batch landing.
+    const remaining = Math.max(0, (low ?? target.floor) - target.floor);
     const rate = done / Math.max(1, (Date.now() - started) / 1000);
     const eta = rate > 0 ? remaining / rate : 0;
     log(
