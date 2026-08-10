@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Server } from "lucide-react";
 import { getAllChains, accentFor } from "@/lib/chains";
 import { SearchBar } from "@/components/search-bar";
+import { hasServices } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,21 @@ export default function HomePage() {
           Search an address, a transaction hash, or a block height.
         </p>
       </div>
+
+      {/* Only once something is actually published, so the button never leads
+          to an empty page. */}
+      {hasServices() ? (
+        <Link
+          href="/public-goods"
+          className="gata-panel gata-panel-interactive mt-10 inline-flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
+        >
+          <Server className="h-4 w-4 text-muted-foreground" />
+          Public goods
+          <span className="text-xs text-muted-foreground">
+            endpoints, snapshots, peers
+          </span>
+        </Link>
+      ) : null}
     </main>
   );
 }

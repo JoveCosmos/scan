@@ -1,0 +1,48 @@
+{
+  "_comment": [
+    "Copy to config/services.json and fill in. Until that file exists the",
+    "Public goods button does not appear and the page says nothing is",
+    "published — an endpoint we do not run must never be listed as one we do.",
+    "",
+    "Every field is optional. Anything left out is simply not rendered, so",
+    "start with what is ready and add the rest later.",
+    "",
+    "netInfoRpc is NOT shown on the page. It is read server-side to list live",
+    "peers, so it can be an internal address that is not publicly reachable."
+  ],
+
+  "website": "https://gatahub.zone",
+  "git": "https://github.com/JoveCosmos",
+  "contact": "",
+
+  "chains": [
+    {
+      "chainId": "atomone-1",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://rpc.example.gatahub.zone",
+          "note": "CometBFT RPC"
+        },
+        {
+          "label": "REST / LCD",
+          "url": "https://api.example.gatahub.zone"
+        },
+        {
+          "label": "gRPC",
+          "url": "https://grpc.example.gatahub.zone:443"
+        }
+      ],
+      "peers": ["nodeid@host:26656"],
+      "seeds": [],
+      "snapshot": {
+        "url": "https://snapshots.example.gatahub.zone/atomone-1/latest.tar.lz4",
+        "schedule": "Daily at 02:00 UTC",
+        "pruning": "default (100/0/10)",
+        "note": ""
+      },
+      "guide": "https://gatahub.zone/guides/atomone",
+      "netInfoRpc": "http://127.0.0.1:23957"
+    }
+  ]
+}
