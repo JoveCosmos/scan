@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "prebuild": "tsc --noEmit && vitest run",
     "indexer": "tsx indexer/src/index.ts",
-    "indexer:migrate": "bash indexer/migrate.sh"
+    "indexer:migrate": "bash indexer/migrate.sh",
+    "indexer:backfill": "tsx indexer/src/backfill-cli.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -108,6 +108,53 @@ async function writeBlock(
 }
 
 /**
+ * Write heights without touching the cursor.
+ *
+ * Backfill fills history *below* what the head-follower has reached, so it must
+ * not move a cursor whose meaning is "everything up to here is present". The
+ * two can then run at once against the same tables: they never overlap, and
+ * every write upserts, so even if they did the result is identical.
+ */
+export async function commitBlocks(
+  pool: Pool,
+  chainId: string,
+  blocks: ExtractedBlock[]
+): Promise<void> {
+  if (blocks.length === 0) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const b of blocks) await writeBlock(client, chainId, b);
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * The lowest height held for a chain, which is where backfill resumes.
+ *
+ * Derived from the data rather than kept in its own cursor: a backfill that
+ * dies halfway through a multi-day run then resumes exactly where it stopped,
+ * with no extra state to get out of step with reality.
+ */
+export async function lowestIndexed(
+  pool: Pool,
+  chainId: string
+): Promise<number | null> {
+  const res = await pool.query<{ min: string | null }>(
+    "SELECT min(height)::text AS min FROM block WHERE chain_id = $1",
+    [chainId]
+  );
+  const raw = res.rows[0]?.min;
+  return raw === null || raw === undefined ? null : Number(raw);
+}
+
+/**
  * Write a run of consecutive heights and advance the cursor, atomically.
  *
  * The cursor moves to the last height in the batch only if every row committed;
