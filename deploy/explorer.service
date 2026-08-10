@@ -19,6 +19,21 @@ Environment=npm_config_cache=/srv/explorer/shared/.npm
 # Realm index lives in shared/ so a release swap never discards it.
 Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
 
+# Secrets — currently INDEXER_DATABASE_URL, the read-only role on the indexer's
+# Postgres. A file rather than Environment= above, because unit files are world
+# readable and `systemctl cat explorer` would hand the credential to any account
+# on the box.
+#
+# systemd reads this as root while setting the unit up, before the namespace
+# below takes effect, so InaccessiblePaths=/etc/gata does not conflict with it —
+# the value arrives as an environment variable and the running process has no
+# path to the file it came from. Keep it root:explorer 0640.
+#
+# Leading '-' makes it optional: the explorer must still start on a box where
+# the indexer was never configured, which is the same fallback the read path
+# assumes.
+EnvironmentFile=-/etc/gata/explorer.env
+
 # Bind explicitly on the command line. The HOSTNAME env var did NOT restrict
 # next start — it still listened on 0.0.0.0, which would expose port 3200
 # directly to the internet and bypass nginx. --hostname is authoritative.

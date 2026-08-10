@@ -81,6 +81,48 @@ sudo cp /srv/explorer/repo/deploy/explorer-deploy.timer   /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
+### Connecting the indexer (optional)
+
+The explorer reads proposal votes from the indexer's Postgres when it can, and
+falls back to querying nodes directly when it cannot — so this step can be
+skipped entirely, and skipping it changes nothing about how the site behaves.
+
+Give the read-only role a password, then hand the explorer a connection string
+for it. Interactively, so the secret reaches neither a file in the repo nor your
+shell history:
+
+```bash
+sudo docker exec -it gata-indexer-db psql -U indexer -d gata_indexer -c '\password explorer_ro'
+sudo install -o root -g explorer -m 640 /dev/null /etc/gata/explorer.env
+sudo -e /etc/gata/explorer.env
+```
+
+One line, with the password you just set:
+
+```
+INDEXER_DATABASE_URL=postgres://explorer_ro:PASSWORD@127.0.0.1:5433/gata_indexer
+```
+
+`explorer_ro` holds `SELECT` and nothing else (`indexer/sql/003_readonly_role.sql`),
+which is the point of running the indexer under its own account: the
+internet-facing process cannot write to the historical record even if it is
+compromised.
+
+Then `sudo systemctl restart explorer`. Confirm it took by reading the running
+process's own environment — `systemctl show -p Environment` reports only the
+inline `Environment=` directives and will not show anything loaded from a file,
+so it cannot answer this. Counting rather than printing keeps the password off
+the terminal:
+
+```bash
+sudo tr '\0' '\n' < /proc/$(systemctl show explorer -p MainPID --value)/environ | grep -c INDEXER_DATABASE_URL
+```
+
+`1` means the explorer has it. `0` means the file is missing, unreadable by the
+`explorer` group, or the unit was copied to `/etc/systemd/system/` without a
+`daemon-reload` — and because the `-` prefix makes the file optional, all three
+fail silently.
+
 `deploy.sh` restarts the app, so the `explorer` user needs exactly that and nothing more:
 
 ```bash
