@@ -37,13 +37,35 @@ const chainServicesSchema = z.object({
    */
   chainId: z.string().min(1),
   endpoints: z.array(endpointSchema).default([]),
+  /**
+   * The node binary and its home directory, used to generate restore commands
+   * someone can paste. Without them the snapshot panel shows details only —
+   * a half-right command that deletes a data directory is worse than none.
+   */
+  daemon: z.string().optional(),
+  home: z.string().optional(),
   snapshot: z
     .object({
       url: z.string().url(),
+      /**
+       * "live" once the file at `url` actually exists. Anything else renders
+       * the panel as a preview and does not offer the download: publishing a
+       * link to a snapshot we have not taken yet sends people to a 404 after
+       * they have already stopped their node.
+       */
+      status: z.enum(["live", "planned"]).default("planned"),
       /** How often it is taken, in words. "Daily at 02:00 UTC". */
       schedule: z.string().optional(),
       /** Pruning settings the snapshot was taken with. */
       pruning: z.string().optional(),
+      /** Compressed size, in words. "42 GB". */
+      size: z.string().optional(),
+      /** Height the snapshot was taken at. */
+      height: z.number().optional(),
+      /** ISO timestamp of the most recent snapshot. */
+      takenAt: z.string().optional(),
+      /** Node version the snapshot is compatible with. */
+      version: z.string().optional(),
       note: z.string().optional(),
     })
     .optional(),

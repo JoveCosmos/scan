@@ -15,21 +15,21 @@ export interface ChainSummary {
   accent: string;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
-  /** Chains we publish no endpoints for never show the Public Goods tab. */
+  /**
+   * Whether we publish endpoints for this chain. No longer a tab — the page is
+   * reached from the landing page — but the switcher still needs it, so that
+   * changing chains from /nodes does not land on a chain with nothing to show.
+   */
   services: boolean;
   /** Chains with no IBC module never show the Relayers tab. */
   ibc: boolean;
   network: "mainnet" | "testnet";
 }
 
-// Public Goods first where we have any, then Params — the chain's identity card
-// and still the tab a chain lands on.
+// Params first: the chain's identity card and the tab a chain lands on.
 // Governance sits by validators; blocks is a firehose, so it goes last.
 // Labels shorten on narrow screens so every tab fits without a sideways swipe.
 const NAV = [
-  // First: what we offer on this network, rather than something to find after
-  // the chain's own data.
-  { href: "/nodes", label: "Public Goods", short: "Public", servicesOnly: true },
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
   { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true },
@@ -155,7 +155,6 @@ function NavLinks({
   activeChainId,
   pathname,
   governance,
-  services,
   ibc,
   className,
   itemClassName,
@@ -163,7 +162,6 @@ function NavLinks({
   activeChainId: string;
   pathname: string;
   governance: boolean;
-  services: boolean;
   ibc: boolean;
   className?: string;
   itemClassName?: string;
@@ -171,10 +169,7 @@ function NavLinks({
   return (
     <nav className={className}>
       {NAV.filter(
-        (item) =>
-          (governance || !item.governanceOnly) &&
-          (services || !item.servicesOnly) &&
-          (ibc || !item.ibcOnly)
+        (item) => (governance || !item.governanceOnly) && (ibc || !item.ibcOnly)
       ).map((item) => {
         const href = `/${activeChainId}${item.href}`;
         // startsWith so a detail page keeps its section tab lit.
@@ -243,7 +238,6 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             activeChainId={activeChainId}
             pathname={pathname}
             governance={activeChain?.governance ?? false}
-            services={activeChain?.services ?? false}
             ibc={activeChain?.ibc ?? false}
             className="hidden items-center gap-1 lg:flex"
           />
@@ -267,7 +261,6 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           activeChainId={activeChainId}
           pathname={pathname}
           governance={activeChain?.governance ?? false}
-            services={activeChain?.services ?? false}
             ibc={activeChain?.ibc ?? false}
           className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
         />

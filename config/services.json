@@ -2,13 +2,28 @@
   "chains": [
     {
       "chainId": "atomone-1",
+      "daemon": "atomoned",
+      "home": "$HOME/.atomone",
       "endpoints": [
         { "label": "RPC", "url": "https://atomone-rpc.gatadao.com", "kind": "rpc" },
         { "label": "REST / API", "url": "https://atomone-api.gatadao.com", "kind": "rest" }
-      ]
+      ],
+      "snapshot": {
+        "url": "https://snapshots.gatadao.com/atomone-1/latest.tar.lz4",
+        "status": "planned",
+        "schedule": "daily at 02:00 UTC",
+        "pruning": "custom (100/0/10)",
+        "size": "38 GB",
+        "height": 9836000,
+        "takenAt": "2026-08-10T02:00:00Z",
+        "version": "v2.0.0",
+        "note": "Placeholder while a non-validating node is set up to take snapshots from. Nothing is published at this URL yet."
+      }
     },
     {
       "chainId": "atomone-testnet-1",
+      "daemon": "atomoned",
+      "home": "$HOME/.atomone",
       "endpoints": [
         { "label": "RPC", "url": "https://atomone-testnet-rpc.gatadao.com", "kind": "rpc" },
         { "label": "REST / API", "url": "https://atomone-testnet-api.gatadao.com", "kind": "rest" }
@@ -16,6 +31,8 @@
     },
     {
       "chainId": "topaz-1",
+      "daemon": "gnoland",
+      "home": "$HOME/.gnoland",
       "endpoints": [
         { "label": "RPC", "url": "https://gnoland-testnet-rpc.gatadao.com", "kind": "rpc" }
       ]

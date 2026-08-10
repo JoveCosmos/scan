@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Server } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getAllChains, accentFor } from "@/lib/chains";
 import { SearchBar } from "@/components/search-bar";
 import { hasServices } from "@/lib/services";
@@ -49,17 +49,15 @@ export default function HomePage() {
       </div>
 
       {/* Only once something is actually published, so the button never leads
-          to an empty page. */}
+          to an empty page. Set well below the search field: it is a second
+          destination, not an alternative to the thing the page is for. */}
       {hasServices() ? (
         <Link
           href="/public-goods"
-          className="gata-panel gata-panel-interactive mt-10 inline-flex items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
+          className="gata-panel gata-panel-interactive group mt-16 inline-flex items-center gap-2 px-5 py-2.5 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
         >
-          <Server className="h-4 w-4 text-muted-foreground" />
-          Public goods
-          <span className="text-xs text-muted-foreground">
-            public endpoints we run
-          </span>
+          Full Node and Snapshot
+          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </Link>
       ) : null}
     </main>
