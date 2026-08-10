@@ -191,6 +191,17 @@ describe.skipIf(!url)("slashHistory", () => {
     expect(history?.events.map((e) => e.height)).toEqual([600]);
   });
 
+  it("refuses rather than reporting zero when nothing is covered", async () => {
+    // "Never jailed" and "we have no idea" must not render as the same thing.
+    const chain = chainId("slash-uncovered");
+    await seed(chain, [{ height: 700, version: 0 }]);
+    await seedSlashes(chain, CONS, [{ height: 700, kind: "jailed" }]);
+
+    expect(await slashHistory(chain, CONS)).toBeNull();
+  });
+});
+
+describe.skipIf(!url)("proposerStats", () => {
   it("counts blocks proposed against the chain total", async () => {
     // Uppercase hex, which is how CometBFT renders a proposer address and what
     // the indexer stores verbatim. Matching on any other encoding would return
@@ -225,18 +236,5 @@ describe.skipIf(!url)("slashHistory", () => {
       proposed: 1,
       totalBlocks: 1,
     });
-  });
-});
-
-describe.skipIf(!url)("slashHistory bounds", () => {
-  const CONS = "atonevalcons1test";
-
-  it("refuses rather than reporting zero when nothing is covered", async () => {
-    // "Never jailed" and "we have no idea" must not render as the same thing.
-    const chain = chainId("slash-uncovered");
-    await seed(chain, [{ height: 700, version: 0 }]);
-    await seedSlashes(chain, CONS, [{ height: 700, kind: "jailed" }]);
-
-    expect(await slashHistory(chain, CONS)).toBeNull();
   });
 });
