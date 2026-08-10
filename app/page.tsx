@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { getAllChains, accentFor } from "@/lib/chains";
+import { getAllChains, getChain, accentFor, type ChainConfig } from "@/lib/chains";
 import { SearchBar } from "@/components/search-bar";
-import { hasServices } from "@/lib/services";
+import { chainsByNodeType } from "@/lib/services";
+import { EndpointsDialog, type DialogChain } from "@/components/endpoints-dialog";
+import { ChainServicesPanel } from "@/components/chain-services-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,37 @@ export const dynamic = "force-dynamic";
  * of chain cards duplicated it and put a click between arriving and searching.
  * Networks are still listed here — as links, so they remain a way in — but the
  * page's job is the one field in the middle.
+ *
+ * They are split by the kind of node we run, because the two are not the same
+ * offer: a full node can serve history and a snapshot, a pruned one answers
+ * current state and forgets. Grouping them says which is which without a
+ * column of labels.
  */
 export default function HomePage() {
   const chains = getAllChains();
-  const mainnet = chains.filter((c) => c.network === "mainnet");
-  const testnet = chains.filter((c) => c.network !== "mainnet");
+  const { full, pruned } = chainsByNodeType();
+
+  const resolve = (ids: { chainId: string }[]): ChainConfig[] =>
+    ids
+      .map((c) => getChain(c.chainId))
+      .filter((c): c is ChainConfig => c !== undefined);
+
+  const fullChains = resolve(full);
+  const prunedChains = resolve(pruned);
+
+  // Panels are built here, on the server, so the dialog has everything the
+  // moment it opens.
+  const dialogChains: DialogChain[] = [];
+  for (const services of full) {
+    const chain = getChain(services.chainId);
+    if (!chain) continue;
+    dialogChains.push({
+      chainId: chain.chainId,
+      prettyName: chain.prettyName,
+      accent: accentFor(chain),
+      panel: <ChainServicesPanel chain={chain} services={services} />,
+    });
+  }
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-4 py-16">
@@ -26,16 +53,13 @@ export default function HomePage() {
         Live across {chains.length} networks
       </span>
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
-        {mainnet.map((chain) => (
-          <NetworkChip key={chain.chainId} chain={chain} />
-        ))}
-        {testnet.length > 0 ? (
-          <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
+      <div className="mt-6 flex flex-col items-center gap-3">
+        {fullChains.length > 0 ? (
+          <NetworkGroup label="Full nodes" chains={fullChains} />
         ) : null}
-        {testnet.map((chain) => (
-          <NetworkChip key={chain.chainId} chain={chain} />
-        ))}
+        {prunedChains.length > 0 ? (
+          <NetworkGroup label="Pruned" chains={prunedChains} muted />
+        ) : null}
       </div>
 
       <div className="mt-8 w-full max-w-xl">
@@ -48,23 +72,35 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Only once something is actually published, so the button never leads
-          to an empty page. Set well below the search field: it is a second
-          destination, not an alternative to the thing the page is for. */}
-      {hasServices() ? (
-        <Link
-          href="/public-goods"
-          className="gata-panel gata-panel-interactive group mt-16 inline-flex items-center gap-2 px-5 py-2.5 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
-        >
-          Full Node and Snapshot
-          <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-        </Link>
-      ) : null}
+      {/* Set well below the search field: a second destination, not an
+          alternative to the thing the page is for. */}
+      <EndpointsDialog chains={dialogChains} />
     </main>
   );
 }
 
-function NetworkChip({ chain }: { chain: ReturnType<typeof getAllChains>[number] }) {
+function NetworkGroup({
+  label,
+  chains,
+  muted,
+}: {
+  label: string;
+  chains: ChainConfig[];
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2">
+      <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        {label}
+      </span>
+      {chains.map((chain) => (
+        <NetworkChip key={chain.chainId} chain={chain} muted={muted} />
+      ))}
+    </div>
+  );
+}
+
+function NetworkChip({ chain, muted }: { chain: ChainConfig; muted?: boolean }) {
   const accent = accentFor(chain);
   return (
     <Link
@@ -74,7 +110,13 @@ function NetworkChip({ chain }: { chain: ReturnType<typeof getAllChains>[number]
     >
       <span
         className="h-1.5 w-1.5 rounded-full"
-        style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
+        style={{
+          background: accent,
+          // The glow marks the nodes that carry history; pruned chains get the
+          // same dot without it rather than a second kind of badge.
+          boxShadow: muted ? undefined : `0 0 8px ${accent}`,
+          opacity: muted ? 0.55 : 1,
+        }}
       />
       {/* No "test" badge: every testnet already says so in its name. */}
       {chain.prettyName}

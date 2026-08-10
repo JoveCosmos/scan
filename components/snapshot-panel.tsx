@@ -90,13 +90,6 @@ export function SnapshotPanel({
           <pre className="mt-2 overflow-x-auto rounded border border-border bg-secondary/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
             {script}
           </pre>
-          <p className="mt-2 text-xs text-muted-foreground">
-            The backup and restore of{" "}
-            <code className="font-mono">priv_validator_state.json</code> is not
-            optional on a validator. Wiping it and starting from the
-            snapshot&apos;s copy can double-sign a block you already signed,
-            which is slashed and tombstoned - permanently.
-          </p>
         </div>
       ) : null}
 

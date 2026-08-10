@@ -1,68 +1,59 @@
 import { describe, expect, it } from "vitest";
-import { sortChannels, RELAYER_MSG_TYPES, type IbcChannel } from "@/lib/relayers";
+import { RELAYER_MSG_TYPES } from "@/lib/relayers";
+import { routeIsLive } from "@/lib/ibc-routes";
+import type { RouteHealth, SideHealth } from "@/lib/ibc-routes";
 
-function channel(over: Partial<IbcChannel> & { channelId: string }): IbcChannel {
+function side(over: Partial<SideHealth> = {}): SideHealth {
   return {
+    chainId: "atomone-1",
+    channelId: "channel-2",
     portId: "transfer",
-    state: "open",
-    ordering: "unordered",
-    counterpartyChannelId: "channel-0",
-    counterpartyPortId: "transfer",
-    connectionId: "connection-0",
-    counterpartyChainId: null,
-    counterpartyName: null,
+    clientId: "07-tendermint-2",
+    connectionId: "connection-2",
+    prettyName: "AtomOne",
+    accent: "#F5C66B",
+    clientStatus: "Active",
+    channelState: "open",
+    pendingPackets: 0,
     ...over,
   };
 }
 
-const ids = (channels: IbcChannel[]) => channels.map((c) => c.channelId);
+const route = (a: Partial<SideHealth>, b: Partial<SideHealth> = {}): RouteHealth => ({
+  a: side(a),
+  b: side(b),
+});
 
-describe("sortChannels", () => {
-  it("orders by channel number, not by string", () => {
-    // The failure this exists to prevent: as strings, channel-100 sorts above
-    // channel-9. Correct on a chain with nine channels, wrong on every real one.
-    const sorted = sortChannels([
-      channel({ channelId: "channel-100" }),
-      channel({ channelId: "channel-9" }),
-      channel({ channelId: "channel-21" }),
-    ]);
-    expect(ids(sorted)).toEqual(["channel-9", "channel-21", "channel-100"]);
+describe("routeIsLive", () => {
+  it("is live when both clients are active and both channels open", () => {
+    expect(routeIsLive(route({}, {}))).toBe(true);
   });
 
-  it("puts open channels above every other state", () => {
-    const sorted = sortChannels([
-      channel({ channelId: "channel-1", state: "closed" }),
-      channel({ channelId: "channel-2", state: "open" }),
-      channel({ channelId: "channel-3", state: "init" }),
-    ]);
-    expect(ids(sorted)[0]).toBe("channel-2");
+  it("is not live when the far client has expired", () => {
+    // The case this exists for: a channel reads OPEN on both sides while the
+    // counterparty's light client has lapsed, and nothing can pass until
+    // someone recovers it. Judging by channel state alone calls this healthy.
+    expect(routeIsLive(route({}, { clientStatus: "Expired" }))).toBe(false);
   });
 
-  it("keeps open channels ordered among themselves", () => {
-    const sorted = sortChannels([
-      channel({ channelId: "channel-7" }),
-      channel({ channelId: "channel-2", state: "closed" }),
-      channel({ channelId: "channel-3" }),
-    ]);
-    expect(ids(sorted)).toEqual(["channel-3", "channel-7", "channel-2"]);
+  it("is not live when the near client has expired", () => {
+    expect(routeIsLive(route({ clientStatus: "Expired" }))).toBe(false);
   });
 
-  it("sinks unparseable ids instead of leaving them unordered", () => {
-    // NaN compares false against everything, which leaves sort order undefined.
-    const sorted = sortChannels([
-      channel({ channelId: "weird" }),
-      channel({ channelId: "channel-5" }),
-    ]);
-    expect(ids(sorted)).toEqual(["channel-5", "weird"]);
+  it("treats a frozen client as not live", () => {
+    // Frozen means misbehaviour was proven against it. Never usable again.
+    expect(routeIsLive(route({ clientStatus: "Frozen" }))).toBe(false);
   });
 
-  it("does not mutate its input", () => {
-    const input = [
-      channel({ channelId: "channel-2" }),
-      channel({ channelId: "channel-1" }),
-    ];
-    sortChannels(input);
-    expect(ids(input)).toEqual(["channel-2", "channel-1"]);
+  it("is not live when a channel has closed", () => {
+    expect(routeIsLive(route({}, { channelState: "closed" }))).toBe(false);
+  });
+
+  it("refuses to call a route live when a probe failed", () => {
+    // Null means the endpoint did not answer. Absence of a problem is not
+    // evidence of health.
+    expect(routeIsLive(route({ clientStatus: null }))).toBe(false);
+    expect(routeIsLive(route({ channelState: null }))).toBe(false);
   });
 });
 

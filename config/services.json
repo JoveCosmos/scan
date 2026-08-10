@@ -2,6 +2,7 @@
   "chains": [
     {
       "chainId": "atomone-1",
+      "nodeType": "full",
       "daemon": "atomoned",
       "home": "$HOME/.atomone",
       "endpoints": [
@@ -16,26 +17,54 @@
         "size": "38 GB",
         "height": 9836000,
         "takenAt": "2026-08-10T02:00:00Z",
-        "version": "v2.0.0",
-        "note": "Placeholder while a non-validating node is set up to take snapshots from. Nothing is published at this URL yet."
+        "version": "v2.0.0"
       }
     },
     {
       "chainId": "atomone-testnet-1",
+      "nodeType": "full",
       "daemon": "atomoned",
       "home": "$HOME/.atomone",
       "endpoints": [
         { "label": "RPC", "url": "https://atomone-testnet-rpc.gatadao.com", "kind": "rpc" },
         { "label": "REST / API", "url": "https://atomone-testnet-api.gatadao.com", "kind": "rest" }
-      ]
+      ],
+      "snapshot": {
+        "url": "https://snapshots.gatadao.com/atomone-testnet-1/latest.tar.lz4",
+        "status": "planned",
+        "schedule": "daily at 02:00 UTC",
+        "pruning": "custom (100/0/10)",
+        "size": "6 GB",
+        "height": 4210000,
+        "takenAt": "2026-08-10T02:00:00Z",
+        "version": "v2.0.0"
+      }
     },
     {
       "chainId": "topaz-1",
+      "nodeType": "full",
       "daemon": "gnoland",
       "home": "$HOME/.gnoland",
       "endpoints": [
         { "label": "RPC", "url": "https://gnoland-testnet-rpc.gatadao.com", "kind": "rpc" }
-      ]
-    }
+      ],
+      "snapshot": {
+        "url": "https://snapshots.gatadao.com/topaz-1/latest.tar.lz4",
+        "status": "planned",
+        "schedule": "daily at 02:00 UTC",
+        "pruning": "archive",
+        "size": "12 GB",
+        "height": 1180000,
+        "takenAt": "2026-08-10T02:00:00Z",
+        "version": "v0.3.0"
+      }
+    },
+
+    { "chainId": "cosmoshub-4", "nodeType": "pruned" },
+    { "chainId": "osmosis-1", "nodeType": "pruned" },
+    { "chainId": "akashnet-2", "nodeType": "pruned" },
+    { "chainId": "juno-1", "nodeType": "pruned" },
+    { "chainId": "passage-2", "nodeType": "pruned" },
+    { "chainId": "provider", "nodeType": "pruned" }
   ]
 }

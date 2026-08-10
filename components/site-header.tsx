@@ -15,12 +15,6 @@ export interface ChainSummary {
   accent: string;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
-  /**
-   * Whether we publish endpoints for this chain. No longer a tab — the page is
-   * reached from the landing page — but the switcher still needs it, so that
-   * changing chains from /nodes does not land on a chain with nothing to show.
-   */
-  services: boolean;
   /** Chains with no IBC module never show the Relayers tab. */
   ibc: boolean;
   network: "mainnet" | "testnet";
@@ -32,10 +26,10 @@ export interface ChainSummary {
 const NAV = [
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
-  { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
   { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/blocks", label: "Blocks", short: "Blocks" },
+  { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true },
 ];
 
 function ChainSwitcher({
@@ -113,7 +107,6 @@ function ChainSwitcher({
                   // back to its overview.
                   href={`/${chain.chainId}${
                     (section === "/proposals" && !chain.governance) ||
-                    (section === "/nodes" && !chain.services) ||
                     (section === "/relayers" && !chain.ibc)
                       ? "/params"
                       : section || "/params"

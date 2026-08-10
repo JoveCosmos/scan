@@ -1,0 +1,173 @@
+import { ArrowLeftRight } from "lucide-react";
+import { routeHealth, routeIsLive, type SideHealth } from "@/lib/ibc-routes";
+
+/**
+ * The routes this chain keeps open, and whether each one works right now.
+ *
+ * Channel state alone is misleading — a route reads OPEN on both sides while
+ * one light client has quietly expired, and nothing passes until someone
+ * recovers it. So the verdict comes from both clients and both channels
+ * together, and the parts are shown underneath so a failure says which end.
+ */
+export async function IbcRoutesTable({ chainId }: { chainId: string }) {
+  const routes = await routeHealth(chainId);
+
+  if (routes.length === 0) {
+    return (
+      <div className="gata-panel px-5 py-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          No routes are tracked for this chain yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {routes.map((route) => {
+        const live = routeIsLive(route);
+        return (
+          <div
+            key={`${route.a.chainId}-${route.a.channelId}-${route.b.chainId}`}
+            className="gata-panel px-4 py-4"
+            style={{ ["--panel-accent" as string]: route.b.accent }}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 text-sm">
+                <Dot accent={route.a.accent} />
+                <span className="font-medium">{route.a.prettyName}</span>
+                <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />
+                <Dot accent={route.b.accent} />
+                <span className="font-medium">{route.b.prettyName}</span>
+              </div>
+              <Verdict live={live} route={route} />
+            </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <SidePanel side={route.a} />
+              <SidePanel side={route.b} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Verdict({
+  live,
+  route,
+}: {
+  live: boolean;
+  route: { a: SideHealth; b: SideHealth };
+}) {
+  if (live) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--gata-green)]">
+        <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
+        Carrying traffic
+      </span>
+    );
+  }
+
+  const unreachable =
+    route.a.clientStatus === null || route.b.clientStatus === null;
+  const expired = [route.a, route.b].find(
+    (s) => s.clientStatus === "Expired" || s.clientStatus === "Frozen"
+  );
+
+  if (expired) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--gata-burn)]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--gata-burn)]" />
+        {expired.prettyName} client {(expired.clientStatus ?? "").toLowerCase()}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-xs text-muted-foreground">
+      {unreachable ? "could not check" : "not carrying traffic"}
+    </span>
+  );
+}
+
+function SidePanel({ side }: { side: SideHealth }) {
+  return (
+    <div className="rounded-lg border border-border/60 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <Dot accent={side.accent} />
+        <span className="text-xs text-muted-foreground">{side.prettyName}</span>
+      </div>
+
+      <dl className="mt-2 space-y-1 text-xs">
+        <Row label="Channel" value={side.channelId} mono />
+        <Row
+          label="Client"
+          value={side.clientId}
+          mono
+          badge={side.clientStatus ?? undefined}
+          bad={side.clientStatus === "Expired" || side.clientStatus === "Frozen"}
+        />
+        <Row
+          label="Pending"
+          value={
+            side.pendingPackets === null
+              ? "-"
+              : side.pendingPackets.toLocaleString()
+          }
+          // A pile of uncleared commitments is the sign that no relayer is
+          // working the channel. A handful is just traffic in flight.
+          bad={side.pendingPackets !== null && side.pendingPackets > 50}
+        />
+      </dl>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  mono,
+  badge,
+  bad,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  badge?: string;
+  bad?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd
+        className={`flex items-center gap-1.5 ${mono ? "font-mono" : "tabular-nums"} ${
+          bad ? "text-[var(--gata-burn)]" : ""
+        }`}
+      >
+        {value}
+        {badge ? (
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] ${
+              bad
+                ? "bg-[var(--gata-burn)]/10 text-[var(--gata-burn)]"
+                : "bg-secondary text-muted-foreground"
+            }`}
+          >
+            {badge}
+          </span>
+        ) : null}
+      </dd>
+    </div>
+  );
+}
+
+function Dot({ accent }: { accent: string }) {
+  return (
+    <span
+      className="h-2 w-2 shrink-0 rounded-full"
+      style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
+    />
+  );
+}
