@@ -62,23 +62,29 @@ async function seedSlashes(
   }
 }
 
-describe.skipIf(!url)("coverage", () => {
-  beforeAll(async () => {
-    // Set before the module is imported: the pool is memoised on first use.
-    process.env.INDEXER_DATABASE_URL = url;
-    const mod = await import("@/lib/indexer-db");
-    coverage = mod.coverage;
-    slashHistory = mod.slashHistory;
-    pool = mod.indexerPool()!;
-  });
+// File level, not per-describe. The pool is memoised on the module, so there is
+// one for the whole file; closing it in the first describe's afterAll left the
+// later ones querying a pool that had already been ended.
+beforeAll(async () => {
+  if (!url) return;
+  // Set before the module is imported: the pool is built on first use.
+  process.env.INDEXER_DATABASE_URL = url;
+  const mod = await import("@/lib/indexer-db");
+  coverage = mod.coverage;
+  slashHistory = mod.slashHistory;
+  pool = mod.indexerPool()!;
+});
 
-  afterAll(async () => {
-    for (const c of chains) {
-      await pool.query("DELETE FROM slash_event WHERE chain_id = $1", [c]);
-      await pool.query("DELETE FROM block WHERE chain_id = $1", [c]);
-    }
-    await pool.end();
-  });
+afterAll(async () => {
+  if (!url) return;
+  for (const c of chains) {
+    await pool.query("DELETE FROM slash_event WHERE chain_id = $1", [c]);
+    await pool.query("DELETE FROM block WHERE chain_id = $1", [c]);
+  }
+  await pool.end();
+});
+
+describe.skipIf(!url)("coverage", () => {
 
   it("spans everything when every block is fully extracted", async () => {
     const chain = chainId("full");
