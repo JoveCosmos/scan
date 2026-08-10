@@ -129,6 +129,84 @@ export function covers(
   return start >= from + MARGIN_MS && end <= to;
 }
 
+export type SlashKind = "slashed" | "jailed" | "unjailed" | "tombstoned";
+
+export interface SlashEvent {
+  height: number;
+  time: string;
+  kind: SlashKind;
+  /** downtime | double_sign, when the chain said. */
+  reason: string | null;
+  /** Base-denom tokens burned; present on slash events only. */
+  burned: string | null;
+}
+
+export interface SlashHistory {
+  events: SlashEvent[];
+  /** Start of the window these events were read from — never "all of history". */
+  since: string;
+}
+
+/**
+ * A validator's jailings, slashes and unjailings, most recent first.
+ *
+ * No node can answer this. The staking module keeps only the *current* jailed
+ * flag and a jailed_until timestamp, so a validator jailed three times looks
+ * exactly like one jailed once, and a validator that was jailed and recovered
+ * looks like one that never was. The history exists solely in block events,
+ * which is what makes it worth indexing.
+ *
+ * Keyed on the consensus address because that is the only identity slashing
+ * events carry — they never mention the operator address.
+ *
+ * The result is bounded by coverage and says so. That is a weaker gate than the
+ * one votes use, and deliberately: a partial vote list is a wrong tally stated
+ * as fact, whereas a partial slash list is honest as long as the window it came
+ * from is shown beside it. Refusing to render anything until the backfill
+ * reaches genesis would withhold months of usable history for no gain.
+ */
+export async function slashHistory(
+  chainId: string,
+  consAddr: string
+): Promise<SlashHistory | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  try {
+    const res = await pool.query<{
+      height: string;
+      time: string;
+      kind: SlashKind;
+      reason: string | null;
+      burned: string | null;
+    }>(
+      `SELECT height::text, time::text, kind, reason, burned::text
+         FROM slash_event
+        WHERE chain_id = $1 AND cons_addr = $2
+          AND height BETWEEN $3 AND $4
+        ORDER BY height DESC
+        LIMIT 200`,
+      [chainId, consAddr, c.lowest, c.highest]
+    );
+
+    return {
+      events: res.rows.map((r) => ({
+        height: Number(r.height),
+        time: r.time,
+        kind: r.kind,
+        reason: r.reason,
+        burned: r.burned,
+      })),
+      since: c.from,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

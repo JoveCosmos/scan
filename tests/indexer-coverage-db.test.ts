@@ -21,6 +21,10 @@ const url = process.env.INDEXER_TEST_DATABASE_URL;
 const chains: string[] = [];
 let pool: Pool;
 let coverage: (chainId: string) => Promise<unknown>;
+let slashHistory: (
+  chainId: string,
+  consAddr: string
+) => Promise<{ events: { height: number; kind: string }[] } | null>;
 
 /** A distinct chain per case, so the 30s coverage cache cannot leak between them. */
 function chainId(name: string): string {
@@ -43,17 +47,34 @@ async function seed(
   }
 }
 
+/** Slash events for one consensus address. */
+async function seedSlashes(
+  chain: string,
+  cons: string,
+  rows: { height: number; kind: string; reason?: string }[]
+): Promise<void> {
+  for (const r of rows) {
+    await pool.query(
+      `INSERT INTO slash_event (chain_id, height, time, cons_addr, kind, reason)
+       VALUES ($1, $2, to_timestamp($3), $4, $5, $6)`,
+      [chain, r.height, 1_760_000_000 + r.height * 60, cons, r.kind, r.reason ?? null]
+    );
+  }
+}
+
 describe.skipIf(!url)("coverage", () => {
   beforeAll(async () => {
     // Set before the module is imported: the pool is memoised on first use.
     process.env.INDEXER_DATABASE_URL = url;
     const mod = await import("@/lib/indexer-db");
     coverage = mod.coverage;
+    slashHistory = mod.slashHistory;
     pool = mod.indexerPool()!;
   });
 
   afterAll(async () => {
     for (const c of chains) {
+      await pool.query("DELETE FROM slash_event WHERE chain_id = $1", [c]);
       await pool.query("DELETE FROM block WHERE chain_id = $1", [c]);
     }
     await pool.end();
@@ -97,5 +118,63 @@ describe.skipIf(!url)("coverage", () => {
 
   it("returns null for a chain it holds nothing for", async () => {
     expect(await coverage(chainId("empty"))).toBeNull();
+  });
+});
+
+describe.skipIf(!url)("slashHistory", () => {
+  const CONS = "atonevalcons1test";
+
+  it("returns a validator's events, most recent first", async () => {
+    const chain = chainId("slash-order");
+    await seed(chain, [
+      { height: 400, version: 2 },
+      { height: 401, version: 2 },
+      { height: 402, version: 2 },
+    ]);
+    await seedSlashes(chain, CONS, [
+      { height: 400, kind: "jailed", reason: "downtime" },
+      { height: 402, kind: "unjailed" },
+    ]);
+
+    const history = await slashHistory(chain, CONS);
+    expect(history?.events.map((e) => e.height)).toEqual([402, 400]);
+  });
+
+  it("ignores another validator's events", async () => {
+    const chain = chainId("slash-other");
+    await seed(chain, [{ height: 500, version: 2 }]);
+    await seedSlashes(chain, "atonevalcons1someone-else", [
+      { height: 500, kind: "jailed" },
+    ]);
+
+    expect(await slashHistory(chain, CONS)).toMatchObject({ events: [] });
+  });
+
+  it("excludes events above the extraction ceiling", async () => {
+    // The jailing at 602 sits in a block written by an older extractor. Its row
+    // only exists because a later build happened to see it; counting it would
+    // report a total from a range we cannot vouch for.
+    const chain = chainId("slash-stale");
+    await seed(chain, [
+      { height: 600, version: 2 },
+      { height: 601, version: 2 },
+      { height: 602, version: 0 },
+    ]);
+    await seedSlashes(chain, CONS, [
+      { height: 600, kind: "jailed" },
+      { height: 602, kind: "jailed" },
+    ]);
+
+    const history = await slashHistory(chain, CONS);
+    expect(history?.events.map((e) => e.height)).toEqual([600]);
+  });
+
+  it("refuses rather than reporting zero when nothing is covered", async () => {
+    // "Never jailed" and "we have no idea" must not render as the same thing.
+    const chain = chainId("slash-uncovered");
+    await seed(chain, [{ height: 700, version: 0 }]);
+    await seedSlashes(chain, CONS, [{ height: 700, kind: "jailed" }]);
+
+    expect(await slashHistory(chain, CONS)).toBeNull();
   });
 });

@@ -11,6 +11,7 @@ import { decodeParam } from "@/lib/format";
 import { accountFromOperator } from "@/lib/bech32";
 import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorStatus } from "@/components/validator-status";
+import { ValidatorSlashes } from "@/components/validator-slashes";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
 import { emptyUptime } from "@/lib/uptime";
@@ -309,6 +310,14 @@ export default async function ValidatorDetailPage({
           </div>
         </>
       ) : null}
+
+      {/* Streamed, and renders nothing unless the indexer is connected. */}
+      <Suspense fallback={null}>
+        <ValidatorSlashes
+          chain={chain}
+          consensusPubkey={validator.consensusPubkey}
+        />
+      </Suspense>
 
       <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
         Delegators
