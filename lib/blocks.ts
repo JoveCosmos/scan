@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { isNumericId } from "@/lib/input";
 
 interface BlockResponse {
   block_id?: { hash: string };
@@ -98,6 +99,9 @@ export async function getBlockDetail(
   chain: ChainConfig,
   height: string | number
 ): Promise<BlockDetail | null> {
+  // Heights are interpolated into an LCD path. See lib/input.ts.
+  if (!isNumericId(height)) return null;
+
   let res: BlockResponse;
   try {
     res = await fetchLcd<BlockResponse>(

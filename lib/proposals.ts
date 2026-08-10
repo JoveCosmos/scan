@@ -3,6 +3,7 @@ import { fetchLcd } from "@/lib/lcd";
 import type { Coin } from "@/lib/accounts";
 import { accountFromOperator } from "@/lib/bech32";
 import { votesFromIndexer, coverage, covers } from "@/lib/indexer-db";
+import { isNumericId } from "@/lib/input";
 
 export interface Tally {
   yes: string;
@@ -150,6 +151,9 @@ export async function getProposal(
   chain: ChainConfig,
   id: string
 ): Promise<ProposalSummary | null> {
+  // Before the id reaches an LCD path. See lib/input.ts for why.
+  if (!isNumericId(id)) return null;
+
   let proposal: ProposalSummary;
   try {
     const res = await fetchLcd<{ proposal?: RawProposal }>(
@@ -496,6 +500,9 @@ export async function getProposalVotes(
     truncated: false,
     failed: false,
   };
+
+  // Same gate as getProposal: the id is interpolated into an LCD path below.
+  if (!isNumericId(id)) return empty;
 
   // Tried first, and only when the index demonstrably covers the whole voting
   // period. A partially backfilled proposal would otherwise report a subset of

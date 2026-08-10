@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { isBech32ish } from "@/lib/input";
 
 interface RawValidator {
   operator_address: string;
@@ -99,6 +100,9 @@ export async function getValidator(
   chain: ChainConfig,
   operatorAddress: string
 ): Promise<ValidatorDetail | null> {
+  // Operator addresses are interpolated into LCD paths. See lib/input.ts.
+  if (!isBech32ish(operatorAddress)) return null;
+
   let single: SingleValidatorResponse;
   try {
     single = await fetchLcd<SingleValidatorResponse>(
@@ -204,6 +208,11 @@ export async function getValidatorDelegators(
   truncated: boolean;
   failed: boolean;
 }> {
+  // Same gate as getValidator: the address goes into an LCD path.
+  if (!isBech32ish(operatorAddress)) {
+    return { delegators: [], total: null, truncated: false, failed: true };
+  }
+
   try {
     const rows: DelegationRow[] = [];
     let nextKey: string | null = null;

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { isCosmosTxHash } from "@/lib/input";
 import {
   flattenMessages,
   primaryTransfer,
@@ -261,6 +262,9 @@ export async function getTx(
   chain: ChainConfig,
   hash: string
 ): Promise<TxDetail | null> {
+  // Hashes are interpolated into an LCD path. See lib/input.ts.
+  if (!isCosmosTxHash(hash)) return null;
+
   try {
     const res = await fetchLcd<SingleTxResponse>(
       chain,

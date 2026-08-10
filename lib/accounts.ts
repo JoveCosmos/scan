@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { isBech32ish } from "@/lib/input";
 import { rawTxToSummary, type RawTxResponse, type TxSummary } from "@/lib/txs";
 
 export interface Coin {
@@ -38,6 +39,19 @@ export async function getCosmosAccount(
   chain: ChainConfig,
   address: string
 ): Promise<AccountView> {
+  // Addresses are interpolated into LCD paths. See lib/input.ts.
+  if (!isBech32ish(address)) {
+    return {
+      address,
+      balances: [],
+      delegatedTotal: null,
+      delegationCount: null,
+      accountNumber: null,
+      sequence: null,
+      exists: false,
+    };
+  }
+
   const [balances, delegations, auth] = await Promise.allSettled([
     fetchLcd<BalancesResponse>(
       chain,
@@ -97,6 +111,8 @@ export async function getCosmosAccountTxs(
   address: string,
   limit = 50
 ): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+  // A malformed address cannot have transactions; skip the searches entirely.
+  if (!isBech32ish(address)) return { txs: [], total: 0, failed: false };
   const queries = [
     `message.sender='${address}'`,
     `transfer.recipient='${address}'`,

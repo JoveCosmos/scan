@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchFrom } from "@/lib/lcd";
+import { isNumericId, isBech32ish } from "@/lib/input";
 import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
@@ -236,6 +237,9 @@ export async function gnoBlockDetail(
   chain: ChainConfig,
   height: string | number
 ): Promise<GnoBlockDetail | null> {
+  // Heights are interpolated into an API path. See lib/input.ts.
+  if (!isNumericId(height)) return null;
+
   let detail: ApiBlockDetail;
   try {
     // Single-record endpoints nest their payload one level deeper than lists.
@@ -270,6 +274,8 @@ export async function gnoBlockTxs(
   chain: ChainConfig,
   height: string | number
 ): Promise<TxSummary[]> {
+  if (!isNumericId(height)) return [];
+
   try {
     const data = await gnoApi<{ items: ApiTxItem[] }>(
       chain,
@@ -558,6 +564,9 @@ export async function gnoAccountTxs(
   address: string,
   limit = 50
 ): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+  // gno addresses are bech32 like any other; same gate, same reason.
+  if (!isBech32ish(address)) return { txs: [], total: 0, failed: false };
+
   try {
     const data = await gnoApi<{ items: ApiTxItem[] }>(
       chain,
