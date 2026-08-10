@@ -260,6 +260,97 @@ export async function jailCounts(chainId: string): Promise<JailCounts | null> {
   }).catch(() => null);
 }
 
+export interface ProposerStats {
+  /** Blocks this validator proposed within the indexed window. */
+  proposed: number;
+  /** Blocks indexed in that window, from every proposer. */
+  totalBlocks: number;
+  lastHeight: number | null;
+  lastTime: string | null;
+  since: string;
+}
+
+/**
+ * How much of the chain's block production a validator actually did.
+ *
+ * Proposer selection is weighted by voting power, so the share of blocks a
+ * validator proposed should track its share of stake over any long window.
+ * A share well below its power is the visible symptom of a validator that is
+ * bonded but frequently missing its turn — something the signing percentage
+ * alone does not distinguish from healthy operation, since a validator can sign
+ * other proposers' blocks reliably while failing to produce its own.
+ *
+ * Two queries on purpose. The per-validator count is an index range scan over
+ * that validator's rows; the chain-wide total would be a full scan, so it is
+ * cached once and shared across every validator rather than repeated per page.
+ */
+export async function proposerStats(
+  chainId: string,
+  proposerCons: string
+): Promise<ProposerStats | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  try {
+    const [mine, total] = await Promise.all([
+      cached(`idx:proposed:${chainId}:${proposerCons}`, 60_000, async () => {
+        const res = await pool.query<{
+          proposed: string;
+          last_height: string | null;
+          last_time: string | null;
+        }>(
+          `SELECT count(*)::text  AS proposed,
+                  max(height)::text AS last_height,
+                  max(time)::text   AS last_time
+             FROM block
+            WHERE chain_id = $1 AND proposer_cons = $2
+              AND height BETWEEN $3 AND $4`,
+          [chainId, proposerCons, c.lowest, c.highest]
+        );
+        return res.rows[0];
+      }),
+      blockCount(chainId, c.lowest, c.highest),
+    ]);
+
+    if (!mine || total === null) return null;
+
+    return {
+      proposed: Number(mine.proposed),
+      totalBlocks: total,
+      lastHeight: mine.last_height ? Number(mine.last_height) : null,
+      lastTime: mine.last_time,
+      since: c.from,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Blocks indexed in a range. Cached hard: it is a full scan, and it is the same
+ * answer for every validator on the chain.
+ */
+function blockCount(
+  chainId: string,
+  lowest: number,
+  highest: number
+): Promise<number | null> {
+  const pool = indexerPool();
+  if (!pool) return Promise.resolve(null);
+
+  return cached(`idx:blockcount:${chainId}:${lowest}:${highest}`, 300_000, async () => {
+    const res = await pool.query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM block
+        WHERE chain_id = $1 AND height BETWEEN $2 AND $3`,
+      [chainId, lowest, highest]
+    );
+    return Number(res.rows[0]?.n ?? 0);
+  }).catch(() => null);
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

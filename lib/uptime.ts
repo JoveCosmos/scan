@@ -57,7 +57,7 @@ export function emptyUptime(): ValidatorUptime {
 export function consensusIdsFromPubkey(
   pubkeyBase64: string,
   bech32Prefix: string
-): { base64: string; valcons: string } | null {
+): { base64: string; hex: string; valcons: string } | null {
   // Buffer.from(..., "base64") is lenient: it silently drops invalid characters
   // rather than throwing, so junk still yields bytes. Those bytes would hash to
   // a perfectly valid-looking address that matches no validator — worse than
@@ -69,6 +69,10 @@ export function consensusIdsFromPubkey(
     const digest = createHash("sha256").update(raw).digest().subarray(0, 20);
     return {
       base64: digest.toString("base64"),
+      // Uppercase hex is how CometBFT's own RPC renders a proposer address in a
+      // block header, which is the form the indexer stores verbatim. The LCD
+      // renders the same bytes as base64, hence keeping both.
+      hex: digest.toString("hex").toUpperCase(),
       valcons: bech32.encode(`${bech32Prefix}valcons`, bech32.toWords(digest)),
     };
   } catch {

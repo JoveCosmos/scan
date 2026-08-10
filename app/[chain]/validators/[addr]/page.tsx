@@ -12,6 +12,7 @@ import { accountFromOperator } from "@/lib/bech32";
 import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorStatus } from "@/components/validator-status";
 import { ValidatorSlashes } from "@/components/validator-slashes";
+import { ValidatorConsensus } from "@/components/validator-consensus";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
 import { emptyUptime } from "@/lib/uptime";
@@ -311,7 +312,15 @@ export default async function ValidatorDetailPage({
         </>
       ) : null}
 
-      {/* Streamed, and renders nothing unless the indexer is connected. */}
+      {/* Streamed, and render nothing unless the indexer is connected. */}
+      <Suspense fallback={null}>
+        <ValidatorConsensus
+          chain={chain}
+          consensusPubkey={validator.consensusPubkey}
+          votingPower={validator.votingPower}
+        />
+      </Suspense>
+
       <Suspense fallback={null}>
         <ValidatorSlashes
           chain={chain}

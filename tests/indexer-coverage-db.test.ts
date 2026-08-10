@@ -25,6 +25,14 @@ let slashHistory: (
   chainId: string,
   consAddr: string
 ) => Promise<{ events: { height: number; kind: string }[] } | null>;
+let proposerStats: (
+  chainId: string,
+  proposerCons: string
+) => Promise<{
+  proposed: number;
+  totalBlocks: number;
+  lastHeight: number | null;
+} | null>;
 
 /** A distinct chain per case, so the 30s coverage cache cannot leak between them. */
 function chainId(name: string): string {
@@ -36,13 +44,20 @@ function chainId(name: string): string {
 /** Blocks at one-minute spacing, written straight in so extract_version is ours to choose. */
 async function seed(
   chain: string,
-  rows: { height: number; version: number }[]
+  rows: { height: number; version: number; proposer?: string }[]
 ): Promise<void> {
   for (const r of rows) {
     await pool.query(
-      `INSERT INTO block (chain_id, height, time, tx_count, extract_version)
-       VALUES ($1, $2, to_timestamp($3), 0, $4)`,
-      [chain, r.height, 1_760_000_000 + r.height * 60, r.version]
+      `INSERT INTO block (chain_id, height, time, tx_count, extract_version,
+                          proposer_cons)
+       VALUES ($1, $2, to_timestamp($3), 0, $4, $5)`,
+      [
+        chain,
+        r.height,
+        1_760_000_000 + r.height * 60,
+        r.version,
+        r.proposer ?? null,
+      ]
     );
   }
 }
@@ -72,6 +87,7 @@ beforeAll(async () => {
   const mod = await import("@/lib/indexer-db");
   coverage = mod.coverage;
   slashHistory = mod.slashHistory;
+  proposerStats = mod.proposerStats;
   pool = mod.indexerPool()!;
 });
 
@@ -174,6 +190,46 @@ describe.skipIf(!url)("slashHistory", () => {
     const history = await slashHistory(chain, CONS);
     expect(history?.events.map((e) => e.height)).toEqual([600]);
   });
+
+  it("counts blocks proposed against the chain total", async () => {
+    // Uppercase hex, which is how CometBFT renders a proposer address and what
+    // the indexer stores verbatim. Matching on any other encoding would return
+    // zero for every validator and look like data rather than a bug.
+    const mine = "D1EFF2308733A0EA52290132C2B5F19336470E06";
+    const other = "C0156DC51958E6B0A858D54C7D2990077D95110B";
+    const chain = chainId("proposer");
+    await seed(chain, [
+      { height: 800, version: 2, proposer: mine },
+      { height: 801, version: 2, proposer: other },
+      { height: 802, version: 2, proposer: mine },
+      { height: 803, version: 2, proposer: other },
+    ]);
+
+    const stats = await proposerStats(chain, mine);
+    expect(stats).toMatchObject({
+      proposed: 2,
+      totalBlocks: 4,
+      lastHeight: 802,
+    });
+  });
+
+  it("does not count blocks above the extraction ceiling", async () => {
+    const mine = "AABBCCDDEEFF00112233445566778899AABBCCDD";
+    const chain = chainId("proposer-stale");
+    await seed(chain, [
+      { height: 900, version: 2, proposer: mine },
+      { height: 901, version: 0, proposer: mine },
+    ]);
+
+    expect(await proposerStats(chain, mine)).toMatchObject({
+      proposed: 1,
+      totalBlocks: 1,
+    });
+  });
+});
+
+describe.skipIf(!url)("slashHistory bounds", () => {
+  const CONS = "atonevalcons1test";
 
   it("refuses rather than reporting zero when nothing is covered", async () => {
     // "Never jailed" and "we have no idea" must not render as the same thing.
