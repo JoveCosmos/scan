@@ -87,10 +87,43 @@ export interface TransferRow {
   amount: string;
 }
 
+export interface VoteOption {
+  option: string;
+  weight: string;
+}
+
+export interface VoteRow {
+  proposalId: string;
+  /** The granter on an authz vote — the account whose stake the vote carries. */
+  voter: string;
+  /** Heaviest option; the whole vote for anyone but a split voter. */
+  option: string;
+  weighted: boolean;
+  options: VoteOption[] | null;
+  height: string;
+  time: string;
+  txHash: string;
+}
+
+export type SlashKind = "slashed" | "jailed" | "unjailed" | "tombstoned";
+
+export interface SlashRow {
+  height: string;
+  time: string;
+  /** Consensus address, bech32 valcons — the only identity the events carry. */
+  consAddr: string;
+  kind: SlashKind;
+  /** downtime | double_sign, when the chain says. */
+  reason: string | null;
+  burned: string | null;
+}
+
 export interface ExtractedBlock {
   block: BlockRow;
   txs: TxRow[];
   transfers: TransferRow[];
+  votes: VoteRow[];
+  slashes: SlashRow[];
   /**
    * The block has transactions but the node returned no ABCI results for them.
    *
@@ -141,6 +174,140 @@ export function parseCoins(value: string): { denom: string; amount: string }[] {
     if (!m) continue;
     out.push({ amount: m[1], denom: m[2] });
   }
+  return out;
+}
+
+/**
+ * Parse the gov module's stringified WeightedVoteOption list.
+ *
+ * The event carries the protobuf's text form rather than JSON:
+ *
+ *   option:VOTE_OPTION_YES weight:"1.000000000000000000"
+ *
+ * and repeats that pair for a split vote. Parsed rather than pattern-matched on
+ * the whole string so a weighted vote keeps every option and weight.
+ */
+export function parseVoteOptions(raw: string): VoteOption[] {
+  const out: VoteOption[] = [];
+  const re = /option:(\S+)\s+weight:"([^"]*)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw)) !== null) {
+    out.push({ option: m[1], weight: m[2] });
+  }
+
+  // Older chains emit the bare enum with no weight at all.
+  if (out.length === 0) {
+    const bare = raw.trim();
+    if (/^VOTE_OPTION_/.test(bare)) out.push({ option: bare, weight: "1" });
+  }
+  return out;
+}
+
+/**
+ * Votes cast in this transaction.
+ *
+ * Read from the `proposal_vote` event, not the message body, which matters for
+ * two reasons: no protobuf decoding is needed, and the event names the *voter*
+ * — the granter — so a vote cast through an authz grant is attributed correctly
+ * without unwrapping anything. Reading the signer instead would credit the
+ * grantee, the exact bug that made the explorer under-count AtomOne proposals.
+ */
+export function extractVotes(
+  events: Event[],
+  txHashValue: string,
+  height: string,
+  time: string
+): VoteRow[] {
+  const out: VoteRow[] = [];
+
+  for (const event of events) {
+    if (event.type !== "proposal_vote") continue;
+    const a = attrs(event);
+    const proposalId = a.proposal_id;
+    const voter = a.voter;
+    if (!proposalId || !voter) continue;
+
+    const options = parseVoteOptions(a.option ?? "");
+    if (options.length === 0) continue;
+
+    // Heaviest option represents the vote; ties keep the first, which matches
+    // how the explorer already summarises weighted votes.
+    const primary = [...options].sort(
+      (x, y) => Number(y.weight) - Number(x.weight)
+    )[0];
+
+    out.push({
+      proposalId,
+      voter,
+      option: primary.option,
+      weighted: options.length > 1,
+      options: options.length > 1 ? options : null,
+      height,
+      time,
+      txHash: txHashValue,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Jailing, slashing and tombstoning, from a block's own events.
+ *
+ * This is the data no node can serve after the fact: slashing happens in
+ * BeginBlock rather than a transaction, so it is absent from tx search, and the
+ * module keeps only a current `jailed_until` with no history.
+ *
+ * Deliberately ignores `liveness`, which fires every block for every validator
+ * carrying a missed-block counter — a running total, not an event, and
+ * enormous at chain scale.
+ */
+export function extractSlashes(
+  events: Event[],
+  height: string,
+  time: string
+): SlashRow[] {
+  const out: SlashRow[] = [];
+
+  for (const event of events) {
+    if (event.type !== "slash") continue;
+    const a = attrs(event);
+    const consAddr = a.address;
+    if (!consAddr) continue;
+
+    // "missing_signature" is the chain's wording; "downtime" is the reader's.
+    const reason =
+      a.reason === "missing_signature"
+        ? "downtime"
+        : a.reason === "double_sign"
+          ? "double_sign"
+          : (a.reason ?? null);
+
+    out.push({
+      height,
+      time,
+      consAddr,
+      kind: "slashed",
+      reason,
+      burned: a.burned_coins || null,
+    });
+
+    // A `jailed` attribute means the same event also jailed the validator. It
+    // is recorded separately so "how many times jailed" is a count of rows
+    // rather than a filter on a nullable column.
+    if (a.jailed) {
+      out.push({
+        height,
+        time,
+        consAddr: a.jailed,
+        // Double-signing tombstones permanently; downtime only jails.
+        kind: reason === "double_sign" ? "tombstoned" : "jailed",
+        reason,
+        burned: null,
+      });
+    }
+  }
+
   return out;
 }
 
@@ -304,14 +471,27 @@ export function extractBlock(
 
   const txs: TxRow[] = [];
   const transfers: TransferRow[] = [];
+  const votes: VoteRow[] = [];
 
   rawTxs.forEach((raw, i) => {
     // A block whose results have not caught up would pair txs with the wrong
     // result; an empty result is safer than a mismatched one.
-    const extracted = extractTx(raw, txResults[i] ?? {}, i, height, time);
+    const result = txResults[i] ?? {};
+    const extracted = extractTx(raw, result, i, height, time);
     txs.push(extracted.tx);
     transfers.push(...extracted.transfers);
+
+    // Only successful transactions cast votes; a failed one emits no
+    // proposal_vote event, but checking the code makes that explicit.
+    if ((result.code ?? 0) === 0) {
+      votes.push(
+        ...extractVotes(result.events ?? [], extracted.tx.hash, height, time)
+      );
+    }
   });
+
+  // Slashing lives in the block's own events, never in a transaction.
+  const slashes = extractSlashes(blockEvents(results), height, time);
 
   return {
     block: {
@@ -323,6 +503,8 @@ export function extractBlock(
     },
     txs,
     transfers,
+    votes,
+    slashes,
     // `txs_results: null` with transactions present means the node dropped its
     // ABCI responses for this height.
     abciResultsMissing: rawTxs.length > 0 && txResults.length === 0,

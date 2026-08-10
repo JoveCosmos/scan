@@ -6,6 +6,9 @@ import {
   parseCoins,
   txHash,
   blockEvents,
+  parseVoteOptions,
+  extractSlashes,
+  type Event,
   type BlockResponse,
   type BlockResultsResponse,
 } from "../indexer/src/extract";
@@ -201,5 +204,133 @@ describe("abciResultsMissing", () => {
     expect(extractBlock(empty, { result: { height: "1" } })!.abciResultsMissing).toBe(
       false
     );
+  });
+});
+
+/**
+ * Real AtomOne blocks, captured from the archive:
+ *   9829661 — a validator jailed for downtime, with burned coins
+ *   9463782 — a vote on proposal 21
+ */
+const slashBlock = fixture("atomone-block-9829661.json") as BlockResponse;
+const slashResults = fixture(
+  "atomone-block-results-9829661.json"
+) as BlockResultsResponse;
+const voteBlock = fixture("atomone-block-9463782.json") as BlockResponse;
+const voteResults = fixture(
+  "atomone-block-results-9463782.json"
+) as BlockResultsResponse;
+
+describe("parseVoteOptions", () => {
+  it("parses the protobuf text form the event carries", () => {
+    expect(
+      parseVoteOptions('option:VOTE_OPTION_YES weight:"1.000000000000000000"')
+    ).toEqual([{ option: "VOTE_OPTION_YES", weight: "1.000000000000000000" }]);
+  });
+
+  it("keeps every option of a split vote", () => {
+    const raw =
+      'option:VOTE_OPTION_YES weight:"0.600000000000000000" ' +
+      'option:VOTE_OPTION_NO weight:"0.400000000000000000"';
+    expect(parseVoteOptions(raw)).toEqual([
+      { option: "VOTE_OPTION_YES", weight: "0.600000000000000000" },
+      { option: "VOTE_OPTION_NO", weight: "0.400000000000000000" },
+    ]);
+  });
+
+  it("accepts a bare enum from older chains", () => {
+    expect(parseVoteOptions("VOTE_OPTION_ABSTAIN")).toEqual([
+      { option: "VOTE_OPTION_ABSTAIN", weight: "1" },
+    ]);
+  });
+
+  it("returns nothing for junk rather than inventing a vote", () => {
+    expect(parseVoteOptions("")).toEqual([]);
+    expect(parseVoteOptions("hello")).toEqual([]);
+  });
+});
+
+describe("votes from a real block", () => {
+  const out = extractBlock(voteBlock, voteResults)!;
+
+  it("extracts the vote with its voter and option", () => {
+    expect(out.votes).toHaveLength(1);
+    const v = out.votes[0];
+    expect(v.proposalId).toBe("21");
+    expect(v.voter).toBe("atone1dsjpz9pydwadzd8pstlrakn9kg06fyk0s7z2p9");
+    expect(v.option).toBe("VOTE_OPTION_YES");
+    expect(v.weighted).toBe(false);
+    expect(v.options).toBeNull();
+  });
+
+  it("ties the vote to its transaction and height", () => {
+    expect(out.votes[0].height).toBe("9463782");
+    expect(out.votes[0].txHash).toMatch(/^[0-9A-F]{64}$/);
+  });
+
+  it("takes the voter from the event, so authz votes attribute correctly", () => {
+    // The event names the granter. Reading the signer instead would credit the
+    // grantee — the bug that made the explorer under-count AtomOne proposals.
+    const voters = out.votes.map((v) => v.voter);
+    for (const v of voters) expect(v.startsWith("atone1")).toBe(true);
+  });
+});
+
+describe("slashes from a real block", () => {
+  const out = extractBlock(slashBlock, slashResults)!;
+
+  it("records the slash with its reason and burned amount", () => {
+    const slashed = out.slashes.filter((s) => s.kind === "slashed");
+    expect(slashed).toHaveLength(1);
+    expect(slashed[0].consAddr).toBe(
+      "atonevalcons1surx4dn7pqz8akv8nqmwtky7e7rsye92lrlpn4"
+    );
+    // The chain says "missing_signature"; we store the reader's word.
+    expect(slashed[0].reason).toBe("downtime");
+    expect(slashed[0].burned).toBe("4812300");
+  });
+
+  it("records the jailing as its own row", () => {
+    // So "how many times jailed" is a row count, not a filter on a nullable.
+    const jailed = out.slashes.filter((s) => s.kind === "jailed");
+    expect(jailed).toHaveLength(1);
+    expect(jailed[0].consAddr).toBe(
+      "atonevalcons1surx4dn7pqz8akv8nqmwtky7e7rsye92lrlpn4"
+    );
+    expect(jailed[0].burned).toBeNull();
+  });
+
+  it("tombstones rather than jails on a double sign", () => {
+    const doubleSign: Event[] = [
+      {
+        type: "slash",
+        attributes: [
+          { key: "address", value: "atonevalcons1abc" },
+          { key: "reason", value: "double_sign" },
+          { key: "jailed", value: "atonevalcons1abc" },
+          { key: "burned_coins", value: "500" },
+        ],
+      },
+    ];
+    const rows = extractSlashes(doubleSign, "100", "2026-01-01T00:00:00Z");
+    expect(rows.map((r) => r.kind).sort()).toEqual(["slashed", "tombstoned"]);
+  });
+
+  it("ignores liveness, which is a running counter not an event", () => {
+    // One per validator per block would swamp the table at chain scale.
+    const liveness: Event[] = [
+      {
+        type: "liveness",
+        attributes: [
+          { key: "address", value: "atonevalcons1abc" },
+          { key: "missed_blocks", value: "8559" },
+        ],
+      },
+    ];
+    expect(extractSlashes(liveness, "100", "2026-01-01T00:00:00Z")).toEqual([]);
+  });
+
+  it("finds no slashes in an ordinary block", () => {
+    expect(extractBlock(block, results)!.slashes).toEqual([]);
   });
 });

@@ -25,7 +25,7 @@ async function writeBlock(
   chainId: string,
   data: ExtractedBlock
 ): Promise<void> {
-  const { block, txs, transfers } = data;
+  const { block, txs, transfers, votes, slashes } = data;
 
   await client.query(
     `INSERT INTO block (chain_id, height, time, proposer_cons, hash, tx_count)
@@ -75,6 +75,52 @@ async function writeBlock(
         tx.signer,
         tx.msgTypes,
       ]
+    );
+  }
+
+  for (const v of votes) {
+    // GREATEST-style guard on height, not a plain overwrite.
+    //
+    // Backfill descends, so it meets a voter's *earlier* vote after their
+    // later one. A plain upsert would then replace a final vote with a
+    // superseded one — silent corruption that no error would reveal. Only a
+    // strictly higher height may win.
+    await client.query(
+      `INSERT INTO vote (chain_id, proposal_id, voter, option, weighted,
+                        options, height, time, tx_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (chain_id, proposal_id, voter) DO UPDATE SET
+         option = EXCLUDED.option,
+         weighted = EXCLUDED.weighted,
+         options = EXCLUDED.options,
+         height = EXCLUDED.height,
+         time = EXCLUDED.time,
+         tx_hash = EXCLUDED.tx_hash
+       WHERE EXCLUDED.height > vote.height`,
+      [
+        chainId,
+        v.proposalId,
+        v.voter,
+        v.option,
+        v.weighted,
+        v.options ? JSON.stringify(v.options) : null,
+        v.height,
+        v.time,
+        v.txHash,
+      ]
+    );
+  }
+
+  for (const s of slashes) {
+    await client.query(
+      `INSERT INTO slash_event (chain_id, height, time, cons_addr, kind,
+                               reason, burned)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (chain_id, height, cons_addr, kind) DO UPDATE SET
+         time = EXCLUDED.time,
+         reason = EXCLUDED.reason,
+         burned = EXCLUDED.burned`,
+      [chainId, s.height, s.time, s.consAddr, s.kind, s.reason, s.burned]
     );
   }
 

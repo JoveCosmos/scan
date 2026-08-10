@@ -131,3 +131,96 @@ describe.skipIf(!url)("indexer database", () => {
     expect(res.rows[0].amount).toBe(huge);
   });
 });
+
+describe.skipIf(!url)("vote and slash writes", () => {
+  let pool: Pool;
+  const CH = "vote-order-test";
+
+  const voteRow = (height: string, option: string): ExtractedBlock => ({
+    block: { height, time: "2026-01-01T00:00:00Z", proposerCons: null, hash: null, txCount: 0 },
+    txs: [],
+    transfers: [],
+    votes: [
+      {
+        proposalId: "21",
+        voter: "atone1voter",
+        option,
+        weighted: false,
+        options: null,
+        height,
+        time: "2026-01-01T00:00:00Z",
+        txHash: `HASH${height}`,
+      },
+    ],
+    slashes: [],
+    abciResultsMissing: false,
+  });
+
+  beforeAll(async () => {
+    pool = createPool(url!);
+    for (const t of ["vote", "slash_event", "block"]) {
+      await pool.query(`DELETE FROM ${t} WHERE chain_id = $1`, [CH]);
+    }
+  });
+
+  afterAll(async () => {
+    for (const t of ["vote", "slash_event", "block"]) {
+      await pool.query(`DELETE FROM ${t} WHERE chain_id = $1`, [CH]);
+    }
+    await pool.end();
+  });
+
+  it("keeps a voter's latest vote when a recast arrives", async () => {
+    await commitBatch(pool, CH, [voteRow("100", "VOTE_OPTION_NO")]);
+    await commitBatch(pool, CH, [voteRow("200", "VOTE_OPTION_YES")]);
+
+    const res = await pool.query(
+      "SELECT option, height FROM vote WHERE chain_id=$1 AND voter='atone1voter'",
+      [CH]
+    );
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0].option).toBe("VOTE_OPTION_YES");
+  });
+
+  it("does NOT let an earlier vote overwrite a later one", async () => {
+    // The hazard: backfill descends, so it meets height 50 *after* height 200.
+    // Without the height guard this silently replaces a final vote with a
+    // superseded one, and nothing would ever report an error.
+    await commitBatch(pool, CH, [voteRow("50", "VOTE_OPTION_ABSTAIN")]);
+
+    const res = await pool.query(
+      "SELECT option, height FROM vote WHERE chain_id=$1 AND voter='atone1voter'",
+      [CH]
+    );
+    expect(res.rows[0].option).toBe("VOTE_OPTION_YES");
+    expect(Number(res.rows[0].height)).toBe(200);
+  });
+
+  it("writes slash and jail rows from a real block, idempotently", async () => {
+    const slash = extractBlock(
+      fixture("atomone-block-9829661.json"),
+      fixture("atomone-block-results-9829661.json")
+    )!;
+
+    await commitBatch(pool, CH, [slash]);
+    await commitBatch(pool, CH, [slash]); // replay must not duplicate
+
+    const res = await pool.query(
+      "SELECT kind, reason, burned FROM slash_event WHERE chain_id=$1 ORDER BY kind",
+      [CH]
+    );
+    expect(res.rows.map((r) => r.kind)).toEqual(["jailed", "slashed"]);
+    expect(res.rows[1].reason).toBe("downtime");
+    expect(res.rows[1].burned).toBe("4812300");
+  });
+
+  it("counts jailings per validator, which no node can answer", async () => {
+    const res = await pool.query(
+      `SELECT count(*)::int AS times FROM slash_event
+       WHERE chain_id=$1 AND kind='jailed'
+         AND cons_addr='atonevalcons1surx4dn7pqz8akv8nqmwtky7e7rsye92lrlpn4'`,
+      [CH]
+    );
+    expect(res.rows[0].times).toBe(1);
+  });
+});
