@@ -15,13 +15,19 @@ export interface ChainSummary {
   accent: string;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
+  /** Chains we publish no endpoints for never show the Public Goods tab. */
+  services: boolean;
   network: "mainnet" | "testnet";
 }
 
-// Params first: the chain's identity card and the default landing tab.
+// Public Goods first where we have any, then Params — the chain's identity card
+// and still the tab a chain lands on.
 // Governance sits by validators; blocks is a firehose, so it goes last.
 // Labels shorten on narrow screens so every tab fits without a sideways swipe.
 const NAV = [
+  // First: what we offer on this network, rather than something to find after
+  // the chain's own data.
+  { href: "/nodes", label: "Public Goods", short: "Public", servicesOnly: true },
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
@@ -103,7 +109,8 @@ function ChainSwitcher({
                   // Sections the target chain does not have would 404, so fall
                   // back to its overview.
                   href={`/${chain.chainId}${
-                    section === "/proposals" && !chain.governance
+                    (section === "/proposals" && !chain.governance) ||
+                    (section === "/nodes" && !chain.services)
                       ? "/params"
                       : section || "/params"
                   }`}
@@ -144,18 +151,23 @@ function NavLinks({
   activeChainId,
   pathname,
   governance,
+  services,
   className,
   itemClassName,
 }: {
   activeChainId: string;
   pathname: string;
   governance: boolean;
+  services: boolean;
   className?: string;
   itemClassName?: string;
 }) {
   return (
     <nav className={className}>
-      {NAV.filter((item) => governance || !item.governanceOnly).map((item) => {
+      {NAV.filter(
+        (item) =>
+          (governance || !item.governanceOnly) && (services || !item.servicesOnly)
+      ).map((item) => {
         const href = `/${activeChainId}${item.href}`;
         // startsWith so a detail page keeps its section tab lit.
         const isActive = pathname.startsWith(href);
@@ -223,6 +235,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             activeChainId={activeChainId}
             pathname={pathname}
             governance={activeChain?.governance ?? false}
+            services={activeChain?.services ?? false}
             className="hidden items-center gap-1 lg:flex"
           />
         ) : null}
@@ -245,6 +258,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           activeChainId={activeChainId}
           pathname={pathname}
           governance={activeChain?.governance ?? false}
+            services={activeChain?.services ?? false}
           className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
         />
       ) : null}

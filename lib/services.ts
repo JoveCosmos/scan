@@ -19,6 +19,12 @@ import { z } from "zod";
 const endpointSchema = z.object({
   label: z.string().min(1),
   url: z.string().url(),
+  /**
+   * What it speaks, which decides how health is checked. gRPC is not reachable
+   * over plain HTTP, so it is listed but never probed — better than showing a
+   * permanent red mark against a service that is fine.
+   */
+  kind: z.enum(["rpc", "rest", "grpc"]).default("rpc"),
   /** Shown under the URL — rate limits, retention, anything a user needs. */
   note: z.string().optional(),
 });
@@ -85,6 +91,22 @@ export function servicesFor(chainId: string): ChainServices | null {
 
 /** Whether there is anything at all worth showing a link to. */
 export function hasServices(): boolean {
-  const s = getServices();
-  return s.chains.some((c) => c.endpoints.length > 0 || c.snapshot !== undefined);
+  return getServices().chains.some(hasAnything);
+}
+
+/** Whether this one chain has anything, which decides if its tab appears. */
+export function hasServicesFor(chainId: string): boolean {
+  const c = servicesFor(chainId);
+  return c !== null && hasAnything(c);
+}
+
+/** Chains we publish something for, in config order. */
+export function servedChainIds(): string[] {
+  return getServices()
+    .chains.filter(hasAnything)
+    .map((c) => c.chainId);
+}
+
+function hasAnything(c: ChainServices): boolean {
+  return c.endpoints.length > 0 || c.snapshot !== undefined || c.guide !== undefined;
 }
