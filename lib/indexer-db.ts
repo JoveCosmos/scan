@@ -48,12 +48,27 @@ export interface Coverage {
 }
 
 /**
+ * The extractor whose output this file knows how to read.
+ *
+ * Must match EXTRACT_VERSION in the indexer. Blocks written below it are missing
+ * rows this code expects to be there, so they are excluded from coverage.
+ */
+const READS_EXTRACT_VERSION = 2;
+
+/**
  * Which slice of history the indexer actually holds for a chain.
  *
  * Backfill descends over days, so coverage is a moving window rather than
  * "everything". A caller must check this before trusting an answer, otherwise
  * a proposal from before the backfill reached it would render as having no
  * votes — worse than the slow path, because it would look like fact.
+ *
+ * The window stops below the first block written by an older extractor. Having
+ * the block is not the same as having what was in it: AtomOne's follower wrote
+ * a long run of blocks before votes were extracted at all, and counting those
+ * as covered made proposal 21 report a fraction of its votes as its total.
+ * Staleness like that accumulates at the top, so cutting at the lowest stale
+ * height leaves a range that is genuinely complete rather than merely present.
  */
 export async function coverage(chainId: string): Promise<Coverage | null> {
   const pool = indexerPool();
@@ -63,21 +78,30 @@ export async function coverage(chainId: string): Promise<Coverage | null> {
     const res = await pool.query<{
       lowest: string | null;
       highest: string | null;
-      from: string | null;
-      to: string | null;
+      starts: string | null;
+      ends: string | null;
     }>(
-      `SELECT min(height)::text AS lowest, max(height)::text AS highest,
-              min(time)::text  AS from,   max(time)::text  AS to
-         FROM block WHERE chain_id = $1`,
-      [chainId]
+      // "from" and "to" are reserved words and cannot be bare aliases.
+      `WITH stale AS (
+         SELECT COALESCE(
+           (SELECT min(height) FROM block
+             WHERE chain_id = $1 AND extract_version < $2),
+           9223372036854775807
+         ) AS floor
+       )
+       SELECT min(b.height)::text AS lowest, max(b.height)::text AS highest,
+              min(b.time)::text   AS starts, max(b.time)::text   AS ends
+         FROM block b, stale s
+        WHERE b.chain_id = $1 AND b.height < s.floor`,
+      [chainId, READS_EXTRACT_VERSION]
     );
     const r = res.rows[0];
-    if (!r?.lowest || !r.highest || !r.from || !r.to) return null;
+    if (!r?.lowest || !r.highest || !r.starts || !r.ends) return null;
     return {
       lowest: Number(r.lowest),
       highest: Number(r.highest),
-      from: r.from,
-      to: r.to,
+      from: r.starts,
+      to: r.ends,
     };
   }).catch(() => null);
 }

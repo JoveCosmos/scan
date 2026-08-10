@@ -5,8 +5,14 @@
 -- system users: the credentials live in files only their own user can read, so
 -- a compromise of the public app cannot reach the historical record.
 --
--- Password is supplied by the caller, e.g.
---   psql -v pw="'somepassword'" -f 003_readonly_role.sql
+-- The role is created without a password, because migrate.sh applies every file
+-- in sql/ unattended and a required variable would break that. Set one as a
+-- separate step, interactively so the secret never reaches a file or a shell
+-- history:
+--
+--   docker exec -it gata-indexer-db psql -U indexer -d gata_indexer \
+--     -c '\password explorer_ro'
+--
 -- Re-runnable.
 
 DO $$

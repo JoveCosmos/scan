@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from "pg";
-import type { ExtractedBlock } from "./extract";
+import { EXTRACT_VERSION, type ExtractedBlock } from "./extract";
 
 /**
  * Postgres writes.
@@ -28,13 +28,18 @@ async function writeBlock(
   const { block, txs, transfers, votes, slashes } = data;
 
   await client.query(
-    `INSERT INTO block (chain_id, height, time, proposer_cons, hash, tx_count)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO block (chain_id, height, time, proposer_cons, hash, tx_count,
+                        extract_version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (chain_id, height) DO UPDATE SET
        time = EXCLUDED.time,
        proposer_cons = EXCLUDED.proposer_cons,
        hash = EXCLUDED.hash,
-       tx_count = EXCLUDED.tx_count`,
+       tx_count = EXCLUDED.tx_count,
+       -- Only ever forwards. A refill re-reading a height must raise this, but
+       -- an older build writing the same height must never lower it and quietly
+       -- withdraw rows a newer extractor already stored.
+       extract_version = GREATEST(block.extract_version, EXCLUDED.extract_version)`,
     [
       chainId,
       block.height,
@@ -42,6 +47,7 @@ async function writeBlock(
       block.proposerCons,
       block.hash,
       block.txCount,
+      EXTRACT_VERSION,
     ]
   );
 

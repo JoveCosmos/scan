@@ -12,6 +12,21 @@ import { createHash } from "node:crypto";
  * withdrawal's *amount* exists only in the event).
  */
 
+/**
+ * Which facts this extractor pulls out of a block.
+ *
+ * Stored on every block row so a reader can tell "we have this block" apart
+ * from "we have everything this block contained". Those diverged once already:
+ * blocks written before votes were extracted looked complete, so a proposal
+ * spanning them reported a fraction of its votes as though that were the total.
+ *
+ * Bump this whenever a new kind of row starts being extracted, and refill.
+ *
+ *   1  fees and transfers
+ *   2  + governance votes and slashing events
+ */
+export const EXTRACT_VERSION = 2;
+
 export interface Attr {
   key: string;
   value?: string;
