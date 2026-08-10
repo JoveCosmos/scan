@@ -1,0 +1,24 @@
+{
+  "chains": [
+    {
+      "chainId": "atomone-1",
+      "endpoints": [
+        { "label": "RPC", "url": "https://atomone-rpc.gatadao.com" },
+        { "label": "REST / API", "url": "https://atomone-api.gatadao.com" }
+      ]
+    },
+    {
+      "chainId": "atomone-testnet-1",
+      "endpoints": [
+        { "label": "RPC", "url": "https://atomone-testnet-rpc.gatadao.com" },
+        { "label": "REST / API", "url": "https://atomone-testnet-api.gatadao.com" }
+      ]
+    },
+    {
+      "chainId": "topaz-1",
+      "endpoints": [
+        { "label": "RPC", "url": "https://gnoland-testnet-rpc.gatadao.com" }
+      ]
+    }
+  ]
+}

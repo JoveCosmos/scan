@@ -58,7 +58,7 @@ export default function HomePage() {
           <Server className="h-4 w-4 text-muted-foreground" />
           Public goods
           <span className="text-xs text-muted-foreground">
-            endpoints, snapshots, peers
+            public endpoints we run
           </span>
         </Link>
       ) : null}

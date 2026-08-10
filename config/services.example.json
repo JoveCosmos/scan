@@ -1,19 +1,17 @@
 {
   "_comment": [
-    "Copy to config/services.json and fill in. Until that file exists the",
-    "Public goods button does not appear and the page says nothing is",
-    "published — an endpoint we do not run must never be listed as one we do.",
+    "Shape reference for config/services.json — the infrastructure we run and",
+    "publish. Without that file the Public goods button does not appear and the",
+    "page says nothing is published: an endpoint we do not run must never be",
+    "listed as one we do.",
     "",
-    "Every field is optional. Anything left out is simply not rendered, so",
-    "start with what is ready and add the rest later.",
+    "Every field below except chainId is optional, and anything left out is",
+    "simply not rendered.",
     "",
-    "netInfoRpc is NOT shown on the page. It is read server-side to list live",
-    "peers, so it can be an internal address that is not publicly reachable."
+    "The chain's own website and source repository are NOT set here. They come",
+    "from config/chains/<chainId>.json, because they belong to the project",
+    "rather than to us."
   ],
-
-  "website": "https://gatahub.zone",
-  "git": "https://github.com/JoveCosmos",
-  "contact": "",
 
   "chains": [
     {
@@ -21,28 +19,17 @@
       "endpoints": [
         {
           "label": "RPC",
-          "url": "https://rpc.example.gatahub.zone",
-          "note": "CometBFT RPC"
-        },
-        {
-          "label": "REST / LCD",
-          "url": "https://api.example.gatahub.zone"
-        },
-        {
-          "label": "gRPC",
-          "url": "https://grpc.example.gatahub.zone:443"
+          "url": "https://atomone-rpc.gatadao.com",
+          "note": "optional: rate limits, retention, anything a user needs"
         }
       ],
-      "peers": ["nodeid@host:26656"],
-      "seeds": [],
       "snapshot": {
-        "url": "https://snapshots.example.gatahub.zone/atomone-1/latest.tar.lz4",
+        "url": "https://snapshots.example.com/atomone-1/latest.tar.lz4",
         "schedule": "Daily at 02:00 UTC",
         "pruning": "default (100/0/10)",
         "note": ""
       },
-      "guide": "https://gatahub.zone/guides/atomone",
-      "netInfoRpc": "http://127.0.0.1:23957"
+      "guide": "https://example.com/guides/atomone"
     }
   ]
 }

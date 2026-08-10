@@ -213,14 +213,9 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
               className="h-full w-full object-cover"
             />
           </span>
-          {/* Wordmark gives way to the mark alone on narrow screens so the
-              search field has room in the top row. */}
-          <span className="hidden flex-col gap-0.5 leading-none sm:flex">
-            <span className="text-[15px] font-bold tracking-tight">GATA HUB</span>
-            <span className="text-[9px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-              Explorer
-            </span>
-          </span>
+          {/* The mark alone. It already carries the brand, and dropping the
+              wordmark gives the search field the whole top row at every width
+              rather than only on narrow screens. */}
         </Link>
 
         {activeChainId ? (

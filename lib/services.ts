@@ -24,15 +24,13 @@ const endpointSchema = z.object({
 });
 
 const chainServicesSchema = z.object({
-  /** Must match a chainId in config/chains, so the page can show its accent. */
+  /**
+   * Must match a chainId in config/chains. The chain's own website and source
+   * repository come from there rather than being repeated here — those belong
+   * to the project, not to us.
+   */
   chainId: z.string().min(1),
   endpoints: z.array(endpointSchema).default([]),
-  /**
-   * Persistent peer or seed strings, copied as-is into a node's config.toml.
-   * Format is `nodeId@host:port`.
-   */
-  peers: z.array(z.string().min(1)).default([]),
-  seeds: z.array(z.string().min(1)).default([]),
   snapshot: z
     .object({
       url: z.string().url(),
@@ -45,18 +43,9 @@ const chainServicesSchema = z.object({
     .optional(),
   /** Installation or joining guide — ours, or the chain's if we have none. */
   guide: z.string().url().optional(),
-  /**
-   * Our own node's RPC, read server-side to list live peers. NOT rendered:
-   * it is the source for the peer list, not something we advertise, and it may
-   * be an address that is not publicly reachable at all.
-   */
-  netInfoRpc: z.string().url().optional(),
 });
 
 const servicesSchema = z.object({
-  website: z.string().url().optional(),
-  git: z.string().url().optional(),
-  contact: z.string().optional(),
   chains: z.array(chainServicesSchema).default([]),
 });
 
@@ -97,11 +86,5 @@ export function servicesFor(chainId: string): ChainServices | null {
 /** Whether there is anything at all worth showing a link to. */
 export function hasServices(): boolean {
   const s = getServices();
-  return s.chains.some(
-    (c) =>
-      c.endpoints.length > 0 ||
-      c.peers.length > 0 ||
-      c.seeds.length > 0 ||
-      c.snapshot !== undefined
-  );
+  return s.chains.some((c) => c.endpoints.length > 0 || c.snapshot !== undefined);
 }

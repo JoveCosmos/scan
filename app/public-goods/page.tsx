@@ -4,7 +4,6 @@ import { ExternalLink, ArrowLeft } from "lucide-react";
 import { getChain, accentFor } from "@/lib/chains";
 import { getServices, type ChainServices } from "@/lib/services";
 import { CopyButton } from "@/components/copy-button";
-import { LivePeers } from "@/components/live-peers";
 
 export const metadata: Metadata = {
   // The layout appends the site name; repeating it here read as "Public Goods ·
@@ -39,24 +38,9 @@ export default function PublicGoodsPage() {
 
       <h1 className="mt-4 text-2xl font-medium">Public goods</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Infrastructure we run and offer freely: public endpoints, chain
-        snapshots, live peers, and guides for running your own node. Free to
-        use, no key required.
+        Infrastructure we run and offer freely to the networks we validate on.
+        Free to use, no key or registration required.
       </p>
-
-      {(services.website || services.git || services.contact) && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          {services.website ? (
-            <ExternalLinkRow href={services.website} label="Website" />
-          ) : null}
-          {services.git ? (
-            <ExternalLinkRow href={services.git} label="Source" />
-          ) : null}
-          {services.contact ? (
-            <span className="text-muted-foreground">{services.contact}</span>
-          ) : null}
-        </div>
-      )}
 
       {chains.length === 0 ? (
         <div className="gata-panel mt-8 px-5 py-10 text-center">
@@ -73,9 +57,8 @@ export default function PublicGoodsPage() {
       )}
 
       <p className="mt-10 text-xs text-muted-foreground">
-        These endpoints are offered as-is with no uptime guarantee. For anything
-        you depend on, run your own node - the snapshots and guides above exist
-        to make that straightforward.
+        Offered as-is, with no uptime guarantee. For anything you depend on, run
+        your own node.
       </p>
     </main>
   );
@@ -84,11 +67,11 @@ export default function PublicGoodsPage() {
 function ChainSection({ services }: { services: ChainServices }) {
   const chain = getChain(services.chainId)!;
   const accent = accentFor(chain);
-  const { endpoints, peers, seeds, snapshot, guide } = services;
+  const { endpoints, snapshot, guide } = services;
 
   return (
     <section>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span
           className="h-2 w-2 rounded-full"
           style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
@@ -100,6 +83,14 @@ function ChainSection({ services }: { services: ChainServices }) {
         >
           explorer →
         </Link>
+        {/* The project's own links, from its chain config — these belong to the
+            chain, not to us, and are the same wherever it appears. */}
+        {chain.website ? (
+          <ExternalLinkRow href={chain.website} label="website" small />
+        ) : null}
+        {chain.repo ? (
+          <ExternalLinkRow href={chain.repo} label="source" small />
+        ) : null}
       </div>
 
       <div className="space-y-4">
@@ -167,28 +158,6 @@ function ChainSection({ services }: { services: ChainServices }) {
           </div>
         ) : null}
 
-        {(peers.length > 0 || seeds.length > 0) && (
-          <div
-            className="gata-panel"
-            style={{ ["--panel-accent" as string]: accent }}
-          >
-            <h3 className="border-b border-border px-4 py-3 text-sm font-medium">
-              Persistent peers and seeds
-            </h3>
-            <ul className="divide-y divide-border/50">
-              {seeds.map((s) => (
-                <AddressRow key={s} value={s} kind="seed" />
-              ))}
-              {peers.map((p) => (
-                <AddressRow key={p} value={p} kind="peer" />
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Renders nothing at all unless netInfoRpc is configured. */}
-        <LivePeers chainId={chain.chainId} accent={accent} />
-
         {guide ? (
           <a
             href={guide}
@@ -211,28 +180,26 @@ function ChainSection({ services }: { services: ChainServices }) {
   );
 }
 
-function AddressRow({ value, kind }: { value: string; kind: "peer" | "seed" }) {
-  return (
-    <li className="flex items-center justify-between gap-3 px-4 py-2.5">
-      <div className="min-w-0">
-        <code className="block truncate font-mono text-xs">{value}</code>
-        <span className="text-xs text-muted-foreground">{kind}</span>
-      </div>
-      <CopyButton value={value} label={`${kind} address`} />
-    </li>
-  );
-}
-
-function ExternalLinkRow({ href, label }: { href: string; label: string }) {
+function ExternalLinkRow({
+  href,
+  label,
+  small,
+}: {
+  href: string;
+  label: string;
+  small?: boolean;
+}) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
+      className={`inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground ${
+        small ? "text-xs" : "text-sm"
+      }`}
     >
       {label}
-      <ExternalLink className="h-3 w-3" />
+      <ExternalLink className={small ? "h-3 w-3" : "h-3.5 w-3.5"} />
     </a>
   );
 }
