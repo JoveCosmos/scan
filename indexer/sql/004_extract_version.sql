@@ -22,17 +22,22 @@ CREATE INDEX IF NOT EXISTS block_stale_extract_idx
   ON block (chain_id, height)
   WHERE extract_version < 2;
 
--- AtomOne: everything below 9,204,236 was written by the backfill, which has
--- extracted votes and slashing events since its first run. At and above that
--- height the follower wrote blocks with an older build, and those carry no vote
--- rows at all — confirmed against the data: all 3,826 vote rows sit below the
--- line and none above it.
+-- AtomOne holds one stale band, closed at both ends: heights 9,204,236 through
+-- 9,832,411, written by a follower running a build with no vote extraction. The
+-- two ranges around it are sound and are raised here.
 --
--- This is a fact about this deployment rather than a general rule, which is why
--- it is written down here instead of inferred. On a fresh database it matches
--- nothing and costs nothing.
+-- Below 9,204,236 is the backfill's work, which has extracted votes and
+-- slashing events since its first run. Above 9,832,411 is the same follower
+-- after it was restarted on 2026-08-10 at 12:54:44 UTC onto a build that does.
+--
+-- The data agrees: all 3,826 vote rows sit below the lower bound and none
+-- within the band.
+--
+-- These are facts about this deployment rather than general rules, which is why
+-- they are written down instead of inferred. On a fresh database they match
+-- nothing and cost nothing.
 UPDATE block
    SET extract_version = 2
  WHERE chain_id = 'atomone-1'
-   AND height < 9204236
+   AND (height < 9204236 OR height > 9832411)
    AND extract_version < 2;
