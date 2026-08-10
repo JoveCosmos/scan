@@ -17,6 +17,12 @@ export function createPool(connectionString: string): Pool {
     // only mask a bug.
     max: 4,
     application_name: "gata-indexer",
+    // Without these, a pool that runs out of clients waits forever. The backfill
+    // loop logs and retries anything that throws, so a failure is visible and
+    // recoverable — but a wait produces no error, no log line and no progress,
+    // and the job looks identical to one that has simply gone quiet. Better to
+    // fail loudly into the retry that already exists.
+    connectionTimeoutMillis: 10_000,
   });
 }
 
