@@ -1,0 +1,23 @@
+{
+  "chainId": "juno-1",
+  "name": "juno",
+  "prettyName": "Juno",
+  "logo": "/chains/juno.svg",
+  "bech32Prefix": "juno",
+  "denom": "ujuno",
+  "exponent": 6,
+  "lcdEndpoints": [
+    "https://juno-rest.publicnode.com",
+    "https://rest.cosmos.directory/juno"
+  ],
+  "rpcEndpoints": [
+    "https://juno-rpc.publicnode.com",
+    "https://rpc.cosmos.directory/juno",
+    "http://127.0.0.1:27257"
+  ],
+  "featuredValidator": null,
+  "accent": "#F0827D",
+  "coingeckoId": "juno-network",
+  "website": "https://junonetwork.io",
+  "repo": "https://github.com/CosmosContracts/juno"
+}

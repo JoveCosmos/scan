@@ -47,7 +47,12 @@ const chainConfigSchema = z
     apiEndpoints: z.array(z.string().url()).default([]),
     /** Optional GraphQL tx-indexer, used to enrich single-tx lookups. */
     indexerEndpoints: z.array(z.string().url()).default([]),
-    wsEndpoint: z.string().min(1),
+    /**
+     * Optional, and currently read by nothing — live data is polled over HTTP.
+     * Required until a chain came along with no public websocket to point at,
+     * which would have meant inventing a URL to satisfy a field no code uses.
+     */
+    wsEndpoint: z.string().min(1).optional(),
     featuredValidator: z.string().nullable(),
     /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
     accent: z.string().optional(),

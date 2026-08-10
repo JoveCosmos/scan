@@ -351,6 +351,95 @@ function blockCount(
   }).catch(() => null);
 }
 
+export interface RelayerOperator {
+  /** Fee payer of the relay transactions — the operator's own address. */
+  address: string;
+  /** Relay transactions signed within the indexed window. */
+  txCount: number;
+  /** Fees paid to relay, in base denom. What running a relayer costs. */
+  feesPaid: string;
+  lastHeight: number;
+  lastTime: string;
+}
+
+export interface RelayerStats {
+  operators: RelayerOperator[];
+  totalTxs: number;
+  since: string;
+}
+
+/**
+ * Who is actually relaying on this chain, and how much of the work they do.
+ *
+ * Not answerable from a node. Relaying leaves no module state — a delivered
+ * packet updates balances and clears a commitment, and nothing anywhere records
+ * that a particular operator delivered it. The only durable trace is the
+ * transaction itself, and the chain forgets those beyond its pruning window.
+ *
+ * Attributed by fee payer rather than by any relayer registry, because there is
+ * no registry: whoever paid the gas did the work.
+ *
+ * MsgTransfer is deliberately not counted as relaying. Its signer is a user
+ * moving their own funds, and including it would rank ordinary traffic as
+ * infrastructure.
+ */
+export async function relayerStats(
+  chainId: string,
+  msgTypes: string[],
+  limit = 50
+): Promise<RelayerStats | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  return cached(`idx:relayers:${chainId}`, 300_000, async () => {
+    const res = await pool.query<{
+      signer: string;
+      tx_count: string;
+      fees_paid: string | null;
+      last_height: string;
+      last_time: string;
+      total: string;
+    }>(
+      // The window matches every other indexed read: only heights we can vouch
+      // for, so a partially backfilled chain understates rather than misleads.
+      `WITH relays AS (
+         SELECT signer, fee_amount, height, time
+           FROM tx
+          WHERE chain_id = $1
+            AND signer IS NOT NULL
+            AND msg_types && $2::text[]
+            AND height BETWEEN $3 AND $4
+       )
+       SELECT signer,
+              count(*)::text                        AS tx_count,
+              COALESCE(sum(fee_amount), 0)::text    AS fees_paid,
+              max(height)::text                     AS last_height,
+              max(time)::text                       AS last_time,
+              (SELECT count(*) FROM relays)::text   AS total
+         FROM relays
+        GROUP BY signer
+        ORDER BY count(*) DESC
+        LIMIT $5`,
+      [chainId, msgTypes, c.lowest, c.highest, limit]
+    );
+
+    return {
+      operators: res.rows.map((r) => ({
+        address: r.signer,
+        txCount: Number(r.tx_count),
+        feesPaid: r.fees_paid ?? "0",
+        lastHeight: Number(r.last_height),
+        lastTime: r.last_time,
+      })),
+      totalTxs: Number(res.rows[0]?.total ?? 0),
+      since: c.from,
+    };
+  }).catch(() => null);
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

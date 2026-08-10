@@ -40,6 +40,8 @@ export default function RootLayout({
     accent: accentFor(chain),
     governance: getAdapter(chain).capabilities.governance,
     services: hasServicesFor(chain.chainId),
+    // gno.land has no IBC module; every Cosmos SDK chain here does.
+    ibc: chain.kind === "cosmos",
     network: chain.network,
   }));
 

@@ -17,6 +17,8 @@ export interface ChainSummary {
   governance: boolean;
   /** Chains we publish no endpoints for never show the Public Goods tab. */
   services: boolean;
+  /** Chains with no IBC module never show the Relayers tab. */
+  ibc: boolean;
   network: "mainnet" | "testnet";
 }
 
@@ -30,6 +32,7 @@ const NAV = [
   { href: "/nodes", label: "Public Goods", short: "Public", servicesOnly: true },
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
+  { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
   { href: "/txs", label: "Transactions", short: "Txs" },
   { href: "/blocks", label: "Blocks", short: "Blocks" },
@@ -110,7 +113,8 @@ function ChainSwitcher({
                   // back to its overview.
                   href={`/${chain.chainId}${
                     (section === "/proposals" && !chain.governance) ||
-                    (section === "/nodes" && !chain.services)
+                    (section === "/nodes" && !chain.services) ||
+                    (section === "/relayers" && !chain.ibc)
                       ? "/params"
                       : section || "/params"
                   }`}
@@ -152,6 +156,7 @@ function NavLinks({
   pathname,
   governance,
   services,
+  ibc,
   className,
   itemClassName,
 }: {
@@ -159,6 +164,7 @@ function NavLinks({
   pathname: string;
   governance: boolean;
   services: boolean;
+  ibc: boolean;
   className?: string;
   itemClassName?: string;
 }) {
@@ -166,7 +172,9 @@ function NavLinks({
     <nav className={className}>
       {NAV.filter(
         (item) =>
-          (governance || !item.governanceOnly) && (services || !item.servicesOnly)
+          (governance || !item.governanceOnly) &&
+          (services || !item.servicesOnly) &&
+          (ibc || !item.ibcOnly)
       ).map((item) => {
         const href = `/${activeChainId}${item.href}`;
         // startsWith so a detail page keeps its section tab lit.
@@ -236,6 +244,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             pathname={pathname}
             governance={activeChain?.governance ?? false}
             services={activeChain?.services ?? false}
+            ibc={activeChain?.ibc ?? false}
             className="hidden items-center gap-1 lg:flex"
           />
         ) : null}
@@ -259,6 +268,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           pathname={pathname}
           governance={activeChain?.governance ?? false}
             services={activeChain?.services ?? false}
+            ibc={activeChain?.ibc ?? false}
           className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
         />
       ) : null}
