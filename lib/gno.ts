@@ -7,7 +7,11 @@ import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary, TxMessage } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValoperIndexNow, prewarmValoperIndex } from "@/lib/gno-valopers";
-import { parseCoinString, type AccountView } from "@/lib/accounts";
+import {
+  parseCoinString,
+  type AccountView,
+  type AccountTxs,
+} from "@/lib/accounts";
 
 /*
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
@@ -563,9 +567,10 @@ export async function gnoAccountTxs(
   chain: ChainConfig,
   address: string,
   limit = 50
-): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+): Promise<AccountTxs> {
   // gno addresses are bech32 like any other; same gate, same reason.
-  if (!isBech32ish(address)) return { txs: [], total: 0, failed: false };
+  if (!isBech32ish(address))
+    return { txs: [], total: 0, failed: false, source: "search" as const };
 
   try {
     const data = await gnoApi<{ items: ApiTxItem[] }>(
@@ -574,9 +579,9 @@ export async function gnoAccountTxs(
       { limit }
     );
     const txs = (data.items ?? []).map(toTxSummary);
-    return { txs, total: txs.length, failed: false };
+    return { txs, total: txs.length, failed: false, source: "search" as const };
   } catch {
-    return { txs: [], total: null, failed: true };
+    return { txs: [], total: null, failed: true, source: "search" as const };
   }
 }
 

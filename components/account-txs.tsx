@@ -61,7 +61,9 @@ export async function AccountTxs({
   chain: ChainConfig;
   address: string;
 }) {
-  const { txs, total, failed } = await getAdapter(chain).getAccountTxs(address);
+  const { txs, total, failed, source, since, more } = await getAdapter(
+    chain
+  ).getAccountTxs(address);
 
   if (failed) {
     return (
@@ -192,7 +194,21 @@ export async function AccountTxs({
         </table>
       </div>
 
-      {total !== null && total > txs.length ? (
+      {source === "indexer" ? (
+        // The window is stated rather than implied. A list that silently stops
+        // at the edge of what we have indexed reads as the account’s whole
+        // history, which it is not until the backfill reaches genesis.
+        <p className="mt-2 text-xs text-muted-foreground">
+          {more ? `Showing the ${txs.length} most recent. ` : ""}
+          From our index of block history, covering{" "}
+          {new Date(since ?? "").toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}{" "}
+          onwards.
+        </p>
+      ) : total !== null && total > txs.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
           Showing the {txs.length} most recent of {total.toLocaleString()}.
         </p>

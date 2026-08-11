@@ -25,6 +25,11 @@ let slashHistory: (
   chainId: string,
   consAddr: string
 ) => Promise<{ events: { height: number; kind: string }[] } | null>;
+let accountTxs: (
+  chainId: string,
+  address: string,
+  limit?: number
+) => Promise<{ txs: { hash: string }[]; more: boolean } | null>;
 let proposerStats: (
   chainId: string,
   proposerCons: string
@@ -88,12 +93,15 @@ beforeAll(async () => {
   coverage = mod.coverage;
   slashHistory = mod.slashHistory;
   proposerStats = mod.proposerStats;
+  accountTxs = mod.accountTxsFromIndexer;
   pool = mod.indexerPool()!;
 });
 
 afterAll(async () => {
   if (!url) return;
   for (const c of chains) {
+    await pool.query("DELETE FROM transfer WHERE chain_id = $1", [c]);
+    await pool.query("DELETE FROM tx WHERE chain_id = $1", [c]);
     await pool.query("DELETE FROM slash_event WHERE chain_id = $1", [c]);
     await pool.query("DELETE FROM block WHERE chain_id = $1", [c]);
   }
@@ -236,5 +244,119 @@ describe.skipIf(!url)("proposerStats", () => {
       proposed: 1,
       totalBlocks: 1,
     });
+  });
+});
+
+/** A transaction, and optionally the value it moved. */
+async function seedTx(
+  chain: string,
+  tx: { hash: string; height: number; signer?: string },
+  transfers: { from?: string; to?: string; amount?: string; kind?: string }[] = []
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO tx (chain_id, hash, height, tx_index, time, code, signer, msg_types)
+     VALUES ($1, $2, $3, 0, to_timestamp($4), 0, $5, '{}')`,
+    [chain, tx.hash, tx.height, 1_760_000_000 + tx.height * 60, tx.signer ?? null]
+  );
+  let i = 0;
+  for (const t of transfers) {
+    await pool.query(
+      `INSERT INTO transfer (chain_id, tx_hash, msg_index, coin_index, height,
+                             time, kind, from_addr, to_addr, denom, amount)
+       VALUES ($1, $2, $3, 0, $4, to_timestamp($5), $6, $7, $8, 'uatone', $9)`,
+      [
+        chain,
+        tx.hash,
+        i++,
+        tx.height,
+        1_760_000_000 + tx.height * 60,
+        t.kind ?? "transfer",
+        t.from ?? null,
+        t.to ?? null,
+        t.amount ?? "1000",
+      ]
+    );
+  }
+}
+
+describe.skipIf(!url)("accountTxsFromIndexer", () => {
+  const ME = "atone1me";
+  const OTHER = "atone1other";
+
+  it("finds transactions the account signed", async () => {
+    const chain = chainId("acct-signed");
+    await seed(chain, [{ height: 1000, version: 2 }]);
+    await seedTx(chain, { hash: "AA", height: 1000, signer: ME });
+
+    const res = await accountTxs(chain, ME);
+    expect(res?.txs.map((t) => t.hash)).toEqual(["AA"]);
+  });
+
+  it("finds transactions that only sent value to the account", async () => {
+    // Someone else signed and paid; this account is a recipient. A signer-only
+    // query would miss every payment ever received.
+    const chain = chainId("acct-received");
+    await seed(chain, [{ height: 1100, version: 2 }]);
+    await seedTx(chain, { hash: "BB", height: 1100, signer: OTHER }, [
+      { from: OTHER, to: ME },
+    ]);
+
+    const res = await accountTxs(chain, ME);
+    expect(res?.txs.map((t) => t.hash)).toEqual(["BB"]);
+  });
+
+  it("returns one row per transaction, not one per coin moved", async () => {
+    // A multi-coin transfer must not appear three times in a list view.
+    const chain = chainId("acct-multi");
+    await seed(chain, [{ height: 1200, version: 2 }]);
+    await seedTx(chain, { hash: "CC", height: 1200, signer: ME }, [
+      { from: ME, to: OTHER },
+      { from: ME, to: OTHER },
+      { from: ME, to: OTHER },
+    ]);
+
+    const res = await accountTxs(chain, ME);
+    expect(res?.txs).toHaveLength(1);
+  });
+
+  it("does not match on the fee alone", async () => {
+    // Every signed transaction pays a fee to the collector. Matching fee-kind
+    // transfers would make the collector a party to the entire chain.
+    const chain = chainId("acct-fee");
+    await seed(chain, [{ height: 1300, version: 2 }]);
+    await seedTx(chain, { hash: "DD", height: 1300, signer: OTHER }, [
+      { from: OTHER, to: ME, kind: "fee" },
+    ]);
+
+    expect(await accountTxs(chain, ME)).toMatchObject({ txs: [] });
+  });
+
+  it("orders newest first and reports there is more", async () => {
+    const chain = chainId("acct-order");
+    await seed(chain, [
+      { height: 1400, version: 2 },
+      { height: 1401, version: 2 },
+      { height: 1402, version: 2 },
+    ]);
+    await seedTx(chain, { hash: "E1", height: 1400, signer: ME });
+    await seedTx(chain, { hash: "E2", height: 1401, signer: ME });
+    await seedTx(chain, { hash: "E3", height: 1402, signer: ME });
+
+    const res = await accountTxs(chain, ME, 2);
+    expect(res?.txs.map((t) => t.hash)).toEqual(["E3", "E2"]);
+    expect(res?.more).toBe(true);
+  });
+
+  it("excludes transactions above the extraction ceiling", async () => {
+    const chain = chainId("acct-stale");
+    await seed(chain, [
+      { height: 1500, version: 2 },
+      { height: 1501, version: 0 },
+    ]);
+    await seedTx(chain, { hash: "F1", height: 1500, signer: ME });
+    await seedTx(chain, { hash: "F2", height: 1501, signer: ME });
+
+    const res = await accountTxs(chain, ME);
+    expect(res?.txs.map((t) => t.hash)).toEqual(["F1"]);
   });
 });

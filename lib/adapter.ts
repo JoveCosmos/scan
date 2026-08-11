@@ -15,7 +15,11 @@ import { getStakeDeltas } from "@/lib/stake-delta";
 import { getCosmosUptime } from "@/lib/uptime";
 import { cached } from "@/lib/cache";
 import type { AccountView } from "@/lib/accounts";
-import { getCosmosAccount, getCosmosAccountTxs } from "@/lib/accounts";
+import {
+  getCosmosAccount,
+  getCosmosAccountTxs,
+  type AccountTxs,
+} from "@/lib/accounts";
 import type { ProposalSummary, GovParams, ProposalVotes } from "@/lib/proposals";
 import {
   getProposals,
@@ -128,9 +132,7 @@ export interface ChainAdapter {
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
   /** Transactions this address sent or received. */
-  getAccountTxs(
-    address: string
-  ): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }>;
+  getAccountTxs(address: string): Promise<AccountTxs>;
   getProposals(
     limit?: number
   ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;

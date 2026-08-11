@@ -1,7 +1,13 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { isBech32ish } from "@/lib/input";
-import { rawTxToSummary, type RawTxResponse, type TxSummary } from "@/lib/txs";
+import { accountTxsFromIndexer, type IndexedAccountTx } from "@/lib/indexer-db";
+import {
+  rawTxToSummary,
+  labelForType,
+  type RawTxResponse,
+  type TxSummary,
+} from "@/lib/txs";
 
 export interface Coin {
   denom: string;
@@ -99,20 +105,58 @@ export async function getCosmosAccount(
   };
 }
 
+export interface AccountTxs {
+  txs: TxSummary[];
+  total: number | null;
+  failed: boolean;
+  /**
+   * Where the list came from. "indexer" is bounded by what we have indexed, so
+   * the page says so; "search" is whatever the node's tx index still holds,
+   * which is its own kind of incomplete.
+   */
+  source: "search" | "indexer";
+  /** Start of the indexed window, when source is "indexer". */
+  since?: string;
+  /** True when more transactions exist below the page returned. */
+  more?: boolean;
+}
+
 /**
  * Transactions an address sent or received.
  *
- * Two searches, because the gov module indexes them differently: `message.sender`
- * catches what the address signed, `transfer.recipient` catches what was sent to
- * it. Results are merged and de-duplicated, since a self-transfer hits both.
+ * Indexed first where we have it. Otherwise two tx searches, because the node
+ * indexes them differently: `message.sender` catches what the address signed,
+ * `transfer.recipient` catches what was sent to it. Those are merged and
+ * de-duplicated, since a self-transfer hits both.
  */
 export async function getCosmosAccountTxs(
   chain: ChainConfig,
   address: string,
   limit = 50
-): Promise<{ txs: TxSummary[]; total: number | null; failed: boolean }> {
+): Promise<AccountTxs> {
   // A malformed address cannot have transactions; skip the searches entirely.
-  if (!isBech32ish(address)) return { txs: [], total: 0, failed: false };
+  if (!isBech32ish(address)) {
+    return { txs: [], total: 0, failed: false, source: "search" };
+  }
+
+  // Tried first. Not for speed: AtomOne's public LCDs have stopped serving tx
+  // search entirely — one answers "transaction indexing is disabled", the other
+  // returns zero for accounts that have plainly transacted — so for that chain
+  // this is the only path that returns anything at all.
+  const indexed = await accountTxsFromIndexer(chain.chainId, address, limit).catch(
+    () => null
+  );
+  if (indexed && indexed.txs.length > 0) {
+    return {
+      txs: indexed.txs.map(toSummaryFromIndex),
+      total: indexed.txs.length,
+      failed: false,
+      source: "indexer",
+      since: indexed.since,
+      more: indexed.more,
+    };
+  }
+
   const queries = [
     `message.sender='${address}'`,
     `transfer.recipient='${address}'`,
@@ -137,7 +181,7 @@ export async function getCosmosAccountTxs(
   );
 
   if (results.every((r) => r.status === "rejected")) {
-    return { txs: [], total: null, failed: true };
+    return { txs: [], total: null, failed: true, source: "search" };
   }
 
   const seen = new Set<string>();
@@ -157,7 +201,53 @@ export async function getCosmosAccountTxs(
   // Merged from two independently ordered lists, so re-sort by height.
   txs.sort((a, b) => Number(b.height) - Number(a.height));
 
-  return { txs: txs.slice(0, limit), total: total || txs.length, failed: false };
+  return {
+    txs: txs.slice(0, limit),
+    total: total || txs.length,
+    failed: false,
+    source: "search",
+  };
+}
+
+/**
+ * An indexed row in the shape the list view already renders.
+ *
+ * The index stores extracted facts rather than transaction bodies, so a few
+ * fields a raw tx would carry are simply absent: gas is not kept, and memos
+ * are not either. Null says so rather than implying zero.
+ */
+function toSummaryFromIndex(t: IndexedAccountTx): TxSummary {
+  return {
+    hash: t.hash,
+    height: t.height,
+    time: t.time,
+    code: t.code,
+    messages: t.msgTypes.map((typeUrl) => ({
+      typeUrl,
+      label: labelForType(typeUrl),
+      // Per-message parties are not indexed; the tx-level transfer below
+      // carries the movement this account was party to.
+      transfer: null,
+    })),
+    messageCount: t.msgTypes.length,
+    transfer: t.transfer
+      ? {
+          from: t.transfer.from,
+          to: t.transfer.to,
+          amount: [{ denom: t.transfer.denom, amount: t.transfer.amount }],
+          // Bank transfers between accounts; staking movements are their own
+          // event kinds and are not matched here.
+          staking: false,
+        }
+      : null,
+    fee:
+      t.feeDenom && t.feeAmount
+        ? [{ denom: t.feeDenom, amount: t.feeAmount }]
+        : [],
+    gasUsed: null,
+    gasWanted: null,
+    memo: "",
+  };
 }
 
 /** "999999997125000000ugnot" -> { amount, denom }. */

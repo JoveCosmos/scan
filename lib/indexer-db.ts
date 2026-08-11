@@ -440,6 +440,132 @@ export async function relayerStats(
   }).catch(() => null);
 }
 
+export interface IndexedAccountTx {
+  hash: string;
+  height: string;
+  time: string;
+  code: number;
+  msgTypes: string[];
+  feeDenom: string | null;
+  feeAmount: string | null;
+  /** The value movement involving this account, when there was one. */
+  transfer: {
+    from: string | null;
+    to: string | null;
+    denom: string;
+    amount: string;
+  } | null;
+}
+
+export interface IndexedAccountTxs {
+  txs: IndexedAccountTx[];
+  /** Start of the window these came from — never "all of history". */
+  since: string;
+  /** True when more exist below the returned page. */
+  more: boolean;
+}
+
+/**
+ * Transactions an account signed or received value in.
+ *
+ * This is a repair, not an optimisation. Cosmos account history has always come
+ * from tx search, and AtomOne's public LCDs have stopped serving it — one
+ * answers "transaction indexing is disabled", the other returns zero results
+ * for accounts that have plainly transacted. Account pages therefore show
+ * nothing, exactly as proposal votes did.
+ *
+ * Two sources unioned, because "my transactions" means both: what the account
+ * signed, keyed by tx.signer, and what arrived at it, keyed by the transfer's
+ * recipient. A tx-search-based implementation needs two separate paged queries
+ * and de-duplication to answer the same question.
+ *
+ * Fee-kind transfers are excluded from counterparty matching: every signed
+ * transaction pays a fee, so joining on them would make the fee collector the
+ * counterparty of everything.
+ */
+export async function accountTxsFromIndexer(
+  chainId: string,
+  address: string,
+  limit = 50
+): Promise<IndexedAccountTxs | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  try {
+    const res = await pool.query<{
+      hash: string;
+      height: string;
+      time: string;
+      code: number;
+      msg_types: string[];
+      fee_denom: string | null;
+      fee_amount: string | null;
+      from_addr: string | null;
+      to_addr: string | null;
+      denom: string | null;
+      amount: string | null;
+    }>(
+      // One row per transaction. A transaction can carry several transfers, so
+      // DISTINCT ON keeps the first and leaves the detail page to show the rest
+      // — a list view wants one line per transaction, not one per coin moved.
+      `WITH mine AS (
+         SELECT hash FROM tx
+          WHERE chain_id = $1 AND signer = $2
+            AND height BETWEEN $3 AND $4
+         UNION
+         SELECT tx_hash AS hash FROM transfer
+          WHERE chain_id = $1 AND kind <> 'fee'
+            AND (from_addr = $2 OR to_addr = $2)
+            AND height BETWEEN $3 AND $4
+       )
+       SELECT DISTINCT ON (t.height, t.hash)
+              t.hash, t.height::text, t.time::text, t.code, t.msg_types,
+              t.fee_denom, t.fee_amount::text,
+              tr.from_addr, tr.to_addr, tr.denom, tr.amount::text
+         FROM tx t
+         JOIN mine ON mine.hash = t.hash
+         LEFT JOIN transfer tr
+           ON tr.chain_id = t.chain_id AND tr.tx_hash = t.hash
+          AND tr.kind <> 'fee'
+          AND (tr.from_addr = $2 OR tr.to_addr = $2)
+        WHERE t.chain_id = $1
+        ORDER BY t.height DESC, t.hash, tr.msg_index, tr.coin_index
+        LIMIT $5`,
+      [chainId, address, c.lowest, c.highest, limit + 1]
+    );
+
+    const rows = res.rows.slice(0, limit);
+    return {
+      txs: rows.map((r) => ({
+        hash: r.hash,
+        height: r.height,
+        time: r.time,
+        code: r.code,
+        msgTypes: r.msg_types ?? [],
+        feeDenom: r.fee_denom,
+        feeAmount: r.fee_amount,
+        transfer:
+          r.denom && r.amount
+            ? {
+                from: r.from_addr,
+                to: r.to_addr,
+                denom: r.denom,
+                amount: r.amount,
+              }
+            : null,
+      })),
+      since: c.from,
+      // One extra row was requested purely to answer this without a count.
+      more: res.rows.length > limit,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;
