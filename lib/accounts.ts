@@ -139,10 +139,12 @@ export async function getCosmosAccountTxs(
     return { txs: [], total: 0, failed: false, source: "search" };
   }
 
-  // Tried first. Not for speed: AtomOne's public LCDs have stopped serving tx
-  // search entirely — one answers "transaction indexing is disabled", the other
-  // returns zero for accounts that have plainly transacted — so for that chain
-  // this is the only path that returns anything at all.
+  // Tried first, because tx search answers only as well as whichever node is
+  // asked. On AtomOne one public endpoint refuses outright ("transaction
+  // indexing is disabled") and the other returns a total of 1 for an address
+  // that transacted minutes earlier — its index reaches back only as far as the
+  // snapshot it resynced from. Neither is wrong to do; both mean the history a
+  // reader sees depends on a third party's pruning. Ours does not.
   const indexed = await accountTxsFromIndexer(chain.chainId, address, limit).catch(
     () => null
   );
