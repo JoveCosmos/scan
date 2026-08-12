@@ -2,16 +2,23 @@ import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { getBlock } from "@/lib/blocks";
 import { cached } from "@/lib/cache";
+import { stakeBaseline } from "@/lib/indexer-db";
 
 /**
  * Change in each validator's bonded stake over the last 24 hours.
  *
- * Cosmos nodes serve historical state through the `x-cosmos-block-height`
- * header, so the whole set at yesterday's height costs one request — not one
- * per validator. Measured on Cosmos Hub: ~0.65s for all 200.
+ * Two baselines, tried in that order.
  *
- * Not every node retains that state. A pruned node answers 501/error rather
- * than lying, and the column then renders as "—" instead of a wrong number.
+ * Our own snapshots, when the indexer has been recording them for a day. This
+ * is the only source that does not depend on somebody else keeping historical
+ * state around.
+ *
+ * Otherwise a node's state at yesterday's height, via `x-cosmos-block-height` —
+ * the whole set in one request rather than one per validator. Only archive
+ * nodes retain it: on AtomOne one public endpoint answers 500 and the other is
+ * a rotating proxy, archive on one request and pruned on the next. That is what
+ * made this column appear and vanish between refreshes, and why the result is
+ * cached under a key that does not move with the height.
  */
 
 interface RawSet {
@@ -60,6 +67,13 @@ export async function getStakeDeltas(
   headHeight: string | null
 ): Promise<Map<string, StakeDelta>> {
   const out = new Map<string, StakeDelta>();
+
+  // Before anything is measured or fetched: the snapshot path needs neither a
+  // head height nor a block time, and computing them first would be work done
+  // only to be thrown away on every chain we index.
+  const snapshot = await stakeBaseline(chain.chainId).catch(() => null);
+  if (snapshot) return compare(current, snapshot);
+
   const head = Number(headHeight);
   if (!Number.isFinite(head) || head <= 0) return out;
 
@@ -67,6 +81,7 @@ export async function getStakeDeltas(
   const then = head - Math.max(1, Math.round(86_400 / seconds));
   if (then <= 1) return out;
 
+  //
   // Keyed by chain alone, deliberately, even though the height it reads moves
   // every block. A height-keyed entry would be a fresh key every time and so
   // never a hit — which is what made this column flicker: only some endpoints
@@ -105,6 +120,16 @@ export async function getStakeDeltas(
   ).catch(() => null);
 
   if (!before) return out;
+
+  return compare(current, before);
+}
+
+/** Current stake against a baseline, whichever source the baseline came from. */
+export function compare(
+  current: { operatorAddress: string; tokens: string }[],
+  before: Map<string, string>
+): Map<string, StakeDelta> {
+  const out = new Map<string, StakeDelta>();
 
   for (const v of current) {
     const raw = before.get(v.operatorAddress);

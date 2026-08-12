@@ -631,6 +631,54 @@ export async function recentTxsFromIndexer(
   }).catch(() => null);
 }
 
+/**
+ * Each validator's bonded stake as of roughly 24 hours ago.
+ *
+ * Replaces reading a node's historical state, which only archive nodes retain —
+ * on AtomOne one public endpoint refuses outright and the other is a rotating
+ * proxy that is archive on one request and pruned on the next, so the column
+ * appeared and vanished between refreshes.
+ *
+ * "Nearest snapshot at least 24h old" rather than "newest older than 24h",
+ * because those differ when snapshots have been missed: a gap should widen the
+ * window slightly, not silently compare against something far older.
+ *
+ * Null when no snapshot that old exists yet — a fresh install has no baseline,
+ * and a wrong figure is worse than an absent one. Takes a day to become useful,
+ * by construction.
+ */
+export async function stakeBaseline(
+  chainId: string,
+  windowMs = 86_400_000
+): Promise<Map<string, string> | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  return cached(`idx:stakebase:${chainId}`, 300_000, async () => {
+    const cutoff = new Date(Date.now() - windowMs).toISOString();
+
+    // The snapshot height closest to the cutoff, from the older side.
+    const at = await pool.query<{ height: string | null }>(
+      `SELECT height::text FROM validator_stake
+        WHERE chain_id = $1 AND time <= $2
+        ORDER BY time DESC
+        LIMIT 1`,
+      [chainId, cutoff]
+    );
+    const height = at.rows[0]?.height;
+    if (!height) return null;
+
+    const res = await pool.query<{ operator: string; tokens: string }>(
+      `SELECT operator, tokens::text FROM validator_stake
+        WHERE chain_id = $1 AND height = $2`,
+      [chainId, height]
+    );
+    if (res.rows.length === 0) return null;
+
+    return new Map(res.rows.map((r) => [r.operator, r.tokens]));
+  }).catch(() => null);
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

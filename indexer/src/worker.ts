@@ -2,6 +2,12 @@ import type { Pool } from "pg";
 import { Rpc } from "./rpc";
 import { extractBlock, type ExtractedBlock } from "./extract";
 import { commitBatch, readCursor } from "./db";
+import {
+  fetchBondedSet,
+  writeSnapshot,
+  lastSnapshotAt,
+  isSnapshotDue,
+} from "./stake";
 
 /**
  * Follows one chain's head, writing each committed height into Postgres.
@@ -15,6 +21,12 @@ import { commitBatch, readCursor } from "./db";
 export interface ChainTarget {
   chainId: string;
   rpcUrl: string;
+  /**
+   * Staking REST endpoint, for validator stake snapshots. Optional: without it
+   * the chain is indexed exactly as before and simply has no snapshots, which
+   * is the right behaviour for a chain whose LCD we do not have.
+   */
+  lcdUrl?: string;
   /** Where to start when the cursor is empty. Defaults to the head. */
   startHeight?: number;
 }
@@ -26,6 +38,8 @@ export interface WorkerOptions {
   concurrency?: number;
   /** Pause when already at the head. */
   idleMs?: number;
+  /** How often to snapshot the bonded set. */
+  snapshotIntervalMs?: number;
   log?: (msg: string) => void;
 }
 
@@ -33,6 +47,9 @@ const DEFAULTS = {
   batchSize: 50,
   concurrency: 4,
   idleMs: 3_000,
+  // Hourly. The consumer is a 24-hour figure, so finer resolution buys nothing
+  // and only makes the table bigger.
+  snapshotIntervalMs: 3_600_000,
 } as const;
 
 /** Fetch and extract one height. Null when the node cannot serve it. */
@@ -124,12 +141,16 @@ export async function runChain(
   options: WorkerOptions,
   signal: AbortSignal
 ): Promise<void> {
-  const { idleMs } = { ...DEFAULTS, ...options };
+  const { idleMs, snapshotIntervalMs } = { ...DEFAULTS, ...options };
   const log = options.log ?? (() => {});
 
   while (!signal.aborted) {
     try {
       const written = await indexOnce(pool, target, options);
+      // Between batches rather than inside one: a snapshot is independent of
+      // any particular height, and folding it into the block transaction would
+      // let a slow staking endpoint hold that transaction open.
+      await maybeSnapshot(pool, target, snapshotIntervalMs, log);
       if (written === 0) await sleep(idleMs, signal);
     } catch (err) {
       // A node hiccup must not kill the worker; the cursor is unchanged, so the
@@ -137,6 +158,38 @@ export async function runChain(
       log(`${target.chainId}: ${(err as Error).message}`);
       await sleep(idleMs, signal);
     }
+  }
+}
+
+/**
+ * Take a stake snapshot if one is due.
+ *
+ * Failures are logged and swallowed. Snapshots are a side record; a staking
+ * endpoint that is down must never stop the chain being indexed, and a missed
+ * snapshot costs one row in a series that is read by nearest-in-time.
+ */
+async function maybeSnapshot(
+  pool: Pool,
+  target: ChainTarget,
+  intervalMs: number,
+  log: (msg: string) => void
+): Promise<void> {
+  if (!target.lcdUrl) return;
+
+  try {
+    const last = await lastSnapshotAt(pool, target.chainId);
+    if (!isSnapshotDue(last, new Date(), intervalMs)) return;
+
+    const cursor = await readCursor(pool, target.chainId);
+    if (cursor === null) return;
+
+    const rows = await fetchBondedSet(target.lcdUrl);
+    // Wall-clock time, matching how the interval is judged and how the figure
+    // is asked for — "over 24 hours", not "over 14,400 blocks".
+    await writeSnapshot(pool, target.chainId, cursor, new Date().toISOString(), rows);
+    log(`${target.chainId}: stake snapshot at ${cursor} (${rows.length} validators)`);
+  } catch (err) {
+    log(`${target.chainId}: stake snapshot failed - ${(err as Error).message}`);
   }
 }
 
