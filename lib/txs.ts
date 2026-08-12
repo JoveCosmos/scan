@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import {
+  recentTxsFromIndexer,
+  type IndexedAccountTx,
+} from "@/lib/indexer-db";
 import { isCosmosTxHash } from "@/lib/input";
 import {
   flattenMessages,
@@ -189,10 +193,69 @@ export async function txsAtHeight(
  * "latest transactions" endpoint in the Cosmos REST API, and chains vary wildly in
  * throughput, so we scan a bounded window of blocks and stop once we have enough.
  */
+/**
+ * An indexed row in the shape the list views already render.
+ *
+ * Shared by the account history and the recent-transactions tab, which read
+ * the same columns and differ only in what they select on.
+ *
+ * The index stores extracted facts rather than transaction bodies, so a few
+ * fields a raw tx would carry are simply absent: gas is not kept, and memos
+ * are not either. Null says so rather than implying zero.
+ */
+export function indexedTxToSummary(t: IndexedAccountTx): TxSummary {
+  return {
+    hash: t.hash,
+    height: t.height,
+    time: t.time,
+    code: t.code,
+    messages: t.msgTypes.map((typeUrl) => ({
+      typeUrl,
+      label: labelForType(typeUrl),
+      // Per-message parties are not indexed; the tx-level transfer below
+      // carries the movement this account was party to.
+      transfer: null,
+    })),
+    messageCount: t.msgTypes.length,
+    transfer: t.transfer
+      ? {
+          from: t.transfer.from,
+          to: t.transfer.to,
+          amount: [{ denom: t.transfer.denom, amount: t.transfer.amount }],
+          // Bank transfers between accounts; staking movements are their own
+          // event kinds and are not matched here.
+          staking: false,
+        }
+      : null,
+    fee:
+      t.feeDenom && t.feeAmount
+        ? [{ denom: t.feeDenom, amount: t.feeAmount }]
+        : [],
+    gasUsed: null,
+    gasWanted: null,
+    memo: "",
+  };
+}
+
 export async function getRecentTxs(
   chain: ChainConfig,
   { maxTxs = 20, maxBlocks = 20 }: { maxTxs?: number; maxBlocks?: number } = {}
 ): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
+  // Indexed first. Scanning a block window answers "what happened lately"; on a
+  // chain with mostly empty blocks that shows two transactions while thousands
+  // exist, because the window is the limit rather than the activity.
+  const indexed = await recentTxsFromIndexer(chain.chainId, maxTxs).catch(
+    () => null
+  );
+  if (indexed && indexed.length > 0) {
+    return {
+      txs: indexed.map(indexedTxToSummary),
+      // Not a window — these are the last transactions, not a slice of blocks.
+      scannedBlocks: 0,
+      headHeight: indexed[0]?.height ?? null,
+    };
+  }
+
   let head: number;
   let headHeight: string | null = null;
 

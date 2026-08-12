@@ -411,7 +411,7 @@ export function ValidatorsTable({
             day: "numeric",
           })}
           , from indexed block events. The chain keeps only the most recent jail
-          date, shown under Last Jailed, so counts cannot be read from a node.
+          date, shown under Last Jailed.
         </p>
       ) : null}
     </div>

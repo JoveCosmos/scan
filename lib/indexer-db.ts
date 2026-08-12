@@ -566,6 +566,71 @@ export async function accountTxsFromIndexer(
   }
 }
 
+/**
+ * The most recent transactions on a chain, however far back they are.
+ *
+ * The live path scans a fixed window of recent blocks, which answers "what
+ * happened lately" and not "what happened last". On a quiet chain most of that
+ * window is empty blocks, so the tab can show two transactions while the chain
+ * has thousands — the window is the limit, not the activity.
+ *
+ * Indexed, "the last fifty transactions" is exactly what it sounds like.
+ */
+export async function recentTxsFromIndexer(
+  chainId: string,
+  limit = 50
+): Promise<IndexedAccountTx[] | null> {
+  const pool = indexerPool();
+  if (!pool) return null;
+
+  const c = await coverage(chainId);
+  if (!c) return null;
+
+  return cached(`idx:recenttx:${chainId}`, 5_000, async () => {
+    const res = await pool.query<{
+      hash: string;
+      height: string;
+      time: string;
+      code: number;
+      msg_types: string[];
+      fee_denom: string | null;
+      fee_amount: string | null;
+      from_addr: string | null;
+      to_addr: string | null;
+      denom: string | null;
+      amount: string | null;
+    }>(
+      // Same one-row-per-transaction shape as the account list: a transaction
+      // moving three coins is one line here, not three.
+      `SELECT DISTINCT ON (t.height, t.hash)
+              t.hash, t.height::text, t.time::text, t.code, t.msg_types,
+              t.fee_denom, t.fee_amount::text,
+              tr.from_addr, tr.to_addr, tr.denom, tr.amount::text
+         FROM tx t
+         LEFT JOIN transfer tr
+           ON tr.chain_id = t.chain_id AND tr.tx_hash = t.hash AND tr.kind <> 'fee'
+        WHERE t.chain_id = $1 AND t.height BETWEEN $2 AND $3
+        ORDER BY t.height DESC, t.hash, tr.msg_index, tr.coin_index
+        LIMIT $4`,
+      [chainId, c.lowest, c.highest, limit]
+    );
+
+    return res.rows.map((r) => ({
+      hash: r.hash,
+      height: r.height,
+      time: r.time,
+      code: r.code,
+      msgTypes: r.msg_types ?? [],
+      feeDenom: r.fee_denom,
+      feeAmount: r.fee_amount,
+      transfer:
+        r.denom && r.amount
+          ? { from: r.from_addr, to: r.to_addr, denom: r.denom, amount: r.amount }
+          : null,
+    }));
+  }).catch(() => null);
+}
+
 export interface IndexedVote {
   voter: string;
   option: string;

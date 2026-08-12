@@ -1,10 +1,10 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { isBech32ish } from "@/lib/input";
-import { accountTxsFromIndexer, type IndexedAccountTx } from "@/lib/indexer-db";
+import { accountTxsFromIndexer } from "@/lib/indexer-db";
 import {
   rawTxToSummary,
-  labelForType,
+  indexedTxToSummary,
   type RawTxResponse,
   type TxSummary,
 } from "@/lib/txs";
@@ -150,7 +150,7 @@ export async function getCosmosAccountTxs(
   );
   if (indexed && indexed.txs.length > 0) {
     return {
-      txs: indexed.txs.map(toSummaryFromIndex),
+      txs: indexed.txs.map(indexedTxToSummary),
       total: indexed.txs.length,
       failed: false,
       source: "indexer",
@@ -208,47 +208,6 @@ export async function getCosmosAccountTxs(
     total: total || txs.length,
     failed: false,
     source: "search",
-  };
-}
-
-/**
- * An indexed row in the shape the list view already renders.
- *
- * The index stores extracted facts rather than transaction bodies, so a few
- * fields a raw tx would carry are simply absent: gas is not kept, and memos
- * are not either. Null says so rather than implying zero.
- */
-function toSummaryFromIndex(t: IndexedAccountTx): TxSummary {
-  return {
-    hash: t.hash,
-    height: t.height,
-    time: t.time,
-    code: t.code,
-    messages: t.msgTypes.map((typeUrl) => ({
-      typeUrl,
-      label: labelForType(typeUrl),
-      // Per-message parties are not indexed; the tx-level transfer below
-      // carries the movement this account was party to.
-      transfer: null,
-    })),
-    messageCount: t.msgTypes.length,
-    transfer: t.transfer
-      ? {
-          from: t.transfer.from,
-          to: t.transfer.to,
-          amount: [{ denom: t.transfer.denom, amount: t.transfer.amount }],
-          // Bank transfers between accounts; staking movements are their own
-          // event kinds and are not matched here.
-          staking: false,
-        }
-      : null,
-    fee:
-      t.feeDenom && t.feeAmount
-        ? [{ denom: t.feeDenom, amount: t.feeAmount }]
-        : [],
-    gasUsed: null,
-    gasWanted: null,
-    memo: "",
   };
 }
 
