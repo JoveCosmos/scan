@@ -67,33 +67,52 @@ export async function getStakeDeltas(
   const then = head - Math.max(1, Math.round(86_400 / seconds));
   if (then <= 1) return out;
 
-  let past: RawSet;
-  try {
-    past = await fetchLcd<RawSet>(chain, "/cosmos/staking/v1beta1/validators", {
-      cache: "no-store",
-      timeoutMs: 12_000,
-      searchParams: {
-        status: "BOND_STATUS_BONDED",
-        "pagination.limit": 500,
-      },
-      headers: { "x-cosmos-block-height": String(then) },
-    });
-  } catch {
-    // Pruned node, or one that rejects historical reads. No column rather than
-    // a fabricated one.
-    return out;
-  }
+  // Keyed by chain alone, deliberately, even though the height it reads moves
+  // every block. A height-keyed entry would be a fresh key every time and so
+  // never a hit — which is what made this column flicker: only some endpoints
+  // retain state 14,000 blocks back, `fetchLcd` fails over between them, and
+  // the toss was re-thrown on every request. One key means cached() keeps
+  // serving the last good baseline through a node that refuses, and the column
+  // stops appearing and vanishing between refreshes.
+  //
+  // The baseline then drifts by up to the TTL. On a 24-hour indicator, ten
+  // minutes is not a meaningful difference.
+  const before = await cached(
+    `stake-baseline:${chain.chainId}`,
+    600_000,
+    async () => {
+      const past = await fetchLcd<RawSet>(
+        chain,
+        "/cosmos/staking/v1beta1/validators",
+        {
+          cache: "no-store",
+          timeoutMs: 12_000,
+          searchParams: {
+            status: "BOND_STATUS_BONDED",
+            "pagination.limit": 500,
+          },
+          headers: { "x-cosmos-block-height": String(then) },
+        }
+      );
+      // Strings, not BigInt: this is a cached value and stays comparable if the
+      // cache ever grows a serialising layer.
+      return new Map(
+        (past.validators ?? []).map((v) => [v.operator_address, v.tokens])
+      );
+    }
+    // Pruned node with nothing cached yet: no column rather than a fabricated
+    // one. Once any read succeeds, that stays the baseline until one does again.
+  ).catch(() => null);
 
-  const before = new Map(
-    (past.validators ?? []).map((v) => [v.operator_address, BigInt(v.tokens)])
-  );
+  if (!before) return out;
 
   for (const v of current) {
-    const prior = before.get(v.operatorAddress);
+    const raw = before.get(v.operatorAddress);
     // A validator absent 24h ago (newly bonded) has no baseline to compare
     // against; showing "+everything" would be misleading.
-    if (prior === undefined) continue;
+    if (raw === undefined) continue;
 
+    const prior = BigInt(raw);
     const change = BigInt(v.tokens) - prior;
     out.set(v.operatorAddress, {
       change,
