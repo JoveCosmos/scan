@@ -157,8 +157,19 @@ fi
 # ── 9. Bring it back up ───────────────────────────────────────────────────────
 say "starting"
 install -o scan -g scan -m 755 "$SRC/deploy.sh" /opt/scan/deploy.sh
-systemctl enable --now scan.service
+systemctl enable scan.service
 systemctl enable --now scan-deploy.timer
+
+# A forced rebuild rather than a restart of what was moved. `next build` bakes
+# absolute paths into its output — the file-tracing manifests name them — so a
+# release built at /srv/explorer/releases/<sha> and then moved is not reliably
+# runnable from /srv/scan/releases/<sha>. It might start and fail later on a
+# route that needs a traced file, which is the worst version of this.
+#
+# deploy.sh builds a fresh release at the new path, health-checks it, and rolls
+# back on failure, so this is also the step that proves the rename worked.
+say "rebuilding at the new path"
+sudo -u scan /opt/scan/deploy.sh --force
 
 say "verifying"
 sleep 5
