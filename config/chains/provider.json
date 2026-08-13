@@ -10,9 +10,19 @@
   "denom": "uatom",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://provider-api.gatadao.com"
+    "https://rest.provider-sentry-01.hub-testnet.polypore.xyz",
+    "https://rest.provider-sentry-02.hub-testnet.polypore.xyz",
+    "https://rest.testcosmos.directory/cosmosicsprovidertestnet"
   ],
   "rpcEndpoints": [
+    "https://rpc.provider-sentry-01.hub-testnet.polypore.xyz",
+    "https://rpc.provider-sentry-02.hub-testnet.polypore.xyz",
+    "https://rpc.testcosmos.directory/cosmosicsprovidertestnet"
+  ],
+  "fallbackLcdEndpoints": [
+    "https://provider-api.gatadao.com"
+  ],
+  "fallbackRpcEndpoints": [
     "https://provider-rpc.gatadao.com"
   ],
   "wsEndpoint": "wss://provider-rpc.gatadao.com/websocket",

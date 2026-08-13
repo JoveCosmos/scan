@@ -80,6 +80,13 @@ failover — which would leave the scan reading from a validator that has anothe
 job. `orderEndpoints` in `lib/lcd.ts` places fallbacks last always and refuses to
 promote them, and only primaries are recorded as last-good.
 
+Public endpoints for the two testnets are easy to miss: AtomOne's are in the
+chain registry under `testnets/atomonetestnet`, and Cosmos Hub's ICS provider
+lives under `testnets/cosmosicsprovidertestnet` — *not* `testnets/cosmoshubtestnet`,
+which is a different chain (`theta-testnet-001`). Verify a candidate reports the
+expected `chain_id` before adding it; several listed in the registry no longer
+answer.
+
 ## Service tiers
 
 `lib/tiers.ts`. Every chain carries a tier deciding how much of it we serve.
