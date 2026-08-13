@@ -36,10 +36,6 @@ export interface AccountStaking {
   delegations: DelegationRow[];
   unbonding: UnbondingRow[];
   redelegations: RedelegationRow[];
-  /** Sum of `amount` across delegations, base denom. */
-  bondedTotal: string;
-  /** Sum of outstanding rewards, base denom. Null when the module did not answer. */
-  rewardTotal: string | null;
   /** True when the delegations query itself failed, as opposed to being empty. */
   failed: boolean;
 }
@@ -73,7 +69,6 @@ interface RedelegationsResponse {
 
 interface RewardsResponse {
   rewards?: { validator_address?: string; reward?: Coin[] }[];
-  total?: Coin[];
 }
 
 /**
@@ -91,12 +86,6 @@ export function truncateDecimal(value: string | undefined): string {
   const dot = value.indexOf(".");
   const whole = dot === -1 ? value : value.slice(0, dot);
   return /^\d+$/.test(whole) ? whole : "0";
-}
-
-function sum(values: string[]): string {
-  return values
-    .reduce((total, v) => total + BigInt(/^\d+$/.test(v) ? v : "0"), BigInt(0))
-    .toString();
 }
 
 /**
@@ -120,8 +109,6 @@ export async function getAccountStaking(
     delegations: [],
     unbonding: [],
     redelegations: [],
-    bondedTotal: "0",
-    rewardTotal: null,
     failed: false,
   };
 
@@ -166,11 +153,10 @@ export async function getAccountStaking(
     }
   }
 
-  // Reward per validator, in the staking denom only. A chain paying rewards in
-  // several denoms would need a coin list per row; none here do, and showing the
-  // staking denom is what the totals elsewhere on the page mean.
+  // Reward per validator, in the staking denom only. Cosmos Hub also pays a
+  // dozen IBC denoms whose dust would crowd out the figure a delegator came for;
+  // a chain that genuinely rewarded in several would need a coin list per row.
   const rewardByValidator = new Map<string, string>();
-  let rewardTotal: string | null = null;
   if (rewards.status === "fulfilled") {
     for (const r of rewards.value.rewards ?? []) {
       const own = r.reward?.find((c) => c.denom === chain.denom);
@@ -178,8 +164,6 @@ export async function getAccountStaking(
         rewardByValidator.set(r.validator_address, truncateDecimal(own?.amount));
       }
     }
-    const total = rewards.value.total?.find((c) => c.denom === chain.denom);
-    rewardTotal = truncateDecimal(total?.amount);
   }
 
   const rows: DelegationRow[] = (delegations.value.delegation_responses ?? [])
@@ -251,8 +235,6 @@ export async function getAccountStaking(
     redelegations: redelegationRows.sort((a, b) =>
       a.completion.localeCompare(b.completion)
     ),
-    bondedTotal: sum(rows.map((r) => r.amount)),
-    rewardTotal,
     failed: false,
   };
 }

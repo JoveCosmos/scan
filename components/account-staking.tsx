@@ -162,24 +162,6 @@ export async function AccountStaking({
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="border-t border-border">
-                <td className="px-4 py-3 text-muted-foreground">
-                  {staking.delegations.length} validator
-                  {staking.delegations.length === 1 ? "" : "s"}
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">
-                  <Amount raw={staking.bondedTotal} chain={chain} symbol={symbol} />
-                </td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums">
-                  {staking.rewardTotal === null ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <Amount raw={staking.rewardTotal} chain={chain} symbol={symbol} muted />
-                  )}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       ) : null}
