@@ -24,6 +24,13 @@ Environment=NODE_ENV=development
 Environment=PORT=3006
 Environment=HOSTNAME=127.0.0.1
 
+# HOME must be set explicitly. systemd otherwise uses the account home,
+# /srv/scan, which is the *production* tree — npm and Next were writing
+# /srv/scan/.npm and /srv/scan/.config from the dev server. /srv/scan-dev also
+# matches where npm's cache is already configured and what the scan-dev tmux
+# wrapper uses, so dev state stays in the dev tree.
+Environment=HOME=/srv/scan-dev
+
 # 3006: gata-hub dev holds 3005 and scan production holds 3200.
 #
 # --turbopack matches package.json's dev script, and is required rather than
@@ -32,6 +39,21 @@ Environment=HOSTNAME=127.0.0.1
 # dev is affected — `next build` uses a different pipeline, which is why
 # production has always been fine.
 ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev --turbopack -p 3006 -H 127.0.0.1
+
+# The same sandbox scan.service runs under, so dev exercises production's
+# constraints instead of discovering them at deploy time.
+#
+# ProtectSystem=strict makes the whole hierarchy read-only, hence ReadWritePaths
+# for .next/ and the npm cache. /srv/scan is blocked because the dev server has
+# no business in the production tree — that is only safe because HOME is set
+# above; without it this would break npm. /etc/gata holds the live
+# INDEXER_DATABASE_URL, which is exactly what this service must never reach.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/srv/scan-dev
+InaccessiblePaths=/etc/gata /srv/scan /srv/gata-hub
 
 TimeoutStopSec=60
 Restart=always
