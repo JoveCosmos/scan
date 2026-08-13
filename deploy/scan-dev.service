@@ -25,7 +25,13 @@ Environment=PORT=3006
 Environment=HOSTNAME=127.0.0.1
 
 # 3006: gata-hub dev holds 3005 and scan production holds 3200.
-ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev -p 3006 -H 127.0.0.1
+#
+# --turbopack matches package.json's dev script, and is required rather than
+# preferred: lib/gno-valopers.ts imports `node:fs/promises`, and webpack rejects
+# the `node:` scheme outright with "Unhandled scheme", so every page 500s. Only
+# dev is affected — `next build` uses a different pipeline, which is why
+# production has always been fine.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev --turbopack -p 3006 -H 127.0.0.1
 
 TimeoutStopSec=60
 Restart=always
