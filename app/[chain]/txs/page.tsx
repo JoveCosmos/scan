@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, chainDenoms } from "@/lib/chains";
+import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
 import { TxsTable } from "@/components/txs-table";
 
@@ -24,6 +25,9 @@ export default async function TxsPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
+  // Not offered at this chain's tier, so the route 404s rather than
+  // staying reachable by URL after the tab is hidden.
+  if (!policyFor(chain).txs) notFound();
 
   const initial = await getAdapter(chain).getRecentTxs();
 

@@ -2,12 +2,19 @@
   "chains": [
     {
       "chainId": "atomone-1",
-      "nodeType": "full",
       "daemon": "atomoned",
       "home": "$HOME/.atomone",
       "endpoints": [
-        { "label": "RPC", "url": "https://atomone-rpc.gatadao.com", "kind": "rpc" },
-        { "label": "REST / API", "url": "https://atomone-api.gatadao.com", "kind": "rest" }
+        {
+          "label": "RPC",
+          "url": "https://atomone-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://atomone-api.gatadao.com",
+          "kind": "rest"
+        }
       ],
       "snapshot": {
         "url": "https://snapshots.gatadao.com/atomone-1/latest.tar.lz4",
@@ -22,12 +29,19 @@
     },
     {
       "chainId": "atomone-testnet-1",
-      "nodeType": "full",
       "daemon": "atomoned",
       "home": "$HOME/.atomone",
       "endpoints": [
-        { "label": "RPC", "url": "https://atomone-testnet-rpc.gatadao.com", "kind": "rpc" },
-        { "label": "REST / API", "url": "https://atomone-testnet-api.gatadao.com", "kind": "rest" }
+        {
+          "label": "RPC",
+          "url": "https://atomone-testnet-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://atomone-testnet-api.gatadao.com",
+          "kind": "rest"
+        }
       ],
       "snapshot": {
         "url": "https://snapshots.gatadao.com/atomone-testnet-1/latest.tar.lz4",
@@ -42,11 +56,14 @@
     },
     {
       "chainId": "sapphire-1",
-      "nodeType": "full",
       "daemon": "gnoland",
       "home": "$HOME/.gnoland",
       "endpoints": [
-        { "label": "RPC", "url": "https://gnoland-testnet-rpc.gatadao.com", "kind": "rpc" }
+        {
+          "label": "RPC",
+          "url": "https://gnoland-testnet-rpc.gatadao.com",
+          "kind": "rpc"
+        }
       ],
       "snapshot": {
         "url": "https://snapshots.gatadao.com/sapphire-1/latest.tar.lz4",
@@ -59,12 +76,23 @@
         "version": "v0.3.0"
       }
     },
-
-    { "chainId": "cosmoshub-4", "nodeType": "pruned" },
-    { "chainId": "osmosis-1", "nodeType": "pruned" },
-    { "chainId": "akashnet-2", "nodeType": "pruned" },
-    { "chainId": "juno-1", "nodeType": "pruned" },
-    { "chainId": "passage-2", "nodeType": "pruned" },
-    { "chainId": "provider", "nodeType": "pruned" }
+    {
+      "chainId": "cosmoshub-4"
+    },
+    {
+      "chainId": "osmosis-1"
+    },
+    {
+      "chainId": "akashnet-2"
+    },
+    {
+      "chainId": "juno-1"
+    },
+    {
+      "chainId": "passage-2"
+    },
+    {
+      "chainId": "provider"
+    }
   ]
 }

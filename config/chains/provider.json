@@ -1,6 +1,7 @@
 {
   "chainId": "provider",
   "order": 5,
+  "tier": "medium",
   "name": "cosmoshub-testnet",
   "prettyName": "Cosmos Hub Testnet",
   "logo": "/chains/cosmoshub.svg",

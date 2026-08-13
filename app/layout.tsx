@@ -5,6 +5,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { SiteHeader } from "@/components/site-header";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
+import { policyFor } from "@/lib/tiers";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -41,6 +42,9 @@ export default function RootLayout({
     // gno.land has no IBC module; every Cosmos SDK chain here does.
     ibc: chain.kind === "cosmos",
     network: chain.network,
+    sections: (({ txs, proposals, relayers }) => ({ txs, proposals, relayers }))(
+      policyFor(chain)
+    ),
   }));
 
   return (

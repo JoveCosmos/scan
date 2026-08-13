@@ -218,6 +218,7 @@ export function ValidatorsTable({
   accent,
   staking,
   hasDeltas,
+  hasUptime,
   slashingWindow,
   exponent,
   jailingsSince,
@@ -227,6 +228,9 @@ export function ValidatorsTable({
   accent: string;
   staking: boolean;
   hasDeltas: boolean;
+  /** False when the tier does not gather uptime, so the columns are dropped
+   *  rather than rendered empty for every validator. */
+  hasUptime: boolean;
   slashingWindow: boolean;
   exponent: number;
   /**
@@ -287,8 +291,10 @@ export function ValidatorsTable({
             ) : (
               header("Power", "tokens", "right")
             )}
-            {header("Uptime", "uptime", "right")}
-            {slashingWindow ? header("Last Jailed", "jailed", "right") : null}
+            {hasUptime ? header("Uptime", "uptime", "right") : null}
+            {hasUptime && slashingWindow
+              ? header("Last Jailed", "jailed", "right")
+              : null}
             {jailingsSince ? header("Jailed", "jailings", "right") : null}
             <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
@@ -373,14 +379,16 @@ export function ValidatorsTable({
                   </td>
                 </>
               )}
-              <td data-label="Uptime" className="px-4 py-2.5 text-right">
-                <UptimeBars
-                  uptime={v.uptime}
-                  slashingWindow={slashingWindow}
-                  className="items-end"
-                />
-              </td>
-              {slashingWindow ? (
+              {hasUptime ? (
+                <td data-label="Uptime" className="px-4 py-2.5 text-right">
+                  <UptimeBars
+                    uptime={v.uptime}
+                    slashingWindow={slashingWindow}
+                    className="items-end"
+                  />
+                </td>
+              ) : null}
+              {hasUptime && slashingWindow ? (
                 <td data-label="Last Jailed" className="px-4 py-2.5 text-right">
                   <LastJailed uptime={v.uptime} />
                 </td>

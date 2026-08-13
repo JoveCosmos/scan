@@ -1,6 +1,7 @@
 {
   "chainId": "sapphire-1",
   "order": 1,
+  "tier": "high",
   "name": "gnoland",
   "prettyName": "Gno.land Testnet",
   "logo": "/chains/gnoland.svg",

@@ -17,8 +17,16 @@ export interface ChainSummary {
   governance: boolean;
   /** Chains with no IBC module never show the Relayers tab. */
   ibc: boolean;
+  /**
+   * Sections this chain's tier offers. Distinct from the two flags above: those
+   * say the module is absent, this says we chose not to carry the section.
+   */
+  sections: { txs: boolean; proposals: boolean; relayers: boolean };
   network: "mainnet" | "testnet";
 }
+
+/** Every section, for headers rendered without an active chain. */
+const ALL_SECTIONS = { txs: true, proposals: true, relayers: true };
 
 // Params first: the chain's identity card and the tab a chain lands on.
 // Governance sits by validators; blocks is a firehose, so it goes last.
@@ -26,10 +34,10 @@ export interface ChainSummary {
 const NAV = [
   { href: "/params", label: "Params", short: "Params" },
   { href: "/validators", label: "Validators", short: "Vals" },
-  { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true },
-  { href: "/txs", label: "Transactions", short: "Txs" },
+  { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true, section: "proposals" as const },
+  { href: "/txs", label: "Transactions", short: "Txs", section: "txs" as const },
   { href: "/blocks", label: "Blocks", short: "Blocks" },
-  { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true },
+  { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true, section: "relayers" as const },
 ];
 
 function ChainSwitcher({
@@ -102,7 +110,10 @@ function ChainSwitcher({
                   // back to its overview.
                   href={`/${chain.chainId}${
                     (section === "/proposals" && !chain.governance) ||
-                    (section === "/relayers" && !chain.ibc)
+                    (section === "/relayers" && !chain.ibc) ||
+                    (section === "/txs" && !chain.sections.txs) ||
+                    (section === "/proposals" && !chain.sections.proposals) ||
+                    (section === "/relayers" && !chain.sections.relayers)
                       ? "/params"
                       : section || "/params"
                   }`}
@@ -142,6 +153,7 @@ function NavLinks({
   pathname,
   governance,
   ibc,
+  sections,
   className,
   itemClassName,
 }: {
@@ -149,13 +161,17 @@ function NavLinks({
   pathname: string;
   governance: boolean;
   ibc: boolean;
+  sections: ChainSummary["sections"];
   className?: string;
   itemClassName?: string;
 }) {
   return (
     <nav className={className}>
       {NAV.filter(
-        (item) => (governance || !item.governanceOnly) && (ibc || !item.ibcOnly)
+        (item) =>
+          (governance || !item.governanceOnly) &&
+          (ibc || !item.ibcOnly) &&
+          (!item.section || sections[item.section])
       ).map((item) => {
         const href = `/${activeChainId}${item.href}`;
         // startsWith so a detail page keeps its section tab lit.
@@ -225,6 +241,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             pathname={pathname}
             governance={activeChain?.governance ?? false}
             ibc={activeChain?.ibc ?? false}
+            sections={activeChain?.sections ?? ALL_SECTIONS}
             className="hidden items-center gap-1 lg:flex"
           />
         ) : null}
@@ -248,6 +265,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           pathname={pathname}
           governance={activeChain?.governance ?? false}
             ibc={activeChain?.ibc ?? false}
+            sections={activeChain?.sections ?? ALL_SECTIONS}
           className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
         />
       ) : null}

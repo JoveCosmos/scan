@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor, type ChainConfig } from "@/lib/chains";
+import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
 import { isVoting, type ProposalSummary } from "@/lib/proposals";
 import { timeAgo } from "@/lib/format";
@@ -185,6 +186,9 @@ export default async function ProposalsPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
+  // Not offered at this chain's tier, so the route 404s rather than
+  // staying reachable by URL after the tab is hidden.
+  if (!policyFor(chain).proposals) notFound();
 
   // Chains without a gov module have no proposals route at all.
   if (!getAdapter(chain).capabilities.governance) notFound();

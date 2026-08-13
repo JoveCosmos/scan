@@ -47,6 +47,15 @@ const chainConfigSchema = z
      */
     order: z.number().int().optional(),
     /**
+     * How much of this chain we undertake to serve — see lib/tiers.ts. Policy,
+     * not capability: "limited" means we chose not to carry a section, where a
+     * missing capability means the chain has no such module.
+     *
+     * Defaults to "medium" so a chain added without one gets a working page
+     * rather than silently losing its transactions.
+     */
+    tier: z.enum(["high", "medium", "limited"]).default("medium"),
+    /**
      * CoinGecko id, for price and market cap. Absent on testnets and on chains
      * with no traded token, which simply show no market figures.
      */

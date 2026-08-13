@@ -1,6 +1,7 @@
 {
   "chainId": "osmosis-1",
   "order": 7,
+  "tier": "limited",
   "name": "osmosis",
   "prettyName": "Osmosis",
   "logo": "/chains/osmosis.svg",

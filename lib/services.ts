@@ -36,14 +36,6 @@ const chainServicesSchema = z.object({
    * to the project, not to us.
    */
   chainId: z.string().min(1),
-  /**
-   * What we run for this chain. "full" keeps history and can serve a snapshot;
-   * "pruned" validates and answers current state but forgets. Declared rather
-   * than detected, because a node's pruning settings are not visible over its
-   * API — earliest_block_height moves as it prunes, which cannot distinguish a
-   * pruned node from a full one that started late.
-   */
-  nodeType: z.enum(["full", "pruned"]).default("pruned"),
   endpoints: z.array(endpointSchema).default([]),
   /**
    * The node binary and its home directory, used to generate restore commands
@@ -141,20 +133,3 @@ function hasAnything(c: ChainServices): boolean {
   return c.endpoints.length > 0 || c.snapshot !== undefined || c.guide !== undefined;
 }
 
-/**
- * Networks grouped by the kind of node we run, in config order.
- *
- * Every chain we operate appears, whether or not we publish endpoints for it —
- * "we run a pruned node here" is worth saying on its own, and is why a chain
- * can sit in services.json with nothing else filled in.
- */
-export function chainsByNodeType(): {
-  full: ChainServices[];
-  pruned: ChainServices[];
-} {
-  const chains = getServices().chains;
-  return {
-    full: chains.filter((c) => c.nodeType === "full"),
-    pruned: chains.filter((c) => c.nodeType === "pruned"),
-  };
-}

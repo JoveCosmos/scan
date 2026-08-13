@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 import { cached } from "@/lib/cache";
+import { getChain } from "@/lib/chains";
+import { policyFor } from "@/lib/tiers";
 
 /**
  * Scan's read-only view of the indexer's database.
@@ -39,6 +41,23 @@ export function indexerPool(): Pool | null {
   return store[POOL_KEY];
 }
 
+/**
+ * The pool, but only for chains whose tier says we index them.
+ *
+ * Gating here rather than at each of the ten call sites means a chain dropping
+ * to a lower tier stops reading the index everywhere at once — including from
+ * code written later that never considered tiers. Callers already handle a null
+ * pool by falling back to the node, so this needs no handling of its own.
+ *
+ * An unknown chainId keeps the pool: the indexer holds chains the scan may not
+ * have a config for, and refusing those would be a silent regression.
+ */
+function poolFor(chainId: string): Pool | null {
+  const chain = getChain(chainId);
+  if (chain && !policyFor(chain).indexed) return null;
+  return indexerPool();
+}
+
 export interface Coverage {
   lowest: number;
   highest: number;
@@ -71,7 +90,7 @@ const READS_EXTRACT_VERSION = 2;
  * height leaves a range that is genuinely complete rather than merely present.
  */
 export async function coverage(chainId: string): Promise<Coverage | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   return cached(`idx:coverage:${chainId}`, 30_000, async () => {
@@ -169,7 +188,7 @@ export async function slashHistory(
   chainId: string,
   consAddr: string
 ): Promise<SlashHistory | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -228,7 +247,7 @@ export interface JailCounts {
  * "when", never "how often".
  */
 export async function jailCounts(chainId: string): Promise<JailCounts | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -288,7 +307,7 @@ export async function proposerStats(
   chainId: string,
   proposerCons: string
 ): Promise<ProposerStats | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -338,7 +357,7 @@ function blockCount(
   lowest: number,
   highest: number
 ): Promise<number | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return Promise.resolve(null);
 
   return cached(`idx:blockcount:${chainId}:${lowest}:${highest}`, 300_000, async () => {
@@ -388,7 +407,7 @@ export async function relayerStats(
   msgTypes: string[],
   limit = 50
 ): Promise<RelayerStats | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -488,7 +507,7 @@ export async function accountTxsFromIndexer(
   address: string,
   limit = 50
 ): Promise<IndexedAccountTxs | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -580,7 +599,7 @@ export async function recentTxsFromIndexer(
   chainId: string,
   limit = 50
 ): Promise<IndexedAccountTx[] | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   const c = await coverage(chainId);
@@ -651,7 +670,7 @@ export async function stakeBaseline(
   chainId: string,
   windowMs = 86_400_000
 ): Promise<Map<string, string> | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   return cached(`idx:stakebase:${chainId}`, 300_000, async () => {
@@ -701,7 +720,7 @@ export async function votesFromIndexer(
   chainId: string,
   proposalId: string
 ): Promise<IndexedVote[] | null> {
-  const pool = indexerPool();
+  const pool = poolFor(chainId);
   if (!pool) return null;
 
   try {

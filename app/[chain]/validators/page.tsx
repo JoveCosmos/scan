@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
+import { policyFor } from "@/lib/tiers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { getAdapter } from "@/lib/adapter";
@@ -105,15 +106,24 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       : Promise.resolve(null),
   ]);
   const minCommission = chainParams?.staking?.minCommissionRate ?? null;
+  // Below the top tier these are skipped rather than fetched and discarded:
+  // uptime is a query per validator against endpoints we do not run, and the
+  // stake delta needs a second height. The table hides each column when its
+  // data is absent, so the page degrades to the set itself.
+  const metrics = policyFor(chain).metrics;
   // Both need the validator set first: they are keyed by the same identifier.
   const [uptime, deltas, jailings] = await Promise.all([
-    adapter.getUptime(validators).catch(() => new Map()),
-    adapter
-      .getStakeDeltas(validators, overview?.height ?? null)
-      .catch(() => new Map()),
+    metrics
+      ? adapter.getUptime(validators).catch(() => new Map())
+      : Promise.resolve(new Map()),
+    metrics
+      ? adapter
+          .getStakeDeltas(validators, overview?.height ?? null)
+          .catch(() => new Map())
+      : Promise.resolve(new Map()),
     // Null whenever the indexer cannot answer, which hides the column entirely
     // rather than showing every validator a confident zero.
-    jailCounts(chainId).catch(() => null),
+    metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
   ]);
   const hasDeltas = deltas.size > 0;
 
@@ -169,20 +179,25 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
               : undefined
           }
         />
-        <StatPanel
-          index={1}
-          accent={accent}
-          label="Could Halt The Chain"
-          value={nakamoto > 0 ? String(nakamoto) : "—"}
-          // "Nakamoto coefficient" means nothing to most readers, so the panel
-          // states the consequence and the term lives in the tooltip.
-          sub={nakamoto > 0 ? `of ${validators.length} validators` : undefined}
-          hint={
-            stakeWeighted
-              ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
-              : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`
-          }
-        />
+        {/* Cheap to compute — it is a scan of the set already in memory — but it
+            is analysis rather than chain state, so it belongs with the other
+            derived figures that lower tiers do not carry. */}
+        {metrics ? (
+          <StatPanel
+            index={1}
+            accent={accent}
+            label="Could Halt The Chain"
+            value={nakamoto > 0 ? String(nakamoto) : "—"}
+            // "Nakamoto coefficient" means nothing to most readers, so the panel
+            // states the consequence and the term lives in the tooltip.
+            sub={nakamoto > 0 ? `of ${validators.length} validators` : undefined}
+            hint={
+              stakeWeighted
+                ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
+                : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`
+            }
+          />
+        ) : null}
         {staking ? (
           <>
             <StatPanel
@@ -234,6 +249,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         accent={accent}
         staking={staking}
         hasDeltas={hasDeltas}
+        hasUptime={metrics}
         slashingWindow={slashingWindow}
         exponent={chain.exponent}
         jailingsSince={jailings?.since ?? null}

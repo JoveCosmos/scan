@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getChain } from "@/lib/chains";
+import { policyFor } from "@/lib/tiers";
 import { RelayerOperators } from "@/components/relayer-operators";
 import { IbcRoutesTable } from "@/components/ibc-routes-table";
 import { LoadingPanel } from "@/components/loading-panel";
@@ -34,6 +35,9 @@ export default async function RelayersPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
+  // Not offered at this chain's tier, so the route 404s rather than
+  // staying reachable by URL after the tab is hidden.
+  if (!policyFor(chain).relayers) notFound();
 
   // gno.land runs Tendermint2 with no IBC module — same condition the header
   // uses to decide whether the tab exists at all.

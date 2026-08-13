@@ -1,6 +1,7 @@
 {
   "chainId": "passage-2",
   "order": 8,
+  "tier": "limited",
   "name": "passage",
   "prettyName": "Passage",
   "logo": "/chains/passage.svg",

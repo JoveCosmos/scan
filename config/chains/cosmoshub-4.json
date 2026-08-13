@@ -1,6 +1,7 @@
 {
   "chainId": "cosmoshub-4",
   "order": 4,
+  "tier": "medium",
   "name": "cosmoshub",
   "prettyName": "Cosmos Hub",
   "logo": "/chains/cosmoshub.svg",

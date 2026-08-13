@@ -1,6 +1,7 @@
 {
   "chainId": "atomone-testnet-1",
   "order": 3,
+  "tier": "high",
   "name": "atomone-testnet",
   "prettyName": "AtomOne Testnet",
   "logo": "/chains/atomone.svg",
