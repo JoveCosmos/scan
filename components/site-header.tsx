@@ -85,7 +85,21 @@ function ChainSwitcher({
             style={{ background: active.accent, boxShadow: `0 0 10px ${active.accent}` }}
           />
         ) : null}
-        <span>{active ? active.prettyName : "Select chain"}</span>
+        {/*
+          The name drops below sm, leaving the accent dot and the chevron. This
+          button does not shrink, so "Cosmos Hub Testnet" was 18 characters the
+          search field paid for — and search is what the header is for. Nothing
+          is lost: the tab strip and the page heading below both name the chain,
+          and the dot is its colour. Without an active chain the label stays at
+          every width, since then there is nothing else to identify it.
+        */}
+        {active ? (
+          <span className="hidden max-w-[9rem] truncate sm:inline">
+            {active.prettyName}
+          </span>
+        ) : (
+          <span>Select chain</span>
+        )}
         <ChevronDown
           className={cn("h-4 w-4 opacity-60 transition-transform", open && "rotate-180")}
         />
@@ -242,9 +256,18 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
               className="h-full w-full object-cover"
             />
           </span>
-          {/* The mark alone. It already carries the brand, and dropping the
-              wordmark gives the search field the whole top row at every width
-              rather than only on narrow screens. */}
+          {/*
+            The mark reads as a G, so the word completes it: "G Scan". Kept to
+            the one word — "GATA HUB Scan" in full lives in the footer, and
+            spelling it out here is what crowded the search field before.
+
+            Hidden below 360px only. The row is logo + search + chain switcher,
+            and the wordmark costs the search field ~40px — fine at 360 and up,
+            which covers every current phone, but not on a 320px SE.
+          */}
+          <span className="hidden text-base font-semibold tracking-tight min-[360px]:inline">
+            Scan
+          </span>
         </Link>
 
         {activeChainId ? (
