@@ -10,8 +10,7 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://juno-rest.publicnode.com",
-    "https://rest.cosmos.directory/juno",
-    "https://juno-api.gatadao.com"
+    "https://rest.cosmos.directory/juno"
   ],
   "rpcEndpoints": [
     "https://juno-rpc.publicnode.com",
@@ -22,5 +21,8 @@
   "accent": "#F0827D",
   "coingeckoId": "juno-network",
   "website": "https://junonetwork.io",
-  "repo": "https://github.com/CosmosContracts/juno"
+  "repo": "https://github.com/CosmosContracts/juno",
+  "fallbackLcdEndpoints": [
+    "https://juno-api.gatadao.com"
+  ]
 }

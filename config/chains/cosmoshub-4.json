@@ -10,8 +10,7 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://cosmos-rest.publicnode.com",
-    "https://rest.cosmos.directory/cosmoshub",
-    "https://cosmoshub-api.gatadao.com"
+    "https://rest.cosmos.directory/cosmoshub"
   ],
   "rpcEndpoints": [
     "https://cosmos-rpc.publicnode.com",
@@ -22,5 +21,8 @@
   "accent": "#3B9EFF",
   "coingeckoId": "cosmos",
   "website": "https://cosmos.network",
-  "repo": "https://github.com/cosmos/gaia"
+  "repo": "https://github.com/cosmos/gaia",
+  "fallbackLcdEndpoints": [
+    "https://cosmoshub-api.gatadao.com"
+  ]
 }

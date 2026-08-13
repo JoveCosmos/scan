@@ -9,8 +9,7 @@
   "denom": "upasg",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://rest.cosmos.directory/passage",
-    "https://passage-api.gatadao.com"
+    "https://rest.cosmos.directory/passage"
   ],
   "rpcEndpoints": [
     "https://rpc.cosmos.directory/passage",
@@ -20,5 +19,8 @@
   "accent": "#7DD3FC",
   "coingeckoId": "passage",
   "website": "https://passage.io",
-  "repo": "https://github.com/envadiv/Passage3D"
+  "repo": "https://github.com/envadiv/Passage3D",
+  "fallbackLcdEndpoints": [
+    "https://passage-api.gatadao.com"
+  ]
 }

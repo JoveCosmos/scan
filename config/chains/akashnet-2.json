@@ -10,8 +10,7 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://akash-rest.publicnode.com",
-    "https://rest.cosmos.directory/akash",
-    "https://akash-api.gatadao.com"
+    "https://rest.cosmos.directory/akash"
   ],
   "rpcEndpoints": [
     "https://rpc.cosmos.directory/akash",
@@ -22,5 +21,8 @@
   "accent": "#FF7A45",
   "coingeckoId": "akash-network",
   "website": "https://akash.network",
-  "repo": "https://github.com/akash-network/node"
+  "repo": "https://github.com/akash-network/node",
+  "fallbackLcdEndpoints": [
+    "https://akash-api.gatadao.com"
+  ]
 }

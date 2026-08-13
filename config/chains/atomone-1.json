@@ -10,15 +10,15 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://atomone-rest.publicnode.com",
-    "https://rest.cosmos.directory/atomone",
-    "https://atomone-api.gatadao.com"
+    "https://rest.cosmos.directory/atomone"
   ],
   "rpcEndpoints": [
     "https://atomone-rpc.publicnode.com",
     "https://rpc.cosmos.directory/atomone"
   ],
-  "fallbackLcdEndpoints": ["https://atomone-api.gatadao.com"],
-  "fallbackRpcEndpoints": ["https://atomone-rpc.gatadao.com"],
+  "fallbackLcdEndpoints": [
+    "https://atomone-api.gatadao.com"
+  ],
   "wsEndpoint": "wss://atomone-rpc.publicnode.com/websocket",
   "featuredValidator": null,
   "accent": "#F5C66B",
