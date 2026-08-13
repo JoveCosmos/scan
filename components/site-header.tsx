@@ -246,14 +246,20 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
     <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-          <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg ring-1 ring-[var(--gata-border-hi)] transition-shadow group-hover:shadow-[0_0_18px_-4px_var(--gata-glow)]">
+          {/*
+            The mark is a transparent white PNG, so it sits on the header rather
+            than in a tile. The ring and rounded corners went with the old JPEG:
+            they existed to frame a square black image, and around a bare glyph
+            they read as an empty box. Hover glows the mark itself instead.
+          */}
+          <span className="relative flex h-9 w-9 items-center justify-center">
             <Image
-              src="/gata_logo.jpg"
+              src="/gata_logo_white.png"
               alt=""
               width={36}
               height={36}
               priority
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
             />
           </span>
           {/*
