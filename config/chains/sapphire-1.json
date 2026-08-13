@@ -1,5 +1,5 @@
 {
-  "chainId": "topaz-1",
+  "chainId": "sapphire-1",
   "order": 1,
   "name": "gnoland",
   "prettyName": "Gno.land Testnet",
@@ -11,16 +11,16 @@
   "exponent": 6,
   "lcdEndpoints": [],
   "rpcEndpoints": [
-    "https://gnoland-test6-rpc.gatadao.com",
-    "https://topaz.rpc.onbloc.xyz"
+    "https://gnoland-testnet-rpc.gatadao.com",
+    "https://sapphire.rpc.onbloc.xyz"
   ],
   "apiEndpoints": [
-    "https://topaz.api.onbloc.xyz/v1"
+    "https://sapphire.api.onbloc.xyz/v1"
   ],
   "indexerEndpoints": [
-    "https://topaz.indexer.onbloc.xyz/graphql/query"
+    "https://sapphire.indexer.onbloc.xyz/graphql/query"
   ],
-  "wsEndpoint": "wss://topaz.rpc.onbloc.xyz/websocket",
+  "wsEndpoint": "wss://sapphire.rpc.onbloc.xyz/websocket",
   "featuredValidator": null,
   "accent": "#62D9FF",
   "website": "https://gno.land",

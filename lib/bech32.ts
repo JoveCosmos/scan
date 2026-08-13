@@ -15,7 +15,7 @@ export const LINKED_CHAINS = [
   { chainId: "cosmoshub-4", prefix: "cosmos", label: "Cosmos Hub" },
   { chainId: "atomone-1", prefix: "atone", label: "AtomOne" },
   { chainId: "akashnet-2", prefix: "akash", label: "Akash" },
-  { chainId: "topaz-1", prefix: "g", label: "Gno.land" },
+  { chainId: "sapphire-1", prefix: "g", label: "Gno.land" },
 ] as const;
 
 export interface LinkedAddress {

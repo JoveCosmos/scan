@@ -41,7 +41,7 @@ otherwise render as a misleading zero:
 - `stakeWeighted` — gno voting power is *assigned*, so the Nakamoto coefficient
   is labelled "of voting power" rather than "of stake".
 - `registry` — gno has a validator registry (96) larger than its active set (87).
-- `governance` — gno gets no Proposals tab, and `/topaz-1/proposals` 404s.
+- `governance` — gno gets no Proposals tab, and `/sapphire-1/proposals` 404s.
 
 Adding a chain without governance needs no code change, only config.
 

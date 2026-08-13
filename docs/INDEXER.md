@@ -22,7 +22,7 @@ Two things phase 1 settled that the plan had left open:
 ## Decisions (settled)
 
 - **Chains in scope:** `cosmoshub-4`, `atomone-1`, `akashnet-2` (mainnet) plus
-  `atomone-testnet-1` and `topaz-1` (gno.land testnet). Keep the design flexible
+  `atomone-testnet-1` and `sapphire-1` (gno.land testnet). Keep the design flexible
   for a **gno.land mainnet** later.
 - **gno.land is a different chain kind** — Tendermint2, no `/cosmos/*` modules,
   no staking/gov/slashing. It gets blocks and txs only, from its own RPC +
@@ -327,7 +327,7 @@ does; verify before relying on one.
 **AtomOne testnet (`atomone-testnet-1`)** — young, so backfill from genesis via
 its own public endpoints (`cosmos.directory/atomone-testnet`, Polkachu testnet).
 
-**gno.land testnet (`topaz-1`)** — not Cosmos SDK. No `/block_results` events to
+**gno.land testnet (`sapphire-1`)** — not Cosmos SDK. No `/block_results` events to
 mine; it yields blocks and txs only, read through its RPC + indexing API the
 same way Scan's gno adapter already does. Backfill depth here is just
 "as far as its public indexing API serves." A future gno.land **mainnet** slots

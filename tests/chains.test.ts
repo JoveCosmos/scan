@@ -8,7 +8,7 @@ describe("chain order", () => {
   // rearranging the switcher.
   it("lists chains in the configured order", () => {
     expect(getAllChains().map((c) => c.chainId)).toEqual([
-      "topaz-1",
+      "sapphire-1",
       "atomone-1",
       "atomone-testnet-1",
       "cosmoshub-4",

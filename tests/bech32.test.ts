@@ -73,7 +73,7 @@ describe("linkedAddresses", () => {
       "cosmoshub-4",
       "atomone-1",
       "akashnet-2",
-      "topaz-1",
+      "sapphire-1",
     ]);
     expect(links.find((l) => l.chainId === "cosmoshub-4")!.address).toBe(COSMOS);
   });

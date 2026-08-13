@@ -41,7 +41,7 @@
       }
     },
     {
-      "chainId": "topaz-1",
+      "chainId": "sapphire-1",
       "nodeType": "full",
       "daemon": "gnoland",
       "home": "$HOME/.gnoland",
@@ -49,7 +49,7 @@
         { "label": "RPC", "url": "https://gnoland-testnet-rpc.gatadao.com", "kind": "rpc" }
       ],
       "snapshot": {
-        "url": "https://snapshots.gatadao.com/topaz-1/latest.tar.lz4",
+        "url": "https://snapshots.gatadao.com/sapphire-1/latest.tar.lz4",
         "status": "planned",
         "schedule": "daily at 02:00 UTC",
         "pruning": "archive",
