@@ -9,7 +9,8 @@
   "denom": "upasg",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://rest.cosmos.directory/passage"
+    "https://rest.cosmos.directory/passage",
+    "https://passage-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://rpc.cosmos.directory/passage",

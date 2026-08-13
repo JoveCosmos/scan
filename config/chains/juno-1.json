@@ -10,7 +10,8 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://juno-rest.publicnode.com",
-    "https://rest.cosmos.directory/juno"
+    "https://rest.cosmos.directory/juno",
+    "https://juno-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://juno-rpc.publicnode.com",

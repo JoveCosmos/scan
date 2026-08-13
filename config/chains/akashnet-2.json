@@ -10,7 +10,8 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://akash-rest.publicnode.com",
-    "https://rest.cosmos.directory/akash"
+    "https://rest.cosmos.directory/akash",
+    "https://akash-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://rpc.cosmos.directory/akash",

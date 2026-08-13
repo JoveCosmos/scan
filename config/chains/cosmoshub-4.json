@@ -10,7 +10,8 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://cosmos-rest.publicnode.com",
-    "https://rest.cosmos.directory/cosmoshub"
+    "https://rest.cosmos.directory/cosmoshub",
+    "https://cosmoshub-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://cosmos-rpc.publicnode.com",

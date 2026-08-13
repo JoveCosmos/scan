@@ -10,7 +10,8 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://atomone-rest.publicnode.com",
-    "https://rest.cosmos.directory/atomone"
+    "https://rest.cosmos.directory/atomone",
+    "https://atomone-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://atomone-rpc.publicnode.com",

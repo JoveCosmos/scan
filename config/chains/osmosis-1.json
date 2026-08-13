@@ -10,7 +10,8 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://osmosis-rest.publicnode.com",
-    "https://rest.cosmos.directory/osmosis"
+    "https://rest.cosmos.directory/osmosis",
+    "https://osmosis-api.gatadao.com"
   ],
   "rpcEndpoints": [
     "https://osmosis-rpc.publicnode.com",
