@@ -2,6 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { isBech32ish } from "@/lib/input";
 import { getValidators } from "@/lib/validators";
+import { accountFromOperator } from "@/lib/bech32";
 import type { Coin } from "@/lib/accounts";
 
 export interface DelegationRow {
@@ -237,4 +238,58 @@ export async function getAccountStaking(
     ),
     failed: false,
   };
+}
+
+export interface SelfBond {
+  /** Base denom. */
+  amount: string;
+  /** Share of the validator's total stake, 0–1. Null if total is unknown. */
+  share: number | null;
+}
+
+interface SingleDelegationResponse {
+  delegation_response?: { balance?: Coin };
+}
+
+/**
+ * What a validator has staked on itself.
+ *
+ * The number a delegator actually wants: an operator with little of its own
+ * stake at risk is exposed to less of the loss it would cause. The staking
+ * module does not carry it on the validator record — it is an ordinary
+ * delegation from the operator's own account, so it has to be asked for
+ * separately.
+ *
+ * Null rather than zero when the query fails: "no self bond" is a strong claim
+ * and a failed read is not evidence for it.
+ */
+export async function getSelfBond(
+  chain: ChainConfig,
+  operatorAddress: string,
+  totalTokens: string | null
+): Promise<SelfBond | null> {
+  const account = accountFromOperator(operatorAddress, chain.bech32Prefix);
+  if (!account || !isBech32ish(account)) return null;
+
+  try {
+    const res = await fetchLcd<SingleDelegationResponse>(
+      chain,
+      `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations/${account}`,
+      { cache: "no-store", timeoutMs: 10_000 }
+    );
+    const amount = res.delegation_response?.balance?.amount;
+    if (!amount) return null;
+
+    let share: number | null = null;
+    if (totalTokens && /^\d+$/.test(totalTokens) && BigInt(totalTokens) > BigInt(0)) {
+      share = Number(amount) / Number(totalTokens);
+      if (!Number.isFinite(share)) share = null;
+    }
+    return { amount, share };
+  } catch {
+    // A validator with no self delegation 404s here, which is a real answer —
+    // but so does an endpoint having a bad day, and the two are not
+    // distinguishable from the status alone.
+    return null;
+  }
 }

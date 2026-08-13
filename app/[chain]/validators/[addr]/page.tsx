@@ -17,6 +17,7 @@ import { ValidatorConsensus } from "@/components/validator-consensus";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
 import { emptyUptime } from "@/lib/uptime";
+import { getSelfBond } from "@/lib/staking";
 import { LoadingPanel } from "@/components/loading-panel";
 import { Suspense } from "react";
 
@@ -44,6 +45,37 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
+    </div>
+  );
+}
+
+/** Compact figure for the signing panel. */
+function Metric({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: "warn";
+}) {
+  return (
+    <div>
+      <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </dt>
+      <dd
+        className={
+          tone === "warn"
+            ? "mt-1.5 font-mono text-lg font-semibold leading-none text-[var(--gata-burn)]"
+            : "mt-1.5 font-mono text-lg font-semibold leading-none"
+        }
+      >
+        {value}
+      </dd>
+      {sub ? <p className="mt-1 text-xs text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
@@ -111,6 +143,15 @@ export default async function ValidatorDetailPage({
     ? (await adapter.getUptime([validator]).catch(() => new Map())).get(addr) ??
       emptyUptime()
     : emptyUptime();
+  // Its own stake, which the validator record does not carry — see getSelfBond.
+  const selfBond = validator
+    ? await getSelfBond(chain, addr, validator.tokens).catch(() => null)
+    : null;
+
+  const signed =
+    uptime.window !== null && uptime.missed !== null
+      ? uptime.window - uptime.missed
+      : null;
 
   if (!validator) {
     return (
@@ -175,7 +216,7 @@ export default async function ValidatorDetailPage({
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatPanel
           index={0}
           accent={accent}
@@ -196,12 +237,23 @@ export default async function ValidatorDetailPage({
         <StatPanel
           index={2}
           accent={accent}
+          label="Self Bond"
+          value={selfBond ? formatToken(selfBond.amount, chain.exponent) : "—"}
+          sub={
+            selfBond?.share != null
+              ? `${(selfBond.share * 100).toFixed(2)}% of stake`
+              : symbol
+          }
+        />
+        <StatPanel
+          index={3}
+          accent={accent}
           label="Commission"
           value={`${(validator.commissionRate * 100).toFixed(1)}%`}
           sub={`max ${(validator.maxRate * 100).toFixed(0)}%`}
         />
         <StatPanel
-          index={3}
+          index={4}
           accent={accent}
           label="Uptime"
           value={
@@ -305,20 +357,45 @@ export default async function ValidatorDetailPage({
         </dl>
       </div>
 
-      {uptime.bars.length > 0 ? (
+      {uptime.window !== null || uptime.bars.length > 0 ? (
         <>
           <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
-            Recent signing
+            Signing
           </h2>
           <div
             className="gata-panel px-5 py-4"
             style={{ ["--panel-accent" as string]: accent }}
           >
-            <UptimeBars uptime={uptime} slashingWindow className="items-start" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Last {uptime.bars.length} blocks, oldest first. The percentage above
-              covers the chain&apos;s full slashing window.
-            </p>
+            {/* Counts, not just a percentage: 99.9% reads as fine until you see
+                it is 10 missed out of 10,000, or 1 out of 1,000. */}
+            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Metric
+                label="Signed"
+                value={signed !== null ? signed.toLocaleString() : "—"}
+              />
+              <Metric
+                label="Missed"
+                value={uptime.missed !== null ? uptime.missed.toLocaleString() : "—"}
+                tone={uptime.missed ? "warn" : undefined}
+              />
+              <Metric
+                label="Window"
+                value={uptime.window !== null ? uptime.window.toLocaleString() : "—"}
+                sub="blocks"
+              />
+              <Metric
+                label="Uptime"
+                value={
+                  uptime.ratio === null ? "—" : `${(uptime.ratio * 100).toFixed(2)}%`
+                }
+              />
+            </dl>
+
+            {uptime.bars.length > 0 ? (
+              <div className="mt-4 border-t border-border/50 pt-4">
+                <UptimeBars uptime={uptime} slashingWindow className="items-start" />
+              </div>
+            ) : null}
           </div>
         </>
       ) : null}

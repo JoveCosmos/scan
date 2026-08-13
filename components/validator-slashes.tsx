@@ -132,11 +132,9 @@ export async function ValidatorSlashes({
         </div>
       )}
 
-      <p className="mt-2 text-xs text-muted-foreground">
-        Read from indexed block events, covering {window} onwards. Anything
-        earlier than that is not counted here - the chain itself does not keep
-        this history, so it cannot be looked up on demand.
-      </p>
+      {/* The covered window stays — without it "never jailed" overclaims — but
+          the explanation of why does not. */}
+      <p className="mt-2 text-xs text-muted-foreground">covering {window} onwards</p>
     </>
   );
 }

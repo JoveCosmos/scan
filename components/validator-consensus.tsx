@@ -88,13 +88,10 @@ export async function ValidatorConsensus({
           />
         </dl>
 
+        {/* The window is a fact the figures depend on, so it stays; the
+            explanation of how proposer selection works does not. */}
         <p className="mt-4 text-xs text-muted-foreground">
-          Across {stats.totalBlocks.toLocaleString()} blocks indexed since{" "}
-          {since}. Proposer turns are awarded in proportion to voting power, so a
-          healthy validator proposes close to its stake share over a long window.
-          Well under 1.00x means it is bonded but missing turns - which the
-          signing percentage above cannot show, since that measures signing other
-          validators&apos; blocks.
+          {stats.totalBlocks.toLocaleString()} blocks indexed since {since}
         </p>
       </div>
     </>
