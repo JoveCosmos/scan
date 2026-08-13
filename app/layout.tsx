@@ -62,10 +62,21 @@ export default function RootLayout({
             <SiteHeader chains={chains} />
             <div className="flex-1">{children}</div>
             <footer className="mt-16 border-t border-border">
-              <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              {/*
+                Attribution, not a title. "GATA HUB Scan" on the left restated
+                the header a screen above it; "powered by GATA HUB" credits the
+                product this one comes from, and sits right where a colophon
+                belongs.
+              */}
+              <div className="mx-auto flex max-w-6xl items-center justify-end px-4 py-6 text-xs text-muted-foreground">
                 <span>
-                  <span className="font-semibold text-foreground">GATA HUB</span>{" "}
-                  Scan
+                  powered by{" "}
+                  <a
+                    href="https://gatahub.zone"
+                    className="font-semibold text-foreground transition-colors hover:text-[var(--gata-blue)]"
+                  >
+                    GATA HUB
+                  </a>
                 </span>
               </div>
             </footer>
