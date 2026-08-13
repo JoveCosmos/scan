@@ -541,14 +541,19 @@ export async function gnoAccount(
   const raw = await abciQuery(chain, `auth/accounts/${address}`);
   if (!raw) return empty;
 
-  let parsed: GnoBaseAccount;
+  // An address the chain has never seen answers with the literal "null": valid
+  // JSON that parses to null, so neither the parse guard above nor the ABCI
+  // error check catches it. Reading .BaseAccount straight off that threw, which
+  // is why every mistyped or never-funded gno address returned a 500 where a
+  // Cosmos one renders an empty account.
+  let parsed: GnoBaseAccount | null;
   try {
-    parsed = JSON.parse(raw) as GnoBaseAccount;
+    parsed = JSON.parse(raw) as GnoBaseAccount | null;
   } catch {
     return empty;
   }
 
-  const base = parsed.BaseAccount;
+  const base = parsed?.BaseAccount;
   if (!base?.address) return empty;
 
   return {
