@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Create the dev-on-server tree for GATA SCAN.
 #
-#   sudo /srv/scan/repo/deploy/setup-dev.sh
+#   sudo /srv/scan/current/deploy/setup-dev.sh
 #
 # Mirrors gata-hub's arrangement: one account for both the deployed app and the
 # development clone, a separate working tree, and the agent's HOME kept out of
@@ -60,8 +60,8 @@ say "installing dependencies"
 sudo -u scan HOME="$DEV" npm --prefix "$CLONE" ci --no-audit --no-fund
 
 say "installing the entry script and dev unit"
-install -m 755 /srv/scan/repo/deploy/scan-dev /usr/local/bin/scan-dev
-install -m 644 /srv/scan/repo/deploy/scan-dev.service /etc/systemd/system/
+install -m 755 /srv/scan/current/deploy/scan-dev /usr/local/bin/scan-dev
+install -m 644 /srv/scan/current/deploy/scan-dev.service /etc/systemd/system/
 systemctl daemon-reload
 
 chown -R scan:scan "$DEV"

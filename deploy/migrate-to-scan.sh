@@ -122,7 +122,12 @@ fi
 
 # ── 6. systemd units ──────────────────────────────────────────────────────────
 say "installing units"
-SRC=/srv/scan/repo/deploy
+# The release, not /srv/scan/repo. That repo is only ever fetched into — its
+# working tree stays on whatever commit it was cloned at, months behind, because
+# releases are built with `git archive` from origin. Reading unit files from
+# there would install stale ones that look plausible.
+SRC=/srv/scan/current/deploy
+[ -d "$SRC" ] || { echo "no deploy dir at $SRC" >&2; exit 1; }
 for pair in "scan.service" "scan-deploy.service" "scan-deploy.timer"; do
   [ -f "$SRC/$pair" ] && install -m 644 "$SRC/$pair" "/etc/systemd/system/$pair"
 done
