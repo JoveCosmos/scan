@@ -2,17 +2,28 @@
 
 Multi-chain block scan, live at **https://explorer.gatahub.zone**.
 
-Blocks, transactions, validators, governance and accounts across six networks,
-read straight from full nodes with no indexer of our own.
+Blocks, transactions, validators, governance and accounts across nine networks,
+read from full nodes. Chains we run ourselves are additionally backed by our own
+Postgres index for the history a node no longer holds; the rest are read live.
 
-| Network | Chain              | ID                  |
-| ------- | ------------------ | ------------------- |
-| Mainnet | Cosmos Hub         | `cosmoshub-4`       |
-| Mainnet | AtomOne            | `atomone-1`         |
-| Mainnet | Akash              | `akashnet-2`        |
-| Testnet | Cosmos Hub Testnet | `provider`          |
-| Testnet | AtomOne Testnet    | `atomone-testnet-1` |
-| Testnet | Gno.land Testnet   | `sapphire-1`        |
+Listed in the order the app shows them — the networks we operate first, each
+testnet beside its mainnet. Every testnet says so in its name, so they are not
+split into a separate group.
+
+| Chain              | ID                  |
+| ------------------ | ------------------- |
+| Gno.land Testnet   | `sapphire-1`        |
+| AtomOne            | `atomone-1`         |
+| AtomOne Testnet    | `atomone-testnet-1` |
+| Cosmos Hub         | `cosmoshub-4`       |
+| Cosmos Hub Testnet | `provider`          |
+| Akash              | `akashnet-2`        |
+| Osmosis            | `osmosis-1`         |
+| Passage            | `passage-2`         |
+| Juno               | `juno-1`            |
+
+How much of each chain is served varies — see
+[service tiers](docs/ARCHITECTURE.md#service-tiers).
 
 ## Develop
 

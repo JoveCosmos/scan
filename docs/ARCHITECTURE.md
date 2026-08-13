@@ -53,9 +53,11 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
 ```jsonc
 {
   "chainId": "provider",            // also the URL segment
+  "order": 5,                       // position in the switcher; ascending
+  "tier": "medium",                 // how much we serve — see Service tiers
   "prettyName": "Cosmos Hub Testnet",
   "kind": "cosmos",                 // "cosmos" | "gno"
-  "network": "testnet",             // groups the switcher and landing page
+  "network": "testnet",             // context only; does not group anything
   "bech32Prefix": "cosmos",         // drives address search
   "denom": "uatom",
   "exponent": 6,
@@ -65,6 +67,52 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
   "accent": "#36D399"               // must be unique across chains
 }
 ```
+
+A chain with no `order` sorts to the end, and one with no `tier` defaults to
+`medium` — so adding a chain stays a matter of dropping in a file, and never
+silently costs an existing chain its position or its transactions.
+
+## Service tiers
+
+`lib/tiers.ts`. Every chain carries a tier deciding how much of it we serve.
+
+| | high | medium | limited |
+| --- | --- | --- | --- |
+| | sapphire-1, atomone-1, atomone-testnet-1 | cosmoshub-4, provider, akashnet-2 | osmosis-1, passage-2, juno-1 |
+| our own full node | ✅ | — | — |
+| derived metrics | ✅ | — | — |
+| reads our index | ✅ | — | — |
+| txs / proposals / relayers | ✅ | ✅ | — |
+| blocks / validators / params | ✅ | ✅ | ✅ |
+
+**A tier is policy; `ChainCapabilities` is fact.** Keep them apart. gno.land has
+no Proposals tab because it has no governance module — no decision of ours can
+produce one. Juno has no Proposals tab because we chose not to carry it. Reading
+the UI depends on that distinction, and a tier must never appear to grant a chain
+something its kind cannot do.
+
+"Derived metrics" means the figures that cost more than reading chain state: the
+Nakamoto coefficient, uptime histories, proposer counts, 24h stake movement,
+market and supply data. Below the top tier they are not fetched at all rather
+than fetched and hidden, and the validators table drops those columns instead of
+rendering them empty for every row.
+
+Enforced in three places:
+
+- **Tabs** — `components/site-header.tsx` filters `NAV` by the chain's sections,
+  and switching chains lands on `/params` rather than a section the target does
+  not offer.
+- **Routes** — `/[chain]/{txs,proposals,relayers}` call `notFound()` when their
+  tier withholds them, so a hidden tab is not merely unlinked.
+- **The index** — `poolFor(chainId)` in `lib/indexer-db.ts` returns null for a
+  chain we do not index. The gate is at that boundary, not at its ten call
+  sites, so lowering a tier stops every indexed read at once — including from
+  code written later that never considered tiers. Callers already fall back to
+  the node when the pool is null, so nothing else changed.
+
+**Tiers are never shown to readers.** No badge, no heading, no note explaining a
+missing section. A chain simply has fewer tabs. Stating the level would turn an
+internal cost decision into a public claim about the chain.
 
 ## Addresses are all the same key
 
