@@ -156,6 +156,7 @@ function NavLinks({
   sections,
   className,
   itemClassName,
+  indicatorClassName = "-bottom-[9px]",
 }: {
   activeChainId: string;
   pathname: string;
@@ -164,6 +165,12 @@ function NavLinks({
   sections: ChainSummary["sections"];
   className?: string;
   itemClassName?: string;
+  /**
+   * Where the active-tab underline sits. The desktop row places it on the
+   * header's bottom border, 9px below the link; the mobile row is its own strip
+   * and must keep it inside, or it overflows the scroll container.
+   */
+  indicatorClassName?: string;
 }) {
   return (
     <nav className={className}>
@@ -192,7 +199,12 @@ function NavLinks({
             <span className="sm:hidden">{item.short}</span>
             <span className="hidden sm:inline">{item.label}</span>
             {isActive ? (
-              <span className="absolute inset-x-3 -bottom-[9px] h-px bg-primary shadow-[0_0_8px_var(--gata-glow)]" />
+              <span
+                className={cn(
+                  "absolute inset-x-3 h-px bg-primary shadow-[0_0_8px_var(--gata-glow)]",
+                  indicatorClassName
+                )}
+              />
             ) : null}
           </Link>
         );
@@ -264,9 +276,13 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           activeChainId={activeChainId}
           pathname={pathname}
           governance={activeChain?.governance ?? false}
-            ibc={activeChain?.ibc ?? false}
-            sections={activeChain?.sections ?? ALL_SECTIONS}
-          className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-2 lg:hidden"
+          ibc={activeChain?.ibc ?? false}
+          sections={activeChain?.sections ?? ALL_SECTIONS}
+          indicatorClassName="bottom-0"
+          // overflow-y-hidden is not redundant: `overflow-x: auto` promotes a
+          // `visible` overflow-y to `auto`, so without it the header grows a
+          // vertical scrollbar on phones.
+          className="flex items-center gap-1 overflow-x-auto overflow-y-hidden border-t border-border px-4 py-2 lg:hidden"
         />
       ) : null}
     </header>
