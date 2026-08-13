@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { Search, ChevronDown, ChevronUp } from "lucide-react";
 import type { ValidatorUptime } from "@/lib/uptime";
 import type { StakeDelta } from "@/lib/stake-delta";
 import { UptimeBars } from "@/components/uptime-bars";
@@ -54,6 +54,24 @@ const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   jailed: "desc",
   jailings: "desc",
 };
+
+/**
+ * Exported for tests, like the sort below.
+ *
+ * Applied after sorting, so ranks stay the chain's rather than the filtered
+ * list's. Matches the operator address as well as the moniker: pasting an
+ * address in is how you find a validator you know by address, and it costs
+ * nothing to support.
+ */
+export function filterValidators(rows: ValidatorRow[], query: string): ValidatorRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(
+    (v) =>
+      v.moniker.toLowerCase().includes(q) ||
+      v.operatorAddress.toLowerCase().includes(q)
+  );
+}
 
 /** Exported for tests: the sort is the substantive logic in this component. */
 export function sortValidators(
@@ -243,11 +261,14 @@ export function ValidatorsTable({
     key: "rank",
     dir: "asc",
   });
+  const [query, setQuery] = useState("");
 
   const sorted = useMemo(
     () => sortValidators(rows, sort.key, sort.dir),
     [rows, sort]
   );
+
+  const visible = useMemo(() => filterValidators(sorted, query), [sorted, query]);
 
   const onSort = (key: SortKey) => {
     setSort((prev) =>
@@ -273,7 +294,27 @@ export function ValidatorsTable({
   const topPower = rows[0]?.votingPower || 1;
 
   return (
-    <div className="gata-panel overflow-x-auto">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Filter by name or address…"
+            aria-label="Filter validators"
+            className="w-full rounded-lg border border-border bg-secondary/50 py-2 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)] focus:bg-secondary"
+          />
+        </div>
+        {query ? (
+          <span className="shrink-0 text-xs text-muted-foreground">
+            {visible.length} of {rows.length}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="gata-panel overflow-x-auto">
       <table className="gata-table w-full text-sm sm:min-w-[860px]">
         <thead>
           <tr className="border-b border-border text-left">
@@ -300,7 +341,7 @@ export function ValidatorsTable({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((v) => (
+          {visible.map((v) => (
             <tr
               key={v.operatorAddress}
               className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
@@ -410,6 +451,12 @@ export function ValidatorsTable({
         </tbody>
       </table>
 
+      {visible.length === 0 ? (
+        <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+          No validator matches “{query}”.
+        </p>
+      ) : null}
+
       {jailingsSince ? (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           Jailed counts how many times each validator has been jailed since{" "}
@@ -422,6 +469,7 @@ export function ValidatorsTable({
           date, shown under Last Jailed.
         </p>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -245,33 +245,25 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+        {/*
+          A lockup, not a mark with a word next to it. The G is geometric and
+          heavy, so a bold sentence-case "Scan" at the same size fought it for
+          attention and looked stuck on. Small caps with wide tracking read as
+          type set alongside a logo — the mark stays dominant, the word explains
+          it. Optically centred rather than baseline-aligned: with tracked caps
+          there is no descender to align to, and the G's round overshoot makes
+          an ink-bottom match look low.
+        */}
         <Link href="/" className="group flex shrink-0 items-center gap-2.5">
-          {/*
-            The mark is a transparent white PNG, so it sits on the header rather
-            than in a tile. The ring and rounded corners went with the old JPEG:
-            they existed to frame a square black image, and around a bare glyph
-            they read as an empty box. Hover glows the mark itself instead.
-          */}
-          <span className="relative flex h-9 w-9 items-center justify-center">
-            <Image
-              src="/gata_logo_white.png"
-              alt=""
-              width={36}
-              height={36}
-              priority
-              className="h-full w-full object-contain transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
-            />
-          </span>
-          {/*
-            The mark reads as a G, so the word completes it: "G Scan". Kept to
-            the one word — "GATA HUB Scan" in full lives in the footer, and
-            spelling it out here is what crowded the search field before.
-
-            Hidden below 360px only. The row is logo + search + chain switcher,
-            and the wordmark costs the search field ~40px — fine at 360 and up,
-            which covers every current phone, but not on a 320px SE.
-          */}
-          <span className="hidden text-base font-semibold tracking-tight min-[360px]:inline">
+          <Image
+            src="/gata_logo_white.png"
+            alt=""
+            width={30}
+            height={33}
+            priority
+            className="h-[30px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+          />
+          <span className="hidden text-[13px] font-medium uppercase leading-none tracking-[0.2em] text-foreground/90 transition-colors group-hover:text-foreground min-[360px]:inline">
             Scan
           </span>
         </Link>

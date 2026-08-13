@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sortValidators, type ValidatorRow } from "@/components/validators-table";
+import { sortValidators, filterValidators, type ValidatorRow } from "@/components/validators-table";
 import { emptyUptime } from "@/lib/uptime";
 
 function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {
@@ -113,5 +113,41 @@ describe("sortValidators", () => {
     expect(names(sortValidators(rows, "commission", "asc"))).toEqual(["a", "b"]);
     expect(names(sortValidators(rows, "commission", "desc"))).toEqual(["b", "a"]);
     expect(names(sortValidators(rows, "rank", "desc"))).toEqual(["b", "a"]);
+  });
+});
+
+describe("filterValidators", () => {
+  const rows = [
+    row({ moniker: "Ubik Capital", operatorAddress: "atonevaloper1abc" }),
+    row({ moniker: "DKCMC", operatorAddress: "atonevaloper1xyz" }),
+    row({ moniker: "nylira.net", operatorAddress: "atonevaloper1qqq" }),
+  ];
+
+  it("returns everything for an empty or whitespace query", () => {
+    expect(filterValidators(rows, "")).toHaveLength(3);
+    expect(filterValidators(rows, "   ")).toHaveLength(3);
+  });
+
+  it("matches part of a moniker, ignoring case", () => {
+    expect(filterValidators(rows, "ubik").map((v) => v.moniker)).toEqual(["Ubik Capital"]);
+    expect(filterValidators(rows, "CAPITAL").map((v) => v.moniker)).toEqual(["Ubik Capital"]);
+  });
+
+  it("matches an operator address, so a pasted address finds its validator", () => {
+    expect(filterValidators(rows, "atonevaloper1xyz").map((v) => v.moniker)).toEqual(["DKCMC"]);
+  });
+
+  it("trims the query, since pasted addresses carry whitespace", () => {
+    expect(filterValidators(rows, "  nylira  ").map((v) => v.moniker)).toEqual(["nylira.net"]);
+  });
+
+  it("returns nothing when there is no match", () => {
+    expect(filterValidators(rows, "nonexistent")).toEqual([]);
+  });
+
+  // The rank column is the chain's ranking, so filtering must not renumber.
+  it("preserves the ranks of the rows it keeps", () => {
+    const ranked = [row({ moniker: "A", rank: 1 }), row({ moniker: "B", rank: 7 })];
+    expect(filterValidators(ranked, "B")[0].rank).toBe(7);
   });
 });

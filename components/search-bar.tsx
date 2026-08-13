@@ -12,9 +12,11 @@ import { cn } from "@/lib/utils";
  */
 export function SearchBar({
   chainId,
-  // Kept short so it is not clipped in the narrow mobile field; the aria-label
-  // and the empty search page carry the full explanation.
-  placeholder = "Search…",
+  // Names what the field actually accepts. "Search…" left the reader to guess,
+  // and the three kinds are not obvious — an explorer search box could plausibly
+  // want a validator name or a chain. Long enough to be clipped on a narrow
+  // phone, which is fine: the visible part still says "address, tx…".
+  placeholder = "address, tx or a block height…",
   size = "sm",
 }: {
   /** Optional hint: prefer this chain when a query matches several. */
