@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getAllChains, getChain } from "@/lib/chains";
-import { policyFor, policyForTier, TIER_ORDER } from "@/lib/tiers";
+import { policyFor } from "@/lib/tiers";
 
 describe("tiers", () => {
   it("assigns the intended tier to every chain", () => {
@@ -47,12 +47,17 @@ describe("tiers", () => {
     expect(gno.kind).toBe("gno");
   });
 
-  it("orders tiers high to limited", () => {
-    expect(TIER_ORDER).toEqual(["high", "medium", "limited"]);
-    expect(TIER_ORDER.map((t) => policyForTier(t).label)).toEqual([
-      "High",
-      "Medium",
-      "Limited",
+  // Tiers are never rendered, so a policy is flags only. A label or blurb
+  // reappearing here is the first step towards one being printed.
+  it("carries no display text", () => {
+    expect(Object.keys(policyFor(getChain("juno-1")!)).sort()).toEqual([
+      "fullNode",
+      "indexed",
+      "metrics",
+      "proposals",
+      "relayers",
+      "tier",
+      "txs",
     ]);
   });
 
@@ -62,6 +67,6 @@ describe("tiers", () => {
     for (const chain of getAllChains()) {
       expect(["high", "medium", "limited"]).toContain(chain.tier);
     }
-    expect(policyForTier("medium").txs).toBe(true);
+    expect(policyFor(getChain("cosmoshub-4")!).txs).toBe(true);
   });
 });

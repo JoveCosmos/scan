@@ -12,15 +12,15 @@ import type { ChainConfig } from "@/lib/chains";
  * Keeping the two apart matters when reading the UI. A missing Proposals tab on
  * gno.land means the chain has no governance; a missing one on Juno means we
  * decided not to carry it.
+ *
+ * Nothing here is rendered. A tier carries no label or description because it is
+ * never shown to a reader — a chain simply has fewer tabs and fewer columns, with
+ * no explanation offered. Read it to gate behaviour; do not print it.
  */
 export type Tier = "high" | "medium" | "limited";
 
 export interface TierPolicy {
   tier: Tier;
-  /** For the public goods page and anywhere the level is stated outright. */
-  label: string;
-  /** One line explaining what this level means, shown beside the label. */
-  blurb: string;
   /**
    * Derived figures that cost more than reading chain state: the Nakamoto
    * coefficient, uptime histories, proposer counts, 24h stake movement, market
@@ -44,8 +44,6 @@ export interface TierPolicy {
 
 const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
   high: {
-    label: "High",
-    blurb: "Our own full nodes, complete history and every metric.",
     metrics: true,
     indexed: true,
     fullNode: true,
@@ -54,8 +52,6 @@ const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
     relayers: true,
   },
   medium: {
-    label: "Medium",
-    blurb: "Pruned nodes. Current state and history the chain still holds.",
     metrics: false,
     indexed: false,
     fullNode: false,
@@ -64,8 +60,6 @@ const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
     relayers: true,
   },
   limited: {
-    label: "Limited",
-    blurb: "Blocks, validators and parameters only.",
     metrics: false,
     indexed: false,
     fullNode: false,
@@ -79,9 +73,3 @@ export function policyFor(chain: ChainConfig): TierPolicy {
   return { tier: chain.tier, ...POLICIES[chain.tier] };
 }
 
-export function policyForTier(tier: Tier): TierPolicy {
-  return { tier, ...POLICIES[tier] };
-}
-
-/** Highest first, which is the order the public goods page presents them in. */
-export const TIER_ORDER: Tier[] = ["high", "medium", "limited"];
