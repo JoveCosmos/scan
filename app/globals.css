@@ -45,7 +45,7 @@
 }
 
 /*
- * GATA HUB palette, lifted from the hub's own globals.css so the explorer and
+ * GATA HUB palette, lifted from the hub's own globals.css so Scan and
  * the hub read as one product. Dark-only by design — there is no light theme.
  */
 :root {

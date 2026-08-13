@@ -12,7 +12,7 @@
 --
 -- Voters may recast while voting is open, and the gov module deletes votes from
 -- state once it tallies, so this table is the only lasting record for a
--- finished proposal. Today the explorer reconstructs it from tens of paged
+-- finished proposal. Today Scan reconstructs it from tens of paged
 -- tx-search requests — about 30 seconds for a large AtomOne proposal — which
 -- this replaces with one indexed query.
 CREATE TABLE IF NOT EXISTS vote (

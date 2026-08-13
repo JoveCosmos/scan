@@ -5,11 +5,11 @@ Runs on the gata box (`37.27.63.150`), the same host that serves
 directories, atomic symlink swap, health check, auto-rollback.
 
 ```
-/srv/explorer/repo               clone, only ever fetched
-/srv/explorer/releases/<sha>/    one built copy per deployed commit
-/srv/explorer/current -> releases/<sha>
-/srv/explorer/shared/valopers/   gno realm index, survives releases
-/opt/explorer/deploy.sh
+/srv/scan/repo               clone, only ever fetched
+/srv/scan/releases/<sha>/    one built copy per deployed commit
+/srv/scan/current -> releases/<sha>
+/srv/scan/shared/valopers/   gno realm index, survives releases
+/opt/scan/deploy.sh
 ```
 
 The app listens on `127.0.0.1:3200`; nginx is the only thing that reaches it.
@@ -25,7 +25,7 @@ certificate until it does. In GoDaddy DNS for `gatahub.zone`, add:
 
 | Type | Name       | Value          | TTL |
 | ---- | ---------- | -------------- | --- |
-| A    | `explorer` | `37.27.63.150` | 600 |
+| A    | `scan` | `37.27.63.150` | 600 |
 
 ```bash
 dig +short explorer.gatahub.zone   # expect 37.27.63.150
@@ -33,15 +33,15 @@ dig +short explorer.gatahub.zone   # expect 37.27.63.150
 
 ## 1. Layout and clone
 
-Runs as its own `explorer` system account — **not** `gata`. The gata account
+Runs as its own `scan` system account — **not** `gata`. The gata account
 can read `/etc/gata/app.env` (`root:gata 0640`), so running a public-facing
 service as gata would put gata-hub's secrets one compromise away.
 
 ```bash
-sudo useradd --system --home-dir /srv/explorer --shell /usr/sbin/nologin explorer
-sudo mkdir -p /srv/explorer/{repo,releases,shared/valopers,shared/.npm} /opt/explorer
-sudo chown -R explorer:explorer /srv/explorer /opt/explorer
-sudo chmod 750 /srv/explorer
+sudo useradd --system --home-dir /srv/scan --shell /usr/sbin/nologin scan
+sudo mkdir -p /srv/scan/{repo,releases,shared/valopers,shared/.npm} /opt/scan
+sudo chown -R scan:scan /srv/scan /opt/scan
+sudo chmod 750 /srv/scan
 ```
 
 The repo is private, so the box gets its own **read-only deploy key** — a
@@ -52,10 +52,10 @@ sudo and systemd disagree about `HOME`, so an alias only resolves when ssh
 happens to find the right config.
 
 ```bash
-sudo -u explorer mkdir -p /srv/explorer/.ssh
-sudo -u explorer chmod 700 /srv/explorer/.ssh
-sudo -u explorer ssh-keygen -t ed25519 -f /srv/explorer/.ssh/explorer_deploy -N '' -C 'explorer-deploy@gata-box'
-sudo -u explorer cat /srv/explorer/.ssh/explorer_deploy.pub
+sudo -u scan mkdir -p /srv/scan/.ssh
+sudo -u scan chmod 700 /srv/scan/.ssh
+sudo -u scan ssh-keygen -t ed25519 -f /srv/scan/.ssh/scan_deploy -N '' -C 'scan-deploy@gata-box'
+sudo -u scan cat /srv/scan/.ssh/scan_deploy.pub
 # Add at https://github.com/JoveCosmos/explorer/settings/keys — leave write access OFF
 ```
 
@@ -63,87 +63,87 @@ Clone with that key, then persist it into the repo config so every later fetch
 uses it regardless of environment:
 
 ```bash
-KEY='ssh -i /srv/explorer/.ssh/explorer_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/explorer/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
+KEY='ssh -i /srv/scan/.ssh/scan_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/scan/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
 
-sudo -u explorer git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/explorer/repo
-sudo -u explorer git -C /srv/explorer/repo config core.sshCommand "$KEY"
-sudo -u explorer git -C /srv/explorer/repo fetch --dry-run origin master   # must succeed
+sudo -u scan git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/scan/repo
+sudo -u scan git -C /srv/scan/repo config core.sshCommand "$KEY"
+sudo -u scan git -C /srv/scan/repo fetch --dry-run origin master   # must succeed
 
-sudo install -o explorer -g explorer -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
+sudo install -o scan -g scan -m 755 /srv/scan/repo/deploy/deploy.sh /opt/scan/deploy.sh
 ```
 
 ## 2. systemd
 
 ```bash
-sudo cp /srv/explorer/repo/deploy/explorer.service /etc/systemd/system/
-sudo cp /srv/explorer/repo/deploy/explorer-deploy.service /etc/systemd/system/
-sudo cp /srv/explorer/repo/deploy/explorer-deploy.timer   /etc/systemd/system/
+sudo cp /srv/scan/repo/deploy/scan.service /etc/systemd/system/
+sudo cp /srv/scan/repo/deploy/scan-deploy.service /etc/systemd/system/
+sudo cp /srv/scan/repo/deploy/scan-deploy.timer   /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
 ### Connecting the indexer (optional)
 
-The explorer reads proposal votes from the indexer's Postgres when it can, and
+Scan reads proposal votes from the indexer's Postgres when it can, and
 falls back to querying nodes directly when it cannot — so this step can be
 skipped entirely, and skipping it changes nothing about how the site behaves.
 
-Give the read-only role a password, then hand the explorer a connection string
+Give the read-only role a password, then hand Scan a connection string
 for it. Interactively, so the secret reaches neither a file in the repo nor your
 shell history:
 
 ```bash
-sudo docker exec -it gata-indexer-db psql -U indexer -d gata_indexer -c '\password explorer_ro'
-sudo install -o root -g explorer -m 640 /dev/null /etc/gata/explorer.env
-sudo -e /etc/gata/explorer.env
+sudo docker exec -it gata-indexer-db psql -U indexer -d gata_indexer -c '\password scan_ro'
+sudo install -o root -g scan -m 640 /dev/null /etc/gata/scan.env
+sudo -e /etc/gata/scan.env
 ```
 
 One line, with the password you just set:
 
 ```
-INDEXER_DATABASE_URL=postgres://explorer_ro:PASSWORD@127.0.0.1:5433/gata_indexer
+INDEXER_DATABASE_URL=postgres://scan_ro:PASSWORD@127.0.0.1:5433/gata_indexer
 ```
 
-`explorer_ro` holds `SELECT` and nothing else (`indexer/sql/003_readonly_role.sql`),
+`scan_ro` holds `SELECT` and nothing else (`indexer/sql/003_readonly_role.sql`),
 which is the point of running the indexer under its own account: the
 internet-facing process cannot write to the historical record even if it is
 compromised.
 
-Then `sudo systemctl restart explorer`. Confirm it took by reading the running
+Then `sudo systemctl restart scan`. Confirm it took by reading the running
 process's own environment — `systemctl show -p Environment` reports only the
 inline `Environment=` directives and will not show anything loaded from a file,
 so it cannot answer this. Counting rather than printing keeps the password off
 the terminal:
 
 ```bash
-sudo tr '\0' '\n' < /proc/$(systemctl show explorer -p MainPID --value)/environ | grep -c INDEXER_DATABASE_URL
+sudo tr '\0' '\n' < /proc/$(systemctl show scan -p MainPID --value)/environ | grep -c INDEXER_DATABASE_URL
 ```
 
-`1` means the explorer has it. `0` means the file is missing, unreadable by the
-`explorer` group, or the unit was copied to `/etc/systemd/system/` without a
+`1` means Scan has it. `0` means the file is missing, unreadable by the
+`scan` group, or the unit was copied to `/etc/systemd/system/` without a
 `daemon-reload` — and because the `-` prefix makes the file optional, all three
 fail silently.
 
-`deploy.sh` restarts the app, so the `explorer` user needs exactly that and nothing more:
+`deploy.sh` restarts the app, so the `scan` user needs exactly that and nothing more:
 
 ```bash
-echo 'explorer ALL=(root) NOPASSWD: /usr/bin/systemctl restart explorer' | \
-  sudo tee /etc/sudoers.d/explorer-deploy
-sudo chmod 440 /etc/sudoers.d/explorer-deploy
+echo 'scan ALL=(root) NOPASSWD: /usr/bin/systemctl restart scan' | \
+  sudo tee /etc/sudoers.d/scan-deploy
+sudo chmod 440 /etc/sudoers.d/scan-deploy
 ```
 
 First deploy builds the release and creates `current`:
 
 ```bash
-sudo -u explorer /opt/explorer/deploy.sh
-sudo systemctl enable --now explorer
+sudo -u scan /opt/scan/deploy.sh
+sudo systemctl enable --now scan
 curl -sI http://127.0.0.1:3200/ | head -1     # expect HTTP/1.1 200
 ```
 
 ## 3. nginx
 
 ```bash
-sudo cp /srv/explorer/repo/deploy/nginx-explorer.conf /etc/nginx/sites-available/explorer
-sudo ln -sf /etc/nginx/sites-available/explorer /etc/nginx/sites-enabled/
+sudo cp /srv/scan/repo/deploy/nginx-scan.conf /etc/nginx/sites-available/scan
+sudo ln -sf /etc/nginx/sites-available/scan /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 sudo certbot --nginx -d explorer.gatahub.zone --redirect
@@ -152,8 +152,8 @@ sudo certbot --nginx -d explorer.gatahub.zone --redirect
 ## 4. Auto-pull
 
 ```bash
-sudo systemctl enable --now explorer-deploy.timer
-systemctl list-timers explorer-deploy --no-pager
+sudo systemctl enable --now scan-deploy.timer
+systemctl list-timers scan-deploy --no-pager
 ```
 
 Checks every 5 minutes; a run with no new commits is one `git fetch` and exits.
@@ -163,18 +163,18 @@ checks, and **rolls back automatically** if the new release does not answer.
 ## Operating it
 
 ```bash
-journalctl -u explorer -f                    # app logs
-journalctl -u explorer-deploy -n 80          # last deploy run
-sudo systemctl start explorer-deploy         # deploy now, do not wait
-sudo -u explorer /opt/explorer/deploy.sh --force # rebuild the same commit
-readlink -f /srv/explorer/current            # which sha is live
+journalctl -u scan -f                    # app logs
+journalctl -u scan-deploy -n 80          # last deploy run
+sudo systemctl start scan-deploy         # deploy now, do not wait
+sudo -u scan /opt/scan/deploy.sh --force # rebuild the same commit
+readlink -f /srv/scan/current            # which sha is live
 ```
 
 After changing `deploy.sh` itself, reinstall it — the timer runs the copy in
-`/opt/explorer`, not the one in the checkout:
+`/opt/scan`, not the one in the checkout:
 
 ```bash
-sudo install -o explorer -g explorer -m 755 /srv/explorer/repo/deploy/deploy.sh /opt/explorer/deploy.sh
+sudo install -o scan -g scan -m 755 /srv/scan/repo/deploy/deploy.sh /opt/scan/deploy.sh
 ```
 
 ## Notes

@@ -49,7 +49,7 @@ function parseTargets(raw: string | undefined): ChainTarget[] {
 }
 
 function log(msg: string) {
-  // Plain stdout: systemd captures it into the journal, same as the explorer.
+  // Plain stdout: systemd captures it into the journal, same as the app.
   console.log(`[${new Date().toISOString()}] ${msg}`);
 }
 

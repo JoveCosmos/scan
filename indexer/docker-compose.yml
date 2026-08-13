@@ -4,7 +4,7 @@
 # deliberate act, not something a `docker compose pull` does silently.
 #
 # Bound to 127.0.0.1 only. Nothing about this database is reachable from the
-# network; the explorer and the worker both connect over loopback.
+# network; Scan and the worker both connect over loopback.
 
 services:
   postgres:
@@ -38,7 +38,7 @@ services:
       timeout: 5s
       retries: 5
     # The indexer is a background service; it must never crowd out the node or
-    # the explorer on a shared box.
+    # Scan on a shared box.
     deploy:
       resources:
         limits:

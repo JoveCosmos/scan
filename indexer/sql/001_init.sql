@@ -71,7 +71,7 @@ CREATE INDEX IF NOT EXISTS transfer_from_idx ON transfer (chain_id, from_addr, h
 CREATE INDEX IF NOT EXISTS transfer_to_idx ON transfer (chain_id, to_addr, height DESC)
   WHERE to_addr IS NOT NULL;
 
--- Resume point, and the freshness signal the explorer's read path gates on.
+-- Resume point, and the freshness signal Scan's read path gates on.
 CREATE TABLE IF NOT EXISTS indexer_cursor (
   chain_id     text        PRIMARY KEY,
   last_height  bigint      NOT NULL,

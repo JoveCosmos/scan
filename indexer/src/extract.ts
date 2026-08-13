@@ -225,7 +225,7 @@ export function parseVoteOptions(raw: string): VoteOption[] {
  * two reasons: no protobuf decoding is needed, and the event names the *voter*
  * — the granter — so a vote cast through an authz grant is attributed correctly
  * without unwrapping anything. Reading the signer instead would credit the
- * grantee, the exact bug that made the explorer under-count AtomOne proposals.
+ * grantee, the exact bug that made Scan under-count AtomOne proposals.
  */
 export function extractVotes(
   events: Event[],
@@ -246,7 +246,7 @@ export function extractVotes(
     if (options.length === 0) continue;
 
     // Heaviest option represents the vote; ties keep the first, which matches
-    // how the explorer already summarises weighted votes.
+    // how Scan already summarises weighted votes.
     const primary = [...options].sort(
       (x, y) => Number(y.weight) - Number(x.weight)
     )[0];

@@ -1,12 +1,12 @@
 # Indexer
 
 A companion service that turns the chains' live feed into a small, queryable
-history in Postgres, so the explorer can answer questions no node can: jail and
+history in Postgres, so Scan can answer questions no node can: jail and
 slash history, uptime beyond the signing window, fast vote and delegator
 queries, and trends over time.
 
 Status: **phase 1 built** (`indexer/`) — blocks, transactions and transfers,
-following the head. Nothing in the explorer reads Postgres yet; that is phase 2.
+following the head. Nothing in Scan reads Postgres yet; that is phase 2.
 Later phases below are still plan.
 
 Two things phase 1 settled that the plan had left open:
@@ -26,7 +26,7 @@ Two things phase 1 settled that the plan had left open:
   for a **gno.land mainnet** later.
 - **gno.land is a different chain kind** — Tendermint2, no `/cosmos/*` modules,
   no staking/gov/slashing. It gets blocks and txs only, from its own RPC +
-  indexing API, mirroring the explorer's existing cosmos/gno adapter split. The
+  indexing API, mirroring Scan's existing cosmos/gno adapter split. The
   event tables below (`vote`, `slash_event`, `validator_snapshot`) are
   Cosmos-only and simply do not populate for gno.
 - **Read source:** **backfill from public full/archive nodes on the internet**
@@ -44,7 +44,7 @@ Two things phase 1 settled that the plan had left open:
 
 ## Why
 
-Some facts an explorer wants are simply not answerable from a node:
+Some facts a Scan wants are simply not answerable from a node:
 
 - **Jail / slash history** — jailing happens in `BeginBlock`, not a transaction,
   so it is not in tx search; the slashing module keeps no counter.
@@ -66,12 +66,12 @@ Some facts an explorer wants are simply not answerable from a node:
    the single most important rule.
 2. **Postgres is the memory; the node is the feed.** The node stays pruned and
    small. Postgres is the permanent record of what we index.
-3. **Never worse than today.** The explorer reads Postgres first and falls back
+3. **Never worse than today.** Scan reads Postgres first and falls back
    to the existing live-node path when the indexer lags or a table is empty.
    Shipping the indexer must not be able to break a working page.
-4. **Isolated, like the explorer.** Own system user, own database, own systemd
+4. **Isolated, like Scan.** Own system user, own database, own systemd
    unit, localhost only. Same posture as `deploy/` — see
-   [ARCHITECTURE.md](ARCHITECTURE.md) and the isolation rule the explorer
+   [ARCHITECTURE.md](ARCHITECTURE.md) and the isolation rule Scan
    already follows.
 
 ## Architecture
@@ -89,7 +89,7 @@ Some facts an explorer wants are simply not answerable from a node:
  Postgres (localhost, Docker)  ── the projection
         │  reads (localhost, sub-ms)
         ▼
- explorer  ── Postgres first, live-node fallback when the cursor lags
+ scan  ── Postgres first, live-node fallback when the cursor lags
 ```
 
 **Ongoing reads come from our own validator node; backfill does not.** The
@@ -259,7 +259,7 @@ per-chain loop:
    `NewBlock` over the RPC WebSocket). For each height above the cursor:
 2. **Fetch** `/block` and `/block_results` for that height.
 3. **Extract** in one pass: block row, tx rows, transfers (authz-unwrapped),
-   votes, slash/liveness events. Reuse the explorer's existing parsers
+   votes, slash/liveness events. Reuse Scan's existing parsers
    (`lib/tx-parties.ts`, `lib/proposals.ts` authz flattening) — same logic,
    moved server-side.
 4. **Write one height per transaction**, then advance `indexer_cursor` in the
@@ -302,7 +302,7 @@ does; verify before relying on one.
 - PublicNode RPC gateway: `https://cosmos-rpc.publicnode.com` (verify
   block_results retention).
 - Quicknode archive (paid) covers from block 5200791 (`cosmoshub-4` genesis).
-- Note: `cosmoshub-1/2/3` are separate prior chains; the explorer only cares
+- Note: `cosmoshub-1/2/3` are separate prior chains; Scan only cares
   about `cosmoshub-4`, so genesis-of-4 is the real start.
 
 **AtomOne (`atomone-1`)**
@@ -329,7 +329,7 @@ its own public endpoints (`cosmos.directory/atomone-testnet`, Polkachu testnet).
 
 **gno.land testnet (`topaz-1`)** — not Cosmos SDK. No `/block_results` events to
 mine; it yields blocks and txs only, read through its RPC + indexing API the
-same way the explorer's gno adapter already does. Backfill depth here is just
+same way Scan's gno adapter already does. Backfill depth here is just
 "as far as its public indexing API serves." A future gno.land **mainnet** slots
 in the same way.
 
@@ -354,14 +354,14 @@ Rough steady-state estimate with selective indexing: **single-digit to
 low-double-digit GB across all chains for years** — comfortably on the box, and
 nowhere near the chain's terabytes.
 
-## Read path (explorer side)
+## Read path (scan side)
 
 A new adapter reads Postgres, chosen per-query behind the existing
 `ChainAdapter` seam so pages do not change:
 
 - **Freshness gate.** If `indexer_cursor.updated_at` is stale (say > 2 minutes
   behind wall clock) or the relevant table is empty for the chain, **fall back
-  to the live path** already in `lib/*`. The explorer never regresses.
+  to the live path** already in `lib/*`. Scan never regresses.
 - Roll out per feature: point votes at Postgres first (biggest win), then
   slash/uptime history, then charts. Each falls back independently.
 - The existing `cached()` layer still sits in front, so even Postgres reads are
@@ -375,10 +375,10 @@ Mirrors `deploy/`:
   only, data on a named volume backed by a host path outside the release tree.
   Pinning the tag makes the setup reproducible and upgrades a deliberate act.
 - Dedicated `indexer` system user for the worker; the database has a
-  least-privilege **read-only** role that the explorer connects as.
+  least-privilege **read-only** role that Scan connects as.
 - systemd: `indexer.service` (the worker, `Restart=always`), and the Postgres
   container managed by systemd or its own compose unit; same hardening flags as
-  `explorer.service` (`ProtectSystem=strict`, `NoNewPrivileges`, …) on the
+  `scan.service` (`ProtectSystem=strict`, `NoNewPrivileges`, …) on the
   worker.
 - **Never touch `gata-hub`** — separate user, directory, and unit, per the
   standing rule.

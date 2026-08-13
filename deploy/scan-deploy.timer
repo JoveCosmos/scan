@@ -1,5 +1,5 @@
 [Unit]
-Description=Poll git for explorer updates
+Description=Poll git for scan updates
 
 [Timer]
 # First check shortly after boot, then every 5 minutes. A run with no new

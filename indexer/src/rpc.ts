@@ -3,7 +3,7 @@ import type { BlockResponse, BlockResultsResponse } from "./extract";
 /**
  * Minimal CometBFT RPC client.
  *
- * Deliberately small: the worker needs three calls, and the explorer's own
+ * Deliberately small: the worker needs three calls, and Scan's own
  * `lib/lcd.ts` is for the REST API, not this one.
  */
 

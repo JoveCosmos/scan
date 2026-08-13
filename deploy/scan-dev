@@ -1,0 +1,24 @@
+#!/bin/bash
+# Attach the persistent scan dev session, creating it if it is not running.
+#
+#   sudo install -m 755 /srv/scan/repo/deploy/scan-dev /usr/local/bin/scan-dev
+#
+# The agent runs as `scan`, the account the app already runs under — no new
+# user and no new attack surface. That account has /usr/sbin/nologin on purpose
+# and cannot be SSHed into, so this reaches it with sudo from a root login
+# rather than giving it a shell.
+#
+# HOME is /srv/scan-dev, not the account's home (/srv/scan): the deploy tree
+# stays clean, and Claude keeps its config, history and memory in
+# /srv/scan-dev/.claude.
+#
+# TERM is deliberately not passed through. tmux sets it correctly inside the
+# pane, and inheriting it from a non-interactive ssh once baked TERM=dumb into
+# a session.
+set -e
+S=scan
+if ! tmux has-session -t "$S" 2>/dev/null; then
+  tmux new-session -d -s "$S" -c /srv/scan-dev/scan \
+    "sudo -u scan -H env HOME=/srv/scan-dev bash --noprofile --norc"
+fi
+exec tmux attach -t "$S"

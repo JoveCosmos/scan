@@ -1,6 +1,6 @@
-# GATA HUB Explorer
+# GATA SCAN
 
-Multi-chain block explorer, live at **https://explorer.gatahub.zone**.
+Multi-chain block scan, live at **https://explorer.gatahub.zone**.
 
 Blocks, transactions, validators, governance and accounts across six networks,
 read straight from full nodes with no indexer of our own.

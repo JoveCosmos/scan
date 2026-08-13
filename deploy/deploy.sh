@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy the explorer, mirroring the gata-hub pipeline on the same box:
+# Deploy Scan, mirroring the gata-hub pipeline on the same box:
 # release directories + atomic symlink swap + health check + auto-rollback.
 #
 # Release dirs are not ceremony: `next build` rewrites .next underneath the
@@ -12,13 +12,13 @@
 #
 set -euo pipefail
 
-ROOT="${ROOT:-/srv/explorer}"
+ROOT="${ROOT:-/srv/scan}"
 REPO="$ROOT/repo"
 RELEASES="$ROOT/releases"
 SHARED="$ROOT/shared"
 CURRENT="$ROOT/current"
 BRANCH="${BRANCH:-master}"
-SERVICE="${SERVICE:-explorer}"
+SERVICE="${SERVICE:-scan}"
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:3200/}"
 # Absolute path on purpose: sudoers matches the literal command, so resolving
 # systemctl via PATH would silently stop matching the NOPASSWD rule.

@@ -270,7 +270,7 @@ describe("votes from a real block", () => {
 
   it("takes the voter from the event, so authz votes attribute correctly", () => {
     // The event names the granter. Reading the signer instead would credit the
-    // grantee — the bug that made the explorer under-count AtomOne proposals.
+    // grantee — the bug that made Scan under-count AtomOne proposals.
     const voters = out.votes.map((v) => v.voter);
     for (const v of voters) expect(v.startsWith("atone1")).toBe(true);
   });

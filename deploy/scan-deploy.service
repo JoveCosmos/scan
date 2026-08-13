@@ -1,28 +1,28 @@
 [Unit]
-Description=Pull and rebuild the explorer if git moved
+Description=Pull and rebuild Scan if git moved
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=explorer
-Group=explorer
-WorkingDirectory=/srv/explorer/repo
+User=scan
+Group=scan
+WorkingDirectory=/srv/scan/repo
 
-Environment=ROOT=/srv/explorer
+Environment=ROOT=/srv/scan
 Environment=BRANCH=master
-Environment=SERVICE=explorer
-Environment=HOME=/srv/explorer
-Environment=npm_config_cache=/srv/explorer/shared/.npm
+Environment=SERVICE=scan
+Environment=HOME=/srv/scan
+Environment=npm_config_cache=/srv/scan/shared/.npm
 
-ExecStart=/opt/explorer/deploy.sh
+ExecStart=/opt/scan/deploy.sh
 # npm ci plus next build on a small box.
 TimeoutStartSec=900
 
 # Builds need to write the release tree, but nothing outside it.
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/explorer
+ReadWritePaths=/srv/scan
 PrivateTmp=true
 InaccessiblePaths=/srv/gata-hub /etc/gata
 
@@ -38,4 +38,4 @@ LockPersonality=true
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=explorer-deploy
+SyslogIdentifier=scan-deploy

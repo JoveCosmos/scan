@@ -1,5 +1,5 @@
 [Unit]
-Description=GATA HUB Explorer (Next.js)
+Description=GATA SCAN (Next.js)
 Documentation=https://github.com/JoveCosmos/explorer
 After=network-online.target
 Wants=network-online.target
@@ -7,32 +7,32 @@ Wants=network-online.target
 [Service]
 Type=simple
 # Dedicated account. Deliberately NOT the gata user: that account can read
-# /etc/gata/app.env (root:gata 0640), so running a public-facing explorer as
+# /etc/gata/app.env (root:gata 0640), so running a public-facing scan as
 # gata would put gata-hub's secrets one compromise away.
-User=explorer
-Group=explorer
-WorkingDirectory=/srv/explorer/current
+User=scan
+Group=scan
+WorkingDirectory=/srv/scan/current
 
 Environment=NODE_ENV=production
-Environment=HOME=/srv/explorer
-Environment=npm_config_cache=/srv/explorer/shared/.npm
+Environment=HOME=/srv/scan
+Environment=npm_config_cache=/srv/scan/shared/.npm
 # Realm index lives in shared/ so a release swap never discards it.
-Environment=VALOPER_CACHE_DIR=/srv/explorer/shared/valopers
+Environment=VALOPER_CACHE_DIR=/srv/scan/shared/valopers
 
 # Secrets — currently INDEXER_DATABASE_URL, the read-only role on the indexer's
 # Postgres. A file rather than Environment= above, because unit files are world
-# readable and `systemctl cat explorer` would hand the credential to any account
+# readable and `systemctl cat scan` would hand the credential to any account
 # on the box.
 #
 # systemd reads this as root while setting the unit up, before the namespace
 # below takes effect, so InaccessiblePaths=/etc/gata does not conflict with it —
 # the value arrives as an environment variable and the running process has no
-# path to the file it came from. Keep it root:explorer 0640.
+# path to the file it came from. Keep it root:scan 0640.
 #
-# Leading '-' makes it optional: the explorer must still start on a box where
+# Leading '-' makes it optional: Scan must still start on a box where
 # the indexer was never configured, which is the same fallback the read path
 # assumes.
-EnvironmentFile=-/etc/gata/explorer.env
+EnvironmentFile=-/etc/gata/scan.env
 
 # Bind explicitly on the command line. The HOSTNAME env var did NOT restrict
 # next start — it still listened on 0.0.0.0, which would expose port 3200
@@ -46,7 +46,7 @@ TimeoutStartSec=120
 # --- Filesystem isolation -------------------------------------------------
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/srv/explorer
+ReadWritePaths=/srv/scan
 PrivateTmp=true
 # Explicitly out of reach even if ownership is ever loosened by mistake.
 InaccessiblePaths=/srv/gata-hub /etc/gata
@@ -77,7 +77,7 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=explorer
+SyslogIdentifier=scan
 
 [Install]
 WantedBy=multi-user.target

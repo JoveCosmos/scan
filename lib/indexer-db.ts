@@ -2,14 +2,14 @@ import { Pool } from "pg";
 import { cached } from "@/lib/cache";
 
 /**
- * The explorer's read-only view of the indexer's database.
+ * Scan's read-only view of the indexer's database.
  *
  * Every function here returns null when it cannot answer, and the caller falls
  * back to the live-node path it already had. That is the rule the whole
  * indexer rests on: reading from Postgres may be faster, but it must never make
  * a page worse than it was before the indexer existed.
  *
- * Unconfigured is a normal state. Without INDEXER_DATABASE_URL the explorer
+ * Unconfigured is a normal state. Without INDEXER_DATABASE_URL Scan
  * behaves exactly as it did, which is what makes this safe to deploy before the
  * database is ready.
  */
@@ -31,10 +31,10 @@ export function indexerPool(): Pool | null {
   store[POOL_KEY] = new Pool({
     connectionString: url,
     // Small: these are short indexed reads behind a request cache, and the
-    // explorer must not be able to exhaust the indexer's connections.
+    // scan must not be able to exhaust the indexer's connections.
     max: 4,
     connectionTimeoutMillis: 3000,
-    application_name: "gata-explorer",
+    application_name: "gata-scan",
   });
   return store[POOL_KEY];
 }

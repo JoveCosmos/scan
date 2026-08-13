@@ -3,7 +3,7 @@
 Follows each chain's head and writes blocks, transactions and transfers into
 Postgres. Design and later phases: [../docs/INDEXER.md](../docs/INDEXER.md).
 
-Phase 1 deliberately does **not** touch the explorer's read path — nothing the
+Phase 1 deliberately does **not** touch Scan's read path — nothing the
 site renders changes yet. It builds the pipeline and proves it, so phase 2 can
 point the vote list at Postgres behind a fallback.
 
@@ -75,7 +75,7 @@ SELECT hash, height, fee_amount, fee_denom, array_length(msg_types,1) AS msgs
 SELECT kind, count(*) FROM transfer GROUP BY kind;
 ```
 
-`updated_at` is what the explorer's read path will gate on in phase 2: if it
+`updated_at` is what Scan's read path will gate on in phase 2: if it
 falls behind, pages fall back to reading the chain live.
 
 ## Tests
@@ -99,7 +99,7 @@ integer width.
 
 ## Deploying
 
-`indexer.service` mirrors the explorer's unit — dedicated `indexer` user, strict
+`indexer.service` mirrors Scan's unit — dedicated `indexer` user, strict
 filesystem isolation, `gata-hub` explicitly out of reach, and `Nice=10` /
 `IOSchedulingClass=idle` so background indexing never crowds out the node.
 

@@ -20,11 +20,11 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "GATA HUB Explorer",
-    template: "%s · GATA HUB Explorer",
+    default: "GATA SCAN",
+    template: "%s · GATA SCAN",
   },
   description:
-    "Multi-chain Cosmos block explorer by GATA HUB - Cosmos Hub, AtomOne and Akash.",
+    "Multi-chain Cosmos block scan by GATA HUB - Cosmos Hub, AtomOne and Akash.",
 };
 
 export default function RootLayout({
@@ -61,7 +61,7 @@ export default function RootLayout({
               <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <span>
                   <span className="font-semibold text-foreground">GATA HUB</span>{" "}
-                  Explorer
+                  Scan
                 </span>
               </div>
             </footer>

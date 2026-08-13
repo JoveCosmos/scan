@@ -1,13 +1,13 @@
 [Unit]
-Description=GATA HUB Explorer indexer
+Description=GATA SCAN indexer
 Documentation=https://github.com/JoveCosmos/explorer/blob/master/docs/INDEXER.md
 After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-# Its own account, like the explorer. Deliberately NOT the gata user, and not
-# the explorer user either: the indexer writes to a database the explorer only
+# Its own account, like Scan. Deliberately NOT the gata user, and not
+# Scan user either: the indexer writes to a database Scan only
 # reads.
 User=indexer
 Group=indexer
@@ -29,7 +29,7 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/srv/indexer
 PrivateTmp=true
-# The explorer's rule applies here too: never reach into the other setups.
+# Scan's rule applies here too: never reach into the other setups.
 InaccessiblePaths=/srv/gata-hub /etc/gata/app.env
 
 # --- Privilege and kernel isolation ---------------------------------------
@@ -54,9 +54,9 @@ SystemCallErrorNumber=EPERM
 # Loopback to Postgres and the node; outbound HTTPS only for backfill.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # NOTE: MemoryDenyWriteExecute stays off — it breaks V8's JIT, as on the
-# explorer unit.
+# scan unit.
 
-# Background work must never crowd out the node or the explorer.
+# Background work must never crowd out the node or Scan.
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=20

@@ -6,7 +6,7 @@ import { z } from "zod";
  * The infrastructure GATA HUB runs and offers publicly.
  *
  * Deliberately separate from `config/chains/*.json`. Those describe a *chain* —
- * its denom, its prefix, endpoints the explorer reads from. This describes what
+ * its denom, its prefix, endpoints Scan reads from. This describes what
  * we operate, which is a different thing entirely and changes for different
  * reasons.
  *

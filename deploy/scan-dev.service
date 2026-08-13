@@ -1,0 +1,39 @@
+[Unit]
+Description=GATA SCAN dev server (Next.js, localhost only)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=scan
+Group=scan
+WorkingDirectory=/srv/scan-dev/scan
+
+# No EnvironmentFile. The dev server must not hold the production database
+# credential: /etc/gata/scan.env carries INDEXER_DATABASE_URL, and pointing this
+# at it would give an unreviewed working tree a live connection. Without it the
+# dev server behaves exactly as a fresh checkout does — every indexed feature
+# falls back to querying nodes, which is the path that has to keep working
+# anyway.
+#
+# To develop against the index, put a copy in /srv/scan-dev/scan/.env.local.
+# That file is git-ignored.
+Environment=NODE_ENV=development
+Environment=PORT=3006
+Environment=HOSTNAME=127.0.0.1
+
+# 3006: gata-hub dev holds 3005 and scan production holds 3200.
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev -p 3006 -H 127.0.0.1
+
+TimeoutStopSec=60
+Restart=always
+RestartSec=3
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scan-dev
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 # Architecture
 
-A multi-chain block explorer. Next.js 15 App Router, server components for
+A multi-chain block scan. Next.js 15 App Router, server components for
 reads, TanStack Query only for the live tickers.
 
 Live at **https://explorer.gatahub.zone**. Deployment: [`deploy/README.md`](../deploy/README.md).
@@ -199,7 +199,7 @@ that the mocks match yesterday's API.
 ## Security
 
 The app holds no secrets — every endpoint is a public node URL, and there are no
-build-time env vars. It runs as a dedicated `explorer` user that cannot read
+build-time env vars. It runs as a dedicated `scan` user that cannot read
 gata-hub's data, bound to loopback behind nginx. See
 [`deploy/README.md`](../deploy/README.md).
 

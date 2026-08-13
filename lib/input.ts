@@ -4,7 +4,7 @@
  *
  * Route params are interpolated into LCD and RPC paths, and `decodeParam`
  * percent-decodes them first — so without these, `%2F..%2F` arrives as
- * `/../`, which URL normalisation folds away, letting a crafted explorer URL
+ * `/../`, which URL normalisation folds away, letting a crafted Scan URL
  * steer our server's request to any path on the node, or smuggle `?` query
  * params past ours. The data on the other side is public, but the request is
  * ours, and a response from the wrong endpoint parses as "not found" rather

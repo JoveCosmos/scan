@@ -108,7 +108,7 @@ export function generateStaticParams() {
 
 export const dynamicParams = true;
 
-// An explorer always shows head-of-chain state, so never prerender this at build
+// An scan always shows head-of-chain state, so never prerender this at build
 // time — a public node being down must not be able to fail the build.
 export const dynamic = "force-dynamic";
 
