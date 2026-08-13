@@ -1,5 +1,6 @@
 {
   "chainId": "topaz-1",
+  "order": 1,
   "name": "gnoland",
   "prettyName": "Gno.land Testnet",
   "logo": "/chains/gnoland.svg",

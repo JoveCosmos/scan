@@ -30,8 +30,22 @@ const chainConfigSchema = z
      * plus an indexing REST API, so they need a different adapter entirely.
      */
     kind: z.enum(["cosmos", "gno"]).default("cosmos"),
-    /** Groups chains in the switcher and on the landing page. */
+    /**
+     * Kept for context where a chain is named without its network being
+     * obvious — the search disambiguation list, mainly. It no longer groups the
+     * switcher: mainnets and testnets are listed together in `order`, because
+     * splitting them buried AtomOne's testnet far from AtomOne itself when the
+     * two are worked on side by side.
+     */
     network: z.enum(["mainnet", "testnet"]).default("mainnet"),
+    /**
+     * Position in the switcher and anywhere else chains are listed. Ascending,
+     * and deliberately not derived from name or network — the intended reading
+     * order is "ours first, then the rest", which no property of the chain
+     * itself expresses. A chain without one sorts to the end by prettyName, so
+     * adding a chain stays a JSON file and never a renumbering exercise.
+     */
+    order: z.number().int().optional(),
     /**
      * CoinGecko id, for price and market cap. Absent on testnets and on chains
      * with no traded token, which simply show no market figures.
@@ -105,6 +119,15 @@ function loadChains(): ChainConfig[] {
     }
     seen.add(chain.chainId);
   }
+
+  // Sorted once here so every list — switcher, landing page, search results —
+  // agrees. Order was previously whatever readdir returned, which is
+  // alphabetical on this filesystem but is not guaranteed to be anywhere.
+  chains.sort((a, b) => {
+    const ao = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.order ?? Number.MAX_SAFE_INTEGER;
+    return ao - bo || a.prettyName.localeCompare(b.prettyName);
+  });
 
   cachedChains = chains;
   return chains;

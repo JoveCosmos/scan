@@ -1,5 +1,6 @@
 {
   "chainId": "juno-1",
+  "order": 9,
   "name": "juno",
   "prettyName": "Juno",
   "logo": "/chains/juno.svg",

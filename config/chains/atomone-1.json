@@ -1,5 +1,6 @@
 {
   "chainId": "atomone-1",
+  "order": 2,
   "name": "atomone",
   "prettyName": "AtomOne",
   "logo": "/chains/atomone.svg",

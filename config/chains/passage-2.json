@@ -1,12 +1,15 @@
 {
   "chainId": "passage-2",
+  "order": 8,
   "name": "passage",
   "prettyName": "Passage",
   "logo": "/chains/passage.svg",
   "bech32Prefix": "pasg",
   "denom": "upasg",
   "exponent": 6,
-  "lcdEndpoints": ["https://rest.cosmos.directory/passage"],
+  "lcdEndpoints": [
+    "https://rest.cosmos.directory/passage"
+  ],
   "rpcEndpoints": [
     "https://rpc.cosmos.directory/passage",
     "http://127.0.0.1:27857"
