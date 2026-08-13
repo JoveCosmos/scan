@@ -47,6 +47,11 @@ sudo chmod 750 /srv/scan
 The repo is private, so the box gets its own **read-only deploy key** — a
 separate one from gata-hub's, so neither service can pull the other's code.
 
+**Production's key is read-only, and that is the point.** A push to `master` is
+a deploy (§4), so a write key here would let anything owning the app account
+ship its own code to production. The write key lives only in the dev tree, at
+`/srv/scan-dev/.ssh/scan_deploy` — see `setup-dev.sh`. Two keys, one per role.
+
 The key is referenced by **absolute path**, not through an ssh config alias:
 sudo and systemd disagree about `HOME`, so an alias only resolves when ssh
 happens to find the right config.
@@ -54,18 +59,21 @@ happens to find the right config.
 ```bash
 sudo -u scan mkdir -p /srv/scan/.ssh
 sudo -u scan chmod 700 /srv/scan/.ssh
-sudo -u scan ssh-keygen -t ed25519 -f /srv/scan/.ssh/scan_deploy -N '' -C 'scan-deploy@gata-box'
-sudo -u scan cat /srv/scan/.ssh/scan_deploy.pub
-# Add at https://github.com/JoveCosmos/explorer/settings/keys — leave write access OFF
+sudo -u scan ssh-keygen -t ed25519 -f /srv/scan/.ssh/scan_prod_ro -N '' -C 'scan-prod-ro@gata-box'
+sudo -u scan cat /srv/scan/.ssh/scan_prod_ro.pub
+# Add at https://github.com/JoveCosmos/scan/settings/keys — leave write access OFF
 ```
+
+A GitHub deploy key cannot be attached to more than one repository, so each
+product needs its own pair.
 
 Clone with that key, then persist it into the repo config so every later fetch
 uses it regardless of environment:
 
 ```bash
-KEY='ssh -i /srv/scan/.ssh/scan_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/scan/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
+KEY='ssh -i /srv/scan/.ssh/scan_prod_ro -o IdentitiesOnly=yes -o UserKnownHostsFile=/srv/scan/.ssh/known_hosts -o StrictHostKeyChecking=accept-new'
 
-sudo -u scan git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/explorer.git /srv/scan/repo
+sudo -u scan git -c core.sshCommand="$KEY" clone git@github.com:JoveCosmos/scan.git /srv/scan/repo
 sudo -u scan git -C /srv/scan/repo config core.sshCommand "$KEY"
 sudo -u scan git -C /srv/scan/repo fetch --dry-run origin master   # must succeed
 

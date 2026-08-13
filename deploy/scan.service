@@ -1,6 +1,6 @@
 [Unit]
 Description=GATA SCAN (Next.js)
-Documentation=https://github.com/JoveCosmos/explorer
+Documentation=https://github.com/JoveCosmos/scan
 After=network-online.target
 Wants=network-online.target
 

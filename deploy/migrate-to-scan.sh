@@ -3,6 +3,13 @@
 #
 #   sudo /srv/explorer/repo/deploy/migrate-to-scan.sh
 #
+# SPENT — this ran on 2026-08-13 and is kept as a record of what moved. Do not
+# run it again; /srv/explorer no longer exists. The notes below describe the box
+# as it was at that moment, so two of them have since been overtaken: the GitHub
+# repo was renamed to JoveCosmos/scan, and the deploy key was split into a
+# read-only production key plus a separate write key in the dev tree (see
+# setup-dev.sh). The hostname is still explorer.gatahub.zone.
+#
 # Every step checks whether it has already been done, so a run that fails
 # halfway can be fixed and re-run rather than unpicked. Nothing here touches the
 # indexer: it is a separate account with its own database credentials, and the
