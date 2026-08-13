@@ -8,7 +8,8 @@ import { formatToken } from "@/lib/overview";
 import { CopyButton } from "@/components/copy-button";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { decodeParam } from "@/lib/format";
-import { accountFromOperator } from "@/lib/bech32";
+import { accountFromOperator, linkedAddresses } from "@/lib/bech32";
+import { LinkedAddresses } from "@/components/linked-addresses";
 import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorStatus } from "@/components/validator-status";
 import { ValidatorSlashes } from "@/components/validator-slashes";
@@ -98,6 +99,11 @@ export default async function ValidatorDetailPage({
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
   const selfDelegation = accountFromOperator(addr, chain.bech32Prefix);
+  // Derived from the self-delegation account, never from the operator address:
+  // re-encoding a …valoper1… under another chain's prefix yields a valid-looking
+  // address that is a different entity. linkedAddresses refuses one anyway, so
+  // passing the operator here would silently render nothing.
+  const links = selfDelegation ? linkedAddresses(selfDelegation) : [];
   const adapter = getAdapter(chain);
   // Shares the validators-page cache key, so opening a validator right after
   // the list costs nothing extra.
@@ -157,11 +163,16 @@ export default async function ValidatorDetailPage({
           </div>
         </div>
 
-        <ValidatorStatus
-          jailed={validator.jailed}
-          status={validator.status}
-          tombstoned={uptime.tombstoned}
-        />
+        <div className="flex items-center gap-2">
+          {links.length > 0 && (
+            <LinkedAddresses links={links} currentChainId={chainId} />
+          )}
+          <ValidatorStatus
+            jailed={validator.jailed}
+            status={validator.status}
+            tombstoned={uptime.tombstoned}
+          />
+        </div>
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
