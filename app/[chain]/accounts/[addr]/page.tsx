@@ -10,6 +10,7 @@ import { decodeParam } from "@/lib/format";
 import { CopyButton } from "@/components/copy-button";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { AccountTxs } from "@/components/account-txs";
+import { AccountStaking } from "@/components/account-staking";
 import { AddressElsewhere } from "@/components/address-elsewhere";
 import { LoadingPanel } from "@/components/loading-panel";
 import { linkedAddresses } from "@/lib/bech32";
@@ -265,6 +266,20 @@ export default async function AccountPage({
           ) : null}
         </>
       )}
+
+      {/* Skipped where the chain has no staking module at all — gno.land has no
+          validators to delegate to, so an empty "nothing staked" panel there
+          would describe a feature that does not exist. */}
+      {getAdapter(chain).capabilities.staking ? (
+        <>
+          <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
+            Staking
+          </h2>
+          <Suspense fallback={<LoadingPanel label="Loading delegations…" rows={3} />}>
+            <AccountStaking chain={chain} address={address} />
+          </Suspense>
+        </>
+      ) : null}
 
       {/* Outside the exists check on purpose: an address can have history and a
           zero balance, and that history is the interesting part. */}
