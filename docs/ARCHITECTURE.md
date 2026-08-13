@@ -64,6 +64,7 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
   "lcdEndpoints": ["…"],            // required when kind=cosmos
   "rpcEndpoints": ["…"],
   "apiEndpoints": ["…"],            // required when kind=gno
+  "fallbackLcdEndpoints": ["…"],    // ours; tried last, never promoted
   "accent": "#36D399"               // must be unique across chains
 }
 ```
@@ -71,6 +72,13 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
 A chain with no `order` sorts to the end, and one with no `tier` defaults to
 `medium` — so adding a chain stays a matter of dropping in a file, and never
 silently costs an existing chain its position or its transactions.
+
+**Our own nodes go in the `fallback*` lists, never the main ones.** The fetch
+layer remembers whichever endpoint last answered and tries it first, so an
+endpoint appended to `lcdEndpoints` becomes the primary the moment it wins one
+failover — which would leave the scan reading from a validator that has another
+job. `orderEndpoints` in `lib/lcd.ts` places fallbacks last always and refuses to
+promote them, and only primaries are recorded as last-good.
 
 ## Service tiers
 

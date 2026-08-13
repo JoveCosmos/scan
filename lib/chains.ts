@@ -66,6 +66,17 @@ const chainConfigSchema = z
     repo: z.string().url().optional(),
     lcdEndpoints: z.array(z.string().url()).default([]),
     rpcEndpoints: z.array(z.string().url()).min(1),
+    /**
+     * Our own nodes, tried only when every endpoint above has failed.
+     *
+     * Separate from the lists above rather than appended to them because the
+     * fetch layer promotes whichever endpoint last answered — one failover
+     * would otherwise leave the scan reading from our validator indefinitely.
+     * These are for building against and for keeping the site up, not for
+     * carrying its traffic.
+     */
+    fallbackLcdEndpoints: z.array(z.string().url()).default([]),
+    fallbackRpcEndpoints: z.array(z.string().url()).default([]),
     /** Indexing REST API. Required for gno, where the RPC cannot list txs. */
     apiEndpoints: z.array(z.string().url()).default([]),
     /** Optional GraphQL tx-indexer, used to enrich single-tx lookups. */

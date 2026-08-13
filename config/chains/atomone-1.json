@@ -17,6 +17,8 @@
     "https://atomone-rpc.publicnode.com",
     "https://rpc.cosmos.directory/atomone"
   ],
+  "fallbackLcdEndpoints": ["https://atomone-api.gatadao.com"],
+  "fallbackRpcEndpoints": ["https://atomone-rpc.gatadao.com"],
   "wsEndpoint": "wss://atomone-rpc.publicnode.com/websocket",
   "featuredValidator": null,
   "accent": "#F5C66B",
