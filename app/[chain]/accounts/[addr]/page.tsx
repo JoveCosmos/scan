@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
+import type { DenomInfo } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { decodeParam } from "@/lib/format";
@@ -35,14 +36,20 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** IBC denoms are opaque hashes until resolved through a denom trace. */
+/**
+ * IBC denoms are opaque hashes until resolved through a denom trace.
+ *
+ * Natives covers every denom the chain declares, not just the staking one:
+ * AtomOne issues PHOTON alongside ATONE, and matching on chain.denom alone left
+ * a PHOTON balance labelled "uphoton" and printed unscaled.
+ */
 function denomLabel(
   denom: string,
-  symbol: string,
-  baseDenom: string,
+  natives: Map<string, DenomInfo>,
   trace?: DenomTrace
 ): string {
-  if (denom === baseDenom) return symbol;
+  const native = natives.get(denom);
+  if (native) return native.symbol;
   if (trace) return trace.symbol;
   if (denom.startsWith("ibc/")) return `IBC ${denom.slice(4, 10)}…`;
   return denom;
@@ -83,6 +90,8 @@ export default async function AccountPage({
   // Same key, different prefix — offered so one account can be followed across
   // chains without deriving the address by hand.
   const links = linkedAddresses(address);
+  // Every denom the chain issues, keyed for lookup — not just the staking one.
+  const natives = new Map(chainDenoms(chain).map((d) => [d.denom, d]));
   // Turns "IBC 3EF74C…" into the asset it actually is.
   const traces = await resolveIbcDenoms(
     chain,
@@ -232,7 +241,7 @@ export default async function AccountPage({
                           className="px-4 py-3 font-mono text-xs"
                           title={b.denom}
                         >
-                          {denomLabel(b.denom, symbol, chain.denom, traces.get(b.denom))}
+                          {denomLabel(b.denom, natives, traces.get(b.denom))}
                           {traces.get(b.denom)?.channels.length ? (
                             <span className="ml-2 font-sans text-[11px] text-muted-foreground">
                               via {traces.get(b.denom)!.channels.join(" → ")}
@@ -243,8 +252,8 @@ export default async function AccountPage({
                           data-label="Amount"
                           className="px-4 py-3 text-right font-mono tabular-nums"
                         >
-                          {b.denom === chain.denom
-                            ? exactAmount(b.amount, chain.exponent)
+                          {natives.has(b.denom)
+                            ? exactAmount(b.amount, natives.get(b.denom)!.exponent)
                             : Number(b.amount).toLocaleString()}
                         </td>
                       </tr>
