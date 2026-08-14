@@ -20,12 +20,14 @@ import { timeAgo } from "@/lib/format";
  */
 export async function ValidatorCommission({
   chain,
-  operator,
+  account,
 }: {
   chain: ChainConfig;
-  operator: string;
+  /** The validator's own account — see commissionEarned for why, not operator. */
+  account: string | null;
 }) {
-  const earned = await commissionEarned(chain.chainId, operator).catch(() => null);
+  if (!account) return null;
+  const earned = await commissionEarned(chain.chainId, account).catch(() => null);
   if (!earned) return null;
 
   const accent = accentFor(chain);

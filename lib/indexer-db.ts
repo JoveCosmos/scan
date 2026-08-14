@@ -816,18 +816,27 @@ export interface CommissionEarned {
  * currently outstanding, so once commission is withdrawn the amount survives
  * nowhere but in the block events we indexed.
  *
- * Keyed on the operator address, because that is what the event names. Note
- * this is commission *withdrawn*, not earned-and-unclaimed — the outstanding
- * balance is a separate figure the chain still holds.
+ * Attributed through the transaction signer, not the event. AtomOne's
+ * `withdraw_commission` carries only `amount` and `msg_index` — there is no
+ * validator attribute for extract.ts to store, so `transfer.from_addr` is null
+ * on every commission row and filtering on it matches nothing. What does
+ * identify the validator is who signed: MsgWithdrawValidatorCommission is
+ * signable only by the validator's own account, so joining the transfer to its
+ * transaction and matching the signer recovers the link the event never had.
+ *
+ * Takes the account address for that reason, not the operator.
+ *
+ * Note this is commission *withdrawn*, not earned-and-unclaimed — the
+ * outstanding balance is a separate figure the chain still holds.
  */
 export async function commissionEarned(
   chainId: string,
-  operator: string
+  account: string
 ): Promise<CommissionEarned | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  return cached(`commission:${chainId}:${operator}`, 600_000, async () => {
+  return cached(`commission:${chainId}:${account}`, 600_000, async () => {
     const { rows } = await pool.query<{
       denom: string;
       total: string;
@@ -835,13 +844,14 @@ export async function commissionEarned(
       first: string | null;
       last: string | null;
     }>(
-      `SELECT denom, sum(amount)::text total, count(*) n,
-              min(time)::text first, max(time)::text last
-       FROM transfer
-       WHERE chain_id = $1 AND kind = 'commission' AND from_addr = $2
-       GROUP BY denom
-       ORDER BY sum(amount) DESC`,
-      [chainId, operator]
+      `SELECT t.denom, sum(t.amount)::text total, count(*) n,
+              min(t.time)::text first, max(t.time)::text last
+       FROM transfer t
+       JOIN tx x ON x.chain_id = t.chain_id AND x.hash = t.tx_hash
+       WHERE t.chain_id = $1 AND t.kind = 'commission' AND x.signer = $2
+       GROUP BY t.denom
+       ORDER BY sum(t.amount) DESC`,
+      [chainId, account]
     );
     if (rows.length === 0) return null;
 

@@ -326,7 +326,7 @@ export default async function ValidatorDetailPage({
 
       {/* Streamed, and render nothing unless the indexer is connected. */}
       <Suspense fallback={null}>
-        <ValidatorCommission chain={chain} operator={addr} />
+        <ValidatorCommission chain={chain} account={selfDelegation} />
       </Suspense>
 
       <Suspense fallback={null}>
