@@ -34,7 +34,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        "gata-panel gata-panel-interactive gata-rise p-5",
+        "gata-panel gata-panel-interactive gata-rise px-4 py-3",
         sheen && "gata-sheen"
       )}
       style={{
@@ -47,12 +47,12 @@ function StatCard({
         {label}
       </p>
       <p
-        className="mt-2 font-mono text-3xl font-semibold leading-none transition-[text-shadow] duration-500"
-        style={flash ? { textShadow: `0 0 18px ${accent}` } : undefined}
+        className="mt-1 font-mono text-xl font-semibold leading-none tracking-tight transition-[text-shadow] duration-500"
+        style={flash ? { textShadow: `0 0 14px ${accent}` } : undefined}
       >
         {value}
       </p>
-      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
+      {sub ? <p className="mt-1 text-[11px] leading-none text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function LiveOverview({
         {isFetching && live ? <span className="opacity-50">· syncing</span> : null}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <StatCard
           index={0}
           accent={accent}

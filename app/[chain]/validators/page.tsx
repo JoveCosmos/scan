@@ -12,6 +12,7 @@ import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
 import { getSelfBonds } from "@/lib/staking";
 import { getChainEconomics } from "@/lib/params";
+import { StatRail } from "@/components/stat-rail";
 
 export const revalidate = 60;
 
@@ -78,11 +79,11 @@ export default async function ValidatorsPage({
   if (!chain) notFound();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Validators</h1>
-        <p className="text-sm text-muted-foreground">
-          Active set on {chain.prettyName}
+    <main className="mx-auto max-w-6xl px-4 py-6">
+      <div className="mb-4 flex items-baseline gap-3">
+        <h1 className="text-lg font-semibold tracking-tight">Validators</h1>
+        <p className="text-xs text-muted-foreground">
+          active set on {chain.prettyName}
         </p>
       </div>
 
@@ -184,81 +185,76 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
 
   return (
     <>
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatPanel
-          index={0}
-          accent={accent}
-          label="Active Validators"
-          value={String(validators.length)}
-          sub={
-            registry && registered !== null
-              ? `${registered} registered in valopers`
-              : undefined
-          }
-        />
-        {/* Cheap to compute — it is a scan of the set already in memory — but it
-            is analysis rather than chain state, so it belongs with the other
-            derived figures that lower tiers do not carry. */}
-        {metrics ? (
-          <StatPanel
-            index={1}
-            accent={accent}
-            label="Could Halt The Chain"
-            value={nakamoto > 0 ? String(nakamoto) : "—"}
-            // "Nakamoto coefficient" means nothing to most readers, so the panel
-            // states the consequence and the term lives in the tooltip.
-            sub={nakamoto > 0 ? `of ${validators.length} validators` : undefined}
-            hint={
-              stakeWeighted
-                ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
-                : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`
-            }
-          />
-        ) : null}
-        {staking ? (
-          <>
-            <StatPanel
-              index={2}
-              accent={accent}
-              label="Bonded Stake"
-              value={`${formatToken(String(totalBonded), chain.exponent)} ${symbol}`}
-              sub={
-                overview?.bondedRatio != null
-                  ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply`
-                  : undefined
-              }
-              hint="Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack - and less supply free to trade."
-            />
-            <StatPanel
-              index={3}
-              accent={accent}
-              label="Min Commission"
-              value={
-                minCommission !== null ? `${(minCommission * 100).toFixed(1)}%` : "—"
-              }
-              sub="chain floor"
-              hint="No validator on this chain may charge less than this. It is a consensus parameter, not an average of what validators actually charge."
-            />
-          </>
-        ) : (
-          <>
-            <StatPanel
-              index={2}
-              accent={accent}
-              label="Total Voting Power"
-              value={totalBonded.toLocaleString()}
-              sub="assigned, not staked"
-            />
-            <StatPanel
-              index={3}
-              accent={accent}
-              label="Registered"
-              value={registered !== null ? String(registered) : "—"}
-              sub="valopers realm profiles"
-            />
-          </>
-        )}
-      </div>
+      <StatRail
+        className="mb-4"
+        accent={accent}
+        stats={[
+          {
+            label: "Active Validators",
+            value: String(validators.length),
+            sub:
+              registry && registered !== null
+                ? `${registered} in valopers`
+                : undefined,
+          },
+          // Analysis rather than chain state, so it goes with the other derived
+          // figures the lower tiers do not carry.
+          ...(metrics
+            ? [
+                {
+                  label: "Could Halt",
+                  value: nakamoto > 0 ? String(nakamoto) : "—",
+                  sub: nakamoto > 0 ? `of ${validators.length}` : undefined,
+                  hint: stakeWeighted
+                    ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
+                    : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`,
+                },
+              ]
+            : []),
+          ...(staking
+            ? [
+                {
+                  label: "Bonded Stake",
+                  value: `${formatToken(String(totalBonded), chain.exponent)} ${symbol}`,
+                  sub:
+                    overview?.bondedRatio != null
+                      ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply`
+                      : undefined,
+                  hint: "Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack - and less supply free to trade.",
+                },
+                {
+                  label: "Min Commission",
+                  value:
+                    minCommission !== null
+                      ? `${(minCommission * 100).toFixed(1)}%`
+                      : "—",
+                  sub: "chain floor",
+                  hint: "No validator on this chain may charge less than this. It is a consensus parameter, not an average of what validators actually charge.",
+                },
+                ...(economics?.stakingApr != null
+                  ? [
+                      {
+                        label: "Staking APR",
+                        value: `${(economics.stakingApr * 100).toFixed(1)}%`,
+                        sub: "before commission",
+                      },
+                    ]
+                  : []),
+              ]
+            : [
+                {
+                  label: "Voting Power",
+                  value: totalBonded.toLocaleString(),
+                  sub: "assigned, not staked",
+                },
+                {
+                  label: "Registered",
+                  value: registered !== null ? String(registered) : "—",
+                  sub: "valopers profiles",
+                },
+              ]),
+        ]}
+      />
 
       <ValidatorsTable
         chainId={chainId}

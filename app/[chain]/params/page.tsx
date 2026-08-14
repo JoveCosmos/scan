@@ -10,6 +10,7 @@ import {
 } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
+import { StatRail } from "@/components/stat-rail";
 import { LiveOverview } from "@/components/live-overview";
 import { Suspense } from "react";
 import { getChainParams, getSupplyOf, humanDuration } from "@/lib/params";
@@ -18,7 +19,6 @@ import {
   getMarketDataById,
   formatUsd,
   formatUsdCompact,
-  type MarketData,
 } from "@/lib/market";
 import { ChainEconomics } from "@/components/chain-economics";
 import { LoadingPanel } from "@/components/loading-panel";
@@ -122,47 +122,6 @@ export async function generateMetadata({
   return { title: chain?.prettyName ?? "Chain" };
 }
 
-function PriceCard({
-  symbol,
-  market,
-  accent,
-  index,
-}: {
-  symbol: string;
-  market: MarketData;
-  accent: string;
-  index: number;
-}) {
-  const up = market.change24h !== null && market.change24h >= 0;
-  return (
-    <div
-      className="gata-panel gata-rise p-5"
-      style={{
-        ["--panel-accent" as string]: accent,
-        animationDelay: `${240 + index * 60}ms`,
-      }}
-    >
-      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {symbol}
-      </p>
-      <p className="mt-2 font-mono text-2xl font-semibold">{formatUsd(market.usd)}</p>
-      <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs">
-        {market.change24h !== null ? (
-          <span className={up ? "text-[var(--gata-green)]" : "text-[var(--gata-burn)]"}>
-            {up ? "+" : ""}
-            {market.change24h.toFixed(2)}% 24h
-          </span>
-        ) : null}
-        {market.marketCapUsd !== null ? (
-          <span className="text-muted-foreground">
-            {formatUsdCompact(market.marketCapUsd)} cap
-          </span>
-        ) : null}
-      </p>
-    </div>
-  );
-}
-
 export default async function ChainParamsPage({
   params,
 }: {
@@ -198,16 +157,16 @@ export default async function ChainParamsPage({
   ].filter((c): c is { symbol: string; market: NonNullable<typeof market> } => c !== null);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-7 flex items-center gap-3">
+    <main className="mx-auto max-w-6xl px-4 py-6">
+      {/* The accent bar shrinks with the title: at 36px beside 18px type it was
+          a flag, not a rule. */}
+      <div className="mb-4 flex items-center gap-2.5">
         <span
-          className="h-9 w-1 rounded-full"
-          style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
+          className="h-5 w-[3px] rounded-full"
+          style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
         />
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{chain.prettyName}</h1>
-          <p className="font-mono text-sm text-muted-foreground">{chain.chainId}</p>
-        </div>
+        <h1 className="text-lg font-semibold tracking-tight">{chain.prettyName}</h1>
+        <p className="font-mono text-xs text-muted-foreground">{chain.chainId}</p>
       </div>
 
       <LiveOverview
@@ -217,23 +176,24 @@ export default async function ChainParamsPage({
       />
 
       {priceCards.length > 0 ? (
-        // One row, one column per token — never wraps to a second row.
-        <div
-          className="mt-6 grid gap-4"
-          style={{
-            gridTemplateColumns: `repeat(${priceCards.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {priceCards.map((card, i) => (
-            <PriceCard
-              key={card.symbol}
-              symbol={card.symbol}
-              market={card.market}
-              accent={accent}
-              index={i}
-            />
-          ))}
-        </div>
+        <StatRail
+          className="mt-3"
+          accent={accent}
+          stats={priceCards.map((card) => ({
+            label: card.symbol,
+            value: formatUsd(card.market.usd),
+            sub: [
+              card.market.change24h != null
+                ? `${card.market.change24h >= 0 ? "+" : ""}${card.market.change24h.toFixed(2)}% 24h`
+                : null,
+              card.market.marketCapUsd != null
+                ? `${formatUsdCompact(card.market.marketCapUsd)} cap`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("  ·  "),
+          }))}
+        />
       ) : null}
 
       {chain.feeDenom ? (

@@ -175,7 +175,7 @@ function FigureWithBar({
   return (
     <div className="inline-flex flex-col items-end gap-1">
       <span className="font-mono tabular-nums">{amount}</span>
-      <span className="flex w-20 flex-col items-end gap-0.5">
+      <span className="flex w-16 flex-col items-end gap-0.5">
         <span className="font-mono text-[10px] leading-none text-muted-foreground">
           {share === null ? "-" : `${(share * 100).toFixed(2)}%`}
         </span>
@@ -323,7 +323,7 @@ function SortHeader({
   return (
     <th
       className={cn(
-        "px-4 py-3 font-medium text-muted-foreground",
+        "px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground",
         align === "right" ? "text-right" : "text-left"
       )}
       aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"}
@@ -462,7 +462,7 @@ export function ValidatorsTable({
               ? header("Jailed", jailingsSince ? "jailings" : "jailed", "right")
               : null}
             {hasUptime ? header("Uptime", "uptime", "right") : null}
-            <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -473,14 +473,14 @@ export function ValidatorsTable({
             >
               <td
                 data-label="Rank"
-                className="px-4 py-2.5 font-mono tabular-nums text-muted-foreground"
+                className="px-4 py-2 font-mono tabular-nums text-muted-foreground"
               >
                 {v.rank}
               </td>
               <td
                 data-label="Validator"
                 data-primary
-                className="px-4 py-2.5 sm:max-w-[240px]"
+                className="px-4 py-2 sm:max-w-[240px]"
               >
                 <Link
                   href={`/${chainId}/validators/${v.operatorAddress}`}
@@ -503,7 +503,7 @@ export function ValidatorsTable({
               {!staking ? (
                 <td
                   data-label="Power"
-                  className="px-4 py-2.5 text-right"
+                  className="px-4 py-2 text-right"
                 >
                   <FigureWithBar
                     amount={Number(v.tokens).toLocaleString()}
@@ -516,11 +516,11 @@ export function ValidatorsTable({
                 <>
                   <td
                     data-label="Self Bond"
-                    className="px-4 py-2.5 text-right font-mono tabular-nums"
+                    className="px-4 py-2 text-right font-mono tabular-nums"
                   >
                     <SelfBond selfBond={v.selfBond} exponent={exponent} />
                   </td>
-                  <td data-label="Staked" className="px-4 py-2.5 text-right">
+                  <td data-label="Staked" className="px-4 py-2 text-right">
                     <FigureWithBar
                       amount={v.tokensLabel}
                       share={v.votingPower}
@@ -529,13 +529,13 @@ export function ValidatorsTable({
                     />
                   </td>
                   {hasDeltas ? (
-                    <td data-label="24h" className="px-4 py-2.5 text-right">
+                    <td data-label="24h" className="px-4 py-2 text-right">
                       <StakeChange delta={v.delta ?? undefined} exponent={exponent} />
                     </td>
                   ) : null}
                   <td
                     data-label="Commission"
-                    className="px-4 py-2.5 text-right font-mono tabular-nums"
+                    className="px-4 py-2 text-right font-mono tabular-nums"
                   >
                     <span className="inline-flex flex-col items-end leading-tight">
                       <span>{(v.commissionRate * 100).toFixed(1)}%</span>
@@ -549,12 +549,12 @@ export function ValidatorsTable({
                 </>
               )}
               {hasUptime && slashingWindow ? (
-                <td data-label="Jailed" className="px-4 py-2.5 text-right">
+                <td data-label="Jailed" className="px-4 py-2 text-right">
                   <Jailed uptime={v.uptime} jailings={v.jailings} />
                 </td>
               ) : null}
               {hasUptime ? (
-                <td data-label="Uptime" className="px-4 py-2.5 text-right">
+                <td data-label="Uptime" className="px-4 py-2 text-right">
                   <UptimeBars
                     uptime={v.uptime}
                     slashingWindow={slashingWindow}
@@ -562,7 +562,7 @@ export function ValidatorsTable({
                   />
                 </td>
               ) : null}
-              <td data-label="Status" className="px-4 py-2.5">
+              <td data-label="Status" className="px-4 py-2">
                 <ValidatorStatus
                   jailed={v.jailed}
                   status={v.status}
