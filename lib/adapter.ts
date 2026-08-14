@@ -120,7 +120,9 @@ export interface ChainAdapter {
   }>;
   /** Signing history keyed by the same id the validator list uses. */
   getUptime(
-    validators: { operatorAddress: string; consensusPubkey: string | null }[]
+    validators: { operatorAddress: string; consensusPubkey: string | null }[],
+    /** Bars of recent signing history. One block read per bar, per chain. */
+    barCount?: number
   ): Promise<Map<string, ValidatorUptime>>;
   /** 24h change in each validator's bonded stake. Empty when the endpoints
    *  cannot serve historical state. */
@@ -214,9 +216,9 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       cached(`delegators:${chain.chainId}:${operatorAddress}`, 30_000, () =>
         getValidatorDelegators(chain, operatorAddress)
       ),
-    getUptime: (validators) =>
-      cached(`uptime:${chain.chainId}`, 15_000, () =>
-        getCosmosUptime(chain, validators)
+    getUptime: (validators, barCount) =>
+      cached(`uptime:${chain.chainId}:${barCount ?? "default"}`, 15_000, () =>
+        getCosmosUptime(chain, validators, barCount)
       ),
     getStakeDeltas: (validators, headHeight) =>
       cached(`stakedelta:${chain.chainId}`, 60_000, () =>

@@ -31,12 +31,15 @@ export interface ValidatorRow {
    * shown", null means the column has no basis at all.
    */
   jailings: { count: number; tombstoned: boolean } | null;
+  /** The validator's own stake, or null when the query did not answer. */
+  selfBond: { amount: string; share: number | null } | null;
 }
 
 export type SortKey =
   | "rank"
   | "moniker"
   | "tokens"
+  | "selfBond"
   | "delta"
   | "commission"
   | "uptime"
@@ -48,6 +51,7 @@ const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   rank: "asc",
   moniker: "asc",
   tokens: "desc",
+  selfBond: "desc",
   delta: "desc",
   commission: "asc",
   uptime: "desc",
@@ -96,6 +100,13 @@ function compare(a: ValidatorRow, b: ValidatorRow, key: SortKey): number {
       const y = BigInt(b.tokens);
       return x < y ? -1 : x > y ? 1 : 0;
     }
+    case "selfBond": {
+      // Sorted by share, not amount: the question is how much of its own stake
+      // an operator has behind the delegations, which a raw total cannot say.
+      const x = a.selfBond?.share ?? -1;
+      const y = b.selfBond?.share ?? -1;
+      return x - y;
+    }
     case "delta": {
       // Unknown deltas sink to the bottom either way rather than posing as zero.
       if (!a.delta && !b.delta) return 0;
@@ -132,6 +143,42 @@ function compare(a: ValidatorRow, b: ValidatorRow, key: SortKey): number {
       return x - y;
     }
   }
+}
+
+/**
+ * Share first, amount second. "3.43M ATONE" means nothing without the stake it
+ * sits against; 85% versus 0.00% is the whole point of the column.
+ */
+function SelfBond({
+  selfBond,
+  exponent,
+}: {
+  selfBond: ValidatorRow["selfBond"];
+  exponent: number;
+}) {
+  if (!selfBond) return <span className="text-xs text-muted-foreground">-</span>;
+
+  const share = selfBond.share;
+  return (
+    <span className="inline-flex flex-col items-end leading-tight">
+      <span className={share !== null && share < 0.001 ? "text-muted-foreground" : undefined}>
+        {share === null ? "-" : `${(share * 100).toFixed(2)}%`}
+      </span>
+      <span className="text-[11px] text-muted-foreground">
+        {formatAmount(selfBond.amount, exponent)}
+      </span>
+    </span>
+  );
+}
+
+/** Compact token amount. The table's other amounts are pre-formatted server
+ *  side, but self bond arrives raw. */
+function formatAmount(raw: string, exponent: number): string {
+  const n = Number(raw) / 10 ** exponent;
+  if (!Number.isFinite(n)) return "-";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(2)}K`;
+  return n.toFixed(2);
 }
 
 function Jailings({ jailings }: { jailings: ValidatorRow["jailings"] }) {
@@ -326,17 +373,18 @@ export function ValidatorsTable({
             {staking ? (
               <>
                 {header("Staked", "tokens", "right")}
+                {header("Self Bond", "selfBond", "right")}
                 {hasDeltas ? header("24h", "delta", "right") : null}
                 {header("Commission", "commission", "right")}
               </>
             ) : (
               header("Power", "tokens", "right")
             )}
-            {hasUptime ? header("Uptime", "uptime", "right") : null}
             {hasUptime && slashingWindow
               ? header("Last Jailed", "jailed", "right")
               : null}
             {jailingsSince ? header("Jailed", "jailings", "right") : null}
+            {hasUptime ? header("Uptime", "uptime", "right") : null}
             <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
@@ -407,6 +455,12 @@ export function ValidatorsTable({
                   >
                     {v.tokensLabel}
                   </td>
+                  <td
+                    data-label="Self Bond"
+                    className="px-4 py-2.5 text-right font-mono tabular-nums"
+                  >
+                    <SelfBond selfBond={v.selfBond} exponent={exponent} />
+                  </td>
                   {hasDeltas ? (
                     <td data-label="24h" className="px-4 py-2.5 text-right">
                       <StakeChange delta={v.delta ?? undefined} exponent={exponent} />
@@ -420,15 +474,6 @@ export function ValidatorsTable({
                   </td>
                 </>
               )}
-              {hasUptime ? (
-                <td data-label="Uptime" className="px-4 py-2.5 text-right">
-                  <UptimeBars
-                    uptime={v.uptime}
-                    slashingWindow={slashingWindow}
-                    className="items-end"
-                  />
-                </td>
-              ) : null}
               {hasUptime && slashingWindow ? (
                 <td data-label="Last Jailed" className="px-4 py-2.5 text-right">
                   <LastJailed uptime={v.uptime} />
@@ -437,6 +482,15 @@ export function ValidatorsTable({
               {jailingsSince ? (
                 <td data-label="Jailed" className="px-4 py-2.5 text-right">
                   <Jailings jailings={v.jailings} />
+                </td>
+              ) : null}
+              {hasUptime ? (
+                <td data-label="Uptime" className="px-4 py-2.5 text-right">
+                  <UptimeBars
+                    uptime={v.uptime}
+                    slashingWindow={slashingWindow}
+                    className="items-end"
+                  />
                 </td>
               ) : null}
               <td data-label="Status" className="px-4 py-2.5">

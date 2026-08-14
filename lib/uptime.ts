@@ -26,6 +26,13 @@ export interface ValidatorUptime {
 export const RECENT_BAR_COUNT = 20;
 
 /**
+ * Bars on a single validator's page. Larger than the list's because the cost is
+ * one block read per bar *for the whole chain*, not per validator — the list
+ * pays it once for 100 rows, and a detail page can afford a longer history.
+ */
+export const DETAIL_BAR_COUNT = 100;
+
+/**
  * The slashing module writes the zero time for a validator that has never been
  * jailed. Different chains serialise that as 1970-01-01, 0001-01-01 or an empty
  * string, so anything at or before 1971 counts as "never" rather than as a jail
@@ -207,11 +214,12 @@ async function recentSigners(
  */
 export async function getCosmosUptime(
   chain: ChainConfig,
-  validators: { operatorAddress: string; consensusPubkey: string | null }[]
+  validators: { operatorAddress: string; consensusPubkey: string | null }[],
+  barCount = RECENT_BAR_COUNT
 ): Promise<Map<string, ValidatorUptime>> {
   const [{ byValcons, window }, recent] = await Promise.all([
     signingInfos(chain),
-    recentSigners(chain, RECENT_BAR_COUNT),
+    recentSigners(chain, barCount),
   ]);
 
   const out = new Map<string, ValidatorUptime>();

@@ -15,6 +15,7 @@ function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {
     uptime: emptyUptime(),
     delta: null,
     jailings: null,
+    selfBond: null,
     ...over,
   };
 }
@@ -149,5 +150,36 @@ describe("filterValidators", () => {
   it("preserves the ranks of the rows it keeps", () => {
     const ranked = [row({ moniker: "A", rank: 1 }), row({ moniker: "B", rank: 7 })];
     expect(filterValidators(ranked, "B")[0].rank).toBe(7);
+  });
+});
+
+describe("sortValidators by self bond", () => {
+  const rows = [
+    row({ moniker: "none", selfBond: null }),
+    row({ moniker: "tiny", selfBond: { amount: "1000000", share: 0.0000001 } }),
+    row({ moniker: "heavy", selfBond: { amount: "3429157000000", share: 0.8507 } }),
+    row({ moniker: "mid", selfBond: { amount: "50000000000", share: 0.0139 } }),
+  ];
+
+  // Share, not amount: a large validator bonding 1 token is the case the column
+  // exists to expose, and its raw self bond can still outsize a small one's.
+  it("ranks by share of stake, biggest first", () => {
+    expect(sortValidators(rows, "selfBond", "desc").map((v) => v.moniker)).toEqual([
+      "heavy",
+      "mid",
+      "tiny",
+      "none",
+    ]);
+  });
+
+  it("sorts an unanswered self bond below a real zero", () => {
+    const pair = [
+      row({ moniker: "unknown", selfBond: null }),
+      row({ moniker: "zero", selfBond: { amount: "0", share: 0 } }),
+    ];
+    expect(sortValidators(pair, "selfBond", "asc").map((v) => v.moniker)).toEqual([
+      "unknown",
+      "zero",
+    ]);
   });
 });

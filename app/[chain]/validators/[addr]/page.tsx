@@ -16,8 +16,7 @@ import { ValidatorSlashes } from "@/components/validator-slashes";
 import { ValidatorConsensus } from "@/components/validator-consensus";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
-import { emptyUptime } from "@/lib/uptime";
-import { getSelfBond } from "@/lib/staking";
+import { emptyUptime, DETAIL_BAR_COUNT } from "@/lib/uptime";
 import { LoadingPanel } from "@/components/loading-panel";
 import { Suspense } from "react";
 
@@ -80,36 +79,6 @@ function Metric({
   );
 }
 
-function StatPanel({
-  label,
-  value,
-  sub,
-  accent,
-  index,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent: string;
-  index: number;
-}) {
-  return (
-    <div
-      className="gata-panel gata-rise p-5"
-      style={{
-        ["--panel-accent" as string]: accent,
-        animationDelay: `${index * 60}ms`,
-      }}
-    >
-      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-mono text-2xl font-semibold leading-none">{value}</p>
-      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
-    </div>
-  );
-}
-
 export default async function ValidatorDetailPage({
   params,
 }: {
@@ -139,14 +108,15 @@ export default async function ValidatorDetailPage({
   const adapter = getAdapter(chain);
   // Shares the validators-page cache key, so opening a validator right after
   // the list costs nothing extra.
+  // A longer strip than the list shows: the block reads are per chain, not per
+  // validator, so one page can afford more history than 100 rows can.
   const uptime = validator
-    ? (await adapter.getUptime([validator]).catch(() => new Map())).get(addr) ??
-      emptyUptime()
+    ? (
+        await adapter
+          .getUptime([validator], DETAIL_BAR_COUNT)
+          .catch(() => new Map())
+      ).get(addr) ?? emptyUptime()
     : emptyUptime();
-  // Its own stake, which the validator record does not carry — see getSelfBond.
-  const selfBond = validator
-    ? await getSelfBond(chain, addr, validator.tokens).catch(() => null)
-    : null;
 
   const signed =
     uptime.window !== null && uptime.missed !== null
@@ -216,57 +186,9 @@ export default async function ValidatorDetailPage({
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatPanel
-          index={0}
-          accent={accent}
-          label="Voting Power"
-          value={
-            validator.votingPower === null
-              ? "—"
-              : `${(validator.votingPower * 100).toFixed(2)}%`
-          }
-        />
-        <StatPanel
-          index={1}
-          accent={accent}
-          label="Staked"
-          value={formatToken(validator.tokens, chain.exponent)}
-          sub={symbol}
-        />
-        <StatPanel
-          index={2}
-          accent={accent}
-          label="Self Bond"
-          value={selfBond ? formatToken(selfBond.amount, chain.exponent) : "—"}
-          sub={
-            selfBond?.share != null
-              ? `${(selfBond.share * 100).toFixed(2)}% of stake`
-              : symbol
-          }
-        />
-        <StatPanel
-          index={3}
-          accent={accent}
-          label="Commission"
-          value={`${(validator.commissionRate * 100).toFixed(1)}%`}
-          sub={`max ${(validator.maxRate * 100).toFixed(0)}%`}
-        />
-        <StatPanel
-          index={4}
-          accent={accent}
-          label="Uptime"
-          value={
-            uptime.ratio === null ? "—" : `${(uptime.ratio * 100).toFixed(2)}%`
-          }
-          sub={
-            uptime.window && uptime.missed !== null
-              ? `${uptime.missed} missed / ${uptime.window.toLocaleString()}`
-              : undefined
-          }
-        />
-      </div>
-
+      {/* No stat panels. Voting power, stake, self bond, commission and uptime
+          are all columns on the list this page was reached from, and repeating
+          them here pushed everything that is only on this page below the fold. */}
       {validator.details ? (
         <div className="gata-panel mb-5 px-5 py-4">
           <p className="text-sm leading-relaxed text-muted-foreground">

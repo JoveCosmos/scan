@@ -10,6 +10,7 @@ import { ValidatorsTable, type ValidatorRow } from "@/components/validators-tabl
 import { emptyUptime, consensusIdsFromPubkey } from "@/lib/uptime";
 import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
+import { getSelfBonds } from "@/lib/staking";
 
 export const revalidate = 60;
 
@@ -112,7 +113,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   // data is absent, so the page degrades to the set itself.
   const metrics = policyFor(chain).metrics;
   // Both need the validator set first: they are keyed by the same identifier.
-  const [uptime, deltas, jailings] = await Promise.all([
+  const [uptime, deltas, jailings, selfBonds] = await Promise.all([
     metrics
       ? adapter.getUptime(validators).catch(() => new Map())
       : Promise.resolve(new Map()),
@@ -124,6 +125,11 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     // Null whenever the indexer cannot answer, which hides the column entirely
     // rather than showing every validator a confident zero.
     metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
+    // One request per validator, so it is cached for ten minutes and only
+    // gathered where the chain has staking at all — see getSelfBonds.
+    adapter.capabilities.staking
+      ? getSelfBonds(chain, validators).catch(() => new Map())
+      : Promise.resolve(new Map()),
   ]);
   const hasDeltas = deltas.size > 0;
 
@@ -152,6 +158,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     uptime: uptime.get(v.operatorAddress) ?? emptyUptime(),
     delta: deltas.get(v.operatorAddress) ?? null,
     jailings: jailingsFor(v.consensusPubkey),
+    selfBond: selfBonds.get(v.operatorAddress) ?? null,
   }));
   const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
   const symbol = symbolFor(chain);

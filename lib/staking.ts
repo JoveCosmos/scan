@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { cached } from "@/lib/cache";
 import { isBech32ish } from "@/lib/input";
 import { getValidators } from "@/lib/validators";
 import { accountFromOperator } from "@/lib/bech32";
@@ -292,4 +293,42 @@ export async function getSelfBond(
     // distinguishable from the status alone.
     return null;
   }
+}
+
+/**
+ * Self bond for a whole validator set, keyed by operator address.
+ *
+ * There is no bulk endpoint for this — a self bond is an ordinary delegation,
+ * so it is one query per validator. That is the whole design problem here: 100
+ * validators is 100 requests against endpoints we do not run.
+ *
+ * Hence a long cache and a small concurrency window. Self bond moves when an
+ * operator bonds or unbonds its own stake, which is rare — a ten minute answer
+ * is not meaningfully staler than a live one, and it turns 100 requests per page
+ * view into 100 per ten minutes. Failures are omitted rather than cached as
+ * zero: the column shows "—" and tries again next window.
+ */
+export async function getSelfBonds(
+  chain: ChainConfig,
+  validators: { operatorAddress: string; tokens: string }[]
+): Promise<Map<string, SelfBond>> {
+  return cached(`selfbond:${chain.chainId}`, 600_000, async () => {
+    const out = new Map<string, SelfBond>();
+    const queue = [...validators];
+    const CONCURRENCY = 6;
+
+    async function worker() {
+      for (;;) {
+        const v = queue.shift();
+        if (!v) return;
+        const bond = await getSelfBond(chain, v.operatorAddress, v.tokens).catch(
+          () => null
+        );
+        if (bond) out.set(v.operatorAddress, bond);
+      }
+    }
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    return out;
+  });
 }
