@@ -55,6 +55,7 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
   "chainId": "provider",            // also the URL segment
   "order": 5,                       // position in the switcher; ascending
   "tier": "medium",                 // how much we serve — see Service tiers
+  "indexed": false,                 // does our Postgres index hold this chain
   "prettyName": "Cosmos Hub Testnet",
   "kind": "cosmos",                 // "cosmos" | "gno"
   "network": "testnet",             // context only; does not group anything
@@ -96,7 +97,6 @@ answer.
 | | sapphire-1, atomone-1, atomone-testnet-1 | cosmoshub-4, provider, akashnet-2 | osmosis-1, passage-2, juno-1 |
 | our own full node | ✅ | — | — |
 | derived metrics | ✅ | — | — |
-| reads our index | ✅ | — | — |
 | txs / proposals / relayers | ✅ | ✅ | — |
 | blocks / validators / params | ✅ | ✅ | ✅ |
 
@@ -120,10 +120,16 @@ Enforced in three places:
 - **Routes** — `/[chain]/{txs,proposals,relayers}` call `notFound()` when their
   tier withholds them, so a hidden tab is not merely unlinked.
 - **The index** — `poolFor(chainId)` in `lib/indexer-db.ts` returns null for a
-  chain we do not index. The gate is at that boundary, not at its ten call
-  sites, so lowering a tier stops every indexed read at once — including from
-  code written later that never considered tiers. Callers already fall back to
+  chain the index does not hold. The gate is at that boundary, not at its ten
+  call sites, so unmarking a chain stops every indexed read at once — including
+  from code written later that never considered it. Callers already fall back to
   the node when the pool is null, so nothing else changed.
+
+  **`indexed` is a chain config field, not a tier consequence.** Whether the
+  indexer holds a chain is an operational fact: it followed AtomOne mainnet and
+  nothing else. Deriving it from the tier marked AtomOne's testnet and gno.land
+  as indexed because they are high tier, so the app queried Postgres for chains
+  it had never been pointed at and fell back silently on every read.
 
 **Tiers are never shown to readers.** No badge, no heading, no note explaining a
 missing section. A chain simply has fewer tabs. Stating the level would turn an

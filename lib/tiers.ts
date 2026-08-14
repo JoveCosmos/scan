@@ -6,8 +6,9 @@ import type { ChainConfig } from "@/lib/chains";
  * This is policy, not capability. `ChainCapabilities` in lib/adapter.ts says
  * what a chain *can* do — gno.land has no staking module, so no amount of
  * effort produces a delegations page. A tier says what we *choose* to do for a
- * chain we could serve fully: run a full node or a pruned one, compute the
- * derived metrics or not, index its history or read it live.
+ * chain we could serve fully: run a full node or a pruned one, and compute the
+ * derived metrics or not. Whether the index holds a chain is `indexed` on the
+ * chain config — an operational fact, not a level of service.
  *
  * Keeping the two apart matters when reading the UI. A missing Proposals tab on
  * gno.land means the chain has no governance; a missing one on Juno means we
@@ -28,12 +29,6 @@ export interface TierPolicy {
    * page against endpoints we do not run.
    */
   metrics: boolean;
-  /**
-   * May read from our Postgres index. Off below the top tier: indexing a chain
-   * costs disk and a follower process forever, so history for these chains comes
-   * from whatever the node still holds.
-   */
-  indexed: boolean;
   /** We run a full node, so endpoints and snapshots can be published. */
   fullNode: boolean;
   /** Sections offered. A chain must also have the module — see capabilities. */
@@ -45,7 +40,6 @@ export interface TierPolicy {
 const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
   high: {
     metrics: true,
-    indexed: true,
     fullNode: true,
     txs: true,
     proposals: true,
@@ -53,7 +47,6 @@ const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
   },
   medium: {
     metrics: false,
-    indexed: false,
     fullNode: false,
     txs: true,
     proposals: true,
@@ -61,7 +54,6 @@ const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
   },
   limited: {
     metrics: false,
-    indexed: false,
     fullNode: false,
     txs: false,
     proposals: false,

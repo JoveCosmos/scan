@@ -2,6 +2,7 @@
   "chainId": "atomone-1",
   "order": 2,
   "tier": "high",
+  "indexed": true,
   "name": "atomone",
   "prettyName": "AtomOne",
   "logo": "/chains/atomone.svg",

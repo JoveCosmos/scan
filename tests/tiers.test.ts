@@ -20,13 +20,23 @@ describe("tiers", () => {
     }
   });
 
-  it("computes derived metrics and indexes only at the top tier", () => {
+  it("computes derived metrics only at the top tier", () => {
     for (const chain of getAllChains()) {
-      const policy = policyFor(chain);
-      const expected = chain.tier === "high";
-      expect(policy.metrics, `${chain.chainId} metrics`).toBe(expected);
-      expect(policy.indexed, `${chain.chainId} indexed`).toBe(expected);
+      expect(policyFor(chain).metrics, `${chain.chainId} metrics`).toBe(
+        chain.tier === "high"
+      );
     }
+  });
+
+  // Indexed is a fact about the indexer, not a tier consequence. Marking it as
+  // one had the app querying Postgres for chains it had never been pointed at.
+  it("indexes only the chains the index actually holds", () => {
+    const indexed = getAllChains().filter((c) => c.indexed).map((c) => c.chainId);
+    expect(indexed).toEqual(["atomone-1"]);
+  });
+
+  it("keeps indexed off the tier policy", () => {
+    expect(policyFor(getChain("atomone-1")!)).not.toHaveProperty("indexed");
   });
 
   it("withholds transactions, proposals and relayers from the limited tier only", () => {
@@ -52,7 +62,6 @@ describe("tiers", () => {
   it("carries no display text", () => {
     expect(Object.keys(policyFor(getChain("juno-1")!)).sort()).toEqual([
       "fullNode",
-      "indexed",
       "metrics",
       "proposals",
       "relayers",

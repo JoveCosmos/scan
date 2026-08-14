@@ -1,7 +1,6 @@
 import { Pool } from "pg";
 import { cached } from "@/lib/cache";
 import { getChain } from "@/lib/chains";
-import { policyFor } from "@/lib/tiers";
 
 /**
  * Scan's read-only view of the indexer's database.
@@ -42,19 +41,19 @@ export function indexerPool(): Pool | null {
 }
 
 /**
- * The pool, but only for chains whose tier says we index them.
+ * The pool, but only for chains the index actually holds.
  *
- * Gating here rather than at each of the ten call sites means a chain dropping
- * to a lower tier stops reading the index everywhere at once — including from
- * code written later that never considered tiers. Callers already handle a null
- * pool by falling back to the node, so this needs no handling of its own.
+ * Gating here rather than at each of the ten call sites means marking a chain
+ * unindexed stops every indexed read at once — including from code written
+ * later that never considered it. Callers already handle a null pool by falling
+ * back to the node, so this needs no handling of its own.
  *
  * An unknown chainId keeps the pool: the indexer holds chains the scan may not
  * have a config for, and refusing those would be a silent regression.
  */
 function poolFor(chainId: string): Pool | null {
   const chain = getChain(chainId);
-  if (chain && !policyFor(chain).indexed) return null;
+  if (chain && !chain.indexed) return null;
   return indexerPool();
 }
 

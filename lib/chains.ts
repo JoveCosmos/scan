@@ -56,6 +56,18 @@ const chainConfigSchema = z
      */
     tier: z.enum(["high", "medium", "limited"]).default("medium"),
     /**
+     * Whether our Postgres index actually holds this chain.
+     *
+     * A fact about the indexer, not a service level — which is why it is here
+     * and not in the tier. Treating it as a tier consequence marked AtomOne's
+     * testnet and gno.land as indexed because they are high tier, so the app
+     * queried Postgres for chains the indexer had never been pointed at and
+     * silently fell back on every read.
+     *
+     * Defaults to false: a chain is not indexed until someone indexes it.
+     */
+    indexed: z.boolean().default(false),
+    /**
      * CoinGecko id, for price and market cap. Absent on testnets and on chains
      * with no traded token, which simply show no market figures.
      */

@@ -289,13 +289,15 @@ old `/block_results` from a **public archive/full node once** (off our
 validator), write into the same tables, then stop. **Depth (settled):** genesis
 for AtomOne mainnet and testnet; **~1 year** for Cosmos Hub and Akash.
 
-> **The scan no longer reads this index for Cosmos Hub or Akash.** Since service
-> tiers landed, only `high` chains — gno.land, AtomOne and its testnet — query
-> Postgres; everything else falls back to the node
-> (see [Service tiers](ARCHITECTURE.md#service-tiers)). Backfilling Cosmos Hub or
-> Akash therefore buys nothing until their tier is raised, and following their
-> heads writes rows no page will load. Settle whether to keep indexing them
-> before spending the disk: the depths above predate that decision.
+> **As built, this indexes AtomOne mainnet and nothing else.** Checked against
+> the database on 2026-08-14: `atomone-1` only — 9.37M blocks from height
+> 510,636 to the head, 8 GB, with the backfill still descending toward genesis
+> at ~33 heights/sec. No Cosmos Hub, no Akash, no AtomOne testnet, no gno.land.
+>
+> The depths above are therefore a plan, not a description. The scan reads the
+> index only for chains marked `indexed` in their chain config — currently
+> `atomone-1` alone — so pointing the indexer at another chain means indexing it
+> *and* setting that flag; doing either alone changes nothing.
 
 **Requirement:** the archive must serve historical `/block_results` — i.e. it
 kept ABCI responses (`discard_abci_responses = false`). Not every "archive" node
