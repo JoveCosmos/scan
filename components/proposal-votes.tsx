@@ -52,7 +52,7 @@ export async function ProposalVotes({
 
   if (votes.length === 0) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           {failed
             ? // Never claim there are no votes when we simply could not read them.

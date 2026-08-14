@@ -26,7 +26,7 @@ import { LoadingPanel } from "@/components/loading-panel";
 /** An external link row — chain homepage, repository. */
 function ParamLink({ label, href }: { label: string; href: string }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3 last:border-0 sm:grid-cols-[260px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[220px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0">
         <a
@@ -84,7 +84,7 @@ function ParamSection({
 }) {
   return (
     <section className="mt-6">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">{title}</h2>
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{title}</h2>
       {note ? <p className="mb-3 -mt-2 text-xs text-muted-foreground">{note}</p> : null}
       <div className="gata-panel">
         <dl>{children}</dl>
@@ -95,7 +95,7 @@ function ParamSection({
 
 function ParamRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3 last:border-0 sm:grid-cols-[260px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[220px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="font-mono text-sm">{value}</dd>
     </div>
@@ -226,7 +226,7 @@ export default async function ChainParamsPage({
             // collided with the supply cards above it, then the layout jumped
             // when the real section replaced it.
             <section className="mt-6">
-              <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+              <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Tokenomics
               </h2>
               <LoadingPanel label="Loading tokenomics…" rows={4} />

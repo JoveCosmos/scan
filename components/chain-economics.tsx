@@ -38,7 +38,7 @@ export async function ChainEconomics({
 
   return (
     <section className="mt-6">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">Tokenomics</h2>
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Tokenomics</h2>
       <div className="gata-panel">
         <dl>
           {supply ? (
@@ -141,7 +141,7 @@ function Row({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3 last:border-0 sm:grid-cols-[260px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[220px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-mono text-sm">{value}</span>

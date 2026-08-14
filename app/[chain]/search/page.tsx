@@ -53,7 +53,7 @@ export default async function SearchPage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-20">
-      <div className="gata-panel px-6 py-14 text-center">
+      <div className="gata-panel px-5 py-10 text-center">
         <SearchX className="mx-auto h-8 w-8 text-muted-foreground" />
         <h1 className="mt-4 text-lg font-semibold">
           {query ? "Nothing matched that search" : "Enter a search term"}

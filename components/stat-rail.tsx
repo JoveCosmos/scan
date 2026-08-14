@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export interface Stat {
@@ -24,10 +25,17 @@ export function StatRail({
   stats,
   accent,
   className,
+  note,
 }: {
   stats: Stat[];
   accent: string;
   className?: string;
+  /**
+   * Sits under the rule, inside the same panel. For the window a figure is
+   * true over — "10,000 blocks indexed since March" — which is part of the
+   * claim rather than a caption, and for the signing strip.
+   */
+  note?: ReactNode;
 }) {
   if (stats.length === 0) return null;
 
@@ -57,6 +65,11 @@ export function StatRail({
           </div>
         ))}
       </dl>
+      {note ? (
+        <div className="border-t border-border/60 px-4 py-2.5 text-[11px] text-muted-foreground">
+          {note}
+        </div>
+      ) : null}
     </div>
   );
 }

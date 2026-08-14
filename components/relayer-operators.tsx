@@ -19,7 +19,7 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
 
   if (!stats) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           Operator statistics need indexed transaction history, which we do not
           have for {chain.prettyName} yet.
@@ -35,7 +35,7 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
 
   if (stats.operators.length === 0) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           No relay transactions in the indexed range.
         </p>

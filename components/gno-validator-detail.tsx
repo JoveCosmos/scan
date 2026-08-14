@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
@@ -33,7 +33,7 @@ function StatPanel({
 }) {
   return (
     <div
-      className="gata-panel gata-rise p-5"
+      className="gata-panel gata-rise px-4 py-3"
       style={{
         ["--panel-accent" as string]: accent,
         animationDelay: `${index * 60}ms`,
@@ -42,7 +42,7 @@ function StatPanel({
       <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-2 font-mono text-2xl font-semibold leading-none">{value}</p>
+      <p className="mt-2 font-mono text-lg font-semibold leading-none">{value}</p>
       {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
     </div>
   );
@@ -66,7 +66,7 @@ async function ValoperProfilePanel({
 
   if (!profile) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           This validator has not registered a profile in the{" "}
           <span className="font-mono text-xs">gno.land/r/gnops/valopers</span> realm.
@@ -125,10 +125,10 @@ async function ValoperProfilePanel({
 
       {profile.description ? (
         <>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Validator profile
           </h2>
-          <div className="gata-panel px-5 py-4">
+          <div className="gata-panel px-4 py-3">
             {/* Validator-authored content: rendered as plain text, never as HTML. */}
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
               {profile.description}
@@ -162,7 +162,7 @@ export async function GnoValidatorDetail({
   const active = consensus?.status === "ACTIVE";
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chain.chainId}/validators`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -178,7 +178,7 @@ export async function GnoValidatorDetail({
             style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
           />
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
+            <h1 className="truncate text-lg font-semibold tracking-tight">
               {consensus?.moniker ?? truncateMiddle(address, 14, 8)}
             </h1>
             <p className="text-sm text-muted-foreground">

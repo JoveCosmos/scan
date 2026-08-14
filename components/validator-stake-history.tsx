@@ -61,11 +61,11 @@ export async function ValidatorStakeHistory({
 
   return (
     <>
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Stake history
       </h2>
       <div
-        className="gata-panel px-5 py-4"
+        className="gata-panel px-4 py-3"
         style={{ ["--panel-accent" as string]: accent }}
       >
         <div className="flex items-baseline justify-between gap-4">

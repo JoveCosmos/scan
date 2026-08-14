@@ -22,7 +22,7 @@ export async function generateMetadata({
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[180px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[180px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
@@ -62,7 +62,7 @@ export default async function BlockDetailPage({
 
   if (!block) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-6">
         <Link
           href={`/${chainId}/blocks`}
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -70,7 +70,7 @@ export default async function BlockDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Back to blocks
         </Link>
-        <div className="gata-panel px-6 py-14 text-center">
+        <div className="gata-panel px-5 py-10 text-center">
           <h1 className="text-lg font-semibold">Block not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Height {Number(height).toLocaleString()} is unavailable on{" "}
@@ -90,7 +90,7 @@ export default async function BlockDetailPage({
       : null;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chainId}/blocks`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -106,7 +106,7 @@ export default async function BlockDetailPage({
             style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
           />
           <div>
-            <h1 className="font-mono text-2xl font-semibold tracking-tight">
+            <h1 className="font-mono text-lg font-semibold tracking-tight">
               #{heightNum.toLocaleString()}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -223,7 +223,7 @@ export default async function BlockDetailPage({
         </dl>
       </div>
 
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Transactions ({block.txCount})
       </h2>
 

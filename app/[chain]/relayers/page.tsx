@@ -44,10 +44,10 @@ export default async function RelayersPage({
   if (chain.kind !== "cosmos") notFound();
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="mx-auto max-w-5xl px-4 py-6">
       <h1 className="text-xl font-medium">Relayers</h1>
 
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Routes
       </h2>
       <Suspense
@@ -62,7 +62,7 @@ export default async function RelayersPage({
         <IbcRoutesTable chainId={chainId} />
       </Suspense>
 
-      <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-6 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Operators
       </h2>
       <Suspense

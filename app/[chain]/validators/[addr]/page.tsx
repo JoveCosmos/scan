@@ -10,6 +10,7 @@ import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { decodeParam } from "@/lib/format";
 import { accountFromOperator, linkedAddresses } from "@/lib/bech32";
 import { LinkedAddresses } from "@/components/linked-addresses";
+import { StatRail } from "@/components/stat-rail";
 import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorStatus } from "@/components/validator-status";
 import { ValidatorSlashes } from "@/components/validator-slashes";
@@ -44,40 +45,9 @@ export async function generateMetadata({
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  );
-}
-
-/** Compact figure for the signing panel. */
-function Metric({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  tone?: "warn";
-}) {
-  return (
-    <div>
-      <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={
-          tone === "warn"
-            ? "mt-1.5 font-mono text-lg font-semibold leading-none text-[var(--gata-burn)]"
-            : "mt-1.5 font-mono text-lg font-semibold leading-none"
-        }
-      >
-        {value}
-      </dd>
-      {sub ? <p className="mt-1 text-xs text-muted-foreground">{sub}</p> : null}
     </div>
   );
 }
@@ -128,7 +98,7 @@ export default async function ValidatorDetailPage({
 
   if (!validator) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-6">
         <Link
           href={`/${chainId}/validators`}
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -136,7 +106,7 @@ export default async function ValidatorDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Back to validators
         </Link>
-        <div className="gata-panel px-6 py-14 text-center">
+        <div className="gata-panel px-5 py-10 text-center">
           <h1 className="text-lg font-semibold">Validator not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             No validator with this operator address on {chain.prettyName}.
@@ -151,7 +121,7 @@ export default async function ValidatorDetailPage({
 
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chainId}/validators`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -167,7 +137,7 @@ export default async function ValidatorDetailPage({
             style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
           />
           <div className="min-w-0">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">
+            <h1 className="truncate text-lg font-semibold tracking-tight">
               {validator.moniker}
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -284,48 +254,38 @@ export default async function ValidatorDetailPage({
 
       {uptime.window !== null || uptime.bars.length > 0 ? (
         <>
-          <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+          <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Signing
           </h2>
-          <div
-            className="gata-panel px-5 py-4"
-            style={{ ["--panel-accent" as string]: accent }}
-          >
-            {/* Counts, not just a percentage: 99.9% reads as fine until you see
-                it is 10 missed out of 10,000, or 1 out of 1,000. */}
-            <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <Metric
-                label="Signed"
-                value={signed !== null ? signed.toLocaleString() : "—"}
-              />
-              <Metric
-                label="Missed"
-                value={uptime.missed !== null ? uptime.missed.toLocaleString() : "—"}
-                tone={uptime.missed ? "warn" : undefined}
-              />
-              <Metric
-                label="Window"
-                value={uptime.window !== null ? uptime.window.toLocaleString() : "—"}
-                sub="blocks"
-              />
-              <Metric
-                label="Uptime"
-                value={
-                  uptime.ratio === null ? "—" : `${(uptime.ratio * 100).toFixed(2)}%`
-                }
-              />
-            </dl>
-
-            {uptime.bars.length > 0 ? (
-              <div className="mt-4 border-t border-border/50 pt-4">
+          <StatRail
+            accent={accent}
+            // The strip belongs inside the panel, under the counts it summarises.
+            note={
+              uptime.bars.length > 0 ? (
                 <UptimeBars uptime={uptime} slashingWindow className="items-start" />
-              </div>
-            ) : null}
-          </div>
+              ) : undefined
+            }
+            stats={[
+              { label: "Signed", value: signed !== null ? signed.toLocaleString() : "—" },
+              {
+                label: "Missed",
+                value: uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
+              },
+              {
+                label: "Window",
+                value: uptime.window !== null ? uptime.window.toLocaleString() : "—",
+                sub: "blocks",
+              },
+              {
+                label: "Uptime",
+                value:
+                  uptime.ratio === null ? "—" : `${(uptime.ratio * 100).toFixed(2)}%`,
+              },
+            ]}
+          />
         </>
       ) : null}
 
-      {/* Streamed, and render nothing unless the indexer is connected. */}
       <Suspense fallback={null}>
         <ValidatorStakeHistory chain={chain} operator={addr} />
       </Suspense>
@@ -353,7 +313,7 @@ export default async function ValidatorDetailPage({
         />
       </Suspense>
 
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Delegators
       </h2>
       {/* Streamed: a large validator makes this the slowest read on the page. */}

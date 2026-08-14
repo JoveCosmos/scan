@@ -23,7 +23,7 @@ export async function generateMetadata({
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[180px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[180px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
@@ -47,7 +47,7 @@ export default async function TxDetailPage({
 
   if (!tx) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-6">
         <Link
           href={`/${chainId}/txs`}
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -55,7 +55,7 @@ export default async function TxDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Back to transactions
         </Link>
-        <div className="gata-panel px-6 py-14 text-center">
+        <div className="gata-panel px-5 py-10 text-center">
           <h1 className="text-lg font-semibold">Transaction not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             No transaction with this hash on {chain.prettyName}. It may be from a
@@ -76,7 +76,7 @@ export default async function TxDetailPage({
       : null;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chainId}/txs`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -86,7 +86,7 @@ export default async function TxDetailPage({
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Transaction</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Transaction</h1>
         <span
           className={
             success
@@ -171,7 +171,7 @@ export default async function TxDetailPage({
         </dl>
       </div>
 
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Messages ({tx.messageCount})
       </h2>
       <div className="gata-panel mb-5">
@@ -184,7 +184,7 @@ export default async function TxDetailPage({
             {tx.messages.map((msg, i) => (
               <li
                 key={`${msg.typeUrl}-${i}`}
-                className="flex items-center gap-3 border-b border-border/50 px-5 py-3.5 last:border-0"
+                className="flex items-center gap-3 border-b border-border/50 px-4 py-2.5 last:border-0"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-secondary font-mono text-xs text-muted-foreground">
                   {i + 1}
@@ -224,7 +224,7 @@ export default async function TxDetailPage({
 
       {!success && tx.rawLog ? (
         <>
-          <h2 className="mb-3 text-sm font-medium text-muted-foreground">Error log</h2>
+          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Error log</h2>
           <div className="gata-panel overflow-x-auto px-5 py-4">
             <pre className="font-mono text-xs whitespace-pre-wrap text-[var(--gata-burn)]">
               {tx.rawLog}

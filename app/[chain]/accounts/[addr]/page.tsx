@@ -30,7 +30,7 @@ export async function generateMetadata({
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
@@ -103,7 +103,7 @@ export default async function AccountPage({
   const others = account.balances.filter((b) => b.denom !== chain.denom);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chainId}`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -118,7 +118,7 @@ export default async function AccountPage({
           style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
         />
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Account</h1>
           <p className="truncate font-mono text-sm text-muted-foreground">{address}</p>
         </div>
         <LinkedAddresses links={links} currentChainId={chainId} />
@@ -126,7 +126,7 @@ export default async function AccountPage({
 
       {!account.exists ? (
         <>
-          <div className="gata-panel px-6 py-12 text-center">
+          <div className="gata-panel px-5 py-9 text-center">
             <h2 className="text-lg font-semibold">No on-chain activity</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {chain.prettyName} has no record for this address. It may never
@@ -142,19 +142,19 @@ export default async function AccountPage({
         <>
           <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div
-              className="gata-panel gata-rise p-5"
+              className="gata-panel gata-rise px-4 py-3"
               style={{ ["--panel-accent" as string]: accent }}
             >
               <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Available
               </p>
-              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+              <p className="mt-2 font-mono text-lg font-semibold leading-none">
                 {primary ? formatToken(primary.amount, chain.exponent, 2) : "0"}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">{symbol}</p>
             </div>
             <div
-              className="gata-panel gata-rise p-5"
+              className="gata-panel gata-rise px-4 py-3"
               style={{
                 ["--panel-accent" as string]: accent,
                 animationDelay: "60ms",
@@ -163,7 +163,7 @@ export default async function AccountPage({
               <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Delegated
               </p>
-              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+              <p className="mt-2 font-mono text-lg font-semibold leading-none">
                 {account.delegatedTotal
                   ? formatToken(account.delegatedTotal, chain.exponent, 2)
                   : "—"}
@@ -175,7 +175,7 @@ export default async function AccountPage({
               </p>
             </div>
             <div
-              className="gata-panel gata-rise p-5"
+              className="gata-panel gata-rise px-4 py-3"
               style={{
                 ["--panel-accent" as string]: accent,
                 animationDelay: "120ms",
@@ -184,7 +184,7 @@ export default async function AccountPage({
               <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Other Assets
               </p>
-              <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+              <p className="mt-2 font-mono text-lg font-semibold leading-none">
                 {others.length}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">denominations</p>
@@ -215,7 +215,7 @@ export default async function AccountPage({
 
           {account.balances.length > 0 ? (
             <>
-              <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+              <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Balances ({account.balances.length})
               </h2>
               <div className="gata-panel overflow-x-auto">
@@ -272,7 +272,7 @@ export default async function AccountPage({
           would describe a feature that does not exist. */}
       {getAdapter(chain).capabilities.staking ? (
         <>
-          <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
+          <h2 className="mt-6 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Staking
           </h2>
           <Suspense fallback={<LoadingPanel label="Loading delegations…" rows={3} />}>
@@ -283,7 +283,7 @@ export default async function AccountPage({
 
       {/* Outside the exists check on purpose: an address can have history and a
           zero balance, and that history is the interesting part. */}
-      <h2 className="mt-8 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-6 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Transactions
       </h2>
       <Suspense fallback={<LoadingPanel label="Loading transactions…" rows={5} />}>

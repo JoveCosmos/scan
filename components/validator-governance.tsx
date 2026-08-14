@@ -3,6 +3,7 @@ import { accentFor } from "@/lib/chains";
 import { governanceParticipation } from "@/lib/indexer-db";
 import { voteOptionLabel } from "@/lib/proposals";
 import { timeAgo } from "@/lib/format";
+import { StatRail } from "@/components/stat-rail";
 
 /**
  * How this validator votes on governance.
@@ -38,43 +39,24 @@ export async function ValidatorGovernance({
 
   return (
     <>
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Governance
       </h2>
-      <div
-        className="gata-panel px-5 py-4"
-        style={{ ["--panel-accent" as string]: accent }}
-      >
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
-            <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Participation
-            </dt>
-            <dd className="mt-1.5 font-mono text-lg font-semibold leading-none">
-              {(share * 100).toFixed(0)}%
-            </dd>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {stats.voted} of {stats.total}
-            </p>
-          </div>
-          {stats.byOption.slice(0, 3).map((o) => (
-            <div key={o.option}>
-              <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                {voteOptionLabel(o.option)}
-              </dt>
-              <dd className="mt-1.5 font-mono text-lg font-semibold leading-none">
-                {o.count}
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        {stats.lastVote ? (
-          <p className="mt-4 text-xs text-muted-foreground">
-            last voted {timeAgo(stats.lastVote)}
-          </p>
-        ) : null}
-      </div>
+      <StatRail
+        accent={accent}
+        note={stats.lastVote ? `last voted ${timeAgo(stats.lastVote)}` : undefined}
+        stats={[
+          {
+            label: "Participation",
+            value: `${(share * 100).toFixed(0)}%`,
+            sub: `${stats.voted} of ${stats.total}`,
+          },
+          ...stats.byOption.slice(0, 3).map((o) => ({
+            label: voteOptionLabel(o.option),
+            value: String(o.count),
+          })),
+        ]}
+      />
     </>
   );
 }

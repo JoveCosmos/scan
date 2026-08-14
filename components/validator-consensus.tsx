@@ -3,6 +3,7 @@ import { accentFor } from "@/lib/chains";
 import { proposerStats } from "@/lib/indexer-db";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { timeAgo } from "@/lib/format";
+import { StatRail } from "@/components/stat-rail";
 
 /**
  * How much of the chain's block production this validator actually did.
@@ -51,80 +52,38 @@ export async function ValidatorConsensus({
 
   return (
     <>
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Consensus participation
       </h2>
-      <div
-        className="gata-panel px-5 py-4"
-        style={{ ["--panel-accent" as string]: accent }}
-      >
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <Metric
-            label="Blocks proposed"
-            value={stats.proposed.toLocaleString()}
-          />
-          <Metric
-            label="Share of blocks"
-            value={`${(share * 100).toFixed(2)}%`}
-            sub={
-              expected !== null
-                ? `${(expected * 100).toFixed(2)}% of stake`
-                : undefined
-            }
-          />
-          <Metric
-            label="Versus stake"
-            value={ratio !== null ? `${ratio.toFixed(2)}x` : "-"}
-            sub={ratio !== null ? verdict(ratio) : undefined}
-          />
-          <Metric
-            label="Last proposed"
-            value={stats.lastTime ? timeAgo(stats.lastTime) : "Never"}
-            sub={
-              stats.lastHeight
-                ? `block ${stats.lastHeight.toLocaleString()}`
-                : undefined
-            }
-          />
-        </dl>
-
-        {/* The window is a fact the figures depend on, so it stays; the
-            explanation of how proposer selection works does not. */}
-        <p className="mt-4 text-xs text-muted-foreground">
-          {stats.totalBlocks.toLocaleString()} blocks indexed since {since}
-        </p>
-      </div>
+      <StatRail
+        accent={accent}
+        note={`${stats.totalBlocks.toLocaleString()} blocks indexed since ${since}`}
+        stats={[
+          { label: "Blocks proposed", value: stats.proposed.toLocaleString() },
+          {
+            label: "Share of blocks",
+            value: `${(share * 100).toFixed(2)}%`,
+            sub: expected !== null ? `${(expected * 100).toFixed(2)}% of stake` : undefined,
+          },
+          {
+            label: "Versus stake",
+            value: ratio !== null ? `${ratio.toFixed(2)}x` : "-",
+            sub: ratio !== null ? verdict(ratio) : undefined,
+          },
+          {
+            label: "Last proposed",
+            value: stats.lastTime ? timeAgo(stats.lastTime) : "Never",
+            sub: stats.lastHeight ? `block ${stats.lastHeight.toLocaleString()}` : undefined,
+          },
+        ]}
+      />
     </>
   );
 }
 
-/**
- * Deliberately cautious wording. Proposer selection is random in the short run
- * and the window includes time at a different voting power, so a modest gap is
- * noise rather than evidence.
- */
 function verdict(ratio: number): string {
   if (ratio >= 0.95) return "in line with stake";
   if (ratio >= 0.85) return "slightly under";
   return "well under - missing turns";
 }
 
-function Metric({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-lg font-medium tabular-nums">{value}</dd>
-      {sub ? (
-        <dd className="text-xs text-muted-foreground">{sub}</dd>
-      ) : null}
-    </div>
-  );
-}

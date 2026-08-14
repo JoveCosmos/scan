@@ -14,7 +14,7 @@ export async function IbcRoutesTable({ chainId }: { chainId: string }) {
 
   if (routes.length === 0) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           No routes are tracked for this chain yet.
         </p>

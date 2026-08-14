@@ -4,6 +4,7 @@ import { commissionEarned } from "@/lib/indexer-db";
 import { formatToken } from "@/lib/overview";
 import { shortDenom } from "@/lib/coin";
 import { timeAgo } from "@/lib/format";
+import { StatRail } from "@/components/stat-rail";
 
 /**
  * What the commission rate actually produced.
@@ -37,55 +38,32 @@ export async function ValidatorCommission({
 
   return (
     <>
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Commission taken
       </h2>
-      <div
-        className="gata-panel px-5 py-4"
-        style={{ ["--panel-accent" as string]: accent }}
-      >
-        <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {earned.byDenom.slice(0, 2).map((d) => {
+      <StatRail
+        accent={accent}
+        note={`withdrawn since ${
+          earned.first
+            ? new Date(earned.first).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })
+            : "genesis"
+        }`}
+        stats={[
+          ...earned.byDenom.slice(0, 2).map((d) => {
             const info = known.get(d.denom);
-            return (
-              <div key={d.denom}>
-                <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                  {info ? info.symbol : shortDenom(d.denom)}
-                </dt>
-                <dd className="mt-1.5 font-mono text-lg font-semibold leading-none">
-                  {info ? formatToken(d.amount, info.exponent, 2) : d.amount}
-                </dd>
-              </div>
-            );
-          })}
-          <div>
-            <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Withdrawals
-            </dt>
-            <dd className="mt-1.5 font-mono text-lg font-semibold leading-none">
-              {earned.withdrawals.toLocaleString()}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Last
-            </dt>
-            <dd className="mt-1.5 font-mono text-lg font-semibold leading-none">
-              {earned.last ? timeAgo(earned.last) : "-"}
-            </dd>
-          </div>
-        </dl>
-
-        {/* Withdrawn, not earned: what is still accruing sits in Outstanding
-            Commission above, and the two together are the lifetime figure. */}
-        <p className="mt-4 text-xs text-muted-foreground">
-          withdrawn since {earned.first ? new Date(earned.first).toLocaleDateString(undefined, {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }) : "genesis"}
-        </p>
-      </div>
+            return {
+              label: info ? info.symbol : shortDenom(d.denom),
+              value: info ? formatToken(d.amount, info.exponent, 2) : d.amount,
+            };
+          }),
+          { label: "Withdrawals", value: earned.withdrawals.toLocaleString() },
+          { label: "Last", value: earned.last ? timeAgo(earned.last) : "-" },
+        ]}
+      />
     </>
   );
 }

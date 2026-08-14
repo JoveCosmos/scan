@@ -32,9 +32,9 @@ export default async function TxsPage({
   const initial = await getAdapter(chain).getRecentTxs();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Transactions</h1>
         <p className="text-sm text-muted-foreground">
           Recent activity on {chain.prettyName}
         </p>

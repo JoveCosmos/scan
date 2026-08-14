@@ -91,7 +91,7 @@ export async function AccountStaking({
 
   if (staking.failed) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           The staking module did not answer. Delegations are unavailable right now.
         </p>
@@ -105,7 +105,7 @@ export async function AccountStaking({
     staking.redelegations.length === 0
   ) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           This account has nothing staked.
         </p>

@@ -25,7 +25,7 @@ export async function ValidatorDelegators({
 
   if (failed) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           Could not load delegators - the node did not respond. Several public
           endpoints disable this query on validators with very large sets.
@@ -36,7 +36,7 @@ export async function ValidatorDelegators({
 
   if (delegators.length === 0) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">No delegations found.</p>
       </div>
     );

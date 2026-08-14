@@ -38,7 +38,7 @@ function summaryPreview(summary: string): string {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-5 py-3.5 last:border-0 sm:grid-cols-[190px_1fr] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[190px_1fr] sm:gap-4">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-sm">{children}</dd>
     </div>
@@ -73,7 +73,7 @@ export default async function ProposalDetailPage({
 
   if (!proposal) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="mx-auto max-w-4xl px-4 py-6">
         <Link
           href={`/${chainId}/proposals`}
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -81,7 +81,7 @@ export default async function ProposalDetailPage({
           <ArrowLeft className="h-4 w-4" />
           Back to proposals
         </Link>
-        <div className="gata-panel px-6 py-14 text-center">
+        <div className="gata-panel px-5 py-10 text-center">
           <h1 className="text-lg font-semibold">Proposal not found</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {chain.prettyName} has no proposal #{id}.
@@ -100,7 +100,7 @@ export default async function ProposalDetailPage({
   const yesOfDecisive = decisive > 0 ? shares.yes / decisive : 0;
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-4xl px-4 py-6">
       <Link
         href={`/${chainId}/proposals`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -126,13 +126,13 @@ export default async function ProposalDetailPage({
               </span>
             ) : null}
           </div>
-          <h1 className="mt-1.5 text-2xl font-semibold leading-tight tracking-tight">
+          <h1 className="mt-1.5 text-lg font-semibold leading-tight tracking-tight">
             {proposal.title}
           </h1>
         </div>
       </div>
 
-      <div className="gata-panel mb-5 p-5" style={{ ["--panel-accent" as string]: accent }}>
+      <div className="gata-panel mb-4 px-4 py-3" style={{ ["--panel-accent" as string]: accent }}>
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 className="text-sm font-medium">
             {voting ? "Current votes" : "Final tally"}
@@ -243,7 +243,7 @@ export default async function ProposalDetailPage({
         </dl>
       </div>
 
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">Votes</h2>
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Votes</h2>
       {/* Streamed separately: fetching every vote is the slowest read on the
           page and the tally above does not depend on it. */}
       <Suspense

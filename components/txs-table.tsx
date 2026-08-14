@@ -138,7 +138,7 @@ export function TxsTable({
       </div>
 
       {txs.length === 0 ? (
-        <div className="gata-panel px-6 py-12 text-center">
+        <div className="gata-panel px-5 py-9 text-center">
           <p className="text-sm text-muted-foreground">
             No transactions in the last {data.scannedBlocks} blocks.
           </p>

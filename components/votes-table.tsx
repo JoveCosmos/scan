@@ -157,7 +157,7 @@ export function VotesTable({
       </div>
 
       {active.length === 0 ? (
-        <div className="gata-panel px-5 py-8 text-center">
+        <div className="gata-panel px-5 py-7 text-center">
           <p className="text-sm text-muted-foreground">
             {query.trim()
               ? `No vote matches “${query.trim()}”.`

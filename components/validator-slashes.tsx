@@ -45,12 +45,12 @@ export async function ValidatorSlashes({
 
   return (
     <>
-      <h2 className="mt-6 mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         Jailing history
       </h2>
 
       {events.length === 0 ? (
-        <div className="gata-panel px-5 py-8 text-center">
+        <div className="gata-panel px-5 py-7 text-center">
           <p className="text-sm text-muted-foreground">
             Never jailed or slashed since {window}.
           </p>

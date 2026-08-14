@@ -67,7 +67,7 @@ export async function AccountTxs({
 
   if (failed) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           Could not load transaction history - the node did not respond.
         </p>
@@ -77,7 +77,7 @@ export async function AccountTxs({
 
   if (txs.length === 0) {
     return (
-      <div className="gata-panel px-5 py-8 text-center">
+      <div className="gata-panel px-5 py-7 text-center">
         <p className="text-sm text-muted-foreground">
           No transactions found for this address.
         </p>

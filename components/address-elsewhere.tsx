@@ -39,7 +39,7 @@ export async function AddressElsewhere({
 
   return (
     <div className="mt-5">
-      <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
         This account is active elsewhere
       </h2>
       <ul className="space-y-2">

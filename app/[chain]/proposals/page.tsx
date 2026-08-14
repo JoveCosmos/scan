@@ -93,7 +93,7 @@ async function ProposalsContent({ chain }: { chain: ChainConfig }) {
 
   if (proposals.length === 0) {
     return (
-      <div className="gata-panel px-6 py-12 text-center">
+      <div className="gata-panel px-5 py-9 text-center">
         <p className="text-sm text-muted-foreground">
           No governance proposals found on {chain.prettyName}.
         </p>
@@ -107,18 +107,18 @@ async function ProposalsContent({ chain }: { chain: ChainConfig }) {
     <>
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div
-          className="gata-panel gata-rise p-5"
+          className="gata-panel gata-rise px-4 py-3"
           style={{ ["--panel-accent" as string]: accent }}
         >
           <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Total Proposals
           </p>
-          <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+          <p className="mt-2 font-mono text-lg font-semibold leading-none">
             {total ?? proposals.length}
           </p>
         </div>
         <div
-          className="gata-panel gata-rise p-5"
+          className="gata-panel gata-rise px-4 py-3"
           style={{
             ["--panel-accent" as string]: accent,
             animationDelay: "60ms",
@@ -127,12 +127,12 @@ async function ProposalsContent({ chain }: { chain: ChainConfig }) {
           <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             In Voting
           </p>
-          <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+          <p className="mt-2 font-mono text-lg font-semibold leading-none">
             {active}
           </p>
         </div>
         <div
-          className="gata-panel gata-rise p-5"
+          className="gata-panel gata-rise px-4 py-3"
           style={{
             ["--panel-accent" as string]: accent,
             animationDelay: "120ms",
@@ -141,7 +141,7 @@ async function ProposalsContent({ chain }: { chain: ChainConfig }) {
           <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
             Quorum / Threshold
           </p>
-          <p className="mt-2 font-mono text-2xl font-semibold leading-none">
+          <p className="mt-2 font-mono text-lg font-semibold leading-none">
             {params?.quorum != null ? `${(params.quorum * 100).toFixed(1)}%` : "—"}
             <span className="text-muted-foreground"> / </span>
             {params?.threshold != null
@@ -194,9 +194,9 @@ export default async function ProposalsPage({
   if (!getAdapter(chain).capabilities.governance) notFound();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Proposals</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Proposals</h1>
         <p className="text-sm text-muted-foreground">
           Governance on {chain.prettyName}
         </p>
