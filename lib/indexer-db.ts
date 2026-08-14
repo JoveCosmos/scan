@@ -797,3 +797,67 @@ export async function governanceParticipation(
     };
   });
 }
+
+export interface CommissionEarned {
+  /** One entry per denom — AtomOne pays commission in ATONE and PHOTON. */
+  byDenom: { denom: string; amount: string }[];
+  /** How many times commission was withdrawn. */
+  withdrawals: number;
+  first: string | null;
+  last: string | null;
+}
+
+/**
+ * Commission a validator has actually taken, since genesis.
+ *
+ * Every explorer shows the commission *rate*. This is what the rate produced —
+ * the sum of every withdraw_commission event the validator has ever emitted.
+ * The chain cannot answer it: the distribution module carries only what is
+ * currently outstanding, so once commission is withdrawn the amount survives
+ * nowhere but in the block events we indexed.
+ *
+ * Keyed on the operator address, because that is what the event names. Note
+ * this is commission *withdrawn*, not earned-and-unclaimed — the outstanding
+ * balance is a separate figure the chain still holds.
+ */
+export async function commissionEarned(
+  chainId: string,
+  operator: string
+): Promise<CommissionEarned | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+
+  return cached(`commission:${chainId}:${operator}`, 600_000, async () => {
+    const { rows } = await pool.query<{
+      denom: string;
+      total: string;
+      n: string;
+      first: string | null;
+      last: string | null;
+    }>(
+      `SELECT denom, sum(amount)::text total, count(*) n,
+              min(time)::text first, max(time)::text last
+       FROM transfer
+       WHERE chain_id = $1 AND kind = 'commission' AND from_addr = $2
+       GROUP BY denom
+       ORDER BY sum(amount) DESC`,
+      [chainId, operator]
+    );
+    if (rows.length === 0) return null;
+
+    return {
+      byDenom: rows.map((r) => ({ denom: r.denom, amount: r.total })),
+      // Withdrawals move every denom at once, so the count is per event, not
+      // per row — taking the max avoids multiplying by the number of denoms.
+      withdrawals: Math.max(...rows.map((r) => Number(r.n))),
+      first: rows.reduce<string | null>(
+        (m, r) => (!m || (r.first && r.first < m) ? r.first : m),
+        null
+      ),
+      last: rows.reduce<string | null>(
+        (m, r) => (!m || (r.last && r.last > m) ? r.last : m),
+        null
+      ),
+    };
+  });
+}
