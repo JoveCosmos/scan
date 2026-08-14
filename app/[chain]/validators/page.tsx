@@ -16,42 +16,6 @@ import { StatRail } from "@/components/stat-rail";
 
 export const revalidate = 60;
 
-function StatPanel({
-  label,
-  value,
-  sub,
-  hint,
-  accent,
-  index,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  /** Explanation on hover. Kept out of the panel so it stays a number, not a
-   *  paragraph — these are read at a glance. */
-  hint?: string;
-  accent: string;
-  index: number;
-}) {
-  return (
-    <div
-      title={hint}
-      className="gata-panel gata-panel-interactive gata-rise p-5"
-      style={{
-        ["--panel-accent" as string]: accent,
-        ["--panel-glow" as string]: `${accent}1f`,
-        animationDelay: `${index * 60}ms`,
-      }}
-    >
-      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-mono text-3xl font-semibold leading-none">{value}</p>
-      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
-    </div>
-  );
-}
-
 function TableSkeleton() {
   return (
     <div className="space-y-4">
