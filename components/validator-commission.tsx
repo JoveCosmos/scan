@@ -43,15 +43,10 @@ export async function ValidatorCommission({
       </h2>
       <StatRail
         accent={accent}
-        note={`withdrawn since ${
-          earned.first
-            ? new Date(earned.first).toLocaleDateString(undefined, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })
-            : "genesis"
-        }`}
+        // No note. "withdrawn since Feb 5, 2025" was the validator's first
+        // withdrawal, but under a rail it read as the limit of what we know —
+        // and the index holds every block, so there is no limit to state. The
+        // count and the last withdrawal already carry the history.
         stats={[
           ...earned.byDenom.slice(0, 2).map((d) => {
             const info = known.get(d.denom);

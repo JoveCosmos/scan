@@ -57,7 +57,15 @@ export async function ValidatorConsensus({
       </h2>
       <StatRail
         accent={accent}
-        note={`${stats.totalBlocks.toLocaleString()} blocks indexed since ${since}`}
+        // Stated only when the index does not reach the first block. Once the
+        // backfill lands on genesis, "since <genesis date>" is the chain's own
+        // age dressed as a caveat — it tells a reader nothing except that a
+        // limit might exist.
+        note={
+          stats.fromGenesis
+            ? `${stats.totalBlocks.toLocaleString()} blocks, all of them`
+            : `${stats.totalBlocks.toLocaleString()} blocks indexed since ${since}`
+        }
         stats={[
           { label: "Blocks proposed", value: stats.proposed.toLocaleString() },
           {

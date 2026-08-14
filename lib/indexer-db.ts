@@ -161,8 +161,10 @@ export interface SlashEvent {
 
 export interface SlashHistory {
   events: SlashEvent[];
-  /** Start of the window these events were read from — never "all of history". */
+  /** Start of the window these events were read from. */
   since: string;
+  /** True when that window starts at the first block — see ProposerStats. */
+  fromGenesis: boolean;
 }
 
 /**
@@ -219,6 +221,7 @@ export async function slashHistory(
         burned: r.burned,
       })),
       since: c.from,
+      fromGenesis: c.lowest <= 1,
     };
   } catch {
     return null;
@@ -274,7 +277,7 @@ export async function jailCounts(chainId: string): Promise<JailCounts | null> {
       if (n > 0) byConsAddr.set(r.cons_addr, n);
       if (r.tombstoned) tombstoned.add(r.cons_addr);
     }
-    return { byConsAddr, tombstoned, since: c.from };
+    return { byConsAddr, tombstoned, since: c.from, fromGenesis: c.lowest <= 1 };
   }).catch(() => null);
 }
 
@@ -286,6 +289,12 @@ export interface ProposerStats {
   lastHeight: number | null;
   lastTime: string | null;
   since: string;
+  /**
+   * True when the indexed window reaches the first block, so "since <date>" is
+   * just the chain's own start and not a limit worth stating. Backfill made
+   * this a moving window; once it lands on genesis the caveat is noise.
+   */
+  fromGenesis: boolean;
 }
 
 /**
@@ -338,6 +347,7 @@ export async function proposerStats(
     return {
       proposed: Number(mine.proposed),
       totalBlocks: total,
+      fromGenesis: c.lowest <= 1,
       lastHeight: mine.last_height ? Number(mine.last_height) : null,
       lastTime: mine.last_time,
       since: c.from,

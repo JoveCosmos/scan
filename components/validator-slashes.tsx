@@ -29,7 +29,7 @@ export async function ValidatorSlashes({
   const history = await slashHistory(chain.chainId, ids.valcons);
   if (!history) return null;
 
-  const { events, since } = history;
+  const { events, since, fromGenesis } = history;
   const symbol = symbolFor(chain);
 
   // Counted rather than listed, because "jailed twice" is the fact people come
@@ -37,11 +37,15 @@ export async function ValidatorSlashes({
   const jailings = events.filter((e) => e.kind === "jailed").length;
   const tombstoned = events.some((e) => e.kind === "tombstoned");
 
+  // "since <genesis>" is not a qualification, it is the chain's whole life —
+  // so once the index reaches the first block the sentence drops the clause and
+  // simply makes the claim.
   const window = new Date(since).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+  const over = fromGenesis ? "" : ` since ${window}`;
 
   return (
     <>
@@ -52,7 +56,7 @@ export async function ValidatorSlashes({
       {events.length === 0 ? (
         <div className="gata-panel px-5 py-7 text-center">
           <p className="text-sm text-muted-foreground">
-            Never jailed or slashed since {window}.
+            Never jailed or slashed{over}.
           </p>
         </div>
       ) : (
@@ -68,7 +72,7 @@ export async function ValidatorSlashes({
                 <span className="font-medium">
                   {jailings === 1 ? "once" : `${jailings} times`}
                 </span>{" "}
-                since {window}.
+                {over ? over.replace(/^ /, "") : "in the chain's history"}.
               </span>
             )}
           </div>
@@ -134,7 +138,9 @@ export async function ValidatorSlashes({
 
       {/* The covered window stays — without it "never jailed" overclaims — but
           the explanation of why does not. */}
-      <p className="mt-2 text-xs text-muted-foreground">covering {window} onwards</p>
+      {fromGenesis ? null : (
+        <p className="mt-2 text-xs text-muted-foreground">covering {window} onwards</p>
+      )}
     </>
   );
 }
