@@ -28,15 +28,17 @@ export interface ChainSummary {
 /** Every section, for headers rendered without an active chain. */
 const ALL_SECTIONS = { txs: true, proposals: true, relayers: true };
 
-// Params first: the chain's identity card and the tab a chain lands on.
-// Governance sits by validators; blocks is a firehose, so it goes last.
+// Overview first — it is the chain's identity card and the tab a chain lands on
+// — then the chain's own activity (blocks, transactions), then who runs it
+// (validators, governance), then IBC. The route is still /params; only the label
+// changed, because "Params" described the implementation rather than the page.
 // Labels shorten on narrow screens so every tab fits without a sideways swipe.
 const NAV = [
-  { href: "/params", label: "Params", short: "Params" },
+  { href: "/params", label: "Overview", short: "Overview" },
+  { href: "/blocks", label: "Blocks", short: "Blocks" },
+  { href: "/txs", label: "Txs", short: "Txs", section: "txs" as const },
   { href: "/validators", label: "Validators", short: "Vals" },
   { href: "/proposals", label: "Proposals", short: "Props", governanceOnly: true, section: "proposals" as const },
-  { href: "/txs", label: "Transactions", short: "Txs", section: "txs" as const },
-  { href: "/blocks", label: "Blocks", short: "Blocks" },
   { href: "/relayers", label: "Relayers", short: "Relay", ibcOnly: true, section: "relayers" as const },
 ];
 

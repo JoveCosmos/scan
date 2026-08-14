@@ -180,7 +180,7 @@ function FigureWithBar({
           {share === null ? "-" : `${(share * 100).toFixed(2)}%`}
         </span>
         <span
-          className="h-1 w-full overflow-hidden rounded-full bg-muted"
+          className="h-1 w-full overflow-hidden rounded-full bg-foreground/15"
           aria-hidden="true"
         >
           <span
@@ -199,11 +199,9 @@ function FigureWithBar({
 function SelfBond({
   selfBond,
   exponent,
-  accent,
 }: {
   selfBond: ValidatorRow["selfBond"];
   exponent: number;
-  accent: string;
 }) {
   if (!selfBond) return <span className="text-xs text-muted-foreground">-</span>;
 
@@ -213,7 +211,9 @@ function SelfBond({
       share={selfBond.share}
       // Absolute, not scaled to the biggest self bonder — see FigureWithBar.
       fill={selfBond.share ?? 0}
-      accent={accent}
+      // Deliberately not the chain accent: that belongs to stake, and one colour
+      // across both columns read as a single bar broken by a border.
+      accent="var(--gata-sub)"
     />
   );
 }
@@ -228,54 +228,79 @@ function formatAmount(raw: string, exponent: number): string {
   return n.toFixed(2);
 }
 
-function Jailings({ jailings }: { jailings: ValidatorRow["jailings"] }) {
-  if (!jailings) return <span className="text-xs text-muted-foreground">-</span>;
+/**
+ * Jail history in one cell: how many times, and when last.
+ *
+ * They were two columns, which only worked when both had data. The count comes
+ * from indexed block events and the date from the slashing module, so on a chain
+ * we do not index the count column was a row of dashes next to a real date. Here
+ * the count leads when we have it, the date sits under it, and neither claims
+ * more than it knows.
+ */
+function Jailed({
+  uptime,
+  jailings,
+}: {
+  uptime: ValidatorUptime;
+  jailings: ValidatorRow["jailings"];
+}) {
+  const until = uptime.jailedUntil ? new Date(uptime.jailedUntil) : null;
+  const stillJailed = until ? until.getTime() > Date.now() : false;
+  const date = until
+    ? until.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : null;
 
-  if (jailings.tombstoned) {
+  if (jailings?.tombstoned) {
     return (
-      <span className="text-xs font-medium text-[var(--gata-burn)]">
-        Tombstoned
+      <span className="inline-flex flex-col items-end leading-tight">
+        <span className="text-xs font-medium text-[var(--gata-burn)]">
+          Tombstoned
+        </span>
+        {date ? (
+          <span className="font-mono text-[11px] text-muted-foreground">{date}</span>
+        ) : null}
       </span>
     );
   }
 
-  if (jailings.count === 0) {
-    return <span className="text-xs text-muted-foreground">0</span>;
-  }
-
-  return (
-    <span className="tabular-nums text-[var(--gata-burn)]">
-      {jailings.count}
-    </span>
-  );
-}
-
-function LastJailed({ uptime }: { uptime: ValidatorUptime }) {
-  if (!uptime.jailedUntil) {
+  // Never jailed, and nothing counted against it either.
+  if (!date && (jailings === null || jailings.count === 0)) {
     return <span className="text-xs text-muted-foreground">Never</span>;
   }
 
-  const until = new Date(uptime.jailedUntil);
-  const stillJailed = until.getTime() > Date.now();
-  const label = until.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
   return (
-    <span
-      className={cn(
-        "font-mono text-xs tabular-nums",
-        stillJailed ? "text-[var(--gata-burn)]" : "text-muted-foreground"
-      )}
-      title={
-        stillJailed
-          ? `Jailed until ${until.toLocaleString()}`
-          : `Released from jail ${until.toLocaleString()}`
-      }
-    >
-      {stillJailed ? `until ${label}` : label}
+    <span className="inline-flex flex-col items-end leading-tight">
+      {jailings !== null ? (
+        <span
+          className={
+            jailings.count > 0
+              ? "font-mono text-sm tabular-nums text-[var(--gata-burn)]"
+              : "text-xs text-muted-foreground"
+          }
+        >
+          {jailings.count > 0 ? `${jailings.count}×` : "Never"}
+        </span>
+      ) : null}
+      {date ? (
+        <span
+          className={
+            stillJailed
+              ? "font-mono text-[11px] text-[var(--gata-burn)]"
+              : "font-mono text-[11px] text-muted-foreground"
+          }
+          title={
+            stillJailed
+              ? `Jailed until ${until!.toLocaleString()}`
+              : `Released ${until!.toLocaleString()}`
+          }
+        >
+          {stillJailed ? `until ${date}` : date}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -416,8 +441,8 @@ export function ValidatorsTable({
             {header("Validator", "moniker")}
             {staking ? (
               <>
-                {header("Staked", "tokens", "right")}
                 {header("Self Bond", "selfBond", "right")}
+                {header("Staked", "tokens", "right")}
                 {hasDeltas ? header("24h", "delta", "right") : null}
                 {header("Commission", "commission", "right")}
               </>
@@ -425,9 +450,8 @@ export function ValidatorsTable({
               header("Power", "tokens", "right")
             )}
             {hasUptime && slashingWindow
-              ? header("Last Jailed", "jailed", "right")
+              ? header("Jailed", jailingsSince ? "jailings" : "jailed", "right")
               : null}
-            {jailingsSince ? header("Jailed", "jailings", "right") : null}
             {hasUptime ? header("Uptime", "uptime", "right") : null}
             <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
@@ -481,21 +505,17 @@ export function ValidatorsTable({
                 </td>
               ) : (
                 <>
+                  <td
+                    data-label="Self Bond"
+                    className="px-4 py-2.5 text-right font-mono tabular-nums"
+                  >
+                    <SelfBond selfBond={v.selfBond} exponent={exponent} />
+                  </td>
                   <td data-label="Staked" className="px-4 py-2.5 text-right">
                     <FigureWithBar
                       amount={v.tokensLabel}
                       share={v.votingPower}
                       fill={v.votingPower / topPower}
-                      accent={accent}
-                    />
-                  </td>
-                  <td
-                    data-label="Self Bond"
-                    className="px-4 py-2.5 text-right font-mono tabular-nums"
-                  >
-                    <SelfBond
-                      selfBond={v.selfBond}
-                      exponent={exponent}
                       accent={accent}
                     />
                   </td>
@@ -513,13 +533,8 @@ export function ValidatorsTable({
                 </>
               )}
               {hasUptime && slashingWindow ? (
-                <td data-label="Last Jailed" className="px-4 py-2.5 text-right">
-                  <LastJailed uptime={v.uptime} />
-                </td>
-              ) : null}
-              {jailingsSince ? (
                 <td data-label="Jailed" className="px-4 py-2.5 text-right">
-                  <Jailings jailings={v.jailings} />
+                  <Jailed uptime={v.uptime} jailings={v.jailings} />
                 </td>
               ) : null}
               {hasUptime ? (
@@ -549,16 +564,16 @@ export function ValidatorsTable({
         </p>
       ) : null}
 
+      {/* The window stays — a count of "0" means nothing without the period it
+          counts over — but the explanation of where it comes from does not. */}
       {jailingsSince ? (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-          Jailed counts how many times each validator has been jailed since{" "}
+          Jail counts since{" "}
           {new Date(jailingsSince).toLocaleDateString(undefined, {
             year: "numeric",
             month: "short",
             day: "numeric",
           })}
-          , from indexed block events. The chain keeps only the most recent jail
-          date, shown under Last Jailed.
         </p>
       ) : null}
       </div>
