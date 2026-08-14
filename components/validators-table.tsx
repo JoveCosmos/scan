@@ -146,23 +146,30 @@ function compare(a: ValidatorRow, b: ValidatorRow, key: SortKey): number {
 }
 
 /**
- * Stake, with voting power as a bar beneath it.
+ * An amount, its share small beneath, and a bar.
  *
- * They were two columns saying one thing: a validator's share of stake *is* its
- * voting power, so the percentage only ever restated the amount beside it.
- * Merged, the amount is the figure and the bar is the comparison — the width is
- * relative to the largest validator, which is what makes the top of the set
- * legible at a glance rather than every bar sitting near zero.
+ * Used by both Staked and Self Bond, which were each two facts crammed into one
+ * cell. The amount is what you read; the bar is what you compare.
+ *
+ * `fill` is deliberately separate from `share`, because the two columns scale
+ * differently and both are right to. Voting power is a share of the whole set,
+ * so the largest validator holds maybe 7% and drawing that against 100% leaves
+ * every bar flat against zero — it is scaled to the biggest instead. Self bond
+ * is a share of the validator's *own* stake, where 85% and 1% are directly
+ * meaningful and a bar that is nearly empty is the correct picture of an
+ * operator with nothing at risk.
  */
-function Staked({
+function FigureWithBar({
   amount,
   share,
-  relative,
+  fill,
   accent,
 }: {
   amount: string;
-  share: number;
-  relative: number;
+  /** Printed above the bar. */
+  share: number | null;
+  /** Bar width, 0–1. */
+  fill: number;
   accent: string;
 }) {
   return (
@@ -170,7 +177,7 @@ function Staked({
       <span className="font-mono tabular-nums">{amount}</span>
       <span className="flex w-20 flex-col items-end gap-0.5">
         <span className="font-mono text-[10px] leading-none text-muted-foreground">
-          {(share * 100).toFixed(2)}%
+          {share === null ? "-" : `${(share * 100).toFixed(2)}%`}
         </span>
         <span
           className="h-1 w-full overflow-hidden rounded-full bg-muted"
@@ -179,7 +186,7 @@ function Staked({
           <span
             className="block h-full rounded-full"
             style={{
-              width: `${Math.min(100, relative * 100)}%`,
+              width: `${Math.max(0, Math.min(100, fill * 100))}%`,
               background: accent,
             }}
           />
@@ -189,29 +196,25 @@ function Staked({
   );
 }
 
-/**
- * Share first, amount second. "3.43M ATONE" means nothing without the stake it
- * sits against; 85% versus 0.00% is the whole point of the column.
- */
 function SelfBond({
   selfBond,
   exponent,
+  accent,
 }: {
   selfBond: ValidatorRow["selfBond"];
   exponent: number;
+  accent: string;
 }) {
   if (!selfBond) return <span className="text-xs text-muted-foreground">-</span>;
 
-  const share = selfBond.share;
   return (
-    <span className="inline-flex flex-col items-end leading-tight">
-      <span className={share !== null && share < 0.001 ? "text-muted-foreground" : undefined}>
-        {share === null ? "-" : `${(share * 100).toFixed(2)}%`}
-      </span>
-      <span className="text-[11px] text-muted-foreground">
-        {formatAmount(selfBond.amount, exponent)}
-      </span>
-    </span>
+    <FigureWithBar
+      amount={formatAmount(selfBond.amount, exponent)}
+      share={selfBond.share}
+      // Absolute, not scaled to the biggest self bonder — see FigureWithBar.
+      fill={selfBond.share ?? 0}
+      accent={accent}
+    />
   );
 }
 
@@ -469,20 +472,20 @@ export function ValidatorsTable({
                   data-label="Power"
                   className="px-4 py-2.5 text-right"
                 >
-                  <Staked
+                  <FigureWithBar
                     amount={Number(v.tokens).toLocaleString()}
                     share={v.votingPower}
-                    relative={v.votingPower / topPower}
+                    fill={v.votingPower / topPower}
                     accent={accent}
                   />
                 </td>
               ) : (
                 <>
                   <td data-label="Staked" className="px-4 py-2.5 text-right">
-                    <Staked
+                    <FigureWithBar
                       amount={v.tokensLabel}
                       share={v.votingPower}
-                      relative={v.votingPower / topPower}
+                      fill={v.votingPower / topPower}
                       accent={accent}
                     />
                   </td>
@@ -490,7 +493,11 @@ export function ValidatorsTable({
                     data-label="Self Bond"
                     className="px-4 py-2.5 text-right font-mono tabular-nums"
                   >
-                    <SelfBond selfBond={v.selfBond} exponent={exponent} />
+                    <SelfBond
+                      selfBond={v.selfBond}
+                      exponent={exponent}
+                      accent={accent}
+                    />
                   </td>
                   {hasDeltas ? (
                     <td data-label="24h" className="px-4 py-2.5 text-right">
