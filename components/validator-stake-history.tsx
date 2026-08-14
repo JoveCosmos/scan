@@ -30,7 +30,13 @@ export async function ValidatorStakeHistory({
   chain: ChainConfig;
   operator: string;
 }) {
-  const points = await stakeHistory(chain.chainId, operator).catch(() => null);
+  // Logged rather than swallowed. A failing query and a validator with no
+  // snapshots both render nothing, and the last feature that hid a SQL error
+  // this way shipped broken — the log is the only thing that tells them apart.
+  const points = await stakeHistory(chain.chainId, operator).catch((err) => {
+    console.error(`stakeHistory failed for ${operator}:`, err);
+    return null;
+  });
   if (!points || points.length < 2) return null;
 
   const values = points.map((p) => Number(p.tokens));

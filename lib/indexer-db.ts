@@ -904,18 +904,22 @@ export async function stakeHistory(
       tokens: string;
       jailed: boolean;
     }>(
+      // Both casts are load-bearing. node-postgres sends parameters as text,
+      // and Postgres will not infer ntile(text) or an interval from a bare
+      // parameter — without them the query throws rather than returning
+      // nothing, which the caller cannot tell apart.
       `WITH windowed AS (
          SELECT time, tokens, jailed,
-                ntile($4) OVER (ORDER BY time) bucket
+                ntile($4::int) OVER (ORDER BY time) bucket
          FROM validator_stake
          WHERE chain_id = $1 AND operator = $2
-           AND time > now() - ($3 || ' days')::interval
+           AND time > now() - make_interval(days => $3::int)
        )
        SELECT DISTINCT ON (bucket)
               time::text, tokens::text, jailed
        FROM windowed
        ORDER BY bucket, time DESC`,
-      [chainId, operator, String(days), points]
+      [chainId, operator, days, points]
     );
     return rows.length >= 2 ? rows : [];
   });
