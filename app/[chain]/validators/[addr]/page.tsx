@@ -14,6 +14,7 @@ import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorStatus } from "@/components/validator-status";
 import { ValidatorSlashes } from "@/components/validator-slashes";
 import { ValidatorConsensus } from "@/components/validator-consensus";
+import { ValidatorGovernance } from "@/components/validator-governance";
 import { UptimeBars } from "@/components/uptime-bars";
 import { getAdapter } from "@/lib/adapter";
 import { emptyUptime, DETAIL_BAR_COUNT } from "@/lib/uptime";
@@ -323,6 +324,10 @@ export default async function ValidatorDetailPage({
       ) : null}
 
       {/* Streamed, and render nothing unless the indexer is connected. */}
+      <Suspense fallback={null}>
+        <ValidatorGovernance chain={chain} account={selfDelegation} />
+      </Suspense>
+
       <Suspense fallback={null}>
         <ValidatorConsensus
           chain={chain}

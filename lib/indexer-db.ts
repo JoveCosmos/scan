@@ -740,3 +740,60 @@ export async function votesFromIndexer(
     return null;
   }
 }
+
+export interface GovParticipation {
+  /** Proposals this account voted on. */
+  voted: number;
+  /** Proposals with any recorded vote, which is the fair denominator. */
+  total: number;
+  /** Count per option, heaviest option for split votes. */
+  byOption: { option: string; count: number }[];
+  /** When they last voted. */
+  lastVote: string | null;
+}
+
+/**
+ * How often an account has voted, and how.
+ *
+ * The denominator is proposals *with recorded votes*, not every proposal that
+ * ever existed: a validator cannot be marked absent from a proposal that closed
+ * before the indexed window, and one nobody voted on says nothing about anyone.
+ *
+ * Null without the indexer. The gov module deletes votes once it tallies, so
+ * for a finished proposal this table is the only lasting record — the chain
+ * cannot answer this question at all.
+ */
+export async function governanceParticipation(
+  chainId: string,
+  voter: string
+): Promise<GovParticipation | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+
+  return cached(`gov:participation:${chainId}:${voter}`, 300_000, async () => {
+    const [totals, options] = await Promise.all([
+      pool.query<{ voted: string; total: string; last: string | null }>(
+        `SELECT
+           (SELECT count(*) FROM vote WHERE chain_id = $1 AND voter = $2) AS voted,
+           (SELECT count(DISTINCT proposal_id) FROM vote WHERE chain_id = $1) AS total,
+           (SELECT max(time)::text FROM vote WHERE chain_id = $1 AND voter = $2) AS last`,
+        [chainId, voter]
+      ),
+      pool.query<{ option: string; n: string }>(
+        `SELECT option, count(*) n FROM vote
+         WHERE chain_id = $1 AND voter = $2
+         GROUP BY option ORDER BY n DESC`,
+        [chainId, voter]
+      ),
+    ]);
+
+    const row = totals.rows[0];
+    if (!row) return null;
+    return {
+      voted: Number(row.voted),
+      total: Number(row.total),
+      byOption: options.rows.map((r) => ({ option: r.option, count: Number(r.n) })),
+      lastVote: row.last,
+    };
+  });
+}
