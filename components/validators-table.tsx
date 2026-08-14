@@ -356,6 +356,7 @@ export function ValidatorsTable({
   staking,
   hasDeltas,
   hasUptime,
+  grossApr,
   slashingWindow,
   exponent,
   jailingsSince,
@@ -368,6 +369,14 @@ export function ValidatorsTable({
   /** False when the tier does not gather uptime, so the columns are dropped
    *  rather than rendered empty for every validator. */
   hasUptime: boolean;
+  /**
+   * Chain-wide staking APR before commission, or null when it cannot be
+   * derived. Deliberately not a column of its own: per-validator APR is this
+   * figure times (1 − commission), so a column would rank identically to
+   * commission and say the same thing twice. It goes under the rate, because
+   * "5%" does not tell a delegator what they earn and "14.87%" does.
+   */
+  grossApr: number | null;
   slashingWindow: boolean;
   exponent: number;
   /**
@@ -528,7 +537,14 @@ export function ValidatorsTable({
                     data-label="Commission"
                     className="px-4 py-2.5 text-right font-mono tabular-nums"
                   >
-                    {(v.commissionRate * 100).toFixed(1)}%
+                    <span className="inline-flex flex-col items-end leading-tight">
+                      <span>{(v.commissionRate * 100).toFixed(1)}%</span>
+                      {grossApr !== null ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          {(grossApr * (1 - v.commissionRate) * 100).toFixed(2)}% APR
+                        </span>
+                      ) : null}
+                    </span>
                   </td>
                 </>
               )}

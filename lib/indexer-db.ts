@@ -871,3 +871,52 @@ export async function commissionEarned(
     };
   });
 }
+
+export interface StakePoint {
+  time: string;
+  tokens: string;
+  jailed: boolean;
+}
+
+/**
+ * A validator's bonded stake over time.
+ *
+ * validator_stake holds a snapshot per operator per sampled height, and until
+ * now the only thing reading it was the 24h delta — one subtraction over a
+ * table that describes a whole history. This returns the series.
+ *
+ * Sampled down to at most `points` rows in SQL rather than in JS: a year of
+ * snapshots is far more than a sparkline can draw, and shipping them all to
+ * render sixty pixels is waste at every layer.
+ */
+export async function stakeHistory(
+  chainId: string,
+  operator: string,
+  days = 90,
+  points = 60
+): Promise<StakePoint[] | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+
+  return cached(`stakehist:${chainId}:${operator}:${days}`, 600_000, async () => {
+    const { rows } = await pool.query<{
+      time: string;
+      tokens: string;
+      jailed: boolean;
+    }>(
+      `WITH windowed AS (
+         SELECT time, tokens, jailed,
+                ntile($4) OVER (ORDER BY time) bucket
+         FROM validator_stake
+         WHERE chain_id = $1 AND operator = $2
+           AND time > now() - ($3 || ' days')::interval
+       )
+       SELECT DISTINCT ON (bucket)
+              time::text, tokens::text, jailed
+       FROM windowed
+       ORDER BY bucket, time DESC`,
+      [chainId, operator, String(days), points]
+    );
+    return rows.length >= 2 ? rows : [];
+  });
+}

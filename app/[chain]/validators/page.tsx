@@ -11,6 +11,7 @@ import { emptyUptime, consensusIdsFromPubkey } from "@/lib/uptime";
 import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
 import { getSelfBonds } from "@/lib/staking";
+import { getChainEconomics } from "@/lib/params";
 
 export const revalidate = 60;
 
@@ -113,7 +114,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   // data is absent, so the page degrades to the set itself.
   const metrics = policyFor(chain).metrics;
   // Both need the validator set first: they are keyed by the same identifier.
-  const [uptime, deltas, jailings, selfBonds] = await Promise.all([
+  const [uptime, deltas, jailings, selfBonds, economics] = await Promise.all([
     metrics
       ? adapter.getUptime(validators).catch(() => new Map())
       : Promise.resolve(new Map()),
@@ -130,6 +131,15 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     adapter.capabilities.staking
       ? getSelfBonds(chain, validators).catch(() => new Map())
       : Promise.resolve(new Map()),
+    // One chain-wide figure. What a delegator actually earns is this less the
+    // validator's commission, which is the only part that varies by row.
+    adapter.capabilities.staking
+      ? getChainEconomics(
+          chain,
+          chainParams?.distribution?.communityTax ?? null,
+          null
+        ).catch(() => null)
+      : Promise.resolve(null),
   ]);
   const hasDeltas = deltas.size > 0;
 
@@ -257,6 +267,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         staking={staking}
         hasDeltas={hasDeltas}
         hasUptime={metrics}
+        grossApr={economics?.stakingApr ?? null}
         slashingWindow={slashingWindow}
         exponent={chain.exponent}
         jailingsSince={jailings?.since ?? null}
