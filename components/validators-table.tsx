@@ -146,6 +146,50 @@ function compare(a: ValidatorRow, b: ValidatorRow, key: SortKey): number {
 }
 
 /**
+ * Stake, with voting power as a bar beneath it.
+ *
+ * They were two columns saying one thing: a validator's share of stake *is* its
+ * voting power, so the percentage only ever restated the amount beside it.
+ * Merged, the amount is the figure and the bar is the comparison — the width is
+ * relative to the largest validator, which is what makes the top of the set
+ * legible at a glance rather than every bar sitting near zero.
+ */
+function Staked({
+  amount,
+  share,
+  relative,
+  accent,
+}: {
+  amount: string;
+  share: number;
+  relative: number;
+  accent: string;
+}) {
+  return (
+    <div className="inline-flex flex-col items-end gap-1">
+      <span className="font-mono tabular-nums">{amount}</span>
+      <span className="flex w-20 flex-col items-end gap-0.5">
+        <span className="font-mono text-[10px] leading-none text-muted-foreground">
+          {(share * 100).toFixed(2)}%
+        </span>
+        <span
+          className="h-1 w-full overflow-hidden rounded-full bg-muted"
+          aria-hidden="true"
+        >
+          <span
+            className="block h-full rounded-full"
+            style={{
+              width: `${Math.min(100, relative * 100)}%`,
+              background: accent,
+            }}
+          />
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
  * Share first, amount second. "3.43M ATONE" means nothing without the stake it
  * sits against; 85% versus 0.00% is the whole point of the column.
  */
@@ -367,9 +411,6 @@ export function ValidatorsTable({
           <tr className="border-b border-border text-left">
             {header("#", "rank")}
             {header("Validator", "moniker")}
-            <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-              Voting Power
-            </th>
             {staking ? (
               <>
                 {header("Staked", "tokens", "right")}
@@ -423,37 +464,27 @@ export function ValidatorsTable({
                   </div>
                 </Link>
               </td>
-              <td data-label="Voting Power" className="px-4 py-2.5 text-right">
-                <div className="font-mono tabular-nums">
-                  {(v.votingPower * 100).toFixed(2)}%
-                </div>
-                <div
-                  className="mt-1 ml-auto h-1 w-20 overflow-hidden rounded-full bg-muted"
-                  aria-hidden="true"
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(100, (v.votingPower / topPower) * 100)}%`,
-                      background: accent,
-                    }}
-                  />
-                </div>
-              </td>
               {!staking ? (
                 <td
                   data-label="Power"
-                  className="px-4 py-2.5 text-right font-mono tabular-nums"
+                  className="px-4 py-2.5 text-right"
                 >
-                  {Number(v.tokens).toLocaleString()}
+                  <Staked
+                    amount={Number(v.tokens).toLocaleString()}
+                    share={v.votingPower}
+                    relative={v.votingPower / topPower}
+                    accent={accent}
+                  />
                 </td>
               ) : (
                 <>
-                  <td
-                    data-label="Staked"
-                    className="px-4 py-2.5 text-right font-mono tabular-nums"
-                  >
-                    {v.tokensLabel}
+                  <td data-label="Staked" className="px-4 py-2.5 text-right">
+                    <Staked
+                      amount={v.tokensLabel}
+                      share={v.votingPower}
+                      relative={v.votingPower / topPower}
+                      accent={accent}
+                    />
                   </td>
                   <td
                     data-label="Self Bond"
