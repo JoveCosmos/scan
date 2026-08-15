@@ -230,7 +230,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         grossApr={economics?.stakingApr ?? null}
         slashingWindow={slashingWindow}
         exponent={chain.exponent}
-        jailingsSince={jailings?.since ?? null}
+        jailingsSince={jailings && !jailings.fromGenesis ? jailings.since : null}
       />
     </>
   );

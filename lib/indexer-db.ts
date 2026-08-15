@@ -235,6 +235,8 @@ export interface JailCounts {
   tombstoned: Set<string>;
   /** Start of the window these counts were taken from. */
   since: string;
+  /** True when that window is the whole chain — see ProposerStats. */
+  fromGenesis: boolean;
 }
 
 /**
@@ -394,6 +396,8 @@ export interface RelayerStats {
   operators: RelayerOperator[];
   totalTxs: number;
   since: string;
+  /** True when the count covers the whole chain — see ProposerStats. */
+  fromGenesis: boolean;
 }
 
 /**
@@ -464,6 +468,7 @@ export async function relayerStats(
       })),
       totalTxs: Number(res.rows[0]?.total ?? 0),
       since: c.from,
+      fromGenesis: c.lowest <= 1,
     };
   }).catch(() => null);
 }
@@ -486,6 +491,8 @@ export interface IndexedAccountTx {
 }
 
 export interface IndexedAccountTxs {
+  /** True when the index reaches the first block — see ProposerStats. */
+  fromGenesis: boolean;
   txs: IndexedAccountTx[];
   /** Start of the window these came from — never "all of history". */
   since: string;
@@ -586,6 +593,7 @@ export async function accountTxsFromIndexer(
             : null,
       })),
       since: c.from,
+      fromGenesis: c.lowest <= 1,
       // One extra row was requested purely to answer this without a count.
       more: res.rows.length > limit,
     };

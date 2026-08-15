@@ -117,6 +117,8 @@ export interface AccountTxs {
   source: "search" | "indexer";
   /** Start of the indexed window, when source is "indexer". */
   since?: string;
+  /** True when that window is the whole chain, so it needs no qualifying. */
+  fromGenesis?: boolean;
   /** True when more transactions exist below the page returned. */
   more?: boolean;
 }
@@ -155,6 +157,7 @@ export async function getCosmosAccountTxs(
       failed: false,
       source: "indexer",
       since: indexed.since,
+      fromGenesis: indexed.fromGenesis,
       more: indexed.more,
     };
   }

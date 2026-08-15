@@ -119,7 +119,8 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {stats.totalTxs.toLocaleString()} relay transactions since {since},
+        {stats.totalTxs.toLocaleString()} relay transactions
+        {stats.fromGenesis ? " across the chain's history" : ` since ${since}`},
         attributed to whoever paid the fee. Packet transfers sent by users are
         not counted - only the messages a relayer submits to deliver, acknowledge
         or time out a packet, and the client updates that keep a channel usable.

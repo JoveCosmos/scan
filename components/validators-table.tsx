@@ -383,6 +383,7 @@ export function ValidatorsTable({
    * Start of the indexed window the jailing counts came from, or null when the
    * indexer has nothing to say — in which case the column is not shown at all.
    */
+  /** Null when the counts cover the whole chain and need no qualifying. */
   jailingsSince: string | null;
 }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -580,8 +581,8 @@ export function ValidatorsTable({
         </p>
       ) : null}
 
-      {/* The window stays — a count of "0" means nothing without the period it
-          counts over — but the explanation of where it comes from does not. */}
+      {/* Only while the index is partial. Where it holds every block, "0" means
+          never, and dating that to the chain's own start says less than nothing. */}
       {jailingsSince ? (
         <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
           Jail counts since{" "}
