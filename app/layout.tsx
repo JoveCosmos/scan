@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { SiteHeader } from "@/components/site-header";
+import { THEME_BOOTSTRAP } from "@/components/theme-switch";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { policyFor } from "@/lib/tiers";
@@ -51,6 +52,11 @@ export default function RootLayout({
     // Font variables live on <html> because globals.css applies `font-sans`
     // there; defining them only on <body> leaves the html rule unresolved.
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        {/* Before first paint: a visitor on the terminal theme must not watch
+            the default one render first. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
+      </head>
       <body className="antialiased">
         {/* Fixed ambient grid, masked to the top of the viewport. */}
         <div

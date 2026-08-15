@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchBar } from "@/components/search-bar";
+import { ThemeSwitch } from "@/components/theme-switch";
 
 export interface ChainSummary {
   chainId: string;
@@ -286,6 +287,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             {/* Search is global; the active chain is only a tie-breaker hint. */}
             <SearchBar chainId={activeChainId ?? undefined} />
           </div>
+          <ThemeSwitch />
           <ChainSwitcher
             chains={chains}
             activeChainId={activeChainId}
