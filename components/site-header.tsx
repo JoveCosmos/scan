@@ -8,6 +8,7 @@ import { ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SearchBar } from "@/components/search-bar";
 import { ThemeSwitch } from "@/components/theme-switch";
+import { ViewSwitch } from "@/components/view-switch";
 
 export interface ChainSummary {
   chainId: string;
@@ -241,7 +242,17 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   // Switching chains keeps you on the same tab. Only the section survives — a
   // block height, tx hash or validator address means nothing on another chain,
   // so detail routes fall back to their list.
-  const SECTIONS = ["params", "blocks", "txs", "validators", "proposals"];
+  // Console and canvas are here so switching chains keeps the presentation you
+  // chose. Neither is capability-gated — every chain can be read either way.
+  const SECTIONS = [
+    "params",
+    "blocks",
+    "txs",
+    "validators",
+    "proposals",
+    "console",
+    "canvas",
+  ];
   const section =
     activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
 
@@ -287,6 +298,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             {/* Search is global; the active chain is only a tie-breaker hint. */}
             <SearchBar chainId={activeChainId ?? undefined} />
           </div>
+          {activeChainId ? <ViewSwitch chainId={activeChainId} /> : null}
           <ThemeSwitch />
           <ChainSwitcher
             chains={chains}

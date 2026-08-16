@@ -87,6 +87,38 @@ export function consensusIdsFromPubkey(
   }
 }
 
+/**
+ * Consensus address → validator, for naming block proposers in a list.
+ *
+ * A block header carries its proposer as a raw consensus address. Resolving one
+ * at a time costs a validator-set read per block, so views that show many blocks
+ * build this once from a set they already hold and look every proposer up
+ * locally. Both encodings are keyed: the LCD renders a proposer address base64,
+ * CometBFT's own RPC renders the same bytes as uppercase hex.
+ *
+ * Takes the validator list rather than fetching it, so this stays free of the
+ * adapter and callers keep whatever caching they already have.
+ */
+export function proposerIndex(
+  validators: {
+    moniker: string;
+    operatorAddress: string;
+    consensusPubkey: string | null;
+  }[],
+  bech32Prefix: string
+): Map<string, { moniker: string; operator: string }> {
+  const index = new Map<string, { moniker: string; operator: string }>();
+  for (const v of validators) {
+    if (!v.consensusPubkey) continue;
+    const ids = consensusIdsFromPubkey(v.consensusPubkey, bech32Prefix);
+    if (!ids) continue;
+    const entry = { moniker: v.moniker, operator: v.operatorAddress };
+    index.set(ids.base64, entry);
+    index.set(ids.hex, entry);
+  }
+  return index;
+}
+
 interface SigningInfo {
   address: string;
   index_offset?: string;
