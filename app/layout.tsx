@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
-import { SiteHeader } from "@/components/site-header";
-import { THEME_BOOTSTRAP } from "@/components/theme-switch";
+import { AppShell } from "@/components/app-shell";
 import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { policyFor } from "@/lib/tiers";
@@ -52,11 +51,6 @@ export default function RootLayout({
     // Font variables live on <html> because globals.css applies `font-sans`
     // there; defining them only on <body> leaves the html rule unresolved.
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <head>
-        {/* Before first paint: a visitor on the terminal theme must not watch
-            the default one render first. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
-      </head>
       <body className="antialiased">
         {/* Fixed ambient grid, masked to the top of the viewport. */}
         <div
@@ -64,29 +58,32 @@ export default function RootLayout({
           className="gata-grid-lines pointer-events-none fixed inset-0 -z-10"
         />
         <QueryProvider>
-          <div className="flex min-h-screen flex-col">
-            <SiteHeader chains={chains} />
-            <div className="flex-1">{children}</div>
-            <footer className="mt-16 border-t border-border">
-              {/*
-                Attribution, not a title. "GATA HUB Scan" on the left restated
-                the header a screen above it; "powered by GATA HUB" credits the
-                product this one comes from, and sits right where a colophon
-                belongs.
-              */}
-              <div className="mx-auto flex max-w-6xl items-center justify-end px-4 py-6 text-xs text-muted-foreground">
-                <span>
-                  powered by{" "}
-                  <a
-                    href="https://gatahub.zone"
-                    className="font-semibold text-foreground transition-colors hover:text-[var(--gata-blue)]"
-                  >
-                    GATA HUB
-                  </a>
-                </span>
-              </div>
-            </footer>
-          </div>
+          <AppShell
+            chains={chains}
+            footer={
+              <footer className="mt-16 border-t border-border">
+                {/*
+                  Attribution, not a title. "GATA HUB Scan" on the left restated
+                  the header a screen above it; "powered by GATA HUB" credits the
+                  product this one comes from, and sits right where a colophon
+                  belongs.
+                */}
+                <div className="mx-auto flex max-w-6xl items-center justify-end px-4 py-6 text-xs text-muted-foreground">
+                  <span>
+                    powered by{" "}
+                    <a
+                      href="https://gatahub.zone"
+                      className="font-semibold text-foreground transition-colors hover:text-[var(--gata-blue)]"
+                    >
+                      GATA HUB
+                    </a>
+                  </span>
+                </div>
+              </footer>
+            }
+          >
+            {children}
+          </AppShell>
         </QueryProvider>
       </body>
     </html>
