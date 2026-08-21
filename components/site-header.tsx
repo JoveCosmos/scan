@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
+import { MenuButton } from "@/components/menu-button";
 
 export interface ChainSummary {
   chainId: string;
@@ -149,7 +150,14 @@ function ChainSwitcher({
  * what the header was always actually for: search, and which chain you are
  * searching. Search takes the space the tabs used to.
  */
-export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
+export function SiteHeader({
+  chains,
+  onOpenMenu,
+}: {
+  chains: ChainSummary[];
+  /** Set only where the rail is a drawer, so the header carries its handle. */
+  onOpenMenu?: () => void;
+}) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const maybeChain = segments[0] ?? null;
@@ -184,6 +192,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
     // to stick to and a sticky element here only creates a stacking context.
     <header className="shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
+        {onOpenMenu ? <MenuButton onClick={onOpenMenu} /> : null}
         {/*
           The mark lives in the rail, and the rail only exists once a chain is
           chosen. Without one it belongs here instead — same corner of the

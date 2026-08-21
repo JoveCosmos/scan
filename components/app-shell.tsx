@@ -2,34 +2,34 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
 import { SideRail } from "@/components/side-rail";
 import { SiteHeader, type ChainSummary } from "@/components/site-header";
 
 /**
- * Holds the rail, the column beside it, and whether the rail is open.
+ * Holds the rail and the column beside it, and owns the menu's state.
  *
- * The rail is chain-scoped and the landing page has no chain, so there the
- * column must not be indented past a rail that is not there. Which page we are
- * on is a client fact and the root layout is a server component, so the
- * decision lives here.
+ * The flow follows the hub's, which is three states rather than two:
  *
- * Open and collapsed behave differently by width, which is the whole reason
- * this is one piece of state rather than a CSS class:
+ * - Wide, expanded. The rail is part of the layout at 224px and the column sits
+ *   beside it. Nothing overlaps, so nothing needs a backdrop.
+ * - Wide, collapsed. The rail narrows to 76px and keeps its icons; the column
+ *   takes the width back. Remembered across visits, because it is a preference
+ *   about how you like to work rather than about where you happen to be.
+ * - Narrow. The rail becomes a drawer that slides over the page behind a
+ *   backdrop and closes itself on navigation. Not remembered: a drawer left
+ *   open across visits would cover the page on arrival.
  *
- * - On a wide screen the rail is part of the layout. Open indents the column by
- *   exactly the rail's width; collapsed gives the width back. Because the rail
- *   is `fixed` it escapes that padding, so header, content and footer shift
- *   together and stay centred in the same space.
- * - On a phone the rail is a drawer. It overlays the column with a backdrop and
- *   never indents it — 56px is a sixth of a phone's width, and spending that on
- *   chrome that is idle most of the time is not a trade worth making. It also
- *   closes on navigation, because on a drawer the tap that chose a page is the
- *   same tap that should dismiss it.
+ * Collapsing and the drawer are deliberately separate. A phone has no use for
+ * an icon-only rail permanently occupying a fifth of its width, so `collapsed`
+ * is only ever read on a wide screen.
+ *
+ * The breakpoint is the hub's, not this app's usual one. It is about whether
+ * 224px of chrome can be spared beside the content, which happens around 900px
+ * regardless of what the rest of the layout does at 640.
  */
 
-const RAIL_KEY = "gata-scan-rail";
-const MOBILE = 640;
+const COLLAPSE_KEY = "gata-scan-nav-collapsed";
+const MOBILE_QUERY = "(max-width: 900px)";
 
 export function AppShell({
   chains,
@@ -44,92 +44,73 @@ export function AppShell({
   const pathname = usePathname();
   const hasChain = chains.some((c) => c.chainId === pathname.split("/")[1]);
 
-  const [open, setOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
+  const [drawer, setDrawer] = useState(false);
   const [mobile, setMobile] = useState(false);
 
   // Resolved after mount rather than guessed during render: the server has no
   // viewport and no storage, so anything else is a hydration mismatch.
   useEffect(() => {
-    const query = window.matchMedia(`(max-width: ${MOBILE - 1}px)`);
-    const sync = () => {
-      setMobile(query.matches);
-      // A phone starts closed whatever was stored — a drawer left open across
-      // visits would cover the page on arrival.
-      if (query.matches) setOpen(false);
-      else {
-        try {
-          setOpen(localStorage.getItem(RAIL_KEY) !== "closed");
-        } catch {
-          setOpen(true);
-        }
-      }
-    };
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      // Private browsing refuses storage; the rail simply starts expanded.
+    }
+    const query = window.matchMedia(MOBILE_QUERY);
+    const sync = () => setMobile(query.matches);
     sync();
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
 
-  const setRail = useCallback(
-    (next: boolean) => {
-      setOpen(next);
-      // Only a deliberate choice on a real layout is worth remembering; the
-      // drawer's state is per-visit.
-      if (mobile) return;
+  const toggle = useCallback(() => {
+    setCollapsed((previous) => {
+      const next = !previous;
       try {
-        localStorage.setItem(RAIL_KEY, next ? "open" : "closed");
+        localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
       } catch {
-        // Private browsing refuses storage; the choice still holds this visit.
+        // The choice still holds for this visit.
       }
-    },
-    [mobile]
-  );
+      return next;
+    });
+  }, []);
 
   // The tap that chose a page also dismisses the drawer.
   useEffect(() => {
-    if (mobile) setOpen(false);
-  }, [pathname, mobile]);
+    setDrawer(false);
+  }, [pathname]);
 
   useEffect(() => {
-    if (!mobile || !open) return;
+    if (!drawer) return;
     function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setDrawer(false);
     }
     document.addEventListener("keydown", onEsc);
     return () => document.removeEventListener("keydown", onEsc);
-  }, [mobile, open]);
-
-  const railVisible = hasChain && open;
+  }, [drawer]);
 
   return (
-    <>
-      {railVisible ? <SideRail chains={chains} onCollapse={() => setRail(false)} /> : null}
-
-      {/* Backdrop, phone only. */}
-      {railVisible && mobile ? (
+    // The rail is a flex sibling rather than a fixed element the content is
+    // padded around: collapsing then reflows the column by itself, with no
+    // second measurement to keep in step with the first.
+    <div className="flex h-dvh overflow-hidden">
+      {hasChain && mobile && drawer ? (
         <button
           type="button"
           aria-label="Close navigation"
-          onClick={() => setRail(false)}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+          onClick={() => setDrawer(false)}
+          className="fixed inset-0 z-[44] bg-black/[0.62] backdrop-blur-[3px]"
         />
       ) : null}
 
-      {/*
-        Reopens it. Same shape, same height, same edge — only the chevron turns
-        round. A control that changed form between its two states would read as
-        two different controls.
-      */}
-      {hasChain && !open ? (
-        <button
-          type="button"
-          onClick={() => setRail(true)}
-          title="Expand menu"
-          aria-label="Toggle menu"
-          aria-expanded={false}
-          className="fixed left-1.5 top-[34px] z-50 grid h-[26px] w-[26px] place-items-center rounded-full border border-[var(--gata-border-hi)] bg-[var(--gata-card-hi)] text-muted-foreground shadow-[0_6px_16px_-8px_rgba(0,0,0,0.9)] transition-colors hover:text-foreground"
-        >
-          <ChevronRight className="h-[13px] w-[13px]" />
-        </button>
+      {hasChain ? (
+        <SideRail
+          chains={chains}
+          collapsed={collapsed}
+          onToggle={toggle}
+          drawer={drawer}
+          mobile={mobile}
+        />
       ) : null}
 
       {/*
@@ -139,15 +120,14 @@ export function AppShell({
         all; one that has not been fitted yet scrolls inside this element rather
         than moving the chrome.
       */}
-      <div
-        className={`flex h-dvh flex-col overflow-hidden ${
-          railVisible && !mobile ? "pl-14 sm:pl-16" : ""
-        }`}
-      >
-        <SiteHeader chains={chains} />
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <SiteHeader
+          chains={chains}
+          onOpenMenu={hasChain && mobile ? () => setDrawer(true) : undefined}
+        />
         <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
         {footer}
       </div>
-    </>
+    </div>
   );
 }
