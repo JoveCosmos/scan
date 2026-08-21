@@ -27,8 +27,10 @@ export interface ValidatorRow {
   delta: StakeDelta | null;
   /**
    * Times jailed within the indexed window, or null when the indexer cannot
-   * say. Null and zero are different claims: zero means "never, in the window
-   * shown", null means the column has no basis at all.
+   * say. Null and zero are different claims: zero means "never, over the window
+   * the reader is told about", null means there is no basis for the figure at
+   * all. Which window that is travels separately, on the table — it is the same
+   * for every validator and does not belong on each row.
    */
   jailings: { count: number; tombstoned: boolean } | null;
   /** The validator's own stake, or null when the query did not answer. */

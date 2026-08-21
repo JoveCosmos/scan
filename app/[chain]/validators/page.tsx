@@ -131,6 +131,20 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     selfBond: selfBonds.get(v.operatorAddress) ?? null,
   }));
   const { staking } = adapter.capabilities;
+
+  // How far back the jailing counts reach. Zero jailings means nothing without
+  // it — "0" alone could as easily be a validator with a clean record as a
+  // window that starts after the last time it was jailed. Formatted here rather
+  // than in the component, since a date rendered on the client picks up the
+  // browser's locale and disagrees with the server's markup.
+  const jailingsSince =
+    jailings && !jailings.fromGenesis
+      ? new Date(jailings.since).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        })
+      : null;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -177,6 +191,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         symbol={symbol}
         staking={staking}
         hasUptime={metrics}
+        jailingsSince={jailingsSince}
       />
     </PageFrame>
   );

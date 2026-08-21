@@ -107,6 +107,7 @@ export function ValidatorsTable({
   symbol,
   staking,
   hasUptime,
+  jailingsSince = null,
 }: {
   chainId: string;
   accent: string;
@@ -115,6 +116,11 @@ export function ValidatorsTable({
   /** Chains with no staking module rank by assigned consensus weight. */
   staking: boolean;
   hasUptime: boolean;
+  /**
+   * Start of the window the jailing counts cover, already formatted. Null means
+   * the index reaches the first block, so the window is the chain's whole life.
+   */
+  jailingsSince?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -307,7 +313,7 @@ export function ValidatorsTable({
                         label: "Jailed before",
                         value: open.jailings.tombstoned
                           ? "Tombstoned"
-                          : `${open.jailings.count} time${open.jailings.count === 1 ? "" : "s"} in the indexed window`,
+                          : `${open.jailings.count} since ${jailingsSince ?? "genesis"}`,
                       },
                     ]
                   : []),
