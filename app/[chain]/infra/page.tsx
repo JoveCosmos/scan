@@ -33,26 +33,41 @@ function restoreScript(
   url: string,
   daemon: string,
   home: string,
+  dataDir: string,
+  stateFile: string,
   sha256?: string
 ): string {
   const file = url.split("/").pop() ?? "snapshot.tar.zst";
-  const lines = [
-    `sudo systemctl stop ${daemon}`,
-    ``,
-    `# Keep the signing state — this is the step that prevents double-signing.`,
-    `cp ${home}/data/priv_validator_state.json ${home}/priv_validator_state.json.backup`,
-    ``,
-    `curl -O -L ${url}`,
-  ];
+
+  // The signing state only needs saving when it lives INSIDE the directory the
+  // archive replaces. On cosmos it does, and skipping the backup is how you
+  // double-sign. On gno it sits in secrets/, which the archive never touches, so
+  // the backup would be theatre - and telling someone to protect a file that is
+  // not at risk teaches them the step is optional.
+  const stateAtRisk = stateFile.startsWith(`${dataDir}/`);
+
+  const lines = [`sudo systemctl stop ${daemon}`, ``];
+  if (stateAtRisk) {
+    lines.push(
+      `# Keep the signing state — this is the step that prevents double-signing.`,
+      `cp ${home}/${stateFile} ${home}/priv_validator_state.json.backup`,
+      ``
+    );
+  }
+  lines.push(`curl -O -L ${url}`);
   if (sha256) lines.push(`echo "${sha256}  ${file}" | sha256sum -c   # must print: OK`);
   lines.push(
     ``,
-    `rm -rf ${home}/data`,
+    `rm -rf ${home}/${dataDir}`,
     `tar --use-compress-program=unzstd -xf ${file} -C ${home}`,
-    ``,
-    `mv ${home}/priv_validator_state.json.backup ${home}/data/priv_validator_state.json`,
-    `sudo systemctl start ${daemon}`
+    ``
   );
+  if (stateAtRisk) {
+    lines.push(`mv ${home}/priv_validator_state.json.backup ${home}/${stateFile}`);
+  } else {
+    lines.push(`# ${stateFile} is outside ${dataDir}/ and is left untouched.`);
+  }
+  lines.push(`sudo systemctl start ${daemon}`);
   return lines.join("\n");
 }
 
@@ -151,6 +166,8 @@ export default async function InfraPage({
                   snapshot.url,
                   services.daemon,
                   services.home,
+                  services.dataDir,
+                  services.stateFile,
                   snapshot.sha256
                 )
               : null,

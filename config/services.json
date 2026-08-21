@@ -49,7 +49,7 @@
     {
       "chainId": "sapphire-1",
       "daemon": "gnoland",
-      "home": "$HOME/.gnoland",
+      "home": "gnoland-data",
       "endpoints": [
         {
           "label": "RPC",
@@ -58,11 +58,13 @@
         }
       ],
       "snapshot": {
-        "status": "planned",
-        "schedule": "daily at 02:00 UTC",
-        "pruning": "archive",
-        "note": "Not published yet."
-      }
+        "schedule": "daily at 06:50 UTC",
+        "pruning": "unpruned (gno has no pruning), no tx index",
+        "note": "Taken from a non-validating twin that follows sapphire-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
+      },
+      "snapshotKey": "sapphire",
+      "dataDir": "db",
+      "stateFile": "secrets/priv_validator_state.json"
     },
     {
       "chainId": "juno-1",

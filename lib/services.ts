@@ -77,6 +77,16 @@ const chainServicesSchema = z.object({
    * render time rather than committed here, where it goes stale in a day.
    */
   snapshotKey: z.string().optional(),
+  /**
+   * Where the archive unpacks and where the signing state lives, relative to
+   * `home`. Cosmos nodes keep data in data/ and the state file inside it, so the
+   * defaults suit them. gnoland does not: its --data-dir IS the node root, the
+   * chain data is db/, and priv_validator_state.json sits in secrets/ - outside
+   * the archive entirely. Getting this wrong produces a restore recipe that
+   * deletes the wrong directory.
+   */
+  dataDir: z.string().default("data"),
+  stateFile: z.string().default("data/priv_validator_state.json"),
   snapshot: z
     .object({
       /**
