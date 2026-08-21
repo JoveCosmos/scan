@@ -29,28 +29,27 @@ export default function HomePage() {
         Live across {chains.length} networks
       </span>
 
-      <div className="mt-7 w-full max-w-xl">
-        {/* No chain hint on purpose: an ambiguous query — a bare block height,
-            an address valid on several chains — should ask which chain rather
-            than quietly picking one. */}
-        <SearchBar size="lg" showSlashHint />
-        <p className="mt-2.5 text-center text-xs text-muted-foreground">
-          An address, a transaction hash, or a block height.
-        </p>
-
-        {/* Second option, not an equal one: a rule and a word between them so
-            the field above stays the thing the page is for. */}
-        <div className="mt-7 flex items-center gap-3">
-          <span className="h-px flex-1 bg-border" />
-          <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            or
-          </span>
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <div className="mt-4">
+      {/*
+        The two ways in, side by side. They were stacked with an "or" between
+        them, which read as a fallback rather than a choice — and pushed the
+        picker far enough down the page that its list had nowhere to open.
+      */}
+      <div className="mt-7 w-full max-w-2xl">
+        <div className="grid gap-2 sm:grid-cols-[1fr_14rem]">
+          {/* No chain hint on purpose: an ambiguous query — a bare block height,
+              an address valid on several chains — should ask which chain rather
+              than quietly picking one. */}
+          <SearchBar size="lg" showSlashHint placeholder="" />
           <HomeChainPicker chains={chains} />
         </div>
+
+        {/* The caption the field's own placeholder used to duplicate. Saying it
+            twice, once inside the box and once under it, made the box look
+            pre-filled. */}
+        <p className="mt-2.5 text-xs text-muted-foreground">
+          Search an address, a transaction hash, or a block height — or pick a
+          network to browse.
+        </p>
       </div>
     </main>
   );

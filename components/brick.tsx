@@ -21,8 +21,10 @@ export function BrickGrid({
   className?: string;
 }) {
   return (
+    // auto-fill rather than a fixed column count: the tiles are small enough
+    // that a wide screen should get more of them, not wider ones.
     <div
-      className={`grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 ${className}`}
+      className={`grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-1.5 ${className}`}
     >
       {children}
     </div>
@@ -56,21 +58,21 @@ function toneColor(tone: BrickVisual["tone"], accent: string, lead?: boolean) {
 function Body({ brick, accent }: { brick: BrickVisual; accent: string }) {
   return (
     <>
-      <span className="truncate text-[10px] font-medium uppercase leading-none tracking-[0.12em] text-muted-foreground">
+      <span className="truncate text-[9px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
         {brick.label}
       </span>
       <span
         className={
           brick.text
-            ? "mt-auto line-clamp-2 text-[13px] font-medium leading-snug"
-            : "mt-auto truncate font-mono text-lg font-semibold leading-tight sm:text-xl"
+            ? "mt-auto line-clamp-2 text-[12px] font-medium leading-snug"
+            : "mt-auto truncate font-mono text-[15px] font-semibold leading-tight"
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}
       >
         {brick.value}
       </span>
       <span className="flex items-end justify-between gap-2">
-        <span className="truncate text-[11px] leading-tight text-muted-foreground">
+        <span className="truncate text-[10px] leading-tight text-muted-foreground">
           {brick.sub ?? ""}
         </span>
         {brick.count ? (
@@ -83,8 +85,11 @@ function Body({ brick, accent }: { brick: BrickVisual; accent: string }) {
   );
 }
 
+// Small enough that a board of them is read at a glance rather than scanned.
+// The figure is still the largest thing in the tile; everything around it gave
+// up the room instead.
 const SHELL =
-  "flex h-[5.5rem] flex-col gap-1 overflow-hidden border border-border bg-[var(--gata-card)] px-3 py-2.5 text-left transition-colors sm:h-24";
+  "flex h-[4.25rem] flex-col gap-0.5 overflow-hidden border border-border bg-[var(--gata-card)] px-2.5 py-2 text-left transition-colors";
 
 /** Static — a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {

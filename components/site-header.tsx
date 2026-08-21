@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -175,7 +176,6 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
     "relayers",
     "infra",
     "console",
-    "canvas",
   ];
   const section =
     activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
@@ -190,17 +190,43 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
     // to stick to and a sticky element here only creates a stacking context.
     <header className="shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
+        {/*
+          The mark lives in the rail, and the rail only exists once a chain is
+          chosen. Without one it belongs here instead — same corner of the
+          screen, so it does not appear to move between the two.
+        */}
+        {activeChainId ? null : (
+          <Link href="/" className="group mr-auto flex shrink-0 items-center gap-2.5">
+            <Image
+              src="/gata_logo_white.png"
+              alt=""
+              width={30}
+              height={33}
+              priority
+              className="h-[26px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+            />
+            <span className="hidden text-[13px] font-medium uppercase leading-none tracking-[0.2em] text-foreground/90 min-[380px]:inline">
+              Scan
+            </span>
+          </Link>
+        )}
+
         {/* Search is global; the active chain is only a tie-breaker hint. */}
         {isHome ? null : (
           <div className="min-w-0 max-w-xl flex-1">
             <SearchBar chainId={activeChainId ?? undefined} />
           </div>
         )}
-        <ChainSwitcher
-          chains={chains}
-          activeChainId={activeChainId}
-          section={section}
-        />
+
+        {/* The landing page has its own picker, in the row it belongs to. A
+            second one up here is the same control twice on one screen. */}
+        {isHome ? null : (
+          <ChainSwitcher
+            chains={chains}
+            activeChainId={activeChainId}
+            section={section}
+          />
+        )}
       </div>
     </header>
   );

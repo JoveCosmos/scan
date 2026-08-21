@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 
@@ -19,14 +19,29 @@ export interface PickerChain {
  * on the section you were reading. Here there is no section to keep — you have
  * not gone anywhere yet — so every choice lands on the chain's overview.
  *
- * Sized to sit under the search field as the second option rather than beside
- * it as an equal: search is what the page is for, and this is what you use when
- * you do not have a hash in hand.
+ * Sits beside the search field rather than under it. Stacked with an "or"
+ * between them it read as a fallback, when in truth it is the way in for anyone
+ * who does not arrive holding a hash.
  */
 export function HomeChainPicker({ chains }: { chains: PickerChain[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // Which way the list unfolds. The picker sits mid-screen beside the search
+  // field, so below it there is often less room than above — a list that always
+  // dropped downward would open into the fold and clip.
+  const [up, setUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const below = window.innerHeight - rect.bottom;
+    // Only flip when there is genuinely more room the other way, so the list
+    // does not jump sides on a small change in viewport height.
+    setUp(below < 260 && rect.top > below);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -47,11 +62,12 @@ export function HomeChainPicker({ chains }: { chains: PickerChain[] }) {
   return (
     <div className="relative w-full" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-secondary/40 px-4 text-sm transition-colors hover:border-[var(--gata-border-hi)] hover:bg-secondary"
+        className="flex h-12 w-full items-center justify-between gap-2 rounded-lg border border-border bg-secondary/50 px-3.5 text-sm transition-colors hover:border-[var(--gata-border-hi)] hover:bg-secondary"
       >
         <span className="flex items-center gap-2.5 text-muted-foreground">
           <span className="flex -space-x-1">
@@ -75,7 +91,9 @@ export function HomeChainPicker({ chains }: { chains: PickerChain[] }) {
         <ul
           role="listbox"
           aria-label="Networks"
-          className="absolute inset-x-0 z-50 mt-2 max-h-[min(60vh,22rem)] overflow-y-auto rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
+          className={`absolute inset-x-0 z-50 max-h-[min(50vh,20rem)] overflow-y-auto rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl ${
+            up ? "bottom-full mb-2" : "top-full mt-2"
+          }`}
         >
           {chains.map((chain) => (
             <li key={chain.chainId}>

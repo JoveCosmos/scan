@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Terminal,
   Vote,
-  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,7 +28,7 @@ import type { ChainSummary } from "@/components/site-header";
  *
  * Sections sit at the top and the two other presentations at the bottom, with a
  * rule between them, because they answer different questions. The sections are
- * *parts* of a chain; the console and the canvas are ways to read all of it.
+ * *parts* of a chain; the console is a way to read all of it.
  * There is no "pages" button among them — the section buttons are the pages, so
  * clicking one from the console is how you get back.
  *
@@ -65,10 +64,9 @@ const SECTIONS: RailItem[] = [
   { href: "/infra", label: "Infra", icon: Server },
 ];
 
-// Neither is capability-gated: every chain can be read either way.
+// Not capability-gated: every chain can be read this way.
 const MODES: RailItem[] = [
   { href: "/console", label: "Console", icon: Terminal },
-  { href: "/canvas", label: "Canvas", icon: Waypoints },
 ];
 
 function RailButton({
@@ -134,12 +132,17 @@ export function SideRail({
       aria-label="Sections"
       className="fixed inset-y-0 left-0 z-50 flex w-14 flex-col border-r border-border bg-[color-mix(in_srgb,var(--gata-bg)_92%,transparent)] backdrop-blur-xl sm:w-16"
     >
-      {/* Aligned to the header's height and border, so the two read as one
-          piece of chrome meeting at a corner rather than two panels. */}
+      {/*
+        Deliberately unruled. A bottom border here would meet the rail's own
+        right border and the header's, boxing the mark into the corner — three
+        lines around a logo that needs none. The header's rule now starts where
+        the rail ends, so the two read as one piece of chrome meeting at a
+        corner rather than a frame around the brand.
+      */}
       <Link
         href="/"
         title="GATA SCAN"
-        className="group flex h-16 shrink-0 items-center justify-center border-b border-border"
+        className="group flex h-16 shrink-0 items-center justify-center"
       >
         <Image
           src="/gata_logo_white.png"
@@ -160,7 +163,7 @@ export function SideRail({
             chainId={chain.chainId}
             // startsWith so a detail page keeps its section lit.
             active={
-              !["console", "canvas"].includes(segment) &&
+              segment !== "console" &&
               pathname.startsWith(`/${chain.chainId}${item.href}`)
             }
           />

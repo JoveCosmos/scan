@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Popup, PopupRows } from "@/components/ui/popup";
 import { filterDeckRows } from "@/lib/deck-filter";
 
@@ -43,8 +43,6 @@ export interface DeckColumn {
   /** Hidden below sm even when `optional` peers survive. */
   phoneHide?: boolean;
   width?: string;
-  /** Makes the header a sort control. The deck reports, the caller sorts. */
-  sortKey?: string;
 }
 
 export interface DeckRow {
@@ -82,8 +80,6 @@ export function RowDeck({
   accent,
   toolbar,
   empty = "Nothing to show.",
-  sort,
-  onSort,
   filter,
 }: {
   columns: DeckColumn[];
@@ -92,9 +88,6 @@ export function RowDeck({
   /** Filters and the like, drawn above the head and inside the measured area. */
   toolbar?: React.ReactNode;
   empty?: string;
-  /** Current sort, for the header arrows. Sorting itself is the caller's job. */
-  sort?: { key: string; dir: "asc" | "desc" };
-  onSort?: (key: string) => void;
   /**
    * Turns on the deck's own filter box. Kept here rather than asked of every
    * caller because most callers are server components and cannot hold the
@@ -165,36 +158,8 @@ export function RowDeck({
                   } ${col.optional ? "hidden lg:table-cell" : ""} ${
                     col.phoneHide ? "hidden sm:table-cell" : ""
                   }`}
-                  aria-sort={
-                    col.sortKey && sort?.key === col.sortKey
-                      ? sort.dir === "asc"
-                        ? "ascending"
-                        : "descending"
-                      : col.sortKey
-                        ? "none"
-                        : undefined
-                  }
                 >
-                  {col.sortKey && onSort ? (
-                    <button
-                      type="button"
-                      onClick={() => onSort(col.sortKey!)}
-                      className={`inline-flex items-center gap-1 transition-colors hover:text-foreground ${
-                        sort?.key === col.sortKey ? "text-foreground" : ""
-                      }`}
-                    >
-                      {col.label}
-                      {sort?.key === col.sortKey ? (
-                        sort.dir === "asc" ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )
-                      ) : null}
-                    </button>
-                  ) : (
-                    col.label
-                  )}
+                  {col.label}
                 </th>
               ))}
             </tr>
