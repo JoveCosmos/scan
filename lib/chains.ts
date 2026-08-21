@@ -185,6 +185,30 @@ export function symbolForDenom(denom: string): string {
 }
 
 /** Display ticker for the staking token. */
+/**
+ * The chain's logo, but only when the file is actually there.
+ *
+ * Every chain config has carried a `/chains/*.svg` path since the beginning and
+ * not one of the files existed, so anything rendering it would have shown nine
+ * broken images. Checked against the filesystem rather than trusted, because a
+ * config path is a claim and a missing asset should degrade to a monogram
+ * rather than to a broken frame.
+ *
+ * Resolved on the server; callers pass the result down as a plain string.
+ */
+const logoCache = new Map<string, string | null>();
+
+export function logoFor(chain: ChainConfig): string | null {
+  if (!chain.logo) return null;
+  const hit = logoCache.get(chain.logo);
+  if (hit !== undefined) return hit;
+  const resolved = fs.existsSync(path.join(process.cwd(), "public", chain.logo))
+    ? chain.logo
+    : null;
+  logoCache.set(chain.logo, resolved);
+  return resolved;
+}
+
 export function symbolFor(chain: ChainConfig): string {
   return symbolForDenom(chain.denom);
 }

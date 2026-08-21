@@ -4,7 +4,7 @@
   "tier": "limited",
   "name": "passage",
   "prettyName": "Passage",
-  "logo": "/chains/passage.svg",
+  "logo": "/chains/passage.png",
   "bech32Prefix": "pasg",
   "denom": "upasg",
   "exponent": 6,
