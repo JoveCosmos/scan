@@ -71,9 +71,19 @@ const chainServicesSchema = z.object({
    */
   daemon: z.string().optional(),
   home: z.string().optional(),
+  /**
+   * Key for this chain in the published snapshot manifest. Everything that
+   * changes nightly - height, size, filename, checksum - is read from there at
+   * render time rather than committed here, where it goes stale in a day.
+   */
+  snapshotKey: z.string().optional(),
   snapshot: z
     .object({
-      url: z.string().url(),
+      /**
+       * Only for a chain we have not started publishing. Once `snapshotKey`
+       * resolves in the manifest, the live URL wins over anything written here.
+       */
+      url: z.string().url().optional(),
       /**
        * "live" once the file at `url` actually exists. Anything else renders
        * the panel as a preview and does not offer the download: publishing a
