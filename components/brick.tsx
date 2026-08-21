@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 
 /**
  * A brick: one fact, or one group of facts, in a tile you can click.
@@ -24,7 +25,7 @@ export function BrickGrid({
     // auto-fill rather than a fixed column count: the tiles are small enough
     // that a wide screen should get more of them, not wider ones.
     <div
-      className={`grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-1.5 ${className}`}
+      className={`grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-1.5 ${className}`}
     >
       {children}
     </div>
@@ -55,28 +56,52 @@ function toneColor(tone: BrickVisual["tone"], accent: string, lead?: boolean) {
   return undefined;
 }
 
-function Body({ brick, accent }: { brick: BrickVisual; accent: string }) {
+function Body({
+  brick,
+  accent,
+  opens,
+}: {
+  brick: BrickVisual;
+  accent: string;
+  /** Draws the corner mark. Only true where there is something behind the tile. */
+  opens?: boolean;
+}) {
   return (
     <>
-      <span className="truncate text-[9px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
-        {brick.label}
+      <span className="flex items-start justify-between gap-1">
+        <span className="truncate text-[9px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
+          {brick.label}
+        </span>
+        {/*
+          The affordance. A tile that opens and a tile that does not looked
+          identical, so the only way to find out was to click one — and half of
+          them are inert. Top corner rather than bottom: it sits beside the
+          label, which is the part of a tile the eye lands on first, and leaves
+          the figure's line uninterrupted.
+        */}
+        {opens ? (
+          <ArrowUpRight
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0 text-[var(--gata-faint)] transition-colors group-hover/brick:text-foreground"
+          />
+        ) : null}
       </span>
       <span
         className={
           brick.text
-            ? "mt-auto line-clamp-2 text-[12px] font-medium leading-snug"
-            : "mt-auto truncate font-mono text-[15px] font-semibold leading-tight"
+            ? "mt-auto line-clamp-2 text-[11px] font-medium leading-snug"
+            : "mt-auto truncate font-mono text-[13px] font-semibold leading-tight"
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}
       >
         {brick.value}
       </span>
       <span className="flex items-end justify-between gap-2">
-        <span className="truncate text-[10px] leading-tight text-muted-foreground">
+        <span className="truncate text-[9px] leading-tight text-muted-foreground">
           {brick.sub ?? ""}
         </span>
         {brick.count ? (
-          <span className="shrink-0 font-mono text-[10px] text-[var(--gata-faint)]">
+          <span className="shrink-0 font-mono text-[9px] text-[var(--gata-faint)]">
             {brick.count}
           </span>
         ) : null}
@@ -89,7 +114,7 @@ function Body({ brick, accent }: { brick: BrickVisual; accent: string }) {
 // The figure is still the largest thing in the tile; everything around it gave
 // up the room instead.
 const SHELL =
-  "flex h-[4.25rem] flex-col gap-0.5 overflow-hidden border border-border bg-[var(--gata-card)] px-2.5 py-2 text-left transition-colors";
+  "flex h-[3.6rem] flex-col gap-0.5 overflow-hidden border border-border bg-[var(--gata-card)] px-2 py-1.5 text-left transition-colors";
 
 /** Static — a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {
@@ -114,9 +139,9 @@ export function BrickButton({
     <button
       type="button"
       onClick={onClick}
-      className={`${SHELL} cursor-pointer hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
+      className={`${SHELL} group/brick cursor-pointer hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
     >
-      <Body brick={brick} accent={accent} />
+      <Body brick={brick} accent={accent} opens />
     </button>
   );
 }
@@ -134,9 +159,9 @@ export function BrickLink({
   return (
     <Link
       href={href}
-      className={`${SHELL} hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
+      className={`${SHELL} group/brick hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
     >
-      <Body brick={brick} accent={accent} />
+      <Body brick={brick} accent={accent} opens />
     </Link>
   );
 }

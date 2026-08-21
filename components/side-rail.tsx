@@ -8,7 +8,7 @@ import {
   Boxes,
   Cable,
   Gauge,
-  PanelLeftClose,
+  ChevronLeft,
   Server,
   ShieldCheck,
   Terminal,
@@ -133,6 +133,24 @@ export function SideRail({
       className="fixed inset-y-0 left-0 z-50 flex w-14 flex-col border-r border-border bg-[color-mix(in_srgb,var(--gata-bg)_92%,transparent)] backdrop-blur-xl sm:w-16"
     >
       {/*
+        A notch on the rail's outer edge, the way the hub does it. Half of the
+        control sits outside the rail, which is what makes it read as a handle
+        on the panel rather than another item in the menu — and puts it beside
+        the top of the list rather than at the bottom, where it was competing
+        with the section buttons for the same corner.
+      */}
+      <button
+        type="button"
+        onClick={onCollapse}
+        title="Collapse menu"
+        aria-label="Toggle menu"
+        aria-expanded
+        className="absolute right-[-13px] top-[34px] z-[2] grid h-[26px] w-[26px] place-items-center rounded-full border border-[var(--gata-border-hi)] bg-[var(--gata-card-hi)] text-muted-foreground shadow-[0_6px_16px_-8px_rgba(0,0,0,0.9)] transition-colors hover:text-foreground"
+      >
+        <ChevronLeft className="h-[13px] w-[13px]" />
+      </button>
+
+      {/*
         Deliberately unruled. A bottom border here would meet the rail's own
         right border and the header's, boxing the mark into the corner — three
         lines around a logo that needs none. The header's rule now starts where
@@ -179,15 +197,6 @@ export function SideRail({
             active={segment === item.href.slice(1)}
           />
         ))}
-        <button
-          type="button"
-          onClick={onCollapse}
-          title="Collapse"
-          className="flex h-10 w-full items-center justify-center border-t border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <PanelLeftClose className="h-4 w-4" />
-          <span className="sr-only">Collapse navigation</span>
-        </button>
       </div>
     </nav>
   );

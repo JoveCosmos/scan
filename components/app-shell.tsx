@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { PanelLeftOpen } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { SideRail } from "@/components/side-rail";
 import { SiteHeader, type ChainSummary } from "@/components/site-header";
 
@@ -114,17 +114,21 @@ export function AppShell({
         />
       ) : null}
 
-      {/* Reopens the rail. Sits where the rail's own toggle was, so the control
-          does not move between states. */}
+      {/*
+        Reopens it. Same shape, same height, same edge — only the chevron turns
+        round. A control that changed form between its two states would read as
+        two different controls.
+      */}
       {hasChain && !open ? (
         <button
           type="button"
           onClick={() => setRail(true)}
-          title="Show navigation"
-          className="fixed bottom-3 left-3 z-50 rounded-lg border border-border bg-[var(--gata-card)] p-2 text-muted-foreground shadow-lg transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground"
+          title="Expand menu"
+          aria-label="Toggle menu"
+          aria-expanded={false}
+          className="fixed left-1.5 top-[34px] z-50 grid h-[26px] w-[26px] place-items-center rounded-full border border-[var(--gata-border-hi)] bg-[var(--gata-card-hi)] text-muted-foreground shadow-[0_6px_16px_-8px_rgba(0,0,0,0.9)] transition-colors hover:text-foreground"
         >
-          <PanelLeftOpen className="h-4 w-4" />
-          <span className="sr-only">Show navigation</span>
+          <ChevronRight className="h-[13px] w-[13px]" />
         </button>
       ) : null}
 
