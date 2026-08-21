@@ -8,6 +8,7 @@ import { chainDenoms } from "@/lib/chains";
 import { formatCoins } from "@/lib/coin";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
+import { SectionUnavailable } from "@/components/section-unavailable";
 import { ProposalBoard, type ProposalBrick } from "@/components/proposal-board";
 
 export const revalidate = 60;
@@ -50,13 +51,31 @@ export default async function ProposalsPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
-  // Not offered at this chain's tier, so the route 404s rather than
-  // staying reachable by URL after the tab is hidden.
-  if (!policyFor(chain).proposals) notFound();
-
   const adapter = getAdapter(chain);
-  // Chains without a gov module have no proposals route at all.
-  if (!adapter.capabilities.governance) notFound();
+
+  // Two different absences. No gov module is a fact about the chain and is said
+  // plainly; not carrying it is ours to own, and is left at that.
+  if (!adapter.capabilities.governance) {
+    return (
+      <SectionUnavailable
+        title="Proposals"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accentFor(chain)}
+        reason={`${chain.prettyName} has no on-chain governance module — its decisions are not made through proposals and votes recorded on chain.`}
+      />
+    );
+  }
+  if (!policyFor(chain).proposals) {
+    return (
+      <SectionUnavailable
+        title="Proposals"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accentFor(chain)}
+      />
+    );
+  }
 
   const accent = accentFor(chain);
   const denoms = chainDenoms(chain);

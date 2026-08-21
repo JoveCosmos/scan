@@ -4,6 +4,7 @@ import { getChain, chainDenoms, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
 import { PageFrame } from "@/components/page-frame";
+import { SectionUnavailable } from "@/components/section-unavailable";
 import { TxsTable } from "@/components/txs-table";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +27,18 @@ export default async function TxsPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
-  // Not offered at this chain's tier, so the route 404s rather than
-  // staying reachable by URL after the tab is hidden.
-  if (!policyFor(chain).txs) notFound();
+  // The tab is shown for every network, so this says what it has instead of
+  // 404ing and contradicting the rail that linked here.
+  if (!policyFor(chain).txs) {
+    return (
+      <SectionUnavailable
+        title="Transactions"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accentFor(chain)}
+      />
+    );
+  }
 
   const initial = await getAdapter(chain).getRecentTxs();
 

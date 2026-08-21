@@ -7,6 +7,7 @@ import { RelayerOperators } from "@/components/relayer-operators";
 import { IbcRoutesTable } from "@/components/ibc-routes-table";
 import { LoadingPanel } from "@/components/loading-panel";
 import { PageFrame } from "@/components/page-frame";
+import { SectionUnavailable } from "@/components/section-unavailable";
 import { SectionTabs } from "@/components/section-tabs";
 
 export const revalidate = 120;
@@ -37,13 +38,29 @@ export default async function RelayersPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
-  // Not offered at this chain's tier, so the route 404s rather than
-  // staying reachable by URL after the tab is hidden.
-  if (!policyFor(chain).relayers) notFound();
-
-  // gno.land runs Tendermint2 with no IBC module — same condition the header
-  // uses to decide whether the tab exists at all.
-  if (chain.kind !== "cosmos") notFound();
+  // gno.land runs Tendermint2 and has no IBC module at all, which is a fact
+  // about the chain rather than a choice of ours.
+  if (chain.kind !== "cosmos") {
+    return (
+      <SectionUnavailable
+        title="Relayers"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accentFor(chain)}
+        reason={`${chain.prettyName} runs Tendermint2 and has no IBC module, so it has no channels to relay and no relayers to rank.`}
+      />
+    );
+  }
+  if (!policyFor(chain).relayers) {
+    return (
+      <SectionUnavailable
+        title="Relayers"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accentFor(chain)}
+      />
+    );
+  }
 
   return (
     <PageFrame title="Relayers" sub={chain.prettyName} accent={accentFor(chain)}>

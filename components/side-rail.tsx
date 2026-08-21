@@ -73,24 +73,41 @@ function RailButton({
   item,
   chainId,
   active,
+  unavailable,
 }: {
   item: RailItem;
   chainId: string;
   active: boolean;
+  /**
+   * The section exists but this chain cannot serve it. Still a link: the page
+   * says which of the two reasons it is, and a dead control that explains
+   * nothing is worse than a live one that does.
+   */
+  unavailable?: boolean;
 }) {
   const Icon = item.icon;
   return (
     <Link
       href={`/${chainId}${item.href}`}
-      title={item.label}
+      title={unavailable ? `${item.label} — not available on this network` : item.label}
       aria-current={active ? "page" : undefined}
+      aria-disabled={unavailable ? true : undefined}
       className={cn(
         "relative flex h-14 w-full flex-col items-center justify-center gap-1 transition-colors sm:h-16",
         active
           ? "bg-[var(--gata-card-hi)] text-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        unavailable && !active && "opacity-40 hover:opacity-100"
       )}
     >
+      {/* Marked rather than hidden. A tab that disappears on one chain and not
+          another makes the reader wonder what else differs; a tab that says it
+          has nothing to show answers the question before it is asked. */}
+      {unavailable ? (
+        <span className="absolute right-1 top-1 font-mono text-[7px] leading-none tracking-wide text-[var(--gata-faint)]">
+          N/A
+        </span>
+      ) : null}
       {/* The lit edge, not an underline: on a vertical rail the active marker
           belongs on the side the content is. */}
       {active ? (
@@ -120,12 +137,12 @@ export function SideRail({
   if (!chain) return null;
 
   const segment = segments[1] ?? "";
-  const visible = SECTIONS.filter(
-    (item) =>
-      (chain.governance || !item.governanceOnly) &&
-      (chain.ibc || !item.ibcOnly) &&
-      (!item.section || chain.sections[item.section])
-  );
+  // Every section, for every chain. What differs is whether it has anything to
+  // show — see `sectionUnavailable`, which the routes use for the same call.
+  const unavailableFor = (item: RailItem) =>
+    (item.governanceOnly && !chain.governance) ||
+    (item.ibcOnly && !chain.ibc) ||
+    (item.section !== undefined && !chain.sections[item.section]);
 
   return (
     <nav
@@ -174,11 +191,12 @@ export function SideRail({
 
       {/* Scrolls only if a chain ever carries more sections than fit. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {visible.map((item) => (
+        {SECTIONS.map((item) => (
           <RailButton
             key={item.href}
             item={item}
             chainId={chain.chainId}
+            unavailable={unavailableFor(item)}
             // startsWith so a detail page keeps its section lit.
             active={
               segment !== "console" &&

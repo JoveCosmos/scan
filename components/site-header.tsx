@@ -104,17 +104,11 @@ function ChainSwitcher({
             return (
               <li key={chain.chainId}>
                 <Link
-                  // Sections the target chain does not have would 404, so fall
-                  // back to its overview.
-                  href={`/${chain.chainId}${
-                    (section === "/proposals" && !chain.governance) ||
-                    (section === "/relayers" && !chain.ibc) ||
-                    (section === "/txs" && !chain.sections.txs) ||
-                    (section === "/proposals" && !chain.sections.proposals) ||
-                    (section === "/relayers" && !chain.sections.relayers)
-                      ? "/params"
-                      : section || "/params"
-                  }`}
+                  // Every section now exists on every chain — one that has
+                  // nothing to show says so rather than 404ing — so switching
+                  // keeps the tab you were on instead of dropping you to the
+                  // overview and making you find your way back.
+                  href={`/${chain.chainId}${section || "/params"}`}
                   onClick={() => setOpen(false)}
                   role="option"
                   aria-selected={isActive}
