@@ -1,10 +1,8 @@
-import type { ChainConfig } from "@/lib/chains";
-import { accentFor, symbolFor } from "@/lib/chains";
-import { stakeHistory } from "@/lib/indexer-db";
+import type { StakePoint } from "@/lib/indexer-db";
 import { formatToken } from "@/lib/overview";
 
 const WIDTH = 640;
-const HEIGHT = 72;
+const HEIGHT = 100;
 
 /**
  * Bonded stake over the last quarter.
@@ -22,23 +20,25 @@ const HEIGHT = 72;
  * and a zero-based axis renders every validator as the same flat line — the
  * question here is the shape of the change, and the labelled ends carry the
  * absolute figures.
+ *
+ * Takes the points rather than reading them. The page needs the series anyway
+ * to decide whether this section exists at all, and a second read behind a
+ * Suspense boundary would be the one thing a fixed-height layout cannot lay out
+ * in advance. Stretched to whatever height the panel gives it — the shape is
+ * the content, so there is nothing gained by leaving the rest of the panel
+ * empty under a 72-pixel strip.
  */
-export async function ValidatorStakeHistory({
-  chain,
-  operator,
+export function ValidatorStakeChart({
+  points,
+  exponent,
+  symbol,
+  accent,
 }: {
-  chain: ChainConfig;
-  operator: string;
+  points: StakePoint[];
+  exponent: number;
+  symbol: string;
+  accent: string;
 }) {
-  // Logged rather than swallowed. A failing query and a validator with no
-  // snapshots both render nothing, and the last feature that hid a SQL error
-  // this way shipped broken — the log is the only thing that tells them apart.
-  const points = await stakeHistory(chain.chainId, operator).catch((err) => {
-    console.error(`stakeHistory failed for ${operator}:`, err);
-    return null;
-  });
-  if (!points || points.length < 2) return null;
-
   const values = points.map((p) => Number(p.tokens));
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -50,84 +50,70 @@ export async function ValidatorStakeHistory({
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   });
 
-  const accent = accentFor(chain);
-  const symbol = symbolFor(chain);
   const first = values[0];
   const last = values[values.length - 1];
   const change = first > 0 ? (last - first) / first : 0;
-  const jailedAt = points
-    .map((p, i) => (p.jailed ? i : -1))
-    .filter((i) => i >= 0);
+  const jailedAt = points.map((p, i) => (p.jailed ? i : -1)).filter((i) => i >= 0);
 
   return (
-    <>
-      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        Stake history
-      </h2>
-      <div
-        className="gata-panel px-4 py-3"
-        style={{ ["--panel-accent" as string]: accent }}
-      >
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="font-mono text-lg font-semibold leading-none">
-            {formatToken(String(Math.round(last)), chain.exponent, 2)}{" "}
-            <span className="text-xs font-normal text-muted-foreground">{symbol}</span>
-          </span>
-          <span
-            className={
-              change >= 0
-                ? "font-mono text-sm text-[var(--gata-green)]"
-                : "font-mono text-sm text-[var(--gata-burn)]"
-            }
-          >
-            {change >= 0 ? "+" : ""}
-            {(change * 100).toFixed(2)}%
-          </span>
-        </div>
-
-        <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          className="mt-3 h-[72px] w-full"
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={`Bonded stake over the last 90 days, ${
-            change >= 0 ? "up" : "down"
-          } ${Math.abs(change * 100).toFixed(1)} percent`}
+    <div className="flex h-full flex-col border border-border bg-[var(--gata-card)] px-4 py-3">
+      <div className="flex shrink-0 items-baseline justify-between gap-4">
+        <span className="font-mono text-lg font-semibold leading-none">
+          {formatToken(String(Math.round(last)), exponent, 2)}{" "}
+          <span className="text-xs font-normal text-muted-foreground">{symbol}</span>
+        </span>
+        <span
+          className={
+            change >= 0
+              ? "font-mono text-sm text-[var(--gata-green)]"
+              : "font-mono text-sm text-[var(--gata-burn)]"
+          }
         >
-          {/* Fill first so the line sits on top of it. */}
-          <polygon
-            points={`0,${HEIGHT} ${coords.join(" ")} ${WIDTH},${HEIGHT}`}
-            fill={accent}
-            opacity={0.12}
-          />
-          <polyline
-            points={coords.join(" ")}
-            fill="none"
-            stroke={accent}
-            strokeWidth={1.5}
+          {change >= 0 ? "+" : ""}
+          {(change * 100).toFixed(2)}%
+        </span>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        className="mt-3 min-h-0 w-full flex-1"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`Bonded stake over the last 90 days, ${
+          change >= 0 ? "up" : "down"
+        } ${Math.abs(change * 100).toFixed(1)} percent`}
+      >
+        {/* Fill first so the line sits on top of it. */}
+        <polygon
+          points={`0,${HEIGHT} ${coords.join(" ")} ${WIDTH},${HEIGHT}`}
+          fill={accent}
+          opacity={0.12}
+        />
+        <polyline
+          points={coords.join(" ")}
+          fill="none"
+          stroke={accent}
+          strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke"
+        />
+        {/* A jailing is the one event that explains a cliff, so it is marked. */}
+        {jailedAt.map((i) => (
+          <circle
+            key={i}
+            cx={(i / (points.length - 1)) * WIDTH}
+            cy={HEIGHT - ((values[i] - min) / span) * (HEIGHT - 8) - 4}
+            r={2.5}
+            fill="var(--gata-burn)"
             vectorEffect="non-scaling-stroke"
           />
-          {/* A jailing is the one event that explains a cliff, so it is marked. */}
-          {jailedAt.map((i) => (
-            <circle
-              key={i}
-              cx={(i / (points.length - 1)) * WIDTH}
-              cy={
-                HEIGHT - ((values[i] - min) / span) * (HEIGHT - 8) - 4
-              }
-              r={2.5}
-              fill="var(--gata-burn)"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
+        ))}
+      </svg>
 
-        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{new Date(points[0].time).toLocaleDateString()}</span>
-          <span>90 days</span>
-          <span>{new Date(points[points.length - 1].time).toLocaleDateString()}</span>
-        </div>
+      <div className="mt-1 flex shrink-0 justify-between text-[11px] text-muted-foreground">
+        <span>{new Date(points[0].time).toLocaleDateString()}</span>
+        <span>90 days</span>
+        <span>{new Date(points[points.length - 1].time).toLocaleDateString()}</span>
       </div>
-    </>
+    </div>
   );
 }

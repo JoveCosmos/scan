@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sortValidators, filterValidators, type ValidatorRow } from "@/components/validators-table";
+import { sortValidators, filterValidators, type ValidatorRow } from "@/lib/validator-sort";
 import { emptyUptime } from "@/lib/uptime";
 
 function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {

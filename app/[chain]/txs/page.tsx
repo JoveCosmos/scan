@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getChain, symbolFor, chainDenoms } from "@/lib/chains";
+import { getChain, chainDenoms, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
+import { PageFrame } from "@/components/page-frame";
 import { TxsTable } from "@/components/txs-table";
 
 export const dynamic = "force-dynamic";
@@ -32,22 +33,23 @@ export default async function TxsPage({
   const initial = await getAdapter(chain).getRecentTxs();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold tracking-tight">Transactions</h1>
-        <p className="text-sm text-muted-foreground">
-          Recent activity on {chain.prettyName}
-        </p>
-      </div>
-
+    <PageFrame
+      title="Transactions"
+      sub={
+        initial.scannedBlocks > 0
+          ? `Last ${initial.scannedBlocks} blocks to ${
+              initial.headHeight ? Number(initial.headHeight).toLocaleString() : "head"
+            }`
+          : chain.prettyName
+      }
+      accent={accentFor(chain)}
+    >
       <TxsTable
         chainId={chain.chainId}
-        exponent={chain.exponent}
-        symbol={symbolFor(chain)}
-        denom={chain.denom}
+        accent={accentFor(chain)}
         denoms={chainDenoms(chain)}
         initial={initial}
       />
-    </main>
+    </PageFrame>
   );
 }

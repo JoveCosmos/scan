@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getChain } from "@/lib/chains";
+import { getChain, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { RelayerOperators } from "@/components/relayer-operators";
 import { IbcRoutesTable } from "@/components/ibc-routes-table";
 import { LoadingPanel } from "@/components/loading-panel";
+import { PageFrame } from "@/components/page-frame";
+import { SectionTabs } from "@/components/section-tabs";
 
 export const revalidate = 120;
 
@@ -44,38 +46,51 @@ export default async function RelayersPage({
   if (chain.kind !== "cosmos") notFound();
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="text-xl font-medium">Relayers</h1>
-
-      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        Routes
-      </h2>
-      <Suspense
-        fallback={
-          <LoadingPanel
-            label="Checking routes…"
-            hint="Reading light client status and pending packets on both sides."
-            rows={3}
-          />
-        }
-      >
-        <IbcRoutesTable chainId={chainId} />
-      </Suspense>
-
-      <h2 className="mt-6 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        Operators
-      </h2>
-      <Suspense
-        fallback={
-          <LoadingPanel
-            label="Counting relays…"
-            hint="Attributing every IBC message to the operator who paid for it."
-            rows={5}
-          />
-        }
-      >
-        <RelayerOperators chain={chain} />
-      </Suspense>
-    </main>
+    <PageFrame title="Relayers" sub={chain.prettyName} accent={accentFor(chain)}>
+      {/* Routes and operators take turns rather than stack: on a fixed-height
+          page the second heading would sit below the fold. */}
+      <SectionTabs
+        sections={[
+          {
+            key: "routes",
+            label: "Routes",
+            content: (
+              <div className="h-full overflow-y-auto">
+                <Suspense
+                  fallback={
+                    <LoadingPanel
+                      label="Checking routes…"
+                      hint="Reading light client status and pending packets on both sides."
+                      rows={3}
+                    />
+                  }
+                >
+                  <IbcRoutesTable chainId={chainId} />
+                </Suspense>
+              </div>
+            ),
+          },
+          {
+            key: "operators",
+            label: "Operators",
+            content: (
+              <div className="h-full overflow-y-auto">
+                <Suspense
+                  fallback={
+                    <LoadingPanel
+                      label="Counting relays…"
+                      hint="Attributing every IBC message to the operator who paid for it."
+                      rows={5}
+                    />
+                  }
+                >
+                  <RelayerOperators chain={chain} />
+                </Suspense>
+              </div>
+            ),
+          },
+        ]}
+      />
+    </PageFrame>
   );
 }

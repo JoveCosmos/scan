@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
 import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { truncateMiddle } from "@/lib/format";
-import { CopyButton } from "@/components/copy-button";
+import { timeAgo, truncateMiddle } from "@/lib/format";
+import { PageFrame } from "@/components/page-frame";
+import { BrickBoard, type BrickSpec } from "@/components/brick-board";
+import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 export const dynamic = "force-dynamic";
 
@@ -20,30 +22,17 @@ export async function generateMetadata({
   return { title: `Block #${height}` };
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[180px_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function HashRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
-  if (!value) return null;
-  return (
-    <Row label={label}>
-      <span className="break-all font-mono text-xs text-muted-foreground">{value}</span>
-    </Row>
-  );
-}
-
+/**
+ * One block: a band of bricks over the transactions it carried.
+ *
+ * The header hashes — app, data, validators — are the clearest argument for
+ * this layout. They are the reason someone opens a block once a year and pure
+ * noise every other time, so they are one brick rather than three rows anyone
+ * reading the transaction list has to scroll past.
+ *
+ * Both boards take plain serialisable data, so this stays a server component
+ * and nothing about the block is fetched twice.
+ */
 export default async function BlockDetailPage({
   params,
 }: {
@@ -52,7 +41,6 @@ export default async function BlockDetailPage({
   const { chain: chainId, height } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
-
   if (!/^\d+$/.test(height)) notFound();
 
   const adapter = getAdapter(chain);
@@ -62,231 +50,202 @@ export default async function BlockDetailPage({
 
   if (!block) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-6">
-        <Link
-          href={`/${chainId}/blocks`}
-          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to blocks
-        </Link>
-        <div className="gata-panel px-5 py-10 text-center">
-          <h1 className="text-lg font-semibold">Block not found</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Height {Number(height).toLocaleString()} is unavailable on{" "}
-            {chain.prettyName}. It may be above the current head, or pruned from
-            the nodes we query.
-          </p>
-        </div>
-      </main>
+      <PageFrame title="Block not found" sub={chain.prettyName} accent={accent}>
+        <p className="text-sm text-muted-foreground">
+          Height {Number(height).toLocaleString()} is unavailable on{" "}
+          {chain.prettyName}. It may be above the current head, or pruned from the
+          nodes we query.{" "}
+          <Link href={`/${chainId}/blocks`} className="text-primary hover:underline">
+            Back to blocks
+          </Link>
+          .
+        </p>
+      </PageFrame>
     );
   }
 
   const txs = await adapter.getBlockTxs(block);
   const heightNum = Number(block.height);
+  const denoms = chainDenoms(chain);
   const gasPct =
     block.gasUsed && block.gasWanted && Number(block.gasWanted) > 0
       ? (Number(block.gasUsed) / Number(block.gasWanted)) * 100
       : null;
 
+  const proposerName =
+    block.proposerMoniker ?? block.proposerLabel ?? truncateMiddle(block.proposer, 8, 6);
+
+  const bricks: BrickSpec[] = [
+    {
+      key: "time",
+      label: "Produced",
+      value: timeAgo(block.time),
+      sub: new Date(block.time).toLocaleTimeString(),
+      lead: true,
+      rows: [
+        { label: "Height", value: heightNum.toLocaleString(), mono: true },
+        { label: "Time", value: block.time, mono: true },
+        { label: "Local", value: new Date(block.time).toLocaleString() },
+        { label: "Chain", value: block.chainId ?? chain.chainId, mono: true },
+      ],
+    },
+    {
+      key: "proposer",
+      label: "Proposer",
+      value: proposerName,
+      sub: block.signatureCount != null ? `${block.signatureCount} signatures` : undefined,
+      text: true,
+      rows: [
+        { label: "Proposer", value: proposerName },
+        {
+          label: "Consensus address",
+          value: block.proposer,
+          mono: true,
+          ...(block.proposerOperator
+            ? { href: `/${chainId}/validators/${block.proposerOperator}` }
+            : {}),
+        },
+        ...(block.signatureCount != null
+          ? [
+              {
+                label: "Signatures",
+                value: String(block.signatureCount),
+                mono: true,
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      key: "txs",
+      label: "Transactions",
+      value: String(block.txCount),
+      sub: block.totalFees
+        ? `${formatToken(block.totalFees, chain.exponent, 6)} ${symbol} in fees`
+        : "in this block",
+    },
+    ...(gasPct !== null
+      ? [
+          {
+            key: "gas",
+            label: "Gas",
+            value: `${gasPct.toFixed(1)}%`,
+            sub: "of wanted",
+            tone: gasPct > 90 ? ("bad" as const) : undefined,
+            rows: [
+              {
+                label: "Used",
+                value: Number(block.gasUsed).toLocaleString(),
+                mono: true,
+              },
+              {
+                label: "Wanted",
+                value: Number(block.gasWanted).toLocaleString(),
+                mono: true,
+              },
+              { label: "Share", value: `${gasPct.toFixed(2)}%`, mono: true },
+            ],
+          },
+        ]
+      : []),
+    {
+      key: "hashes",
+      label: "Hashes",
+      value: block.hash ? truncateMiddle(block.hash, 6, 4) : "—",
+      sub: "block, app, data",
+      rows: [
+        ...(block.hash ? [{ label: "Block", value: block.hash, mono: true }] : []),
+        ...(block.appHash ? [{ label: "App", value: block.appHash, mono: true }] : []),
+        ...(block.dataHash ? [{ label: "Data", value: block.dataHash, mono: true }] : []),
+        ...(block.validatorsHash
+          ? [{ label: "Validators", value: block.validatorsHash, mono: true }]
+          : []),
+      ],
+    },
+  ];
+
+  const rows: DeckRow[] = txs.map((tx) => {
+    const ok = tx.code === 0;
+    return {
+      key: tx.hash,
+      cells: [
+        { v: truncateMiddle(tx.hash, 10, 6), mono: true, tone: "accent" },
+        {
+          v: `${tx.messages[0]?.label ?? "—"}${
+            tx.messages.length > 1 ? ` +${tx.messages.length - 1}` : ""
+          }`,
+        },
+        {
+          v: tx.code === null ? "unindexed" : ok ? "ok" : `fail ${tx.code}`,
+          mono: true,
+          tone: tx.code === null ? undefined : ok ? "ok" : "bad",
+        },
+        { v: formatCoins(tx.fee, denoms), mono: true, dim: true, align: "right" },
+      ],
+      detail: {
+        title: truncateMiddle(tx.hash, 12, 8),
+        sub: tx.messages[0]?.label,
+        rows: [
+          { label: "Hash", value: tx.hash, mono: true },
+          {
+            label: "Status",
+            value: tx.code === null ? "Unindexed" : ok ? "Success" : `Failed (${tx.code})`,
+          },
+          { label: "Messages", value: String(tx.messageCount), mono: true },
+          ...(tx.messages.length > 0
+            ? [{ label: "Types", value: tx.messages.map((m) => m.label).join(", ") }]
+            : []),
+          { label: "Fee", value: formatCoins(tx.fee, denoms), mono: true },
+          ...(tx.memo ? [{ label: "Memo", value: tx.memo }] : []),
+        ],
+        action: {
+          label: "Full transaction",
+          href: `/${chainId}/txs/${encodeURIComponent(tx.hash)}`,
+        },
+      },
+    };
+  });
+
+  const step = (to: number, label: string, Icon: typeof ChevronLeft) => (
+    <Link
+      href={`/${chainId}/blocks/${to}`}
+      aria-label={label}
+      className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary/60 px-2 py-1.5 text-xs transition-colors hover:border-[var(--gata-border-hi)]"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </Link>
+  );
+
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <Link
-        href={`/${chainId}/blocks`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to blocks
-      </Link>
-
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span
-            className="h-9 w-1 rounded-full"
-            style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
+    <PageFrame
+      title={`#${heightNum.toLocaleString()}`}
+      sub={`${chain.prettyName} · ${timeAgo(block.time)}`}
+      accent={accent}
+      actions={
+        <>
+          {heightNum > 1 ? step(heightNum - 1, "Previous block", ChevronLeft) : null}
+          {step(heightNum + 1, "Next block", ChevronRight)}
+        </>
+      }
+    >
+      <div className="flex h-full flex-col gap-3">
+        <div className="shrink-0">
+          <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
+        </div>
+        <div className="min-h-0 flex-1">
+          <RowDeck
+            accent={accent}
+            columns={[
+              { label: "Hash", width: "26%" },
+              { label: "Type" },
+              { label: "Status", width: "16%" },
+              { label: "Fee", align: "right", width: "20%", phoneHide: true },
+            ]}
+            rows={rows}
+            empty="No transactions in this block."
           />
-          <div>
-            <h1 className="font-mono text-lg font-semibold tracking-tight">
-              #{heightNum.toLocaleString()}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {new Date(block.time).toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          {heightNum > 1 ? (
-            <Link
-              href={`/${chainId}/blocks/${heightNum - 1}`}
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary/60 px-2.5 py-1.5 text-xs transition-colors hover:border-[var(--gata-border-hi)]"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Prev
-            </Link>
-          ) : null}
-          <Link
-            href={`/${chainId}/blocks/${heightNum + 1}`}
-            className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary/60 px-2.5 py-1.5 text-xs transition-colors hover:border-[var(--gata-border-hi)]"
-          >
-            Next
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
       </div>
-
-      <div className="gata-panel mb-5" style={{ ["--panel-accent" as string]: accent }}>
-        <dl>
-          <Row label="Block Hash">
-            {block.hash ? (
-              <div className="flex items-start gap-2">
-                <span className="min-w-0 break-all font-mono text-xs">{block.hash}</span>
-                <CopyButton value={block.hash} label="block hash" />
-              </div>
-            ) : (
-              "—"
-            )}
-          </Row>
-          <Row label="Proposer">
-            {block.proposerMoniker && block.proposerOperator ? (
-              <Link
-                href={`/${chainId}/validators/${block.proposerOperator}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {block.proposerMoniker}
-              </Link>
-            ) : block.proposerLabel ? (
-              <span>
-                <span className="font-medium">{block.proposerLabel}</span>
-                <span
-                  className="ml-2 font-mono text-xs text-muted-foreground"
-                  title={block.proposer}
-                >
-                  {truncateMiddle(block.proposer, 10, 6)}
-                </span>
-              </span>
-            ) : (
-              <span
-                className="font-mono text-xs text-muted-foreground"
-                title={block.proposer}
-              >
-                {truncateMiddle(block.proposer, 12, 8)}
-              </span>
-            )}
-          </Row>
-          <Row label="Transactions">
-            <span className="font-mono">{block.txCount}</span>
-          </Row>
-          {block.signatureCount != null ? (
-            <Row label="Signatures">
-              <span className="font-mono">{block.signatureCount}</span>
-            </Row>
-          ) : null}
-          {gasPct !== null ? (
-            <Row label="Gas">
-              <div className="space-y-1.5">
-                <span className="font-mono text-xs">
-                  {Number(block.gasUsed).toLocaleString()} /{" "}
-                  {Number(block.gasWanted).toLocaleString()}
-                  <span className="ml-2 text-muted-foreground">
-                    {gasPct.toFixed(1)}%
-                  </span>
-                </span>
-                <div
-                  className="h-1 w-full max-w-xs overflow-hidden rounded-full bg-muted"
-                  aria-hidden="true"
-                >
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(100, gasPct)}%`,
-                      background: gasPct > 90 ? "var(--gata-amber)" : accent,
-                    }}
-                  />
-                </div>
-              </div>
-            </Row>
-          ) : null}
-          {block.totalFees ? (
-            <Row label="Total Fees">
-              <span className="font-mono text-xs">
-                {formatToken(block.totalFees, chain.exponent, 6)} {symbol}
-              </span>
-            </Row>
-          ) : null}
-          <Row label="Chain">
-            <span className="font-mono text-xs">{block.chainId ?? chain.chainId}</span>
-          </Row>
-          <HashRow label="App Hash" value={block.appHash} />
-          <HashRow label="Data Hash" value={block.dataHash} />
-          <HashRow label="Validators Hash" value={block.validatorsHash} />
-        </dl>
-      </div>
-
-      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        Transactions ({block.txCount})
-      </h2>
-
-      {txs.length === 0 ? (
-        <div className="gata-panel px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            No transactions in this block.
-          </p>
-        </div>
-      ) : (
-        <div className="gata-panel overflow-x-auto">
-          <table className="gata-table w-full text-sm sm:min-w-[560px]">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="px-4 py-3 font-medium text-muted-foreground">Hash</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
-                <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
-                <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                  Fee
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {txs.map((tx) => (
-                <tr
-                  key={tx.hash}
-                  className="border-b border-border/50 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)]/60"
-                >
-                  <td data-label="Hash" data-primary className="px-4 py-3">
-                    <Link
-                      href={`/${chainId}/txs/${encodeURIComponent(tx.hash)}`}
-                      className="font-mono text-xs text-primary hover:underline"
-                      title={tx.hash}
-                    >
-                      {truncateMiddle(tx.hash, 10, 8)}
-                    </Link>
-                  </td>
-                  <td data-label="Type" className="px-4 py-3 text-xs">
-                    {tx.messages[0]?.label ?? "—"}
-                    {tx.messages.length > 1 ? (
-                      <span className="ml-1 text-muted-foreground">
-                        +{tx.messages.length - 1}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td data-label="Status" className="px-4 py-3 text-xs">
-                    {tx.code === null ? (
-                      <span className="text-muted-foreground">Unindexed</span>
-                    ) : tx.code === 0 ? (
-                      <span className="text-[var(--gata-green)]">Success</span>
-                    ) : (
-                      <span className="text-[var(--gata-burn)]">Failed</span>
-                    )}
-                  </td>
-                  <td data-label="Fee" className="px-4 py-3 text-right font-mono text-xs">
-                    {formatCoins(tx.fee, chainDenoms(chain))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
+    </PageFrame>
   );
 }

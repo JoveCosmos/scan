@@ -316,7 +316,7 @@ export function ConsoleSurface({
 
   return (
     <div
-      className="flex h-[calc(100dvh-11rem)] min-h-[30rem] flex-col border border-border bg-[var(--gata-card)] font-mono text-[13px] leading-relaxed"
+      className="flex h-full min-h-0 flex-col border border-border bg-[var(--gata-card)] font-mono text-[13px] leading-relaxed"
       style={{ ["--panel-accent" as string]: accent }}
     >
       {/* Status line. The one piece of chrome, and it is all data. */}

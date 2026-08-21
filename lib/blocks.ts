@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { isNumericId } from "@/lib/input";
+import { proposerIndex } from "@/lib/uptime";
 
 interface BlockResponse {
   block_id?: { hash: string };
@@ -31,6 +32,41 @@ export interface BlockSummary {
 }
 
 export const RECENT_BLOCK_COUNT = 15;
+
+/** A block summary with its proposer resolved to a validator, where possible. */
+export interface NamedBlock extends BlockSummary {
+  proposerMoniker: string | null;
+  proposerOperator: string | null;
+}
+
+/**
+ * Name the proposers of a page of blocks.
+ *
+ * A header carries its proposer as a raw consensus address, and `resolveProposer`
+ * costs a validator-set read per block — fine for one block, not for fifteen.
+ * This builds the lookup once from a set the caller already holds and applies it
+ * to the whole page. A proposer that cannot be resolved keeps its raw address
+ * rather than going blank.
+ */
+export function nameProposers(
+  blocks: BlockSummary[],
+  validators: {
+    moniker: string;
+    operatorAddress: string;
+    consensusPubkey: string | null;
+  }[],
+  bech32Prefix: string
+): NamedBlock[] {
+  const index = proposerIndex(validators, bech32Prefix);
+  return blocks.map((block) => {
+    const hit = index.get(block.proposer);
+    return {
+      ...block,
+      proposerMoniker: hit?.moniker ?? null,
+      proposerOperator: hit?.operator ?? null,
+    };
+  });
+}
 
 export interface BlockDetail extends BlockSummary {
   chainId: string | null;

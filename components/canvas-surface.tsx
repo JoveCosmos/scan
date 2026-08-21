@@ -209,7 +209,7 @@ export function CanvasSurface({
   const selectedNode = selected ? placed.get(selected)?.node ?? null : null;
 
   return (
-    <div className="relative flex h-[calc(100dvh-11rem)] min-h-[30rem] flex-col border border-border bg-[var(--gata-card)]">
+    <div className="relative flex h-full min-h-0 flex-col border border-border bg-[var(--gata-card)]">
       {/* Status strip. */}
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-3 py-1.5 font-mono text-[12px]">
         <span className="truncate">

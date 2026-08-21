@@ -49,7 +49,7 @@ function Disambiguation({
   hint: string;
 }) {
   return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
+    <main className="mx-auto flex h-full max-w-2xl flex-col justify-center overflow-y-auto px-4 py-8">
       <h1 className="text-xl font-semibold tracking-tight">Which chain?</h1>
       <p className="mt-2 text-sm text-muted-foreground">{hint}</p>
       <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{query}</p>
@@ -87,7 +87,7 @@ function Disambiguation({
 
 function NoResult({ query }: { query: string }) {
   return (
-    <main className="mx-auto max-w-2xl px-4 py-20">
+    <main className="mx-auto flex h-full max-w-2xl flex-col justify-center overflow-y-auto px-4 py-8">
       <div className="gata-panel px-5 py-10 text-center">
         <SearchX className="mx-auto h-8 w-8 text-muted-foreground" />
         <h1 className="mt-4 text-lg font-semibold">

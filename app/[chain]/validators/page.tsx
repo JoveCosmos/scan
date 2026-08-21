@@ -12,20 +12,23 @@ import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
 import { getSelfBonds } from "@/lib/staking";
 import { getChainEconomics } from "@/lib/params";
-import { StatRail } from "@/components/stat-rail";
+import { PageFrame } from "@/components/page-frame";
 
 export const revalidate = 60;
 
-function TableSkeleton() {
+/**
+ * Shaped like the deck it stands in for — a filter bar over a full-height
+ * table — rather than the four stat cards this page used to open with, which
+ * the skeleton went on describing long after the cards were gone.
+ */
+function TableSkeleton({ chain }: { chain: ChainConfig }) {
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[104px] rounded-xl" />
-        ))}
+    <PageFrame title="Validators" sub={`Active set on ${chain.prettyName}`}>
+      <div className="flex h-full flex-col">
+        <Skeleton className="h-8 w-full shrink-0 rounded-lg sm:max-w-xs" />
+        <Skeleton className="mt-2 min-h-0 flex-1 rounded-none" />
       </div>
-      <Skeleton className="h-[420px] rounded-xl" />
-    </div>
+    </PageFrame>
   );
 }
 
@@ -42,19 +45,12 @@ export default async function ValidatorsPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
+  // The heading lives in the content now, because the summary beside it is the
+  // set itself and cannot be known until the set has been read.
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-4 flex items-baseline gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">Validators</h1>
-        <p className="text-xs text-muted-foreground">
-          active set on {chain.prettyName}
-        </p>
-      </div>
-
-      <Suspense fallback={<TableSkeleton />}>
-        <ValidatorsContent chain={chain} />
-      </Suspense>
-    </main>
+    <Suspense fallback={<TableSkeleton chain={chain} />}>
+      <ValidatorsContent chain={chain} />
+    </Suspense>
   );
 }
 
@@ -106,7 +102,6 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         ).catch(() => null)
       : Promise.resolve(null),
   ]);
-  const hasDeltas = deltas.size > 0;
 
   /** Slashing events carry the consensus address, so rows are matched on that. */
   const jailingsFor = (consensusPubkey: string | null) => {
@@ -135,7 +130,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     jailings: jailingsFor(v.consensusPubkey),
     selfBond: selfBonds.get(v.operatorAddress) ?? null,
   }));
-  const { staking, stakeWeighted, registry, slashingWindow } = adapter.capabilities;
+  const { staking } = adapter.capabilities;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
@@ -147,91 +142,42 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
 
   const totalBonded = validators.reduce((sum, v) => sum + Number(v.tokens), 0);
 
-  return (
-    <>
-      <StatRail
-        className="mb-4"
-        accent={accent}
-        stats={[
-          {
-            label: "Active Validators",
-            value: String(validators.length),
-            sub:
-              registry && registered !== null
-                ? `${registered} in valopers`
-                : undefined,
-          },
-          // Analysis rather than chain state, so it goes with the other derived
-          // figures the lower tiers do not carry.
-          ...(metrics
-            ? [
-                {
-                  label: "Could Halt",
-                  value: nakamoto > 0 ? String(nakamoto) : "—",
-                  sub: nakamoto > 0 ? `of ${validators.length}` : undefined,
-                  hint: stakeWeighted
-                    ? `The ${nakamoto} largest validators together hold more than a third of all staked ${symbol}. Tendermint needs over two thirds agreeing to produce blocks, so a third acting together can stop it. Higher is safer.`
-                    : `The ${nakamoto} largest validators together hold more than a third of voting power, which on this chain is assigned rather than staked. Over a third acting together can halt consensus. Higher is safer.`,
-                },
-              ]
+  // The rail's five figures move into the heading. On a fixed-height page a
+  // rail costs a whole band of rows, and these are context for the table rather
+  // than the point of the page — the same figures are bricks on the overview,
+  // where they are the point.
+  const summary = [
+    `${validators.length} validators`,
+    ...(metrics && nakamoto > 0 ? [`${nakamoto} could halt`] : []),
+    ...(staking
+      ? [
+          `${formatToken(String(totalBonded), chain.exponent)} ${symbol} bonded`,
+          ...(overview?.bondedRatio != null
+            ? [`${(overview.bondedRatio * 100).toFixed(1)}% of supply`]
             : []),
-          ...(staking
-            ? [
-                {
-                  label: "Bonded Stake",
-                  value: `${formatToken(String(totalBonded), chain.exponent)} ${symbol}`,
-                  sub:
-                    overview?.bondedRatio != null
-                      ? `${(overview.bondedRatio * 100).toFixed(2)}% of supply`
-                      : undefined,
-                  hint: "Share of total supply that is staked. Stake secures the chain, so a higher share means a more expensive chain to attack - and less supply free to trade.",
-                },
-                {
-                  label: "Min Commission",
-                  value:
-                    minCommission !== null
-                      ? `${(minCommission * 100).toFixed(1)}%`
-                      : "—",
-                  sub: "chain floor",
-                  hint: "No validator on this chain may charge less than this. It is a consensus parameter, not an average of what validators actually charge.",
-                },
-                ...(economics?.stakingApr != null
-                  ? [
-                      {
-                        label: "Staking APR",
-                        value: `${(economics.stakingApr * 100).toFixed(1)}%`,
-                        sub: "before commission",
-                      },
-                    ]
-                  : []),
-              ]
-            : [
-                {
-                  label: "Voting Power",
-                  value: totalBonded.toLocaleString(),
-                  sub: "assigned, not staked",
-                },
-                {
-                  label: "Registered",
-                  value: registered !== null ? String(registered) : "—",
-                  sub: "valopers profiles",
-                },
-              ]),
-        ]}
-      />
+          ...(minCommission !== null
+            ? [`min commission ${(minCommission * 100).toFixed(1)}%`]
+            : []),
+          ...(economics?.stakingApr != null
+            ? [`APR ${(economics.stakingApr * 100).toFixed(1)}%`]
+            : []),
+        ]
+      : [
+          `${totalBonded.toLocaleString()} voting power`,
+          ...(registered !== null ? [`${registered} registered`] : []),
+        ]),
+  ].join(" · ");
 
+  return (
+    <PageFrame title="Validators" sub={summary} accent={accent}>
       <ValidatorsTable
         chainId={chainId}
         rows={rows}
         accent={accent}
+        symbol={symbol}
         staking={staking}
-        hasDeltas={hasDeltas}
         hasUptime={metrics}
-        grossApr={economics?.stakingApr ?? null}
-        slashingWindow={slashingWindow}
-        exponent={chain.exponent}
-        jailingsSince={jailings && !jailings.fromGenesis ? jailings.since : null}
       />
-    </>
+    </PageFrame>
   );
 }

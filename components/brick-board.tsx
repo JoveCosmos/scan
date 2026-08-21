@@ -29,8 +29,14 @@ export interface DetailRow {
 
 export interface BrickSpec extends BrickVisual {
   key: string;
-  /** Rows shown when the brick is opened. Without these the brick is inert. */
+  /** Rows shown when the brick is opened. Without rows or a body it is inert. */
   rows?: DetailRow[];
+  /**
+   * Prose shown above the rows — a proposal's summary, an operator's own
+   * description. Kept separate from a row because it is paragraphs rather than
+   * a value, and reads as neither a label nor a figure.
+   */
+  body?: string;
   /** Navigates instead of opening — for detail that is a whole page. */
   href?: string;
   /** Re-read from the live head poll rather than the server render. */
@@ -69,12 +75,19 @@ export function BrickBoard({
   accent,
   bricks,
   head,
+  className,
 }: {
-  chainId: string;
+  /** Only needed for the live head poll, so a static board can omit it. */
+  chainId?: string;
   accent: string;
   bricks: BrickSpec[];
-  /** Server-rendered head, so the live bricks have no loading state. */
-  head: ChainOverview;
+  /**
+   * Server-rendered head, so the live bricks have no loading state. Omit it on
+   * a board with nothing live — a block that has already been produced does not
+   * change, and polling it would be a request per page for no new information.
+   */
+  head?: ChainOverview;
+  className?: string;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -88,10 +101,11 @@ export function BrickBoard({
     initialData: head,
     refetchInterval: 2500,
     refetchIntervalInBackground: false,
+    enabled: head !== undefined && chainId !== undefined,
   });
 
   function resolve(brick: BrickSpec): BrickVisual {
-    if (!brick.live) return brick;
+    if (!brick.live || !data) return brick;
     if (brick.live === "height") {
       return {
         ...brick,
@@ -109,7 +123,7 @@ export function BrickBoard({
 
   return (
     <>
-      <BrickGrid>
+      <BrickGrid className={className}>
         {bricks.map((brick) => {
           const visual = resolve(brick);
           if (brick.href) {
@@ -117,7 +131,7 @@ export function BrickBoard({
               <BrickLink key={brick.key} brick={visual} accent={accent} href={brick.href} />
             );
           }
-          if (brick.rows && brick.rows.length > 0) {
+          if ((brick.rows && brick.rows.length > 0) || brick.body) {
             return (
               <BrickButton
                 key={brick.key}
@@ -138,6 +152,9 @@ export function BrickBoard({
         sub={open ? resolve(open).value : undefined}
         accent={accent}
       >
+        {open?.body ? (
+          <p className="mb-3 whitespace-pre-line text-sm leading-relaxed">{open.body}</p>
+        ) : null}
         {open?.rows ? (
           <PopupRows
             rows={open.rows.map((row) => ({

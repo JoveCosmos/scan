@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
-import { getChain } from "@/lib/chains";
+import { getChain, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
+import { nameProposers } from "@/lib/blocks";
+import { PageFrame } from "@/components/page-frame";
 import { BlocksTable } from "@/components/blocks-table";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +16,23 @@ export default async function BlocksPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const blocks = await getAdapter(chain).getRecentBlocks();
+  const adapter = getAdapter(chain);
+  const [blocks, validators] = await Promise.all([
+    adapter.getRecentBlocks(),
+    adapter.getValidators().catch(() => []),
+  ]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-lg font-semibold tracking-tight">Blocks</h1>
-        <p className="text-sm text-muted-foreground">
-          Most recent blocks on {chain.prettyName}
-        </p>
-      </div>
-
-      <BlocksTable chainId={chain.chainId} initialBlocks={blocks} />
-    </main>
+    <PageFrame
+      title="Blocks"
+      sub={`Streaming from ${chain.prettyName}`}
+      accent={accentFor(chain)}
+    >
+      <BlocksTable
+        chainId={chain.chainId}
+        accent={accentFor(chain)}
+        initialBlocks={nameProposers(blocks, validators, chain.bech32Prefix)}
+      />
+    </PageFrame>
   );
 }

@@ -1,59 +1,24 @@
 import { Suspense } from "react";
-import Link from "next/link";
-import { ArrowLeft, ExternalLink } from "lucide-react";
 import type { ChainConfig } from "@/lib/chains";
 import { accentFor } from "@/lib/chains";
 import { gnoValidatorDetail } from "@/lib/gno";
 import { getValoper } from "@/lib/gno-valopers";
 import { truncateMiddle } from "@/lib/format";
+import { PageFrame } from "@/components/page-frame";
+import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { CopyButton } from "@/components/copy-button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[200px_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  );
-}
-
-function StatPanel({
-  label,
-  value,
-  sub,
-  accent,
-  index,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent: string;
-  index: number;
-}) {
-  return (
-    <div
-      className="gata-panel gata-rise px-4 py-3"
-      style={{
-        ["--panel-accent" as string]: accent,
-        animationDelay: `${index * 60}ms`,
-      }}
-    >
-      <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-2 font-mono text-lg font-semibold leading-none">{value}</p>
-      {sub ? <p className="mt-2 text-xs text-muted-foreground">{sub}</p> : null}
-    </div>
-  );
-}
+const REGISTRY = "gno.land/r/gnops/valopers";
 
 /**
  * The valopers realm read can require building a signing/operator index across
  * ~95 realm calls on a cold cache, so it streams in separately rather than
- * holding up the consensus-side facts.
+ * holding up the consensus-side facts. It is the one thing on the page that
+ * cannot be laid out with the rest of the board — a brick has to be there when
+ * the board is drawn, so the profile gets a board of its own underneath.
  */
-async function ValoperProfilePanel({
+async function ValoperProfileBoard({
   chain,
   address,
   accent,
@@ -66,89 +31,80 @@ async function ValoperProfilePanel({
 
   if (!profile) {
     return (
-      <div className="gata-panel px-5 py-7 text-center">
-        <p className="text-sm text-muted-foreground">
-          This validator has not registered a profile in the{" "}
-          <span className="font-mono text-xs">gno.land/r/gnops/valopers</span> realm.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        This validator has not registered a profile in the{" "}
+        <span className="font-mono text-xs">{REGISTRY}</span> realm.
+      </p>
     );
   }
 
-  return (
-    <>
-      <div className="gata-panel mb-5" style={{ ["--panel-accent" as string]: accent }}>
-        <dl>
-          <Row label="Operator Address">
-            {/* On gno this is already a plain account address, so it links
-                straight to balances, history and the address switcher. */}
-            <div className="flex items-start gap-2">
-              <Link
-                href={`/${chain.chainId}/accounts/${profile.operatorAddress}`}
-                className="min-w-0 break-all font-mono text-xs text-primary hover:underline"
-              >
-                {profile.operatorAddress}
-              </Link>
-              <CopyButton value={profile.operatorAddress} label="operator address" />
-            </div>
-          </Row>
-          {profile.signingAddress ? (
-            <Row label="Signing Address">
-              <span className="break-all font-mono text-xs">
-                {profile.signingAddress}
-              </span>
-            </Row>
-          ) : null}
-          {profile.signingPubKey ? (
-            <Row label="Signing PubKey">
-              <span className="break-all font-mono text-xs text-muted-foreground">
-                {profile.signingPubKey}
-              </span>
-            </Row>
-          ) : null}
-          {profile.serverType ? (
-            <Row label="Server Type">
-              <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs">
-                {profile.serverType}
-              </span>
-            </Row>
-          ) : null}
-          {profile.profilePath ? (
-            <Row label="Realm Profile">
-              <span className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground">
-                {profile.profilePath}
-              </span>
-            </Row>
-          ) : null}
-        </dl>
-      </div>
+  const keyRows = [
+    {
+      label: "Operator",
+      value: profile.operatorAddress,
+      mono: true,
+      // On gno this is already a plain account address, so it links straight to
+      // balances, history and the address switcher.
+      href: `/${chain.chainId}/accounts/${profile.operatorAddress}`,
+    },
+    ...(profile.signingAddress
+      ? [{ label: "Signing address", value: profile.signingAddress, mono: true }]
+      : []),
+    ...(profile.signingPubKey
+      ? [{ label: "Signing pubkey", value: profile.signingPubKey, mono: true }]
+      : []),
+    ...(profile.serverType ? [{ label: "Server type", value: profile.serverType }] : []),
+    ...(profile.profilePath
+      ? [{ label: "Realm profile", value: profile.profilePath, mono: true }]
+      : []),
+  ];
 
-      {profile.description ? (
-        <>
-          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-            Validator profile
-          </h2>
-          <div className="gata-panel px-4 py-3">
-            {/* Validator-authored content: rendered as plain text, never as HTML. */}
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-              {profile.description}
-            </p>
-          </div>
-        </>
-      ) : null}
-    </>
-  );
+  const bricks: BrickSpec[] = [
+    {
+      key: "operator",
+      label: "Operator",
+      value: truncateMiddle(profile.operatorAddress, 10, 6),
+      sub: profile.serverType ?? "registered operator",
+      count: keyRows.length,
+      rows: keyRows,
+    },
+    ...(profile.description
+      ? [
+          {
+            key: "profile",
+            label: "Profile",
+            // Validator-authored content: it reaches the page as text, never as
+            // markup, both on the tile and in the popup.
+            value: profile.description,
+            text: true,
+            sub: profile.moniker,
+            rows: [{ label: "Description", value: profile.description }],
+          },
+        ]
+      : []),
+  ];
+
+  return <BrickBoard chainId={chain.chainId} accent={accent} bricks={bricks} />;
 }
 
 function ProfileSkeleton() {
   return (
-    <div className="space-y-5">
-      <Skeleton className="h-[220px] rounded-xl" />
-      <Skeleton className="h-[160px] rounded-xl" />
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      <Skeleton className="h-[5.5rem] rounded-none sm:h-24" />
+      <Skeleton className="h-[5.5rem] rounded-none sm:h-24" />
     </div>
   );
 }
 
+/**
+ * A gno.land validator: consensus weight now, and whatever it registered.
+ *
+ * There is no staking module, so nothing here is denominated in tokens — the
+ * voting power is assigned, and the profile is a realm entry the operator wrote
+ * itself. Both halves are bricks for the same reason the Cosmos page is: the
+ * addresses and the signing key are the longest values on the page and the
+ * least often wanted, so they belong one click deep.
+ */
 export async function GnoValidatorDetail({
   chain,
   address,
@@ -161,111 +117,108 @@ export async function GnoValidatorDetail({
 
   const active = consensus?.status === "ACTIVE";
 
-  return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <Link
-        href={`/${chain.chainId}/validators`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to validators
-      </Link>
-
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="h-11 w-1 shrink-0 rounded-full"
-            style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
-          />
-          <div className="min-w-0">
-            <h1 className="truncate text-lg font-semibold tracking-tight">
-              {consensus?.moniker ?? truncateMiddle(address, 14, 8)}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              {consensus?.rank ? `Rank #${consensus.rank} · ` : ""}
-              {chain.prettyName}
-            </p>
-          </div>
-        </div>
-
-        {consensus?.status ? (
-          <span
-            className={
-              active
-                ? "rounded-full bg-[var(--gata-green)]/12 px-3 py-1 text-xs font-medium text-[var(--gata-green)]"
-                : "rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground"
-            }
-          >
-            {active ? "Active" : consensus.status}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatPanel
-          index={0}
-          accent={accent}
-          label="Voting Power"
-          value={consensus?.votingPower ?? "—"}
-          sub="consensus weight"
-        />
-        <StatPanel
-          index={1}
-          accent={accent}
-          label="Share"
-          value={
+  const bricks: BrickSpec[] = [
+    {
+      key: "power",
+      label: "Voting power",
+      value: consensus?.votingPower ?? "—",
+      sub:
+        consensus?.sharePercent != null
+          ? `${consensus.sharePercent.toFixed(2)}% of the set`
+          : "consensus weight",
+      lead: true,
+      rows: [
+        { label: "Voting power", value: consensus?.votingPower ?? "—", mono: true },
+        {
+          label: "Share",
+          value:
             consensus?.sharePercent != null
               ? `${consensus.sharePercent.toFixed(2)}%`
-              : "—"
-          }
-        />
-        <StatPanel
-          index={2}
-          accent={accent}
-          label="First Committed"
-          value={
-            consensus?.firstCommittedHeight
-              ? `#${consensus.firstCommittedHeight.toLocaleString()}`
-              : "—"
-          }
-          sub={
-            consensus?.firstCommittedTime
-              ? new Date(consensus.firstCommittedTime).toLocaleDateString()
-              : undefined
-          }
-        />
-      </div>
+              : "—",
+          mono: true,
+        },
+        { label: "Rank", value: consensus?.rank ? `#${consensus.rank}` : "—", mono: true },
+        { label: "Status", value: consensus?.status ?? "—" },
+        {
+          label: "Assigned, not staked",
+          value: "gno.land has no staking module — power is granted by the valset.",
+        },
+      ],
+    },
+    {
+      key: "first",
+      label: "First committed",
+      value: consensus?.firstCommittedHeight
+        ? `#${consensus.firstCommittedHeight.toLocaleString()}`
+        : "—",
+      sub: consensus?.firstCommittedTime
+        ? new Date(consensus.firstCommittedTime).toLocaleDateString()
+        : "since genesis or unknown",
+      rows: [
+        {
+          label: "Height",
+          value: consensus?.firstCommittedHeight
+            ? consensus.firstCommittedHeight.toLocaleString()
+            : "—",
+          mono: true,
+        },
+        {
+          label: "Time",
+          value: consensus?.firstCommittedTime
+            ? new Date(consensus.firstCommittedTime).toLocaleString()
+            : "—",
+        },
+      ],
+    },
+    {
+      key: "consensus-address",
+      label: "Consensus address",
+      value: truncateMiddle(address, 10, 6),
+      sub: "signing identity",
+      rows: [
+        {
+          label: "Address",
+          value: address,
+          mono: true,
+          href: `/${chain.chainId}/accounts/${address}`,
+        },
+        { label: "Registry", value: REGISTRY, href: `https://${REGISTRY}` },
+      ],
+    },
+  ];
 
-      <div className="gata-panel mb-5" style={{ ["--panel-accent" as string]: accent }}>
-        <dl>
-          <Row label="Consensus Address">
-            <div className="flex items-start gap-2">
-              <Link
-                href={`/${chain.chainId}/accounts/${address}`}
-                className="min-w-0 break-all font-mono text-xs text-primary hover:underline"
-              >
-                {address}
-              </Link>
-              <CopyButton value={address} label="consensus address" />
-            </div>
-          </Row>
-          <Row label="Registry">
-            <a
-              href="https://gno.land/r/gnops/valopers"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-              className="inline-flex items-center gap-1 font-mono text-xs text-primary hover:underline"
+  return (
+    <PageFrame
+      title={consensus?.moniker ?? truncateMiddle(address, 14, 8)}
+      sub={`${consensus?.rank ? `Rank #${consensus.rank} · ` : ""}${chain.prettyName}`}
+      accent={accent}
+      actions={
+        <>
+          <CopyButton value={address} label="consensus address" />
+          {consensus?.status ? (
+            <span
+              className={
+                active
+                  ? "rounded-full bg-[var(--gata-green)]/12 px-2 py-0.5 text-xs whitespace-nowrap text-[var(--gata-green)]"
+                  : "rounded-full bg-secondary px-2 py-0.5 text-xs whitespace-nowrap text-muted-foreground"
+              }
             >
-              gno.land/r/gnops/valopers
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          </Row>
-        </dl>
+              {active ? "Active" : consensus.status}
+            </span>
+          ) : null}
+        </>
+      }
+    >
+      <div className="flex h-full flex-col gap-3">
+        <div className="shrink-0">
+          <BrickBoard chainId={chain.chainId} accent={accent} bricks={bricks} />
+        </div>
+        <div className="min-h-0 flex-1">
+          <Suspense fallback={<ProfileSkeleton />}>
+            <ValoperProfileBoard chain={chain} address={address} accent={accent} />
+          </Suspense>
+        </div>
       </div>
-
-      <Suspense fallback={<ProfileSkeleton />}>
-        <ValoperProfilePanel chain={chain} address={address} accent={accent} />
-      </Suspense>
-    </main>
+    </PageFrame>
   );
 }

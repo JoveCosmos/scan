@@ -33,7 +33,7 @@ export default async function ConsolePage({
   if (!chain) notFound();
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
+    <main className="mx-auto h-full max-w-6xl px-3 py-3 sm:px-4 sm:py-4">
       <ConsoleSurface
         chainId={chain.chainId}
         prettyName={chain.prettyName}

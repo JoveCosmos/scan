@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChevronRight } from "lucide-react";
-import { getChain, symbolFor, accentFor } from "@/lib/chains";
+import { getChain, accentFor, chainDenoms } from "@/lib/chains";
+import type { ChainConfig } from "@/lib/chains";
+import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
-import { formatToken } from "@/lib/overview";
-import { truncateMiddle } from "@/lib/format";
-import { isVoting, tallyShares } from "@/lib/proposals";
+import { timeAgo, truncateMiddle } from "@/lib/format";
+import {
+  indexValidatorAccounts,
+  isVoting,
+  proposalStatusLabel,
+  tallyShares,
+  voteOptionLabel,
+  type ProposalSummary,
+} from "@/lib/proposals";
 import { TallyBar } from "@/components/tally-bar";
 import { StatusBadge } from "@/components/proposal-status-badge";
-import { ProposalVotes } from "@/components/proposal-votes";
 import { LoadingPanel } from "@/components/loading-panel";
+import { PageFrame } from "@/components/page-frame";
+import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
+import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
 
 export const dynamic = "force-dynamic";
 
@@ -29,20 +37,10 @@ export async function generateMetadata({
   return { title: proposal ? `#${id} ${proposal.title}` : `Proposal #${id}` };
 }
 
-/** One-line hint shown while the summary is collapsed, so the closed panel
- *  still says something about what is inside it. */
+/** The opening of the summary, which is what the brick shows before it is opened. */
 function summaryPreview(summary: string): string {
   const flat = summary.replace(/\s+/g, " ").trim();
-  return flat.length > 80 ? `${flat.slice(0, 80)}…` : flat;
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[190px_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-sm">{children}</dd>
-    </div>
-  );
+  return flat.length > 110 ? `${flat.slice(0, 110)}…` : flat;
 }
 
 function when(iso: string | null): string {
@@ -51,6 +49,169 @@ function when(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
 }
 
+/** A date short enough to be the one figure on a brick. */
+function day(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
+
+const pct = (value: number, decimals = 1) => `${(value * 100).toFixed(decimals)}%`;
+
+function toneOf(status: string): "ok" | "bad" | undefined {
+  if (status.includes("PASSED")) return "ok";
+  if (status.includes("REJECTED") || status.includes("FAILED")) return "bad";
+  return undefined;
+}
+
+const VOTE_TONE: Record<string, "ok" | "bad" | undefined> = {
+  VOTE_OPTION_YES: "ok",
+  VOTE_OPTION_NO: "bad",
+  VOTE_OPTION_NO_WITH_VETO: "bad",
+};
+
+/** "Yes 60% · No 40%" for a split vote, the option alone for everyone else. */
+function voteLabel(vote: { primary: string; weighted: boolean; options: { option: string; weight: number }[] }) {
+  if (!vote.weighted) return voteOptionLabel(vote.primary);
+  return vote.options
+    .map((o) => `${voteOptionLabel(o.option)} ${(o.weight * 100).toFixed(0)}%`)
+    .join(" · ");
+}
+
+/**
+ * Who voted, and how.
+ *
+ * Streamed separately: fetching every vote is the slowest read on the page and
+ * the tally above does not depend on it. Validators sort first — they are the
+ * votes people come to check, and the deck pages rather than scrolls, so what
+ * matters has to be on the first page.
+ */
+async function VotesDeck({
+  chain,
+  proposal,
+  accent,
+}: {
+  chain: ChainConfig;
+  proposal: ProposalSummary;
+  accent: string;
+}) {
+  const adapter = getAdapter(chain);
+  // Fetched together: the validator set is already cached from the validators
+  // page, and the join is what puts a name on a validator's vote.
+  const [{ votes, byOption, source, truncated, failed }, validators] = await Promise.all([
+    adapter.getProposalVotes(proposal.id, {
+      start: proposal.votingStartTime,
+      end: proposal.votingEndTime,
+    }),
+    adapter.getValidators().catch(() => []),
+  ]);
+
+  const byAccount = indexValidatorAccounts(validators, chain.bech32Prefix);
+
+  const columns: DeckColumn[] = [
+    { label: "Voter" },
+    { label: "Address", optional: true },
+    { label: "Vote", width: "30%" },
+  ];
+
+  const rows: DeckRow[] = votes
+    .map((vote) => ({ vote, validator: byAccount.get(vote.voter) ?? null }))
+    .sort((a, b) => Number(!!b.validator) - Number(!!a.validator))
+    .map(({ vote, validator }) => ({
+      key: vote.voter,
+      search: `${vote.voter} ${validator?.moniker ?? ""} ${validator?.operatorAddress ?? ""}`,
+      cells: [
+        {
+          v: validator?.moniker ?? truncateMiddle(vote.voter, 14, 8),
+          mono: !validator,
+          tone: "accent" as const,
+        },
+        { v: truncateMiddle(vote.voter, 12, 8), mono: true, dim: true },
+        {
+          v: voteLabel(vote),
+          tone: vote.weighted ? undefined : VOTE_TONE[vote.primary],
+          dim: vote.primary === "VOTE_OPTION_ABSTAIN",
+        },
+      ],
+      detail: {
+        title: validator?.moniker ?? "Voter",
+        sub: vote.voter,
+        rows: [
+          { label: "Vote", value: voteLabel(vote) },
+          ...(vote.weighted
+            ? vote.options.map((o) => ({
+                label: voteOptionLabel(o.option),
+                value: `${(o.weight * 100).toFixed(2)}% of this voter's stake`,
+                mono: true,
+              }))
+            : []),
+          { label: "Voter", value: vote.voter, mono: true },
+          ...(validator
+            ? [{ label: "Validator", value: validator.operatorAddress, mono: true }]
+            : []),
+        ],
+        action: validator
+          ? {
+              label: "Validator",
+              href: `/${chain.chainId}/validators/${validator.operatorAddress}`,
+            }
+          : { label: "Account", href: `/${chain.chainId}/accounts/${vote.voter}` },
+      },
+    }));
+
+  const counts = Object.entries(byOption).sort((a, b) => b[1] - a[1]);
+
+  return (
+    <RowDeck
+      columns={columns}
+      rows={rows}
+      accent={accent}
+      filter={{ placeholder: "Filter by voter or validator…" }}
+      toolbar={
+        rows.length > 0 ? (
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            {counts.map(([option, count]) => (
+              <span key={option} className="font-mono tabular-nums">
+                {voteOptionLabel(option)} {count.toLocaleString()}
+              </span>
+            ))}
+            <span>by voter count, not stake</span>
+            {source !== "state" ? (
+              // The gov module deletes votes from state when it tallies, so
+              // saying where these came from is the difference between a
+              // record and a reconstruction.
+              <span>
+                {source === "indexer"
+                  ? "last vote per address, from our index of the chain's vote events"
+                  : "last vote per address, rebuilt from vote transactions"}
+              </span>
+            ) : null}
+            {truncated ? (
+              <span>capped at {rows.length.toLocaleString()} — more votes exist</span>
+            ) : null}
+          </div>
+        ) : undefined
+      }
+      empty={
+        failed
+          ? // Never claim there are no votes when we simply could not read them.
+            "Could not load votes right now - the node did not respond."
+          : isVoting(proposal.status)
+            ? "No votes cast yet."
+            : "No votes found for this proposal, in state or in transaction history."
+      }
+    />
+  );
+}
+
+/**
+ * One proposal, in one screen.
+ *
+ * The tally, the dates, the deposit and the proposer were a panel each, stacked
+ * above a vote list that started three screens down. They are bricks now, and
+ * the proposal's own text — the one part that is prose rather than a figure —
+ * opens in a popup instead of pushing everything below it further away.
+ */
 export default async function ProposalDetailPage({
   params,
 }: {
@@ -69,25 +230,14 @@ export default async function ProposalDetailPage({
     adapter.getGovParams(),
   ]);
   const accent = accentFor(chain);
-  const symbol = symbolFor(chain);
 
   if (!proposal) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-6">
-        <Link
-          href={`/${chainId}/proposals`}
-          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to proposals
-        </Link>
-        <div className="gata-panel px-5 py-10 text-center">
-          <h1 className="text-lg font-semibold">Proposal not found</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {chain.prettyName} has no proposal #{id}.
-          </p>
-        </div>
-      </main>
+      <PageFrame title="Proposal not found" sub={`#${id}`} accent={accent}>
+        <p className="text-sm text-muted-foreground">
+          {chain.prettyName} has no proposal #{id}.
+        </p>
+      </PageFrame>
     );
   }
 
@@ -99,179 +249,197 @@ export default async function ProposalDetailPage({
   const decisive = shares.yes + shares.no + shares.veto;
   const yesOfDecisive = decisive > 0 ? shares.yes / decisive : 0;
 
+  const tallyRows: DetailRow[] = hasVotes
+    ? [
+        { label: "Yes", value: pct(shares.yes), mono: true },
+        { label: "No", value: pct(shares.no), mono: true },
+        // Absent rather than zero on chains whose gov module has no veto.
+        ...(proposal.tally.veto !== null
+          ? [{ label: "No with veto", value: pct(shares.veto), mono: true }]
+          : []),
+        { label: "Abstain", value: pct(shares.abstain), mono: true },
+        { label: "Yes of decisive", value: pct(yesOfDecisive), mono: true },
+        ...(govParams?.threshold != null
+          ? [{ label: "Threshold", value: pct(govParams.threshold), mono: true }]
+          : []),
+        ...(govParams?.quorum != null
+          ? [{ label: "Quorum", value: pct(govParams.quorum), mono: true }]
+          : []),
+        {
+          label: "Counted",
+          value: proposal.liveTally
+            ? "Live count from the gov module."
+            : "The tally recorded with the proposal.",
+        },
+      ]
+    : [
+        {
+          label: "Tally",
+          value:
+            proposal.status === "PROPOSAL_STATUS_DEPOSIT_PERIOD"
+              ? "No votes recorded - still in the deposit period."
+              : "No votes recorded.",
+        },
+      ];
+
+  const facts: BrickSpec[] = [
+    {
+      key: "tally",
+      label: voting ? "Current votes" : "Final tally",
+      value: hasVotes ? pct(yesOfDecisive) : "—",
+      sub: hasVotes
+        ? `yes of decisive${
+            govParams?.threshold != null ? ` · needs ${pct(govParams.threshold, 0)}` : ""
+          }`
+        : "no votes recorded",
+      lead: true,
+      count: tallyRows.length,
+      rows: tallyRows,
+    },
+    {
+      key: "status",
+      label: "Status",
+      value: proposalStatusLabel(proposal.status),
+      sub: proposal.failedReason
+        ? proposal.failedReason
+        : proposal.expedited
+          ? "expedited"
+          : `submitted ${timeAgo(proposal.submitTime)}`,
+      tone: toneOf(proposal.status),
+      rows: [
+        { label: "Status", value: proposal.status.replace(/^PROPOSAL_STATUS_/, "") },
+        { label: "Expedited", value: proposal.expedited ? "Yes" : "No" },
+        { label: "Submitted", value: when(proposal.submitTime) },
+        ...(proposal.failedReason
+          ? [{ label: "Failure reason", value: proposal.failedReason }]
+          : []),
+      ],
+    },
+    {
+      key: "voting",
+      label: voting ? "Voting ends" : "Voting period",
+      value: day(proposal.votingEndTime),
+      sub:
+        proposal.votingStartTime || proposal.votingEndTime
+          ? voting
+            ? `ends ${timeAgo(proposal.votingEndTime)}`
+            : `opened ${day(proposal.votingStartTime)}`
+          : "never opened",
+      rows: [
+        { label: "Voting opens", value: when(proposal.votingStartTime) },
+        { label: "Voting closes", value: when(proposal.votingEndTime) },
+        { label: "Submitted", value: when(proposal.submitTime) },
+      ],
+    },
+    {
+      key: "deposit",
+      label: "Deposit",
+      value: formatCoins(proposal.totalDeposit, chainDenoms(chain), 2),
+      sub: "total deposit",
+      rows:
+        proposal.totalDeposit.length > 0
+          ? proposal.totalDeposit.map((coin) => ({
+              label: "Deposited",
+              value: formatCoins([coin], chainDenoms(chain), 6),
+              mono: true,
+            }))
+          : undefined,
+    },
+    ...(proposal.proposer
+      ? [
+          {
+            key: "proposer",
+            label: "Proposer",
+            value: truncateMiddle(proposal.proposer, 10, 6),
+            sub: "account",
+            href: `/${chainId}/accounts/${proposal.proposer}`,
+          },
+        ]
+      : []),
+    ...(proposal.messageTypes.length > 0
+      ? [
+          {
+            key: "messages",
+            label: "Messages",
+            // The type URL's last segment is the message; the rest is a package
+            // path that is the same on every proposal.
+            value: proposal.messageTypes[0].split(".").pop() ?? proposal.messageTypes[0],
+            sub: `${proposal.messageTypes.length} message${
+              proposal.messageTypes.length === 1 ? "" : "s"
+            }`,
+            count: proposal.messageTypes.length,
+            rows: proposal.messageTypes.map((type, i) => ({
+              label: `Message ${i + 1}`,
+              value: type,
+              mono: true,
+            })),
+          },
+        ]
+      : []),
+    ...(proposal.summary
+      ? [
+          {
+            key: "summary",
+            label: "Summary",
+            value: summaryPreview(proposal.summary),
+            text: true,
+            sub: "the proposal's own text",
+            body: proposal.summary,
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <main className="mx-auto max-w-4xl px-4 py-6">
-      <Link
-        href={`/${chainId}/proposals`}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to proposals
-      </Link>
-
-      <div className="mb-6 flex items-start gap-3">
-        <span
-          className="mt-1 h-11 w-1 shrink-0 rounded-full"
-          style={{ background: accent, boxShadow: `0 0 16px ${accent}` }}
-        />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-sm text-muted-foreground">
-              #{proposal.id}
+    <PageFrame
+      title={proposal.title || `Proposal #${proposal.id}`}
+      sub={`#${proposal.id} · ${proposalStatusLabel(proposal.status)}`}
+      accent={accent}
+      actions={
+        <>
+          {proposal.expedited ? (
+            <span className="rounded-full bg-[var(--gata-cyan)]/12 px-2 py-0.5 text-xs font-medium text-[var(--gata-cyan)]">
+              Expedited
             </span>
-            <StatusBadge status={proposal.status} />
-            {proposal.expedited ? (
-              <span className="rounded-full bg-[var(--gata-cyan)]/12 px-2 py-0.5 text-xs font-medium text-[var(--gata-cyan)]">
-                Expedited
-              </span>
-            ) : null}
-          </div>
-          <h1 className="mt-1.5 text-lg font-semibold leading-tight tracking-tight">
-            {proposal.title}
-          </h1>
-        </div>
-      </div>
-
-      <div className="gata-panel mb-4 px-4 py-3" style={{ ["--panel-accent" as string]: accent }}>
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-medium">
-            {voting ? "Current votes" : "Final tally"}
-          </h2>
-          {proposal.liveTally ? (
-            <span className="text-xs text-muted-foreground">live count</span>
           ) : null}
-        </div>
+          <StatusBadge status={proposal.status} />
+        </>
+      }
+    >
+      <div className="flex h-full flex-col gap-3">
+        <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
 
         {hasVotes ? (
-          <>
-            <TallyBar tally={proposal.tally} />
-            {govParams?.threshold != null ? (
-              <p className="mt-3 text-xs text-muted-foreground">
-                {(yesOfDecisive * 100).toFixed(1)}% yes of decisive votes ·
-                threshold {(govParams.threshold * 100).toFixed(1)}%
-                {govParams.quorum != null
-                  ? ` · quorum ${(govParams.quorum * 100).toFixed(1)}%`
-                  : null}
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No votes recorded
-            {proposal.status === "PROPOSAL_STATUS_DEPOSIT_PERIOD"
-              ? " - still in the deposit period."
-              : "."}
-          </p>
-        )}
-      </div>
-
-      {proposal.summary ? (
-        // A native <details>: collapsed by default, keyboard accessible, and it
-        // works without JavaScript — this section sits above the streamed vote
-        // list, so it should never depend on hydration to open.
-        // The chevron rotation lives in globals.css; Tailwind's group-open:
-        // variant generated no rule for it.
-        <details className="gata-panel mb-5 sm:[&:not([open])_.summary-preview]:block">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="summary-chevron h-4 w-4 shrink-0" />
-            Summary
-            <span className="summary-preview ml-auto hidden truncate text-xs font-normal text-muted-foreground">
-              {summaryPreview(proposal.summary)}
-            </span>
-          </summary>
-          <div className="border-t border-border/50 px-5 py-4">
-            {/* Proposer-authored text: rendered as plain text, never as HTML. */}
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-              {proposal.summary}
-            </p>
+          // The bar still earns its place: the bricks give the decisive share
+          // as a figure, and this is the only thing on the page that shows the
+          // split at a glance. Without the legend, which the tally brick has.
+          <div className="shrink-0">
+            <TallyBar tally={proposal.tally} showLegend={false} />
           </div>
-        </details>
-      ) : null}
+        ) : null}
 
-      <div className="gata-panel" style={{ ["--panel-accent" as string]: accent }}>
-        <dl>
-          <Row label="Status">{proposal.status.replace(/^PROPOSAL_STATUS_/, "")}</Row>
-          <Row label="Submitted">{when(proposal.submitTime)}</Row>
-          <Row label="Voting Period">
-            {proposal.votingStartTime || proposal.votingEndTime ? (
-              <span>
-                {when(proposal.votingStartTime)} → {when(proposal.votingEndTime)}
-              </span>
-            ) : (
-              "—"
-            )}
-          </Row>
-          <Row label="Total Deposit">
-            {proposal.totalDeposit.length > 0
-              ? proposal.totalDeposit
-                  .map(
-                    (c) =>
-                      `${formatToken(c.amount, chain.exponent, 2)} ${
-                        c.denom === chain.denom ? symbol : c.denom
-                      }`
-                  )
-                  .join(", ")
-              : "—"}
-          </Row>
-          {proposal.proposer ? (
-            <Row label="Proposer">
-              <Link
-                href={`/${chainId}/accounts/${proposal.proposer}`}
-                className="font-mono text-xs text-primary hover:underline"
-                title={proposal.proposer}
-              >
-                {truncateMiddle(proposal.proposer, 14, 8)}
-              </Link>
-            </Row>
-          ) : null}
-          {proposal.messageTypes.length > 0 ? (
-            <Row label="Messages">
-              <ul className="space-y-1">
-                {proposal.messageTypes.map((t, i) => (
-                  <li key={`${t}-${i}`} className="font-mono text-xs break-all">
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </Row>
-          ) : null}
-          {proposal.failedReason ? (
-            <Row label="Failure Reason">
-              <span className="text-[var(--gata-burn)]">{proposal.failedReason}</span>
-            </Row>
-          ) : null}
-        </dl>
-      </div>
-
-      <h2 className="mt-5 mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Votes</h2>
-      {/* Streamed separately: fetching every vote is the slowest read on the
-          page and the tally above does not depend on it. */}
-      <Suspense
-        fallback={
-          <LoadingPanel
-            label="Loading votes…"
-            hint={
-              voting
-                ? undefined
-                : // The gov module deletes votes once it tallies, so a finished
-                  // proposal is rebuilt from tens of paged transaction reads.
-                  // Saying so turns a ten-second wait into an explained one.
-                  "Rebuilding this proposal's votes from transaction history - this can take a few seconds."
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <LoadingPanel
+                label="Loading votes…"
+                hint={
+                  voting
+                    ? undefined
+                    : // The gov module deletes votes once it tallies, so a
+                      // finished proposal is rebuilt from tens of paged
+                      // transaction reads. Saying so turns a ten-second wait
+                      // into an explained one.
+                      "Rebuilding this proposal's votes from transaction history - this can take a few seconds."
+                }
+                rows={4}
+              />
             }
-            rows={6}
-          />
-        }
-      >
-        <ProposalVotes
-          chain={chain}
-          proposalId={proposal.id}
-          status={proposal.status}
-          votingWindow={{
-            start: proposal.votingStartTime,
-            end: proposal.votingEndTime,
-          }}
-        />
-      </Suspense>
-    </main>
+          >
+            <VotesDeck chain={chain} proposal={proposal} accent={accent} />
+          </Suspense>
+        </div>
+      </div>
+    </PageFrame>
   );
 }
