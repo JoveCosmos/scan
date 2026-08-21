@@ -17,15 +17,11 @@
         }
       ],
       "snapshot": {
-        "url": "https://snapshots.gatadao.com/atomone-1/latest.tar.lz4",
-        "status": "planned",
-        "schedule": "daily at 02:00 UTC",
-        "pruning": "custom (100/0/10)",
-        "size": "38 GB",
-        "height": 9836000,
-        "takenAt": "2026-08-10T02:00:00Z",
-        "version": "v2.0.0"
-      }
+        "schedule": "daily at 06:20 UTC",
+        "pruning": "custom (100/0/10), no tx index",
+        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+      },
+      "snapshotKey": "atomone"
     },
     {
       "chainId": "atomone-testnet-1",
@@ -44,15 +40,11 @@
         }
       ],
       "snapshot": {
-        "url": "https://snapshots.gatadao.com/atomone-testnet-1/latest.tar.lz4",
-        "status": "planned",
-        "schedule": "daily at 02:00 UTC",
-        "pruning": "custom (100/0/10)",
-        "size": "6 GB",
-        "height": 4210000,
-        "takenAt": "2026-08-10T02:00:00Z",
-        "version": "v2.0.0"
-      }
+        "schedule": "daily at 05:50 UTC",
+        "pruning": "custom (100/0/10), no tx index",
+        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+      },
+      "snapshotKey": "atomone-testnet"
     },
     {
       "chainId": "sapphire-1",
@@ -66,14 +58,21 @@
         }
       ],
       "snapshot": {
-        "url": "https://snapshots.gatadao.com/sapphire-1/latest.tar.lz4",
         "status": "planned",
         "schedule": "daily at 02:00 UTC",
         "pruning": "archive",
-        "size": "12 GB",
-        "height": 1180000,
-        "takenAt": "2026-08-10T02:00:00Z",
-        "version": "v0.3.0"
+        "note": "Not published yet."
+      }
+    },
+    {
+      "chainId": "juno-1",
+      "daemon": "junod",
+      "home": "$HOME/.juno",
+      "snapshotKey": "juno",
+      "snapshot": {
+        "schedule": "daily at 05:30 UTC",
+        "pruning": "custom (100/0/10), no tx index",
+        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
       }
     }
   ]

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getChain, accentFor } from "@/lib/chains";
 import { servicesFor } from "@/lib/services";
+import { getSnapshotIndex } from "@/lib/snapshots";
 import { getStateSync, getNodeIds } from "@/lib/statesync";
 import { policyFor } from "@/lib/tiers";
 import { PageFrame } from "@/components/page-frame";
@@ -19,20 +20,40 @@ export async function generateMetadata({
   return { title: chain ? `Infra · ${chain.prettyName}` : "Infra" };
 }
 
-/** The restore sequence, with the double-signing guard kept where it belongs. */
-function restoreScript(url: string, daemon: string, home: string): string {
-  return [
+/**
+ * The restore sequence, with the double-signing guard kept where it belongs.
+ *
+ * We publish zstd, not lz4 — the previous `lz4 -dc` would have failed on every
+ * archive we have ever served. The archive also ships a ZEROED
+ * priv_validator_state.json, so extraction overwrites the operator's own copy:
+ * the backup line is not optional advice, it is the difference between a
+ * restored node and a slashed one.
+ */
+function restoreScript(
+  url: string,
+  daemon: string,
+  home: string,
+  sha256?: string
+): string {
+  const file = url.split("/").pop() ?? "snapshot.tar.zst";
+  const lines = [
     `sudo systemctl stop ${daemon}`,
     ``,
     `# Keep the signing state — this is the step that prevents double-signing.`,
     `cp ${home}/data/priv_validator_state.json ${home}/priv_validator_state.json.backup`,
     ``,
+    `curl -O -L ${url}`,
+  ];
+  if (sha256) lines.push(`echo "${sha256}  ${file}" | sha256sum -c   # must print: OK`);
+  lines.push(
+    ``,
     `rm -rf ${home}/data`,
-    `curl -o - -L ${url} | lz4 -dc - | tar -xf - -C ${home}`,
+    `tar --use-compress-program=unzstd -xf ${file} -C ${home}`,
     ``,
     `mv ${home}/priv_validator_state.json.backup ${home}/data/priv_validator_state.json`,
-    `sudo systemctl start ${daemon}`,
-  ].join("\n");
+    `sudo systemctl start ${daemon}`
+  );
+  return lines.join("\n");
 }
 
 /**
@@ -57,8 +78,34 @@ export default async function InfraPage({
   if (!chain) notFound();
 
   const accent = accentFor(chain);
-  const services = policyFor(chain).fullNode ? servicesFor(chain.chainId) : null;
-  const snapshot = services?.snapshot ?? null;
+  // Tier gates how much CHAIN DATA we can show; it does not describe whether we
+  // publish a snapshot. juno-1 is tier "limited" for indexing reasons but we run
+  // a full juno node and publish nightly from it, so a chain with a snapshotKey
+  // qualifies here too.
+  const configured = servicesFor(chain.chainId);
+  const services =
+    policyFor(chain).fullNode || configured?.snapshotKey ? configured : null;
+
+  // Height, size, filename and checksum change every night. Read them from the
+  // manifest the publisher regenerates on each run rather than from config. On a
+  // failed fetch this is undefined and the panel says "planned" - better than
+  // sending someone to a 404 after they have stopped their node.
+  const liveSnapshot = services?.snapshotKey
+    ? (await getSnapshotIndex()).get(services.snapshotKey)
+    : undefined;
+
+  const snapshot =
+    services?.snapshot || liveSnapshot
+      ? {
+          ...(services?.snapshot ?? {}),
+          status: liveSnapshot ? ("live" as const) : (services?.snapshot?.status ?? "planned"),
+          url: liveSnapshot?.url ?? services?.snapshot?.url,
+          height: liveSnapshot ? Number(liveSnapshot.height) : services?.snapshot?.height,
+          size: liveSnapshot?.size ?? services?.snapshot?.size,
+          takenAt: liveSnapshot?.modified ?? services?.snapshot?.takenAt,
+          sha256: liveSnapshot?.sha256,
+        }
+      : null;
 
   // The RPC endpoints we publish are exactly the servers a state sync should
   // point at, so there is nothing to configure — and nothing to keep in step.
@@ -95,9 +142,17 @@ export default async function InfraPage({
             snapshot.status === "live"
               ? (snapshot.pruning ?? "available")
               : "coming soon",
+          // Only offer commands for a snapshot that actually exists: a paste-able
+          // recipe pointing at a file we have not published deletes a data
+          // directory and then fails to refill it.
           script:
-            services?.daemon && services?.home
-              ? restoreScript(snapshot.url, services.daemon, services.home)
+            snapshot.url && snapshot.status === "live" && services?.daemon && services?.home
+              ? restoreScript(
+                  snapshot.url,
+                  services.daemon,
+                  services.home,
+                  snapshot.sha256
+                )
               : null,
           rows: [
             { label: "Status", value: snapshot.status === "live" ? "Live" : "Planned" },

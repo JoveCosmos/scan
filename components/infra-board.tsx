@@ -52,7 +52,8 @@ export interface InfraSpec {
   peers: ListSpec;
   snapshot: {
     live: boolean;
-    url: string;
+    /** Absent until we have actually published for this chain. */
+    url?: string;
     rows: { label: string; value: string; mono?: boolean }[];
     /** Restore commands, built on the server where the daemon and home are known. */
     script: string | null;
@@ -293,9 +294,9 @@ export function InfraBoard({
                           openSnapshot.live ? "" : "text-muted-foreground line-through"
                         }`}
                       >
-                        {openSnapshot.url}
+                        {openSnapshot.url ?? "not published yet"}
                       </span>
-                      {openSnapshot.live ? (
+                      {openSnapshot.live && openSnapshot.url ? (
                         <CopyButton value={openSnapshot.url} label="snapshot URL" />
                       ) : null}
                     </span>
