@@ -1,0 +1,162 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import type { ChainOverview } from "@/lib/overview";
+import { timeAgo } from "@/lib/format";
+import { Brick, BrickButton, BrickGrid, BrickLink, type BrickVisual } from "@/components/brick";
+import { Popup, PopupRows } from "@/components/ui/popup";
+
+/**
+ * A page laid out in bricks, with the detail in popups.
+ *
+ * Everything is computed on the server and arrives as data — this component
+ * knows nothing about chains, params or governance, which is why the same board
+ * renders the overview, the infra tab and anything added later.
+ *
+ * Three bricks are marked `live` and re-read from the head poll. Only those
+ * three change, so the rest of the board never re-renders against the network.
+ */
+
+export interface DetailRow {
+  label: string;
+  value: string;
+  mono?: boolean;
+  /** Renders the value as a link. External links open in a new tab. */
+  href?: string;
+}
+
+export interface BrickSpec extends BrickVisual {
+  key: string;
+  /** Rows shown when the brick is opened. Without these the brick is inert. */
+  rows?: DetailRow[];
+  /** Navigates instead of opening — for detail that is a whole page. */
+  href?: string;
+  /** Re-read from the live head poll rather than the server render. */
+  live?: "height" | "txCount" | "blockTime";
+  /** Offered at the foot of the popup. */
+  action?: { label: string; href: string };
+}
+
+function RowValue({ row }: { row: DetailRow }) {
+  if (!row.href) return <>{row.value}</>;
+  const external = row.href.startsWith("http");
+  if (external) {
+    return (
+      <a
+        href={row.href}
+        target="_blank"
+        rel="noopener noreferrer nofollow"
+        className="text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+      >
+        {row.value}
+      </a>
+    );
+  }
+  return (
+    <Link
+      href={row.href}
+      className="text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+    >
+      {row.value}
+    </Link>
+  );
+}
+
+export function BrickBoard({
+  chainId,
+  accent,
+  bricks,
+  head,
+}: {
+  chainId: string;
+  accent: string;
+  bricks: BrickSpec[];
+  /** Server-rendered head, so the live bricks have no loading state. */
+  head: ChainOverview;
+}) {
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  const { data } = useQuery<ChainOverview>({
+    queryKey: ["chain-head", chainId],
+    queryFn: async () => {
+      const res = await fetch(`/api/chains/${chainId}/head`, { cache: "no-store" });
+      if (!res.ok) throw new Error("head unavailable");
+      return res.json();
+    },
+    initialData: head,
+    refetchInterval: 2500,
+    refetchIntervalInBackground: false,
+  });
+
+  function resolve(brick: BrickSpec): BrickVisual {
+    if (!brick.live) return brick;
+    if (brick.live === "height") {
+      return {
+        ...brick,
+        value: data.height ? Number(data.height).toLocaleString() : "—",
+        sub: timeAgo(data.blockTime),
+      };
+    }
+    if (brick.live === "txCount") {
+      return { ...brick, value: data.txCount === null ? "—" : String(data.txCount) };
+    }
+    return { ...brick, value: data.blockTime ? timeAgo(data.blockTime) : "—" };
+  }
+
+  const open = bricks.find((b) => b.key === openKey) ?? null;
+
+  return (
+    <>
+      <BrickGrid>
+        {bricks.map((brick) => {
+          const visual = resolve(brick);
+          if (brick.href) {
+            return (
+              <BrickLink key={brick.key} brick={visual} accent={accent} href={brick.href} />
+            );
+          }
+          if (brick.rows && brick.rows.length > 0) {
+            return (
+              <BrickButton
+                key={brick.key}
+                brick={visual}
+                accent={accent}
+                onClick={() => setOpenKey(brick.key)}
+              />
+            );
+          }
+          return <Brick key={brick.key} brick={visual} accent={accent} />;
+        })}
+      </BrickGrid>
+
+      <Popup
+        open={open !== null}
+        onClose={() => setOpenKey(null)}
+        title={open?.label ?? ""}
+        sub={open ? resolve(open).value : undefined}
+        accent={accent}
+      >
+        {open?.rows ? (
+          <PopupRows
+            rows={open.rows.map((row) => ({
+              label: row.label,
+              mono: row.mono,
+              value: <RowValue row={row} />,
+            }))}
+          />
+        ) : null}
+        {open?.action ? (
+          <Link
+            href={open.action.href}
+            onClick={() => setOpenKey(null)}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+          >
+            {open.action.label} →
+          </Link>
+        ) : null}
+      </Popup>
+    </>
+  );
+}

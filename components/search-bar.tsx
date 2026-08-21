@@ -18,12 +18,19 @@ export function SearchBar({
   // phone, which is fine: the visible part still says "address, tx…".
   placeholder = "address, tx or a block height…",
   size = "sm",
+  showSlashHint = false,
 }: {
   /** Optional hint: prefer this chain when a query matches several. */
   chainId?: string;
   placeholder?: string;
   /** "lg" is the landing page, where search is the whole page. */
   size?: "sm" | "lg";
+  /**
+   * Keep the "/" hint at every width. In the header it is a nicety that can be
+   * dropped on a phone, which has no keyboard to press it on; on the landing
+   * page it is the one place the shortcut is ever advertised, so it stays.
+   */
+  showSlashHint?: boolean;
 }) {
   const large = size === "lg";
   const router = useRouter();
@@ -88,8 +95,9 @@ export function SearchBar({
       {!value ? (
         <kbd
           className={cn(
-            "pointer-events-none absolute top-1/2 hidden -translate-y-1/2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:block",
-            large ? "right-3.5" : "right-2.5"
+            "pointer-events-none absolute top-1/2 -translate-y-1/2 rounded border border-border px-1.5 py-0.5 font-mono text-muted-foreground",
+            showSlashHint ? "block" : "hidden sm:block",
+            large ? "right-3.5 text-[11px]" : "right-2.5 text-[10px]"
           )}
         >
           /

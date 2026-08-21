@@ -8,6 +8,8 @@ import {
   Boxes,
   Cable,
   Gauge,
+  PanelLeftClose,
+  Server,
   ShieldCheck,
   Terminal,
   Vote,
@@ -59,6 +61,8 @@ const SECTIONS: RailItem[] = [
     section: "proposals",
   },
   { href: "/relayers", label: "IBC", icon: Cable, ibcOnly: true, section: "relayers" },
+  // Not chain-module gated: what we run for a chain, not what the chain has.
+  { href: "/infra", label: "Infra", icon: Server },
 ];
 
 // Neither is capability-gated: every chain can be read either way.
@@ -102,7 +106,13 @@ function RailButton({
   );
 }
 
-export function SideRail({ chains }: { chains: ChainSummary[] }) {
+export function SideRail({
+  chains,
+  onCollapse,
+}: {
+  chains: ChainSummary[];
+  onCollapse: () => void;
+}) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const chain = chains.find((c) => c.chainId === segments[0]) ?? null;
@@ -166,6 +176,15 @@ export function SideRail({ chains }: { chains: ChainSummary[] }) {
             active={segment === item.href.slice(1)}
           />
         ))}
+        <button
+          type="button"
+          onClick={onCollapse}
+          title="Collapse"
+          className="flex h-10 w-full items-center justify-center border-t border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+          <span className="sr-only">Collapse navigation</span>
+        </button>
       </div>
     </nav>
   );

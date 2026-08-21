@@ -164,25 +164,38 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   // Switching chains keeps you on the same section. Only the section survives —
   // a block height, tx hash or validator address means nothing on another chain,
   // so detail routes fall back to their list.
+  // Every section, so switching chains always keeps the tab you were on.
+  // `relayers` was missing here and silently dropped you to the overview.
   const SECTIONS = [
     "params",
     "blocks",
     "txs",
     "validators",
     "proposals",
+    "relayers",
+    "infra",
     "console",
     "canvas",
   ];
   const section =
     activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
 
+  // The landing page is built around its own search field. A second one in the
+  // header directly above it says the same thing twice, and leaves the reader
+  // to work out whether the two differ.
+  const isHome = pathname === "/";
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
+    // shrink-0, not sticky: the column no longer scrolls, so there is nothing
+    // to stick to and a sticky element here only creates a stacking context.
+    <header className="shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
         {/* Search is global; the active chain is only a tie-breaker hint. */}
-        <div className="min-w-0 max-w-xl flex-1">
-          <SearchBar chainId={activeChainId ?? undefined} />
-        </div>
+        {isHome ? null : (
+          <div className="min-w-0 max-w-xl flex-1">
+            <SearchBar chainId={activeChainId ?? undefined} />
+          </div>
+        )}
         <ChainSwitcher
           chains={chains}
           activeChainId={activeChainId}

@@ -1,116 +1,27 @@
-import { ExternalLink } from "lucide-react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import {
   getAllChains,
   getChain,
+  accentFor,
   symbolFor,
   symbolForDenom,
-  accentFor,
 } from "@/lib/chains";
-import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
-import { StatRail } from "@/components/stat-rail";
-import { LiveOverview } from "@/components/live-overview";
-import { Suspense } from "react";
-import { getChainParams, getSupplyOf, humanDuration } from "@/lib/params";
+import { formatToken } from "@/lib/overview";
+import { getChainParams, getChainEconomics, humanDuration } from "@/lib/params";
+import { getSupplyOf } from "@/lib/params";
 import { getLatestRelease } from "@/lib/github";
-import {
-  getMarketDataById,
-  formatUsd,
-  formatUsdCompact,
-} from "@/lib/market";
-import { ChainEconomics } from "@/components/chain-economics";
-import { LoadingPanel } from "@/components/loading-panel";
+import { getMarketDataById, formatUsd, formatUsdCompact } from "@/lib/market";
+import { PageFrame } from "@/components/page-frame";
+import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 
-/** An external link row — chain homepage, repository. */
-function ParamLink({ label, href }: { label: string; href: string }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[220px_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0">
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className="inline-flex items-center gap-1 break-all font-mono text-sm text-primary hover:underline"
-        >
-          {href.replace(/^https?:\/\//, "")}
-          <ExternalLink className="h-3 w-3 shrink-0" />
-        </a>
-      </dd>
-    </div>
-  );
-}
-
-/**
- * How many blocks a validator may miss before being jailed.
- *
- * The chain states a minimum share it must *sign*, which inverts awkwardly: on
- * Cosmos Hub "5% of 10,000" means you are jailed only after missing more than
- * 9,500 of the last 10,000 blocks. Stating the miss budget directly stops the
- * parameter reading as a far stricter rule than it is.
- */
-function missableBlocks(
-  window: number | null,
-  minSigned: number | null
-): string {
-  if (window === null || minSigned === null) return "—";
-  const allowed = Math.floor(window * (1 - minSigned));
-  return `${allowed.toLocaleString()} of ${window.toLocaleString()} blocks`;
-}
-
-/** A round whole-token count in words: 1_000_000_000 -> "1 billion". */
-function bigCount(n: number): string {
-  if (n >= 1e9) return `${+(n / 1e9).toFixed(2)} billion`;
-  if (n >= 1e6) return `${+(n / 1e6).toFixed(2)} million`;
-  if (n >= 1e3) return `${+(n / 1e3).toFixed(2)}k`;
-  return n.toLocaleString();
-}
-
-/** Cosmos decimal (0.05) as a percentage. */
-function pct(value: number | null, decimals = 2): string {
-  return value === null ? "—" : `${(value * 100).toFixed(decimals)}%`;
-}
-
-function ParamSection({
-  title,
-  note,
-  children,
-}: {
-  title: string;
-  note?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{title}</h2>
-      {note ? <p className="mb-3 -mt-2 text-xs text-muted-foreground">{note}</p> : null}
-      <div className="gata-panel">
-        <dl>{children}</dl>
-      </div>
-    </section>
-  );
-}
-
-function ParamRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid grid-cols-1 gap-1 border-b border-border/50 px-4 py-2.5 last:border-0 sm:grid-cols-[220px_1fr] sm:gap-4">
-      <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-sm">{value}</dd>
-    </div>
-  );
-}
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 export function generateStaticParams() {
   return getAllChains().map((chain) => ({ chain: chain.chainId }));
 }
-
-export const dynamicParams = true;
-
-// An scan always shows head-of-chain state, so never prerender this at build
-// time — a public node being down must not be able to fail the build.
-export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -118,11 +29,43 @@ export async function generateMetadata({
   params: Promise<{ chain: string }>;
 }): Promise<Metadata> {
   const { chain: chainId } = await params;
-  const chain = getChain(chainId);
-  return { title: chain?.prettyName ?? "Chain" };
+  return { title: getChain(chainId)?.prettyName ?? "Chain" };
 }
 
-export default async function ChainParamsPage({
+const pct = (value: number | null | undefined, decimals = 2) =>
+  value === null || value === undefined ? "—" : `${(value * 100).toFixed(decimals)}%`;
+
+const num = (value: number | null | undefined) =>
+  value === null || value === undefined ? "—" : value.toLocaleString();
+
+/** Inverts "min signed per window" into the miss budget it actually implies. */
+function missableBlocks(window: number | null, minSigned: number | null): string {
+  if (window === null || minSigned === null) return "—";
+  return `${Math.floor(window * (1 - minSigned)).toLocaleString()} of ${window.toLocaleString()}`;
+}
+
+/** Drops rows whose value is a dash, so a popup never lists absent facts. */
+const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
+
+/**
+ * The overview, laid out in bricks.
+ *
+ * It used to be eight stacked sections of label/value rows — around forty of
+ * them, most of which nobody reads on any given visit, and all of which had to
+ * be scrolled past to reach the next heading. The same forty facts are here.
+ * What changed is that a section is now one brick showing the figure worth
+ * knowing, with the rest a click away, which is what lets the page end at the
+ * bottom of the screen.
+ *
+ * Everything is resolved here and handed over as data. Bricks carry no chain
+ * knowledge, so the same board renders this page and the Infra tab.
+ *
+ * The holder count is deliberately absent: it is a full scan of every account
+ * with a balance and takes ~25s on AtomOne. It was streamed in behind Suspense
+ * before, which is invisible on a scrolling page and impossible on a board that
+ * has to be laid out at once. A fast page is worth more than that one number.
+ */
+export default async function ChainOverviewPage({
   params,
 }: {
   params: Promise<{ chain: string }>;
@@ -132,188 +75,388 @@ export default async function ChainParamsPage({
   if (!chain) notFound();
 
   const adapter = getAdapter(chain);
-  const [overview, chainParams, release, feeSupply, market, feeMarket] =
-    await Promise.all([
-    adapter.getOverview(),
-    // gno has none of these modules; the sections simply do not render.
-    adapter.capabilities.staking ? getChainParams(chain) : Promise.resolve(null),
-    getLatestRelease(chain.repo).catch(() => null),
-    chain.feeDenom
-      ? getSupplyOf(chain, chain.feeDenom).catch(() => null)
-      : Promise.resolve(null),
-    getMarketDataById(chain.coingeckoId).catch(() => null),
-    getMarketDataById(chain.feeCoingeckoId).catch(() => null),
-  ]);
-
+  const caps = adapter.capabilities;
+  const accent = accentFor(chain);
   const symbol = symbolFor(chain);
   const feeSymbol = chain.feeDenom ? symbolForDenom(chain.feeDenom) : "";
-  const accent = accentFor(chain);
+  const base = `/${chain.chainId}`;
 
-  // One price box per token that has a market. AtomOne gets two (ATONE,
-  // PHOTON); a single-token chain gets one; a testnet with no listing gets none.
-  const priceCards = [
-    market ? { symbol, market } : null,
-    chain.feeDenom && feeMarket ? { symbol: feeSymbol, market: feeMarket } : null,
-  ].filter((c): c is { symbol: string; market: NonNullable<typeof market> } => c !== null);
+  const [overview, chainParams, release, feeSupply, market, feeMarket] =
+    await Promise.all([
+      adapter.getOverview(),
+      caps.staking ? getChainParams(chain) : null,
+      getLatestRelease(chain.repo).catch(() => null),
+      chain.feeDenom ? getSupplyOf(chain, chain.feeDenom).catch(() => null) : null,
+      getMarketDataById(chain.coingeckoId).catch(() => null),
+      getMarketDataById(chain.feeCoingeckoId).catch(() => null),
+    ]);
+
+  // Three more LCD reads, and the only ones here that are not either config or
+  // already on the overview. Bounded and independently catchable.
+  const economics = caps.staking
+    ? await getChainEconomics(
+        chain,
+        chainParams?.distribution?.communityTax ?? null,
+        chainParams?.staking?.minCommissionRate ?? null
+      ).catch(() => null)
+    : null;
+
+  const bricks: BrickSpec[] = [];
+
+  bricks.push({
+    key: "height",
+    label: "Latest block",
+    value: overview.height ? Number(overview.height).toLocaleString() : "—",
+    sub: "—",
+    live: "height",
+    lead: true,
+    rows: kept([
+      { label: "Height", value: num(Number(overview.height)), mono: true },
+      { label: "Block time", value: overview.blockTime ?? "—", mono: true },
+      { label: "Txs in block", value: String(overview.txCount ?? "—"), mono: true },
+      { label: "Network ID", value: chain.chainId, mono: true },
+    ]),
+    action: { label: "All blocks", href: `${base}/blocks` },
+  });
+
+  bricks.push({
+    key: "txs",
+    label: "Txs in block",
+    value: overview.txCount === null ? "—" : String(overview.txCount),
+    sub: "at current height",
+    live: "txCount",
+  });
+
+  if (overview.activeValidators !== null) {
+    bricks.push({
+      key: "validators",
+      label: caps.stakeWeighted ? "Validators" : "Voting power",
+      value: num(overview.activeValidators),
+      sub: "in the active set",
+      href: `${base}/validators`,
+    });
+  }
+
+  if (overview.bondedRatio !== null) {
+    bricks.push({
+      key: "bonded",
+      label: "Bonded",
+      value: pct(overview.bondedRatio),
+      sub: "of total supply",
+      rows: kept([
+        {
+          label: "Bonded",
+          value: overview.bondedTokens
+            ? `${formatToken(overview.bondedTokens, chain.exponent)} ${symbol}`
+            : "—",
+          mono: true,
+        },
+        {
+          label: "Total supply",
+          value: overview.supply
+            ? `${formatToken(overview.supply, chain.exponent)} ${symbol}`
+            : "—",
+          mono: true,
+        },
+        { label: "Ratio", value: pct(overview.bondedRatio), mono: true },
+        {
+          label: "Measured against",
+          value: "Total supply, not the staking pool alone.",
+        },
+      ]),
+    });
+  }
+
+  if (market) {
+    bricks.push({
+      key: "price",
+      label: symbol,
+      value: formatUsd(market.usd),
+      sub:
+        market.change24h !== null
+          ? `${market.change24h >= 0 ? "+" : ""}${market.change24h.toFixed(2)}% 24h`
+          : undefined,
+      tone:
+        market.change24h === null ? undefined : market.change24h >= 0 ? "ok" : "bad",
+      rows: kept([
+        { label: "Price", value: formatUsd(market.usd), mono: true },
+        {
+          label: "Market cap",
+          value: market.marketCapUsd ? formatUsdCompact(market.marketCapUsd) : "—",
+          mono: true,
+        },
+        {
+          label: "24h change",
+          value: market.change24h !== null ? `${market.change24h.toFixed(2)}%` : "—",
+          mono: true,
+        },
+        { label: "Denom", value: chain.denom, mono: true },
+      ]),
+    });
+  }
+
+  if (chain.feeDenom && feeMarket) {
+    bricks.push({
+      key: "fee-price",
+      label: feeSymbol,
+      value: formatUsd(feeMarket.usd),
+      sub:
+        feeMarket.change24h !== null
+          ? `${feeMarket.change24h >= 0 ? "+" : ""}${feeMarket.change24h.toFixed(2)}% 24h`
+          : "fee token",
+      tone:
+        feeMarket.change24h === null
+          ? undefined
+          : feeMarket.change24h >= 0
+            ? "ok"
+            : "bad",
+      rows: kept([
+        { label: "Price", value: formatUsd(feeMarket.usd), mono: true },
+        {
+          label: "Market cap",
+          value: feeMarket.marketCapUsd ? formatUsdCompact(feeMarket.marketCapUsd) : "—",
+          mono: true,
+        },
+        { label: "Denom", value: chain.feeDenom, mono: true },
+        { label: "Pays", value: "Transaction fees" },
+      ]),
+    });
+  }
+
+  if (overview.supply) {
+    bricks.push({
+      key: "supply",
+      label: `${symbol} supply`,
+      value: formatToken(overview.supply, chain.exponent),
+      sub: chain.feeDenom ? "staking & governance" : "total supply",
+      rows: kept([
+        {
+          label: `${symbol} supply`,
+          value: `${formatToken(overview.supply, chain.exponent)} ${symbol}`,
+          mono: true,
+        },
+        { label: "Base denom", value: chain.denom, mono: true },
+        { label: "Exponent", value: String(chain.exponent), mono: true },
+        ...(chain.feeDenom
+          ? [
+              {
+                label: `${feeSymbol} supply`,
+                value: feeSupply
+                  ? `${formatToken(feeSupply, chain.exponent)} ${feeSymbol}`
+                  : "—",
+                mono: true,
+              },
+              {
+                label: `${feeSymbol} cap`,
+                value: chain.feeSupplyCap ? chain.feeSupplyCap.toLocaleString() : "—",
+                mono: true,
+              },
+              {
+                label: "Two tokens",
+                value: `${symbol} secures the chain and votes; ${feeSymbol} pays fees.`,
+              },
+            ]
+          : []),
+      ]),
+    });
+  }
+
+  if (economics?.stakingApr != null) {
+    bricks.push({
+      key: "apr",
+      label: "Staking APR",
+      value: pct(economics.stakingApr),
+      sub: "before commission",
+      rows: kept([
+        { label: "Gross APR", value: pct(economics.stakingApr), mono: true },
+        {
+          label: "After min commission",
+          value: pct(economics.stakingAprAfterMinCommission),
+          mono: true,
+        },
+        {
+          label: "Minimum commission",
+          value: pct(chainParams?.staking?.minCommissionRate),
+          mono: true,
+        },
+        {
+          label: "Community tax",
+          value: pct(chainParams?.distribution?.communityTax),
+          mono: true,
+        },
+      ]),
+    });
+  }
+
+  if (economics?.communityPool) {
+    const poolShare =
+      overview.supply && Number(overview.supply) > 0
+        ? `${((Number(economics.communityPool) / Number(overview.supply)) * 100).toFixed(2)}% of supply`
+        : undefined;
+    bricks.push({
+      key: "pool",
+      label: "Community pool",
+      value: formatToken(economics.communityPool, chain.exponent),
+      sub: poolShare,
+      rows: kept([
+        {
+          label: "Balance",
+          value: `${formatToken(economics.communityPool, chain.exponent)} ${symbol}`,
+          mono: true,
+        },
+        { label: "Share of supply", value: poolShare ?? "—", mono: true },
+        {
+          label: "Value",
+          value: market
+            ? formatUsdCompact(
+                (Number(economics.communityPool) / 10 ** chain.exponent) * market.usd
+              )
+            : "—",
+          mono: true,
+        },
+        { label: "Counted", value: "Native denom only — IBC dust excluded." },
+      ]),
+    });
+  }
+
+  // Network is always available: it is config plus one GitHub read.
+  const networkRows = kept([
+    { label: "Network ID", value: chain.chainId, mono: true },
+    { label: "Base denom", value: chain.denom, mono: true },
+    { label: "Address prefix", value: chain.bech32Prefix, mono: true },
+    { label: "Network", value: chain.network },
+    { label: "Latest release", value: release?.tag ?? "—", mono: true },
+    ...(chain.website
+      ? [
+          {
+            label: "Website",
+            value: chain.website.replace(/^https?:\/\//, ""),
+            href: chain.website,
+          },
+        ]
+      : []),
+    ...(chain.repo
+      ? [
+          {
+            label: "Repository",
+            value: chain.repo.replace(/^https?:\/\//, ""),
+            href: chain.repo,
+          },
+        ]
+      : []),
+  ]);
+  bricks.push({
+    key: "network",
+    label: "Network",
+    value: release?.tag ?? chain.bech32Prefix,
+    sub: release ? "latest release" : "address prefix",
+    count: networkRows.length,
+    rows: networkRows,
+  });
+
+  if (chainParams?.staking) {
+    const s = chainParams.staking;
+    const rows = kept([
+      { label: "Unbonding period", value: humanDuration(s.unbondingTime), mono: true },
+      { label: "Max validators", value: num(s.maxValidators), mono: true },
+      { label: "Min commission", value: pct(s.minCommissionRate), mono: true },
+      { label: "Bond denom", value: s.bondDenom ?? "—", mono: true },
+      { label: "Max unbonding entries", value: num(s.maxEntries), mono: true },
+      { label: "Historical entries", value: num(s.historicalEntries), mono: true },
+    ]);
+    bricks.push({
+      key: "staking",
+      label: "Staking",
+      value: humanDuration(s.unbondingTime),
+      sub: "unbonding period",
+      count: rows.length,
+      rows,
+    });
+  }
+
+  if (chainParams?.slashing) {
+    const s = chainParams.slashing;
+    const rows = kept([
+      {
+        label: "Jailed after missing",
+        value: missableBlocks(s.signedBlocksWindow, s.minSignedPerWindow),
+        mono: true,
+      },
+      { label: "Measured over", value: `${num(s.signedBlocksWindow)} blocks`, mono: true },
+      {
+        label: "Jailed for at least",
+        value: `${humanDuration(s.downtimeJailDuration)}, then may unjail`,
+      },
+      { label: "Slash: downtime", value: pct(s.slashFractionDowntime, 4), mono: true },
+      { label: "Slash: double sign", value: pct(s.slashFractionDoubleSign), mono: true },
+    ]);
+    bricks.push({
+      key: "slashing",
+      label: "Slashing",
+      value: pct(s.slashFractionDoubleSign),
+      sub: "double sign penalty",
+      count: rows.length,
+      rows,
+    });
+  }
+
+  if (chainParams?.mint) {
+    const m = chainParams.mint;
+    const rows = kept([
+      { label: "Current inflation", value: pct(m.inflation), mono: true },
+      {
+        label: "Range",
+        value:
+          m.inflationMin !== null && m.inflationMax !== null
+            ? `${pct(m.inflationMin)} – ${pct(m.inflationMax)}`
+            : "—",
+        mono: true,
+      },
+      { label: "Goal bonded", value: pct(m.goalBonded), mono: true },
+      { label: "Blocks per year", value: num(m.blocksPerYear), mono: true },
+    ]);
+    bricks.push({
+      key: "inflation",
+      label: "Inflation",
+      value: pct(m.inflation),
+      sub: "annual, current",
+      count: rows.length,
+      rows,
+    });
+  }
+
+  if (chainParams?.distribution) {
+    const d = chainParams.distribution;
+    const rows = kept([
+      { label: "Community tax", value: pct(d.communityTax), mono: true },
+      {
+        label: "Separate withdraw address",
+        value:
+          d.withdrawAddrEnabled === null
+            ? "—"
+            : d.withdrawAddrEnabled
+              ? "Allowed"
+              : "Disabled",
+      },
+    ]);
+    bricks.push({
+      key: "distribution",
+      label: "Distribution",
+      value: pct(d.communityTax),
+      sub: "community tax",
+      count: rows.length,
+      rows,
+    });
+  }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-6">
-      {/* The accent bar shrinks with the title: at 36px beside 18px type it was
-          a flag, not a rule. */}
-      <div className="mb-4 flex items-center gap-2.5">
-        <span
-          className="h-5 w-[3px] rounded-full"
-          style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
-        />
-        <h1 className="text-lg font-semibold tracking-tight">{chain.prettyName}</h1>
-        <p className="font-mono text-xs text-muted-foreground">{chain.chainId}</p>
-      </div>
-
-      <LiveOverview
+    <PageFrame title={chain.prettyName} sub={chain.chainId} accent={accent}>
+      <BrickBoard
         chainId={chain.chainId}
         accent={accent}
-        initialData={overview}
+        bricks={bricks}
+        head={overview}
       />
-
-      {priceCards.length > 0 ? (
-        <StatRail
-          className="mt-3"
-          accent={accent}
-          stats={priceCards.map((card) => ({
-            label: card.symbol,
-            value: formatUsd(card.market.usd),
-            sub: [
-              card.market.change24h != null
-                ? `${card.market.change24h >= 0 ? "+" : ""}${card.market.change24h.toFixed(2)}% 24h`
-                : null,
-              card.market.marketCapUsd != null
-                ? `${formatUsdCompact(card.market.marketCapUsd)} cap`
-                : null,
-            ]
-              .filter(Boolean)
-              .join("  ·  "),
-          }))}
-        />
-      ) : null}
-
-      {chain.feeDenom ? (
-        <ParamSection
-          title="Tokens"
-          note="AtomOne separates the two: Atone token secures the chain and votes, the Photon pays fees."
-        >
-          <ParamRow
-            label={`${symbol} - ${chain.denom}`}
-            value={`${formatToken(overview.supply, chain.exponent)} ${symbol}  ·  staking & governance`}
-          />
-          <ParamRow
-            label={`${feeSymbol} - ${chain.feeDenom}`}
-            value={`${
-              feeSupply ? formatToken(feeSupply, chain.exponent) : "—"
-            } ${feeSymbol}  ·  transaction fees${
-              chain.feeSupplyCap
-                ? `  ·  supply cap ${bigCount(chain.feeSupplyCap)}`
-                : ""
-            }`}
-          />
-        </ParamSection>
-      ) : null}
-
-      {adapter.capabilities.staking ? (
-        <Suspense
-          fallback={
-            // Mirrors ChainEconomics' own <section className="mt-6"> and
-            // heading. Without the wrapper the fallback had no top margin and
-            // collided with the supply cards above it, then the layout jumped
-            // when the real section replaced it.
-            <section className="mt-6">
-              <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Tokenomics
-              </h2>
-              <LoadingPanel label="Loading tokenomics…" rows={4} />
-            </section>
-          }
-        >
-          <ChainEconomics
-            chain={chain}
-            communityTax={chainParams?.distribution?.communityTax ?? null}
-            minCommission={chainParams?.staking?.minCommissionRate ?? null}
-            supply={overview.supply}
-            market={market}
-          />
-        </Suspense>
-      ) : null}
-
-      <ParamSection title="Network">
-        <ParamRow label="Chain ID" value={chain.chainId} />
-        <ParamRow label="Base denom" value={chain.denom} />
-        <ParamRow label="Address prefix" value={chain.bech32Prefix} />
-        {release ? (
-          <ParamRow label="Latest release" value={release.tag} />
-        ) : null}
-        {chain.website ? (
-          <ParamLink label="Website" href={chain.website} />
-        ) : null}
-        {chain.repo ? <ParamLink label="Repository" href={chain.repo} /> : null}
-      </ParamSection>
-
-      {chainParams?.staking ? (
-        <ParamSection title="Staking">
-          <ParamRow label="Unbonding period" value={humanDuration(chainParams.staking.unbondingTime)} />
-          <ParamRow label="Max validators" value={chainParams.staking.maxValidators?.toLocaleString() ?? "—"} />
-          <ParamRow label="Min commission" value={pct(chainParams.staking.minCommissionRate)} />
-          <ParamRow label="Bond denom" value={chainParams.staking.bondDenom ?? "—"} />
-          <ParamRow label="Max unbonding entries" value={chainParams.staking.maxEntries?.toLocaleString() ?? "—"} />
-        </ParamSection>
-      ) : null}
-
-      {chainParams?.slashing ? (
-        <ParamSection title="Slashing">
-          <ParamRow
-            label="Jailed after missing"
-            // The parameter is a floor on blocks signed; what people want to
-            // know is how many they may miss before being jailed.
-            value={missableBlocks(
-              chainParams.slashing.signedBlocksWindow,
-              chainParams.slashing.minSignedPerWindow
-            )}
-          />
-          <ParamRow
-            label="Measured over"
-            value={`${chainParams.slashing.signedBlocksWindow?.toLocaleString() ?? "—"} blocks`}
-          />
-          <ParamRow
-            // Not the downtime that causes jailing — the wait afterwards. The
-            // old label read as "10 minutes of downtime gets you slashed".
-            label="Jailed for at least"
-            value={`${humanDuration(chainParams.slashing.downtimeJailDuration)}, then may unjail`}
-          />
-          <ParamRow label="Slash: downtime" value={pct(chainParams.slashing.slashFractionDowntime, 4)} />
-          <ParamRow label="Slash: double sign" value={pct(chainParams.slashing.slashFractionDoubleSign)} />
-        </ParamSection>
-      ) : null}
-
-      {chainParams?.mint ? (
-        <ParamSection title="Inflation">
-          <ParamRow label="Current inflation" value={pct(chainParams.mint.inflation)} />
-          <ParamRow label="Inflation range" value={
-            chainParams.mint.inflationMin !== null && chainParams.mint.inflationMax !== null
-              ? `${pct(chainParams.mint.inflationMin)} – ${pct(chainParams.mint.inflationMax)}`
-              : "—"
-          } />
-          <ParamRow label="Goal bonded" value={pct(chainParams.mint.goalBonded)} />
-          <ParamRow label="Blocks per year" value={chainParams.mint.blocksPerYear?.toLocaleString() ?? "—"} />
-        </ParamSection>
-      ) : null}
-
-      {chainParams?.distribution ? (
-        <ParamSection title="Distribution">
-          <ParamRow label="Community tax" value={pct(chainParams.distribution.communityTax)} />
-          <ParamRow
-            label="Separate withdraw address"
-            value={chainParams.distribution.withdrawAddrEnabled === null ? "—" : chainParams.distribution.withdrawAddrEnabled ? "Allowed" : "Disabled"}
-          />
-        </ParamSection>
-      ) : null}
-    </main>
+    </PageFrame>
   );
 }

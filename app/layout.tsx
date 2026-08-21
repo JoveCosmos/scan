@@ -61,19 +61,18 @@ export default function RootLayout({
           <AppShell
             chains={chains}
             footer={
-              <footer className="mt-16 border-t border-border">
+              <footer className="shrink-0 border-t border-border">
                 {/*
-                  Attribution, not a title. "GATA HUB Scan" on the left restated
-                  the header a screen above it; "powered by GATA HUB" credits the
-                  product this one comes from, and sits right where a colophon
-                  belongs.
+                  Attribution, not a title, and now a single line: with the app
+                  pinned to the viewport every row the footer takes is a row the
+                  page does not get.
                 */}
-                <div className="mx-auto flex max-w-6xl items-center justify-end px-4 py-6 text-xs text-muted-foreground">
+                <div className="mx-auto flex h-8 max-w-6xl items-center justify-end px-4 text-[11px] text-muted-foreground">
                   <span>
                     powered by{" "}
                     <a
                       href="https://gatahub.zone"
-                      className="font-semibold text-foreground transition-colors hover:text-[var(--gata-blue)]"
+                      className="font-medium text-foreground transition-colors hover:text-[var(--gata-blue)]"
                     >
                       GATA HUB
                     </a>
