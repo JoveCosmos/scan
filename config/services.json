@@ -76,6 +76,14 @@
         "pruning": "custom (100/0/10), no tx index",
         "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
       }
+    },
+    {
+      "chainId": "passage-2",
+      "snapshotKey": "passage"
+    },
+    {
+      "chainId": "provider",
+      "snapshotKey": "provider"
     }
   ]
 }

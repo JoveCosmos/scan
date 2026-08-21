@@ -183,6 +183,13 @@ export default async function InfraPage({
                 ]
               : []),
             ...(snapshot.size ? [{ label: "Size", value: snapshot.size, mono: true }] : []),
+            // A property of the file, not of the restore procedure. It used to
+            // appear only inside the generated commands, so a chain without a
+            // daemon and home in config published a multi-gigabyte archive with
+            // no way to check what arrived.
+            ...(snapshot.sha256
+              ? [{ label: "SHA-256", value: snapshot.sha256, mono: true }]
+              : []),
             ...(snapshot.pruning
               ? [{ label: "Pruning", value: snapshot.pruning, mono: true }]
               : []),
