@@ -38,6 +38,33 @@ const chainServicesSchema = z.object({
   chainId: z.string().min(1),
   endpoints: z.array(endpointSchema).default([]),
   /**
+   * P2P addresses, exactly as they go into `config.toml` —
+   * `<node-id>@<host>:<port>`. Declared rather than derived: an RPC endpoint
+   * knows its own node id but not which host and port its P2P listener is
+   * reachable on, and a peer address that looks authoritative and does not dial
+   * wastes more of an operator's time than an absent one.
+   *
+   * Seeds are for discovery and are dropped once a node has peers; persistent
+   * peers are held open. They are separate fields because putting one in the
+   * other's slot is a node that either never finds the network or clings to
+   * three addresses forever.
+   */
+  seeds: z.array(z.string().min(1)).default([]),
+  peers: z.array(z.string().min(1)).default([]),
+  /**
+   * Only the parts of state sync that are a choice. The RPC servers come from
+   * the endpoints above and the trust height and hash are computed live, since
+   * a hash written into a config file is wrong within days.
+   */
+  stateSync: z
+    .object({
+      /** Must be shorter than the chain's unbonding period. */
+      trustPeriod: z.string().optional(),
+      /** Set false where we do not keep the snapshot interval a sync needs. */
+      enabled: z.boolean().default(true),
+    })
+    .optional(),
+  /**
    * The node binary and its home directory, used to generate restore commands
    * someone can paste. Without them the snapshot panel shows details only —
    * a half-right command that deletes a data directory is worse than none.
@@ -130,6 +157,12 @@ export function servedChainIds(): string[] {
 }
 
 function hasAnything(c: ChainServices): boolean {
-  return c.endpoints.length > 0 || c.snapshot !== undefined || c.guide !== undefined;
+  return (
+    c.endpoints.length > 0 ||
+    c.seeds.length > 0 ||
+    c.peers.length > 0 ||
+    c.snapshot !== undefined ||
+    c.guide !== undefined
+  );
 }
 

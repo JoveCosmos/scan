@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getChain, accentFor } from "@/lib/chains";
 import { servicesFor } from "@/lib/services";
+import { getStateSync, getNodeIds } from "@/lib/statesync";
 import { policyFor } from "@/lib/tiers";
 import { PageFrame } from "@/components/page-frame";
 import { InfraBoard, type InfraSpec } from "@/components/infra-board";
@@ -58,6 +59,24 @@ export default async function InfraPage({
   const accent = accentFor(chain);
   const services = policyFor(chain).fullNode ? servicesFor(chain.chainId) : null;
   const snapshot = services?.snapshot ?? null;
+
+  // The RPC endpoints we publish are exactly the servers a state sync should
+  // point at, so there is nothing to configure — and nothing to keep in step.
+  const rpcServers = (services?.endpoints ?? [])
+    .filter((e) => e.kind === "rpc")
+    .map((e) => e.url);
+
+  const wantsStateSync = services?.stateSync?.enabled ?? true;
+  const [stateSync, nodeIds] = await Promise.all([
+    wantsStateSync
+      ? getStateSync(chain, rpcServers, services?.stateSync?.trustPeriod).catch(
+          () => null
+        )
+      : null,
+    // The node id is half of a peer address and the only half we can state as
+    // fact; it is worth showing even where no P2P address is published.
+    getNodeIds(rpcServers).catch(() => new Map<string, string>()),
+  ]);
 
   const spec: InfraSpec = {
     endpoints: (services?.endpoints ?? []).map((e) => ({
@@ -127,6 +146,51 @@ export default async function InfraPage({
           ],
         }
       : null,
+
+    stateSync: stateSync
+      ? {
+          trustHeight: stateSync.trustHeight,
+          trustHash: stateSync.trustHash,
+          snippet: stateSync.snippet,
+          rows: [
+            {
+              label: "Trust height",
+              value: stateSync.trustHeight.toLocaleString(),
+              mono: true,
+            },
+            { label: "Trust hash", value: stateSync.trustHash, mono: true },
+            { label: "Trust period", value: stateSync.trustPeriod, mono: true },
+            { label: "RPC servers", value: stateSync.rpcServers.join(", "), mono: true },
+            {
+              label: "Height",
+              value:
+                "Deliberately behind the head. State sync verifies against a header the servers must still be able to serve, and a height near the tip can be reorganised out from under it.",
+            },
+            {
+              label: "Freshness",
+              value:
+                "Recomputed on every load. A trust hash written into a config file is wrong within days, and a wrong one fails the sync with an error that reads like a network problem.",
+            },
+          ],
+        }
+      : null,
+
+    seeds: {
+      entries: services?.seeds ?? [],
+      key: "seeds",
+      note: "Seeds are dialled only to discover other nodes, then dropped. Put them in the `seeds` line of config.toml, not in `persistent_peers`.",
+    },
+
+    peers: {
+      entries: [...(services?.peers ?? [])],
+      key: "persistent_peers",
+      note:
+        nodeIds.size > 0
+          ? `Persistent peers are held open rather than rotated. Our own node ${
+              nodeIds.size === 1 ? "id is" : "ids are"
+            } ${[...nodeIds.values()].join(", ")} — the P2P host and port are not discoverable from the RPC, so they are only listed here where we publish them.`
+          : "Persistent peers are held open rather than rotated, so use them for nodes you want a lasting connection to.",
+    },
 
     indexer: {
       indexed: chain.indexed,

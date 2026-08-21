@@ -25,8 +25,31 @@ export interface EndpointSpec {
   note?: string;
 }
 
+/** A copyable block of config, shown with its own copy control. */
+export interface CodeSpec {
+  label: string;
+  text: string;
+}
+
+export interface ListSpec {
+  /** `<node-id>@<host>:<port>`, one per line when copied. */
+  entries: string[];
+  /** What this list is for, in a sentence. */
+  note: string;
+  /** The config.toml key, so it is obvious where the value goes. */
+  key: string;
+}
+
 export interface InfraSpec {
   endpoints: EndpointSpec[];
+  stateSync: {
+    trustHeight: number;
+    trustHash: string;
+    rows: { label: string; value: string; mono?: boolean }[];
+    snippet: string;
+  } | null;
+  seeds: ListSpec;
+  peers: ListSpec;
   snapshot: {
     live: boolean;
     url: string;
@@ -96,9 +119,9 @@ export function InfraBoard({
   const openEndpoint = spec.endpoints.find((e) => `ep:${e.url}` === open) ?? null;
   const openSnapshot = open === "snapshot" && spec.snapshot ? spec.snapshot : null;
   const openIndexer = open === "indexer";
-
-  const nothing =
-    spec.endpoints.length === 0 && !spec.snapshot && !spec.indexer.indexed;
+  const openStateSync = open === "statesync" && spec.stateSync ? spec.stateSync : null;
+  const openList =
+    open === "seeds" ? spec.seeds : open === "peers" ? spec.peers : null;
 
   return (
     <>
@@ -119,6 +142,42 @@ export function InfraBoard({
             />
           );
         })}
+
+        {spec.stateSync ? (
+          <BrickButton
+            accent={accent}
+            brick={{
+              label: "State sync",
+              value: spec.stateSync.trustHeight.toLocaleString(),
+              sub: "trust height, live",
+              tone: "ok",
+              count: spec.stateSync.rows.length,
+            }}
+            onClick={() => setOpen("statesync")}
+          />
+        ) : null}
+
+        <BrickButton
+          accent={accent}
+          brick={{
+            label: "Seeds",
+            value: String(spec.seeds.entries.length),
+            sub: spec.seeds.entries.length === 0 ? "none published" : "for discovery",
+            count: spec.seeds.entries.length || undefined,
+          }}
+          onClick={() => setOpen("seeds")}
+        />
+
+        <BrickButton
+          accent={accent}
+          brick={{
+            label: "Peers",
+            value: String(spec.peers.entries.length),
+            sub: spec.peers.entries.length === 0 ? "none published" : "persistent",
+            count: spec.peers.entries.length || undefined,
+          }}
+          onClick={() => setOpen("peers")}
+        />
 
         {spec.snapshot ? (
           <BrickButton
@@ -146,7 +205,7 @@ export function InfraBoard({
           onClick={() => setOpen("indexer")}
         />
 
-        {nothing ? (
+        {spec.endpoints.length === 0 ? (
           <Brick
             accent={accent}
             brick={{
@@ -257,6 +316,67 @@ export function InfraBoard({
                 </pre>
               </div>
             ) : null}
+          </>
+        ) : null}
+      </Popup>
+
+      <Popup
+        open={openStateSync !== null}
+        onClose={() => setOpen(null)}
+        title="State sync"
+        sub="recomputed on every load"
+        accent={accent}
+      >
+        {openStateSync ? (
+          <>
+            <PopupRows rows={openStateSync.rows} />
+            <div className="mt-4">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                  config.toml
+                </span>
+                <CopyButton value={openStateSync.snippet} label="state sync config" />
+              </div>
+              <pre className="overflow-x-auto border border-border bg-[var(--gata-bg2)] p-2.5 font-mono text-[11px] leading-relaxed">
+                {openStateSync.snippet}
+              </pre>
+            </div>
+          </>
+        ) : null}
+      </Popup>
+
+      <Popup
+        open={openList !== null}
+        onClose={() => setOpen(null)}
+        title={open === "seeds" ? "Seeds" : "Persistent peers"}
+        sub={openList?.key}
+        accent={accent}
+      >
+        {openList ? (
+          <>
+            <p className="mb-3 text-sm leading-relaxed text-muted-foreground">
+              {openList.note}
+            </p>
+            {openList.entries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                None published for this chain.
+              </p>
+            ) : (
+              <>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+                    {openList.key}
+                  </span>
+                  <CopyButton
+                    value={openList.entries.join(",")}
+                    label={open === "seeds" ? "seeds" : "peers"}
+                  />
+                </div>
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all border border-border bg-[var(--gata-bg2)] p-2.5 font-mono text-[11px] leading-relaxed">
+                  {openList.entries.join("\n")}
+                </pre>
+              </>
+            )}
           </>
         ) : null}
       </Popup>

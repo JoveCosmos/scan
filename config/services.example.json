@@ -1,18 +1,29 @@
 {
   "_comment": [
-    "Shape reference for config/services.json — the infrastructure we run and",
-    "publish. Without that file the Public goods button does not appear and the",
-    "page says nothing is published: an endpoint we do not run must never be",
-    "listed as one we do.",
+    "Shape reference for config/services.json \u2014 the infrastructure we run and",
+    "publish. Without that file the Infra tab says nothing is published: an",
+    "endpoint we do not run must never be listed as one we do.",
     "",
     "Every field below except chainId is optional, and anything left out is",
     "simply not rendered.",
     "",
     "The chain's own website and source repository are NOT set here. They come",
     "from config/chains/<chainId>.json, because they belong to the project",
-    "rather than to us."
+    "rather than to us.",
+    "",
+    "seeds and peers are P2P addresses exactly as config.toml wants them,",
+    "<node-id>@<host>:<port>. They cannot be derived: an RPC endpoint knows its",
+    "own node id but not which host and port its P2P listener answers on.",
+    "Seeds are for discovery and get dropped once a node has peers; persistent",
+    "peers are held open \u2014 putting one in the other's slot gives you a node",
+    "that either never finds the network or clings to three addresses forever.",
+    "",
+    "stateSync carries only the parts that are a choice. rpc_servers come from",
+    "the endpoints above, and trust_height and trust_hash are computed live on",
+    "every page load \u2014 a trust hash written into a config file is wrong within",
+    "days, and a wrong one fails the sync with an error that reads like a",
+    "network problem."
   ],
-
   "chains": [
     {
       "chainId": "atomone-1",
@@ -29,7 +40,17 @@
         "pruning": "default (100/0/10)",
         "note": ""
       },
-      "guide": "https://example.com/guides/atomone"
+      "guide": "https://example.com/guides/atomone",
+      "seeds": [
+        "ebc272824924ea1a27ea3183dd0b9ba713494f83@seed.example.com:26656"
+      ],
+      "peers": [
+        "b2c8f4a6d1e30947c5a8b1f2e6d3049a7c15b8e2@peer.example.com:26656"
+      ],
+      "stateSync": {
+        "trustPeriod": "8h0m0s",
+        "enabled": true
+      }
     }
   ]
 }
