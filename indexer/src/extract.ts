@@ -24,8 +24,9 @@ import { createHash } from "node:crypto";
  *
  *   1  fees and transfers
  *   2  + governance votes and slashing events
+ *   3  + missed commit signatures
  */
-export const EXTRACT_VERSION = 2;
+export const EXTRACT_VERSION = 3;
 
 export interface Attr {
   key: string;
@@ -44,12 +45,41 @@ export interface TxResult {
   events?: Event[];
 }
 
+/**
+ * One slot in a commit.
+ *
+ * `block_id_flag`: 1 absent, 2 commit, 3 nil. An ABSENT slot carries an EMPTY
+ * validator_address - the node does not say who failed to show up. The array is
+ * positional against the validator set at that height, so attribution needs that
+ * set, which is why resolveMissed() refuses to guess without it.
+ */
+export interface CommitSig {
+  block_id_flag?: number | string;
+  validator_address?: string;
+  timestamp?: string;
+  signature?: string | null;
+}
+
+export interface MissedSignatureRow {
+  /** The height that went unsigned - one below the block this came from. */
+  height: string;
+  consAddr: string;
+  /** absent | nil */
+  flag: string;
+}
+
+
 export interface BlockResponse {
   result?: {
     block_id?: { hash?: string };
     block?: {
       header?: { height?: string; time?: string; proposer_address?: string };
       data?: { txs?: string[] | null };
+      /**
+       * The commit for the PREVIOUS height, signed by the validator set as it
+       * stood there. Already on the wire for every block we fetch.
+       */
+      last_commit?: { height?: string; signatures?: CommitSig[] | null };
     };
   };
 }
@@ -64,6 +94,66 @@ export interface BlockResultsResponse {
     end_block_events?: Event[] | null;
   };
 }
+
+const FLAG_ABSENT = 1;
+const FLAG_COMMIT = 2;
+const FLAG_NIL = 3;
+
+function flagOf(sig: CommitSig): number {
+  const f = sig.block_id_flag;
+  if (typeof f === "number") return f;
+  if (f === "BLOCK_ID_FLAG_ABSENT") return FLAG_ABSENT;
+  if (f === "BLOCK_ID_FLAG_NIL") return FLAG_NIL;
+  return FLAG_COMMIT;
+}
+
+/** The height a block's commit covers, or null when it carries none (genesis). */
+export function commitHeight(block: BlockResponse): string | null {
+  return block.result?.block?.last_commit?.height ?? null;
+}
+
+export function commitSignatures(block: BlockResponse): CommitSig[] {
+  return block.result?.block?.last_commit?.signatures ?? [];
+}
+
+/**
+ * Resolve which validators missed a commit, positionally against a known set.
+ *
+ * Reports `mismatch` instead of rows whenever the set cannot be trusted to line
+ * up - a different length, or any PRESENT slot whose address is not the one the
+ * set holds at that index. Present slots carry their address and are ~99.9% of
+ * every commit, so this is a strong check: bonding, unbonding or a power
+ * reordering all surface immediately as a misaligned address.
+ *
+ * It must never guess. These rows say a named operator was offline, and pinning
+ * that on the wrong validator because the set was stale would be a lie about
+ * somebody's service.
+ */
+export function resolveMissed(
+  sigs: CommitSig[],
+  set: string[],
+  height: string
+): { missed: MissedSignatureRow[]; mismatch: boolean } {
+  if (sigs.length === 0) return { missed: [], mismatch: false };
+  if (set.length !== sigs.length) return { missed: [], mismatch: true };
+
+  const missed: MissedSignatureRow[] = [];
+  for (let i = 0; i < sigs.length; i++) {
+    const flag = flagOf(sigs[i]);
+    const addr = sigs[i].validator_address ?? "";
+    if (flag === FLAG_COMMIT) {
+      if (addr && addr !== set[i]) return { missed: [], mismatch: true };
+      continue;
+    }
+    missed.push({
+      height,
+      consAddr: set[i],
+      flag: flag === FLAG_NIL ? "nil" : "absent",
+    });
+  }
+  return { missed, mismatch: false };
+}
+
 
 export interface BlockRow {
   height: string;
@@ -139,6 +229,8 @@ export interface ExtractedBlock {
   transfers: TransferRow[];
   votes: VoteRow[];
   slashes: SlashRow[];
+  /** Validators that missed the commit this block carries, for height-1. */
+  missed: MissedSignatureRow[];
   /**
    * The block has transactions but the node returned no ABCI results for them.
    *
@@ -471,7 +563,12 @@ export function extractTx(
  */
 export function extractBlock(
   block: BlockResponse,
-  results: BlockResultsResponse
+  results: BlockResultsResponse,
+  /**
+   * Resolved by the caller, which owns the validator-set cache and the
+   * network. Defaulted so this stays a pure function over fixtures in tests.
+   */
+  missed: MissedSignatureRow[] = []
 ): ExtractedBlock | null {
   const header = block.result?.block?.header;
   const height = header?.height;
@@ -520,6 +617,7 @@ export function extractBlock(
     transfers,
     votes,
     slashes,
+    missed,
     // `txs_results: null` with transactions present means the node dropped its
     // ABCI responses for this height.
     abciResultsMissing: rawTxs.length > 0 && txResults.length === 0,

@@ -31,7 +31,7 @@ async function writeBlock(
   chainId: string,
   data: ExtractedBlock
 ): Promise<void> {
-  const { block, txs, transfers, votes, slashes } = data;
+  const { block, txs, transfers, votes, slashes, missed } = data;
 
   await client.query(
     `INSERT INTO block (chain_id, height, time, proposer_cons, hash, tx_count,
@@ -87,6 +87,17 @@ async function writeBlock(
         tx.signer,
         tx.msgTypes,
       ]
+    );
+  }
+
+  // Absences only, keyed naturally so replaying a height is idempotent - the
+  // same property the rest of this writer rests on.
+  for (const m of missed) {
+    await client.query(
+      `INSERT INTO missed_signature (chain_id, height, cons_addr, flag)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (chain_id, height, cons_addr) DO UPDATE SET flag = EXCLUDED.flag`,
+      [chainId, m.height, m.consAddr, m.flag]
     );
   }
 

@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import { Rpc } from "./rpc";
 import { extractBlock, type ExtractedBlock } from "./extract";
+import { missedIn } from "./commit-set";
 import { commitBlocks, lowestIndexed } from "./db";
 
 /**
@@ -57,14 +58,16 @@ const DEFAULTS = {
 
 async function fetchHeight(
   rpc: Rpc,
+  chainId: string,
   height: number
 ): Promise<ExtractedBlock | null> {
   const [block, results] = await Promise.all([
     rpc.block(height),
     rpc.blockResults(height),
   ]);
-  return extractBlock(block, results);
+  return extractBlock(block, results, await missedIn(rpc, chainId, block));
 }
+
 
 /** Heights still to fill, or null when the floor has been reached. */
 export async function nextRange(
@@ -120,7 +123,7 @@ export async function backfillOnce(
   const blocks: ExtractedBlock[] = [];
   for (let i = 0; i < heights.length; i += concurrency) {
     const slice = heights.slice(i, i + concurrency);
-    const fetched = await Promise.all(slice.map((h) => fetchHeight(rpc, h)));
+    const fetched = await Promise.all(slice.map((h) => fetchHeight(rpc, target.chainId, h)));
     for (const b of fetched) if (b) blocks.push(b);
   }
 

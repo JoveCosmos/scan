@@ -153,6 +153,7 @@ describe.skipIf(!url)("vote and slash writes", () => {
       },
     ],
     slashes: [],
+      missed: [],
     abciResultsMissing: false,
   });
 

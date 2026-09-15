@@ -28,6 +28,10 @@ export interface StatusResponse {
   };
 }
 
+export interface ValidatorsResponse {
+  result?: { validators?: { address?: string }[]; total?: string };
+}
+
 export class Rpc {
   constructor(
     private readonly base: string,
@@ -55,6 +59,28 @@ export class Rpc {
 
   block(height: number) {
     return get<BlockResponse>(this.base, `/block?height=${height}`, this.timeoutMs);
+  }
+
+  /**
+   * The validator set at a height, in the order a commit's signatures use.
+   *
+   * Only called when a commit stops lining up with the cached set, which on a
+   * stable chain is a handful of times a day - not per block.
+   */
+  async validatorSet(height: number): Promise<string[]> {
+    const out: string[] = [];
+    for (let page = 1; page <= 20; page++) {
+      const r = await get<ValidatorsResponse>(
+        this.base,
+        `/validators?height=${height}&page=${page}&per_page=100`,
+        this.timeoutMs
+      );
+      const vs = r.result?.validators ?? [];
+      for (const v of vs) out.push(v.address ?? "");
+      const total = Number(r.result?.total ?? out.length);
+      if (vs.length === 0 || out.length >= total) break;
+    }
+    return out;
   }
 
   blockResults(height: number) {
