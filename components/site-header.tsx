@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface ChainSummary {
   chainId: string;
@@ -268,7 +269,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             width={30}
             height={33}
             priority
-            className="h-[22px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+            className="gata-mark h-[22px] w-auto transition-[filter] group-hover:[filter:var(--mark-filter)_drop-shadow(0_0_10px_var(--gata-glow))]"
           />
         </Link>
 
@@ -321,6 +322,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           activeChainId={chain?.chainId ?? null}
           section={section}
         />
+        <ThemeToggle />
       </div>
     </header>
   );

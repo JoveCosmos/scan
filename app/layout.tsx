@@ -50,7 +50,22 @@ export default function RootLayout({
   return (
     // Font variables live on <html> because globals.css applies `font-sans`
     // there; defining them only on <body> leaves the html rule unresolved.
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    // suppressHydrationWarning: the theme script below stamps data-theme on
+    // this element before React hydrates it.
+    <html
+      lang="en"
+      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        {/* Applies a saved day/night choice before first paint. Kept inline
+            and tiny: anything loaded later would flash the other theme. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("gata-scan-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="antialiased">
         {/* Fixed ambient grid, masked to the top of the viewport. */}
         <div

@@ -89,7 +89,9 @@ export function SearchBar({
         autoComplete="off"
         className={cn(
           "w-full rounded-lg border border-border bg-secondary/50 outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)] focus:bg-secondary",
-          large ? "h-12 pl-11 pr-10 text-base" : "h-9 pl-9 pr-8 text-sm"
+          large
+            ? "h-13 rounded-xl bg-[var(--gata-card)] pl-11 pr-10 text-base shadow-[0_18px_40px_-24px_rgba(var(--shade),var(--shadow-a))] focus:border-[var(--gata-blue)] focus:bg-[var(--gata-card)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--gata-blue)_22%,transparent)]"
+            : "h-9 pl-9 pr-8 text-sm"
         )}
       />
       {!value ? (

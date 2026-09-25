@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Popup, PopupRows } from "@/components/ui/popup";
 import { filterDeckRows } from "@/lib/deck-filter";
+import { ink } from "@/lib/utils";
 
 /**
  * A list that fits the screen.
@@ -70,7 +71,7 @@ const FOOT_H = 34;
 function cellColor(cell: DeckCell, accent: string) {
   if (cell.tone === "ok") return "var(--gata-green)";
   if (cell.tone === "bad") return "var(--destructive)";
-  if (cell.tone === "accent") return accent;
+  if (cell.tone === "accent") return ink(accent);
   return undefined;
 }
 
@@ -157,7 +158,7 @@ export function RowDeck({
 
       <div
         ref={bodyRef}
-        className={`min-h-0 border border-border ${limit ? "max-h-full shrink overflow-y-auto" : "flex-1"}`}
+        className={`gata-surface min-h-0 ${limit ? "max-h-full shrink overflow-y-auto" : "flex-1 overflow-hidden"}`}
       >
         <table className="w-full table-fixed border-collapse">
           <thead>

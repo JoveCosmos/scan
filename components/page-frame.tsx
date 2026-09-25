@@ -31,16 +31,16 @@ export function PageFrame({
           {accent ? (
             <span
               aria-hidden="true"
-              className="h-5 w-[3px] shrink-0"
+              className="h-7 w-[3px] shrink-0 rounded-full"
               style={{ background: accent, boxShadow: `0 0 12px ${accent}` }}
             />
           ) : null}
           <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold leading-tight tracking-tight sm:text-lg">
+            <h1 className="truncate text-lg font-semibold leading-tight tracking-tight sm:text-xl">
               {title}
             </h1>
             {sub ? (
-              <p className="truncate font-mono text-[11px] leading-tight text-muted-foreground">
+              <p className="mt-0.5 truncate font-mono text-[11px] leading-tight text-muted-foreground">
                 {sub}
               </p>
             ) : null}

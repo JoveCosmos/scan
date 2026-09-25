@@ -11,6 +11,7 @@ import {
   type ValidatorRow,
 } from "@/lib/validator-sort";
 import { jailRecord } from "@/lib/format";
+import { ink } from "@/lib/utils";
 
 export type { ValidatorRow, SortKey } from "@/lib/validator-sort";
 
@@ -158,7 +159,7 @@ export function ValidatorsTable({
       title: staking ? `Staked ${symbol}` : "Consensus voting power",
       sort: "tokens",
       align: "right",
-      cell: (v) => <span style={{ color: accent }}>{v.tokensLabel}</span>,
+      cell: (v) => <span style={{ color: ink(accent) }}>{v.tokensLabel}</span>,
     },
     {
       key: "share",
@@ -336,7 +337,7 @@ export function ValidatorsTable({
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto border border-border">
+      <div className="gata-surface min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse whitespace-nowrap">
           <thead className="sticky top-0 z-10 bg-[var(--gata-bg2)]">
             <tr className="border-b border-border">

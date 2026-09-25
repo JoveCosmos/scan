@@ -46,9 +46,16 @@
 
 /*
  * GATA HUB palette, lifted from the hub's own globals.css so Scan and
- * the hub read as one product. Dark-only by design — there is no light theme.
+ * the hub read as one product. Dark is the default; the day palette below
+ * redefines the same tokens, and components read only tokens, so neither
+ * theme needs a line of its own in any component.
+ *
+ * The theme is `data-theme` on <html>, stamped before paint by the script in
+ * app/layout.tsx from the reader's saved choice. With no saved choice there is
+ * no attribute and the system preference decides.
  */
 :root {
+  color-scheme: dark;
   --gata-bg: #070a10;
   --gata-bg2: #0a0f18;
   --gata-card: #0e1622;
@@ -65,6 +72,23 @@
   --gata-sub: #8595ab;
   --gata-faint: #566679;
   --gata-glow: rgba(59, 158, 255, 0.45);
+
+  /* Surface effects, tokenised so the day theme can swap them. */
+  --hl: 255, 255, 255; /* highlight channel for hairlines and sheens */
+  --shade: 0, 0, 0; /* shadow channel */
+  --shadow-a: 0.9;
+  --panel-fill-a: 0.045;
+  --panel-fill-b: 0.012;
+  --grid-line: rgba(255, 255, 255, 0.028);
+  --bloom-a: rgba(59, 158, 255, 0.13);
+  --bloom-b: rgba(98, 217, 255, 0.07);
+  --flash: rgba(59, 158, 255, 0.16);
+  --selection: rgba(59, 158, 255, 0.28);
+  /* Chain accents are tuned for a dark ground; on a light one, text drawn in
+     an accent is mixed toward black by this much less than 100%. */
+  --accent-ink-mix: 100%;
+  /* The white G is inverted on a light ground. */
+  --mark-filter: invert(0);
 
   --background: var(--gata-bg);
   --foreground: var(--gata-text);
@@ -87,6 +111,84 @@
   --radius: 0.75rem;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --gata-bg: #f4f6fa;
+  --gata-bg2: #edf1f7;
+  --gata-card: #ffffff;
+  --gata-card-hi: #eef3fa;
+  --gata-border: #dce3ed;
+  --gata-border-hi: #c2cedd;
+  --gata-blue: #1a73d9;
+  --gata-cyan: #0786ad;
+  --gata-green: #0c8f63;
+  --gata-amber: #b26a00;
+  --gata-burn: #cf4f1a;
+  --gata-gold: #9c7614;
+  --gata-text: #0e1828;
+  --gata-sub: #56677e;
+  --gata-faint: #8a98ad;
+  --gata-glow: rgba(26, 115, 217, 0.28);
+
+  --primary-foreground: #ffffff;
+  --muted: #edf1f7;
+  --accent: #e7edf6;
+  --destructive: #d23a31;
+
+  --hl: 255, 255, 255;
+  --shade: 22, 38, 64;
+  --shadow-a: 0.16;
+  --panel-fill-a: 0.9;
+  --panel-fill-b: 0.72;
+  --grid-line: rgba(14, 24, 40, 0.045);
+  --bloom-a: rgba(26, 115, 217, 0.1);
+  --bloom-b: rgba(7, 134, 173, 0.07);
+  --flash: rgba(26, 115, 217, 0.12);
+  --selection: rgba(26, 115, 217, 0.2);
+  --accent-ink-mix: 66%;
+  --mark-filter: invert(1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --gata-bg: #f4f6fa;
+    --gata-bg2: #edf1f7;
+    --gata-card: #ffffff;
+    --gata-card-hi: #eef3fa;
+    --gata-border: #dce3ed;
+    --gata-border-hi: #c2cedd;
+    --gata-blue: #1a73d9;
+    --gata-cyan: #0786ad;
+    --gata-green: #0c8f63;
+    --gata-amber: #b26a00;
+    --gata-burn: #cf4f1a;
+    --gata-gold: #9c7614;
+    --gata-text: #0e1828;
+    --gata-sub: #56677e;
+    --gata-faint: #8a98ad;
+    --gata-glow: rgba(26, 115, 217, 0.28);
+
+    --primary-foreground: #ffffff;
+    --muted: #edf1f7;
+    --accent: #e7edf6;
+    --destructive: #d23a31;
+
+    --hl: 255, 255, 255;
+    --shade: 22, 38, 64;
+    --shadow-a: 0.16;
+    --panel-fill-a: 0.9;
+    --panel-fill-b: 0.72;
+    --grid-line: rgba(14, 24, 40, 0.045);
+    --bloom-a: rgba(26, 115, 217, 0.1);
+    --bloom-b: rgba(7, 134, 173, 0.07);
+    --flash: rgba(26, 115, 217, 0.12);
+    --selection: rgba(26, 115, 217, 0.2);
+    --accent-ink-mix: 66%;
+    --mark-filter: invert(1);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -102,8 +204,8 @@
     /* Ambient depth: a cool blue bloom top-right, a faint cyan wash bottom-left.
        Fixed attachment so it reads as light in the room, not page decoration. */
     background-image:
-      radial-gradient(60% 50% at 85% -10%, rgba(59, 158, 255, 0.13), transparent 60%),
-      radial-gradient(45% 40% at 0% 100%, rgba(98, 217, 255, 0.07), transparent 65%);
+      radial-gradient(60% 50% at 85% -10%, var(--bloom-a), transparent 60%),
+      radial-gradient(45% 40% at 0% 100%, var(--bloom-b), transparent 65%);
     background-attachment: fixed;
     font-variant-ligatures: contextual;
   }
@@ -115,7 +217,7 @@
   }
 
   ::selection {
-    background: rgba(59, 158, 255, 0.28);
+    background: var(--selection);
   }
 
   ::-webkit-scrollbar {
@@ -143,12 +245,13 @@
     border: 1px solid var(--gata-border);
     background:
       radial-gradient(130% 120% at 100% 0%, var(--panel-glow, rgba(59, 158, 255, 0.1)), transparent 55%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
+      linear-gradient(180deg, rgba(var(--hl), var(--panel-fill-a)), rgba(var(--hl), var(--panel-fill-b)));
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.07),
-      0 10px 26px -18px rgba(0, 0, 0, 0.9);
+      inset 0 1px 0 rgba(var(--hl), 0.07),
+      0 1px 2px rgba(var(--shade), calc(var(--shadow-a) * 0.4)),
+      0 12px 28px -18px rgba(var(--shade), var(--shadow-a));
     transition:
       transform 0.18s ease,
       box-shadow 0.18s ease,
@@ -174,8 +277,8 @@
     transform: translateY(-3px);
     border-color: var(--gata-border-hi);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 16px 34px -14px rgba(0, 0, 0, 0.95),
+      inset 0 1px 0 rgba(var(--hl), 0.1),
+      0 16px 34px -14px rgba(var(--shade), var(--shadow-a)),
       0 0 24px -10px var(--panel-accent, var(--gata-glow));
   }
 
@@ -195,7 +298,7 @@
     background: linear-gradient(
       100deg,
       transparent,
-      rgba(255, 255, 255, 0.07),
+      rgba(var(--hl), 0.07),
       transparent
     );
     transform: translateX(-140%) skewX(-14deg);
@@ -338,6 +441,7 @@
 
   .nav-tab[aria-current="page"] {
     color: var(--gata-text);
+    font-weight: 600;
   }
 
   .nav-tab[aria-current="page"]::after {
@@ -352,10 +456,29 @@
     box-shadow: 0 0 12px var(--tab-acc, var(--gata-blue));
   }
 
+  /* The white G, inverted on a light ground. */
+  .gata-mark {
+    filter: var(--mark-filter);
+  }
+
+  /* The ground a list or table sits on: a card with a soft edge, so a list
+     reads as one object rather than lines floating on the page. */
+  .gata-surface {
+    border: 1px solid var(--gata-border);
+    border-radius: var(--radius-lg);
+    background: var(--gata-card);
+    box-shadow:
+      0 1px 2px rgba(var(--shade), calc(var(--shadow-a) * 0.35)),
+      0 14px 30px -24px rgba(var(--shade), var(--shadow-a));
+  }
+  .gata-surface thead {
+    background: var(--gata-bg2);
+  }
+
   .gata-grid-lines {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
     background-size: 56px 56px;
     mask-image: radial-gradient(70% 60% at 50% 0%, #000 20%, transparent 75%);
     -webkit-mask-image: radial-gradient(70% 60% at 50% 0%, #000 20%, transparent 75%);
@@ -398,7 +521,7 @@
 
 @keyframes gataFlash {
   0% {
-    background-color: rgba(59, 158, 255, 0.16);
+    background-color: var(--flash);
   }
   100% {
     background-color: transparent;

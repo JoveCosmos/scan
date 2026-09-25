@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { ink } from "@/lib/utils";
 
 /**
  * A brick: one fact, or one group of facts, in a tile you can click.
@@ -25,7 +26,7 @@ export function BrickGrid({
     // auto-fill rather than a fixed column count: the tiles are small enough
     // that a wide screen should get more of them, not wider ones.
     <div
-      className={`grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-1.5 ${className}`}
+      className={`grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2 ${className}`}
     >
       {children}
     </div>
@@ -52,7 +53,7 @@ export interface BrickVisual {
 function toneColor(tone: BrickVisual["tone"], accent: string, lead?: boolean) {
   if (tone === "ok") return "var(--gata-green)";
   if (tone === "bad") return "var(--destructive)";
-  if (lead) return accent;
+  if (lead) return ink(accent);
   return undefined;
 }
 
@@ -69,7 +70,7 @@ function Body({
   return (
     <>
       <span className="flex items-start justify-between gap-1">
-        <span className="truncate text-[9px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
+        <span className="truncate text-[10px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
           {brick.label}
         </span>
         {/*
@@ -89,15 +90,15 @@ function Body({
       <span
         className={
           brick.text
-            ? "mt-auto line-clamp-2 text-[11px] font-medium leading-snug"
-            : "mt-auto truncate font-mono text-[13px] font-semibold leading-tight"
+            ? "mt-auto line-clamp-2 text-[11.5px] font-medium leading-tight"
+            : "mt-auto truncate font-mono text-[16px] font-semibold leading-tight tracking-tight"
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}
       >
         {brick.value}
       </span>
       <span className="flex items-end justify-between gap-2">
-        <span className="truncate text-[9px] leading-tight text-muted-foreground">
+        <span className="truncate text-[10px] leading-tight text-muted-foreground">
           {brick.sub ?? ""}
         </span>
         {brick.count ? (
@@ -114,7 +115,7 @@ function Body({
 // The figure is still the largest thing in the tile; everything around it gave
 // up the room instead.
 const SHELL =
-  "flex h-[3.6rem] flex-col gap-0.5 overflow-hidden border border-border bg-[var(--gata-card)] px-2 py-1.5 text-left transition-colors";
+  "gata-surface flex h-[4.6rem] flex-col gap-0.5 overflow-hidden px-3 py-2 text-left transition-[border-color,background-color,transform]";
 
 /** Static — a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {
@@ -139,7 +140,7 @@ export function BrickButton({
     <button
       type="button"
       onClick={onClick}
-      className={`${SHELL} group/brick cursor-pointer hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
+      className={`${SHELL} group/brick cursor-pointer hover:-translate-y-px hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
     >
       <Body brick={brick} accent={accent} opens />
     </button>

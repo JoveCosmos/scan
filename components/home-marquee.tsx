@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { ink } from "@/lib/utils";
 
 /**
  * The networks, as one slow-moving row of marks under the search field.
@@ -59,7 +60,7 @@ export function HomeMarquee({ marks }: { marks: MarqueeMark[] }) {
                   className="flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-semibold"
                   style={{
                     background: `color-mix(in srgb, ${mark.accent} 20%, transparent)`,
-                    color: mark.accent,
+                    color: ink(mark.accent),
                   }}
                 >
                   {mark.symbol.slice(0, 3)}

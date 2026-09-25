@@ -147,7 +147,7 @@ export function InfraBoard({
 
   return (
     <div className="h-full overflow-y-auto pr-1">
-      <div className="grid items-start gap-3 lg:grid-cols-2">
+      <div className="gap-3 lg:columns-2 [&>section]:mb-3 [&>section]:break-inside-avoid">
         <Panel
           title="Endpoints"
           action={
