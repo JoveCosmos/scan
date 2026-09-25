@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getChain, accentFor } from "@/lib/chains";
 import { servicesFor } from "@/lib/services";
 import { getSnapshotIndex } from "@/lib/snapshots";
-import { getStateSync, getNodeIds } from "@/lib/statesync";
+import { getStateSync } from "@/lib/statesync";
 import { policyFor } from "@/lib/tiers";
 import { PageFrame } from "@/components/page-frame";
 import { InfraBoard, type InfraSpec } from "@/components/infra-board";
@@ -129,16 +129,18 @@ export default async function InfraPage({
     .map((e) => e.url);
 
   const wantsStateSync = services?.stateSync?.enabled ?? true;
-  const [stateSync, nodeIds] = await Promise.all([
-    wantsStateSync
-      ? getStateSync(chain, rpcServers, services?.stateSync?.trustPeriod).catch(
-          () => null
-        )
-      : null,
-    // The node id is half of a peer address and the only half we can state as
-    // fact; it is worth showing even where no P2P address is published.
-    getNodeIds(rpcServers).catch(() => new Map<string, string>()),
-  ]);
+  const stateSync = wantsStateSync
+    ? await getStateSync(chain, rpcServers, services?.stateSync?.trustPeriod).catch(
+        () => null
+      )
+    : null;
+
+  // Every archive we publish sits in /snapshots on the RPC host it came from.
+  const snapshotsDir = snapshot?.url
+    ? snapshot.url.slice(0, snapshot.url.lastIndexOf("/") + 1)
+    : rpcServers[0] && services?.snapshotKey
+      ? `${rpcServers[0].replace(/\/$/, "")}/snapshots/`
+      : null;
 
   const spec: InfraSpec = {
     endpoints: (services?.endpoints ?? []).map((e) => ({
@@ -148,15 +150,12 @@ export default async function InfraPage({
       note: e.note,
     })),
 
+    snapshotsDir,
+
     snapshot: snapshot
       ? {
           live: snapshot.status === "live",
           url: snapshot.url,
-          headline: snapshot.size ?? (snapshot.status === "live" ? "ready" : "soon"),
-          sub:
-            snapshot.status === "live"
-              ? (snapshot.pruning ?? "available")
-              : "coming soon",
           // Only offer commands for a snapshot that actually exists: a paste-able
           // recipe pointing at a file we have not published deletes a data
           // directory and then fails to refill it.
@@ -228,8 +227,6 @@ export default async function InfraPage({
 
     stateSync: stateSync
       ? {
-          trustHeight: stateSync.trustHeight,
-          trustHash: stateSync.trustHash,
           snippet: stateSync.snippet,
           rows: [
             {
@@ -253,23 +250,6 @@ export default async function InfraPage({
           ],
         }
       : null,
-
-    seeds: {
-      entries: services?.seeds ?? [],
-      key: "seeds",
-      note: "Seeds are dialled only to discover other nodes, then dropped. Put them in the `seeds` line of config.toml, not in `persistent_peers`.",
-    },
-
-    peers: {
-      entries: [...(services?.peers ?? [])],
-      key: "persistent_peers",
-      note:
-        nodeIds.size > 0
-          ? `Persistent peers are held open rather than rotated. Our own node ${
-              nodeIds.size === 1 ? "id is" : "ids are"
-            } ${[...nodeIds.values()].join(", ")} — the P2P host and port are not discoverable from the RPC, so they are only listed here where we publish them.`
-          : "Persistent peers are held open rather than rotated, so use them for nodes you want a lasting connection to.",
-    },
 
     indexer: {
       indexed: chain.indexed,

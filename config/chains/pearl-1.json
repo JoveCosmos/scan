@@ -1,10 +1,10 @@
 {
-  "chainId": "sapphire-1",
+  "chainId": "pearl-1",
   "order": 1,
   "tier": "high",
   "name": "gnoland",
   "prettyName": "Gno.land Testnet",
-  "logo": "/chains/gnoland.svg",
+  "logo": "/chains/gnoland.png",
   "kind": "gno",
   "network": "testnet",
   "bech32Prefix": "g",
@@ -12,16 +12,11 @@
   "exponent": 6,
   "lcdEndpoints": [],
   "rpcEndpoints": [
-    "https://gnoland-testnet-rpc.gatadao.com",
-    "https://sapphire.rpc.onbloc.xyz"
-  ],
-  "apiEndpoints": [
-    "https://sapphire.api.onbloc.xyz/v1"
+    "https://gnoland-testnet-rpc.gatadao.com"
   ],
   "indexerEndpoints": [
-    "https://sapphire.indexer.onbloc.xyz/graphql/query"
+    "http://127.0.0.1:8546/graphql/query"
   ],
-  "wsEndpoint": "wss://sapphire.rpc.onbloc.xyz/websocket",
   "featuredValidator": null,
   "accent": "#62D9FF",
   "website": "https://gno.land",

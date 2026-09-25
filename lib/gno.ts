@@ -17,7 +17,10 @@ import {
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
  * no staking module, and the RPC ships with transaction indexing disabled — its
  * /tx_search route 404s. Chain head and the validator set therefore come from
- * JSON-RPC, while blocks and transactions come from an indexing REST API.
+ * JSON-RPC, while blocks and transactions come from our own tx-indexer
+ * (gnolang/tx-indexer), which runs beside the node on this box and answers
+ * GraphQL. It replaced Onbloc's REST API, which did not follow the network onto
+ * gnoland-1 or pearl-1.
  */
 
 interface RpcEnvelope<T> {
@@ -44,7 +47,8 @@ async function gnoRpc<T>(
     chain.rpcEndpoints,
     path,
     { cache: "no-store", timeoutMs: opts.timeoutMs ?? 8000 },
-    `${chain.chainId} rpc`
+    `${chain.chainId} rpc`,
+    chain.fallbackRpcEndpoints
   );
   if (!res.result) {
     throw new Error(res.error?.message ?? `Empty RPC result for ${path}`);
@@ -58,7 +62,7 @@ async function abciQuery(
   path: string,
   timeoutMs = 8000
 ): Promise<string | null> {
-  for (const endpoint of chain.rpcEndpoints) {
+  for (const endpoint of [...chain.rpcEndpoints, ...chain.fallbackRpcEndpoints]) {
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -91,43 +95,75 @@ async function abciQuery(
   return null;
 }
 
-async function gnoApi<T>(
+/**
+ * One GraphQL query against the tx-indexer. Values always travel as variables,
+ * never spliced into the query text, since heights, hashes and addresses all
+ * arrive from the URL.
+ *
+ * The indexer has no limit argument: a query returns every match, capped at
+ * 10,000 rows. Callers bound their queries by height instead.
+ */
+async function gql<T>(
   chain: ChainConfig,
-  path: string,
-  searchParams?: Record<string, string | number | boolean | undefined>,
+  query: string,
+  variables: Record<string, unknown> = {},
   timeoutMs = 10_000
 ): Promise<T> {
-  const res = await fetchFrom<{ data?: T }>(
-    chain.apiEndpoints,
-    path,
-    { cache: "no-store", timeoutMs, searchParams },
-    `${chain.chainId} api`
-  );
-  if (res.data === undefined) throw new Error(`Empty API payload for ${path}`);
-  return res.data;
+  let lastError: unknown = new Error(`${chain.chainId} has no indexer endpoint`);
+  for (const endpoint of chain.indexerEndpoints) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ query, variables }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) throw new Error(`indexer HTTP ${res.status}`);
+      const json = (await res.json()) as { data?: T; errors?: { message: string }[] };
+      if (json.errors?.length) throw new Error(json.errors[0].message);
+      if (!json.data) throw new Error("indexer returned no data");
+      return json.data;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
 }
 
-interface ApiBlockItem {
-  blockHash: string;
-  blockProposer: string;
-  blockProposerLabel: string;
-  timestamp: string;
-  blockHeight: number;
-  totalFees: number;
-  transactionCount: number;
+interface IdxBlock {
+  hash: string;
+  height: number;
+  time: string;
+  chain_id: string;
+  num_txs: number;
+  proposer_address_raw: string;
 }
 
-interface ApiTxItem {
-  txHash: string;
-  fee: { value: string; denom: string };
-  timestamp: string;
-  blockHeight: number;
-  messageCount: number;
-  successYn: boolean;
-  func: { messageType: string; funcType: string; pkgPath: string }[];
+const BLOCK_FIELDS = "hash height time chain_id num_txs proposer_address_raw";
+
+type IdxMessageValue =
+  | { __typename: "MsgCall"; func: string; pkg_path: string }
+  | { __typename: "BankMsgSend" | "MsgAddPackage" | "MsgRun" | "UnexpectedMessage" };
+
+interface IdxTx {
+  hash: string;
+  index: number;
+  block_height: number;
+  success: boolean;
+  gas_used: number;
+  gas_wanted: number;
+  gas_fee: { amount: number; denom: string } | null;
+  memo: string;
+  messages: { typeUrl: string; route: string; value: IdxMessageValue | null }[];
+  response: { error: string; log: string } | null;
 }
 
-/** "/vm.m_call" + funcType "Approve" reads better as "Approve". */
+const TX_FIELDS = `hash index block_height success gas_used gas_wanted
+  gas_fee { amount denom } memo response { error log }
+  messages { typeUrl route value { __typename ... on MsgCall { func pkg_path } } }`;
+
+/** "vm" + "exec" calling Approve reads better as "Approve". */
 function labelForGnoMessage(fn: {
   messageType: string;
   funcType: string;
@@ -135,45 +171,107 @@ function labelForGnoMessage(fn: {
 }): string {
   if (fn.funcType) return fn.funcType;
   const bare = fn.messageType.replace(/^\//, "").replace(/^vm\.|^bank\./, "");
-  return bare.replace(/^m_/, "").replace(/^([a-z])/, (m) => m.toUpperCase());
+  return bare
+    .replace(/^m_/, "")
+    .replace(/_/g, " ")
+    .replace(/^([a-z])/, (m) => m.toUpperCase());
 }
 
-function toTxSummary(item: ApiTxItem): TxSummary {
-  const messages = (item.func ?? []).map((fn) => ({
-    typeUrl: fn.pkgPath ? `${fn.messageType} ${fn.pkgPath}` : fn.messageType,
-    label: labelForGnoMessage(fn),
-    // The indexing API exposes no per-message parties or amounts.
-    transfer: null,
-  }));
+function toTxMessages(tx: IdxTx): TxMessage[] {
+  return (tx.messages ?? []).map((m) => {
+    const messageType = `/${m.route}.${m.typeUrl}`;
+    const call = m.value?.__typename === "MsgCall" ? m.value : null;
+    return {
+      typeUrl: call?.pkg_path ? `${messageType} ${call.pkg_path}` : messageType,
+      label: labelForGnoMessage({
+        messageType,
+        funcType: call?.func ?? "",
+        pkgPath: call?.pkg_path ?? "",
+      }),
+      transfer: null,
+    };
+  });
+}
 
+function toTxSummary(tx: IdxTx, time: string | null): TxSummary {
+  const messages = toTxMessages(tx);
   return {
-    hash: item.txHash,
-    height: String(item.blockHeight),
-    time: item.timestamp,
-    // The API reports success as a boolean; map onto the ABCI convention where 0
-    // means success so the shared UI can render it unchanged.
-    code: item.successYn ? 0 : 1,
+    hash: tx.hash,
+    height: String(tx.block_height),
+    time: time ?? "",
+    // Map onto the ABCI convention where 0 means success so the shared UI can
+    // render it unchanged.
+    code: tx.success ? 0 : 1,
     messages,
-    messageCount: item.messageCount ?? messages.length,
-    // gno's indexing API exposes no transfer parties or amounts.
+    messageCount: messages.length,
     transfer: null,
-    fee: item.fee?.value
-      ? [{ denom: item.fee.denom, amount: item.fee.value }]
+    fee: tx.gas_fee?.amount
+      ? [{ denom: tx.gas_fee.denom, amount: String(tx.gas_fee.amount) }]
       : [],
-    gasUsed: null,
-    gasWanted: null,
-    memo: "",
+    gasUsed: tx.gas_used ? String(tx.gas_used) : null,
+    gasWanted: tx.gas_wanted ? String(tx.gas_wanted) : null,
+    memo: tx.memo ?? "",
   };
 }
 
-function toBlockSummary(item: ApiBlockItem): BlockSummary {
+/** Block times for a set of heights — transactions carry a height but no time. */
+async function blockTimes(
+  chain: ChainConfig,
+  heights: number[]
+): Promise<Map<number, string>> {
+  const unique = [...new Set(heights)];
+  if (unique.length === 0) return new Map();
+  const data = await gql<{ getBlocks: { height: number; time: string }[] | null }>(
+    chain,
+    `query($o: [FilterBlock!]) { getBlocks(where: { _or: $o }) { height time } }`,
+    { o: unique.map((h) => ({ height: { eq: h } })) }
+  );
+  return new Map((data.getBlocks ?? []).map((b) => [b.height, b.time]));
+}
+
+async function withTimes(chain: ChainConfig, txs: IdxTx[]): Promise<TxSummary[]> {
+  const times = await blockTimes(chain, txs.map((t) => t.block_height)).catch(
+    () => new Map<number, string>()
+  );
+  return txs.map((t) => toTxSummary(t, times.get(t.block_height) ?? null));
+}
+
+/** signing address -> moniker, from whatever the realm index has ready. */
+async function proposerNames(chain: ChainConfig): Promise<Map<string, string>> {
+  try {
+    const index = await getValoperIndexNow(chain, 300);
+    const map = new Map<string, string>();
+    for (const [signing, profile] of index.bySigning) {
+      if (profile.moniker) map.set(signing, profile.moniker);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function toBlockSummary(block: IdxBlock, names: Map<string, string>): BlockSummary {
   return {
-    height: String(item.blockHeight),
-    time: item.timestamp,
-    txCount: item.transactionCount ?? 0,
-    proposer: item.blockProposerLabel || item.blockProposer,
-    hash: item.blockHash,
+    height: String(block.height),
+    time: block.time,
+    txCount: block.num_txs ?? 0,
+    proposer: names.get(block.proposer_address_raw) || block.proposer_address_raw,
+    hash: block.hash,
   };
+}
+
+async function headHeight(chain: ChainConfig): Promise<number> {
+  const status = await gnoRpc<StatusResult>(chain, "/status");
+  return Number(status.sync_info.latest_block_height);
+}
+
+async function blocksAbove(chain: ChainConfig, above: number): Promise<IdxBlock[]> {
+  const data = await gql<{ getBlocks: IdxBlock[] | null }>(
+    chain,
+    `query($h: Int!) { getBlocks(where: { height: { gt: $h } }, order: { height: DESC }) { ${BLOCK_FIELDS} } }`,
+    { h: above }
+  );
+  return data.getBlocks ?? [];
 }
 
 export async function gnoOverview(chain: ChainConfig): Promise<ChainOverview> {
@@ -181,21 +279,20 @@ export async function gnoOverview(chain: ChainConfig): Promise<ChainOverview> {
   // list is usually ready by the time it is opened.
   prewarmValoperIndex(chain);
 
-  const [status, validators, blocks] = await Promise.allSettled([
+  const [status, validators] = await Promise.allSettled([
     gnoRpc<StatusResult>(chain, "/status"),
     gnoRpc<ValidatorsResult>(chain, "/validators"),
-    gnoApi<{ items: ApiBlockItem[] }>(chain, "/blocks", { limit: 1 }),
   ]);
 
   const head = status.status === "fulfilled" ? status.value.sync_info : null;
+  const latest = head
+    ? await blocksAbove(chain, Number(head.latest_block_height) - 1).catch(() => [])
+    : [];
 
   return {
     height: head?.latest_block_height ?? null,
     blockTime: head?.latest_block_time ?? null,
-    txCount:
-      blocks.status === "fulfilled"
-        ? (blocks.value.items?.[0]?.transactionCount ?? null)
-        : null,
+    txCount: latest[0]?.num_txs ?? null,
     activeValidators:
       validators.status === "fulfilled" ? validators.value.validators.length : null,
     // gno.land has no staking module, so there is no bonded ratio or supply to
@@ -210,23 +307,13 @@ export async function gnoRecentBlocks(
   chain: ChainConfig,
   count = 15
 ): Promise<BlockSummary[]> {
-  const data = await gnoApi<{ items: ApiBlockItem[] }>(chain, "/blocks", {
-    limit: count,
-  });
-  return (data.items ?? []).map(toBlockSummary);
-}
-
-interface ApiBlockDetail {
-  blockHash: string;
-  chainID: string;
-  timestamp: string;
-  proposerAddress: string;
-  proposerLabel: string;
-  blockHeight: number;
-  gasUsed: number;
-  gasWanted: number;
-  totalFees: number;
-  transactionCount: number;
+  // The indexer can trail the node by a block or two, so anchor on its own head.
+  const [idx, names] = await Promise.all([
+    gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }"),
+    proposerNames(chain),
+  ]);
+  const blocks = await blocksAbove(chain, idx.latestBlockHeight - count);
+  return blocks.slice(0, count).map((b) => toBlockSummary(b, names));
 }
 
 export interface GnoBlockDetail extends BlockSummary {
@@ -241,36 +328,44 @@ export async function gnoBlockDetail(
   chain: ChainConfig,
   height: string | number
 ): Promise<GnoBlockDetail | null> {
-  // Heights are interpolated into an API path. See lib/input.ts.
   if (!isNumericId(height)) return null;
+  const h = Number(height);
 
-  let detail: ApiBlockDetail;
+  let block: IdxBlock | undefined;
+  let txs: IdxTx[] = [];
   try {
-    // Single-record endpoints nest their payload one level deeper than lists.
-    const wrapper = await gnoApi<{ data: ApiBlockDetail } | ApiBlockDetail>(
+    const data = await gql<{ getBlocks: IdxBlock[] | null; getTransactions: IdxTx[] | null }>(
       chain,
-      `/blocks/${height}`
+      `query($h: Int!) {
+        getBlocks(where: { height: { eq: $h } }) { ${BLOCK_FIELDS} }
+        getTransactions(where: { block_height: { eq: $h } }) { ${TX_FIELDS} }
+      }`,
+      { h }
     );
-    detail = ("data" in wrapper ? wrapper.data : wrapper) as ApiBlockDetail;
+    block = data.getBlocks?.[0];
+    txs = data.getTransactions ?? [];
   } catch {
     return null;
   }
+  if (!block) return null;
 
-  // A height that does not exist comes back as 200 with an all-zero record
-  // rather than a 404, so emptiness is the only available "missing" signal.
-  if (!detail || !detail.blockHash || detail.blockHeight === 0) return null;
+  const names = await proposerNames(chain);
+  const sum = (pick: (t: IdxTx) => number) => txs.reduce((acc, t) => acc + (pick(t) || 0), 0);
+  const gasUsed = sum((t) => t.gas_used);
+  const gasWanted = sum((t) => t.gas_wanted);
+  const fees = sum((t) => t.gas_fee?.amount ?? 0);
 
   return {
-    height: String(detail.blockHeight),
-    time: detail.timestamp,
-    txCount: detail.transactionCount ?? 0,
-    proposer: detail.proposerAddress,
-    hash: detail.blockHash,
-    chainId: detail.chainID || null,
-    proposerLabel: detail.proposerLabel || null,
-    gasUsed: detail.gasUsed ? String(detail.gasUsed) : null,
-    gasWanted: detail.gasWanted ? String(detail.gasWanted) : null,
-    totalFees: detail.totalFees ? String(detail.totalFees) : null,
+    height: String(block.height),
+    time: block.time,
+    txCount: block.num_txs ?? 0,
+    proposer: block.proposer_address_raw,
+    hash: block.hash,
+    chainId: block.chain_id || null,
+    proposerLabel: names.get(block.proposer_address_raw) ?? null,
+    gasUsed: gasUsed ? String(gasUsed) : null,
+    gasWanted: gasWanted ? String(gasWanted) : null,
+    totalFees: fees ? String(fees) : null,
   };
 }
 
@@ -281,135 +376,81 @@ export async function gnoBlockTxs(
   if (!isNumericId(height)) return [];
 
   try {
-    const data = await gnoApi<{ items: ApiTxItem[] }>(
+    const data = await gql<{ getTransactions: IdxTx[] | null }>(
       chain,
-      `/blocks/${height}/transactions`
+      `query($h: Int!) { getTransactions(where: { block_height: { eq: $h } }, order: { heightAndIndex: ASC }) { ${TX_FIELDS} } }`,
+      { h: Number(height) }
     );
-    return (data.items ?? []).map(toTxSummary);
-  } catch {
-    return [];
-  }
-}
-
-export async function gnoRecentTxs(
-  chain: ChainConfig,
-  count = 20
-): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
-  const [txs, status] = await Promise.allSettled([
-    gnoApi<{ items: ApiTxItem[] }>(chain, "/transactions", { limit: count }),
-    gnoRpc<StatusResult>(chain, "/status"),
-  ]);
-
-  return {
-    txs:
-      txs.status === "fulfilled" ? (txs.value.items ?? []).map(toTxSummary) : [],
-    scannedBlocks: 0,
-    headHeight:
-      status.status === "fulfilled" ? status.value.sync_info.latest_block_height : null,
-  };
-}
-
-interface ApiTxDetail {
-  txHash: string;
-  timestamp: string;
-  blockHeight: number;
-  memo: string;
-  errorLog: string;
-  success: boolean;
-  transactionFee: { value: string; denom: string };
-  gas: { used: number; wanted: number; usedPercentage: string };
-}
-
-/** Coarse message list from the GraphQL indexer — the REST detail omits messages. */
-async function gnoTxMessages(
-  chain: ChainConfig,
-  hash: string
-): Promise<TxMessage[]> {
-  const endpoint = chain.indexerEndpoints[0];
-  if (!endpoint) return [];
-
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      cache: "no-store",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        query: `{ transactions(filter: {hash: ${JSON.stringify(hash)}}) { messages { route typeUrl } } }`,
-      }),
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return [];
-
-    const json = (await res.json()) as {
-      data?: { transactions?: { messages?: { route: string; typeUrl: string }[] }[] };
-    };
-    const messages = json.data?.transactions?.[0]?.messages ?? [];
-    return messages.map((m) => ({
-      transfer: null,
-      typeUrl: `/${m.route}.${m.typeUrl}`,
-      label: labelForGnoMessage({
-        messageType: `/${m.route}.${m.typeUrl}`,
-        funcType: "",
-        pkgPath: "",
-      }),
-    }));
+    return withTimes(chain, data.getTransactions ?? []);
   } catch {
     return [];
   }
 }
 
 /**
- * The REST list endpoint silently ignores a `txHash` filter — it returns the
- * newest page regardless — so a single tx must be read from /transactions/{hash}.
- * That record carries gas, memo and the error log but no messages, which come
- * from the GraphQL indexer instead. Either source may be missing without
- * failing the lookup.
+ * Transactions are sparse on gno — a quiet testnet can go ten thousand blocks
+ * without one — and the indexer takes no limit, so look back in widening
+ * windows and stop at the first that holds enough. The last window is the
+ * whole chain, which the indexer caps at its newest 10,000 rows.
  */
+const TX_WINDOWS = [2_000, 50_000, Number.POSITIVE_INFINITY];
+
+export async function gnoRecentTxs(
+  chain: ChainConfig,
+  count = 20
+): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
+  let head: number | null = null;
+  try {
+    head = (await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }"))
+      .latestBlockHeight;
+  } catch {
+    head = await headHeight(chain).catch(() => null);
+  }
+  if (head === null) return { txs: [], scannedBlocks: 0, headHeight: null };
+
+  let found: IdxTx[] = [];
+  for (const window of TX_WINDOWS) {
+    const above = Number.isFinite(window) ? Math.max(0, head - window) : 0;
+    try {
+      const data = await gql<{ getTransactions: IdxTx[] | null }>(
+        chain,
+        `query($h: Int!) { getTransactions(where: { block_height: { gt: $h } }, order: { heightAndIndex: DESC }) { ${TX_FIELDS} } }`,
+        { h: above }
+      );
+      found = data.getTransactions ?? [];
+    } catch {
+      break;
+    }
+    if (found.length >= count) break;
+  }
+
+  return {
+    txs: await withTimes(chain, found.slice(0, count)),
+    scannedBlocks: 0,
+    headHeight: String(head),
+  };
+}
+
+/** A single transaction by hash, with its messages, gas, memo and error log. */
 export async function gnoTx(
   chain: ChainConfig,
   hash: string
 ): Promise<(TxSummary & { rawLog: string }) | null> {
-  let detail: ApiTxDetail;
+  let tx: IdxTx | undefined;
   try {
-    // This endpoint nests its payload one level deeper than the list endpoints.
-    const wrapper = await gnoApi<{ data: ApiTxDetail } | ApiTxDetail>(
+    const data = await gql<{ getTransactions: IdxTx[] | null }>(
       chain,
-      `/transactions/${encodeURIComponent(hash)}`
+      `query($h: String!) { getTransactions(where: { hash: { eq: $h } }) { ${TX_FIELDS} } }`,
+      { h: hash }
     );
-    detail = ("data" in wrapper ? wrapper.data : wrapper) as ApiTxDetail;
-    if (!detail?.txHash) return null;
+    tx = data.getTransactions?.[0];
   } catch {
     return null;
   }
+  if (!tx) return null;
 
-  const messages = await gnoTxMessages(chain, detail.txHash);
-
-  return {
-    hash: detail.txHash,
-    height: String(detail.blockHeight),
-    time: detail.timestamp,
-    code: detail.success ? 0 : 1,
-    messages,
-    messageCount: messages.length,
-    transfer: null,
-    fee: detail.transactionFee?.value
-      ? [{ denom: detail.transactionFee.denom, amount: detail.transactionFee.value }]
-      : [],
-    gasUsed: detail.gas ? String(detail.gas.used) : null,
-    gasWanted: detail.gas ? String(detail.gas.wanted) : null,
-    memo: detail.memo ?? "",
-    rawLog: detail.errorLog ?? "",
-  };
-}
-
-interface ApiValidatorItem {
-  monikerName: string;
-  status: string;
-  address: string;
-  votingPower: string;
-  shareRate: string;
-  firstCommittedHeight: number | null;
-  firstCommittedTime: string | null;
+  const [summary] = await withTimes(chain, [tx]);
+  return { ...summary, rawLog: tx.response?.error ?? "" };
 }
 
 /**
@@ -418,7 +459,7 @@ interface ApiValidatorItem {
  * Every consensus validator has a valopers profile, so falling back to raw
  * addresses is always wrong rather than merely incomplete. The budget is
  * therefore generous: a cold index takes ~25s to build and the listing sits
- * behind a skeleton meanwhile, which beats rendering 87 unreadable addresses.
+ * behind a skeleton meanwhile, which beats rendering unreadable addresses.
  * The cap only exists so an unreachable realm cannot hang the page forever.
  */
 async function valoperMonikers(chain: ChainConfig): Promise<Map<string, string>> {
@@ -463,39 +504,12 @@ function rankValidators(
 }
 
 /**
- * The active consensus set. Preferred source is the indexing API because it
- * carries monikers; the JSON-RPC validator set is the fallback and yields bare
- * addresses. Either way "voting power" is raw Tendermint power — gno.land has
- * no staking module, so commission and jailing have no meaning here.
+ * The active consensus set, from JSON-RPC, named from the valopers realm.
+ * "Voting power" is raw Tendermint power — gno.land has no staking module, so
+ * commission and jailing have no meaning here.
  */
 export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
   prewarmValoperIndex(chain);
-  try {
-    const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
-      limit: 100,
-    });
-    const active = (data.items ?? []).filter((v) => v.status === "ACTIVE");
-    if (active.length > 0) {
-      // The indexing API knows a moniker for only a couple of validators; the
-      // valopers realm is the real identity registry, so prefer it and fall
-      // back to whatever the API has.
-      const monikers = await valoperMonikers(chain);
-      return rankValidators(
-        active.map((v) => ({
-          address: v.address,
-          moniker: monikers.get(v.address) || v.monikerName || v.address,
-          power: Number(v.votingPower),
-          status: v.status,
-        }))
-      );
-    }
-  } catch {
-    // Fall through to the RPC consensus set.
-  }
-
-  // Identity comes from the realm, not from whichever source supplied the set,
-  // so the fallback must resolve monikers too — otherwise a blip on the
-  // indexing API silently turns every name back into a raw address.
   const [res, monikers] = await Promise.all([
     gnoRpc<ValidatorsResult>(chain, "/validators", { timeoutMs: 12_000 }),
     valoperMonikers(chain),
@@ -567,7 +581,11 @@ export async function gnoAccount(
   };
 }
 
-/** Transactions this account sent or received, newest first. */
+/**
+ * Transactions this account sent or received, newest first: every message kind
+ * that names an address — a bank send either way, a realm call or run by it,
+ * a package it deployed.
+ */
 export async function gnoAccountTxs(
   chain: ChainConfig,
   address: string,
@@ -578,13 +596,31 @@ export async function gnoAccountTxs(
     return { txs: [], total: 0, failed: false, source: "search" as const };
 
   try {
-    const data = await gnoApi<{ items: ApiTxItem[] }>(
+    const data = await gql<{ getTransactions: IdxTx[] | null }>(
       chain,
-      `/accounts/${address}/transactions`,
-      { limit }
+      `query($a: String!) {
+        getTransactions(
+          where: { messages: { value: { _or: [
+            { BankMsgSend: { _or: [{ from_address: { eq: $a } }, { to_address: { eq: $a } }] } },
+            { MsgCall: { caller: { eq: $a } } },
+            { MsgRun: { caller: { eq: $a } } },
+            { MsgAddPackage: { creator: { eq: $a } } }
+          ] } } }
+          order: { heightAndIndex: DESC }
+        ) { ${TX_FIELDS} }
+      }`,
+      { a: address },
+      20_000
     );
-    const txs = (data.items ?? []).map(toTxSummary);
-    return { txs, total: txs.length, failed: false, source: "search" as const };
+    const all = data.getTransactions ?? [];
+    const txs = await withTimes(chain, all.slice(0, limit));
+    // The indexer caps a result at 10,000 rows, so a full page is a floor.
+    return {
+      txs,
+      total: all.length < 10_000 ? all.length : null,
+      failed: false,
+      source: "search" as const,
+    };
   } catch {
     return { txs: [], total: null, failed: true, source: "search" as const };
   }
@@ -633,7 +669,8 @@ export async function gnoUptime(
         chain.rpcEndpoints,
         `/block?height=${h}`,
         { cache: "no-store", timeoutMs: 8000 },
-        `${chain.chainId} rpc`
+        `${chain.chainId} rpc`,
+        chain.fallbackRpcEndpoints
       )
     )
   );
@@ -700,29 +737,30 @@ export async function gnoValidatorDetail(
 ): Promise<GnoValidatorDetail | null> {
   prewarmValoperIndex(chain);
   try {
-    const data = await gnoApi<{ items: ApiValidatorItem[] }>(chain, "/validators", {
-      limit: 100,
-    });
-    const items = data.items ?? [];
-    const hit = items.find((v) => v.address === address);
-    if (!hit) return null;
+    const [set, monikers] = await Promise.all([
+      gnoRpc<ValidatorsResult>(chain, "/validators", { timeoutMs: 12_000 }),
+      valoperMonikers(chain),
+    ]);
+    const ranked = [...set.validators].sort(
+      (a, b) => Number(b.voting_power) - Number(a.voting_power)
+    );
+    const index = ranked.findIndex((v) => v.address === address);
+    if (index < 0) return null;
 
-    const active = items
-      .filter((v) => v.status === "ACTIVE")
-      .sort((a, b) => Number(b.votingPower) - Number(a.votingPower));
-    const rankIndex = active.findIndex((v) => v.address === address);
-
-    const monikers = await valoperMonikers(chain);
+    const hit = ranked[index];
+    const total = ranked.reduce((sum, v) => sum + Number(v.voting_power), 0);
 
     return {
       address: hit.address,
-      moniker: monikers.get(hit.address) || hit.monikerName || null,
-      status: hit.status,
-      votingPower: hit.votingPower,
-      sharePercent: hit.shareRate ? Number(hit.shareRate) : null,
-      rank: rankIndex >= 0 ? rankIndex + 1 : null,
-      firstCommittedHeight: hit.firstCommittedHeight,
-      firstCommittedTime: hit.firstCommittedTime,
+      moniker: monikers.get(hit.address) || null,
+      status: "ACTIVE",
+      votingPower: hit.voting_power,
+      sharePercent: total > 0 ? (Number(hit.voting_power) / total) * 100 : null,
+      rank: index + 1,
+      // Neither the node nor the tx-indexer records when a validator first
+      // signed, and a guess would be a wrong fact on the page.
+      firstCommittedHeight: null,
+      firstCommittedTime: null,
     };
   } catch {
     return null;

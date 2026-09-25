@@ -81,6 +81,7 @@ export function RowDeck({
   toolbar,
   empty = "Nothing to show.",
   filter,
+  limit,
 }: {
   columns: DeckColumn[];
   rows: DeckRow[];
@@ -94,6 +95,13 @@ export function RowDeck({
    * query; a deck that pages its rows is also the thing that should narrow them.
    */
   filter?: { placeholder: string };
+  /**
+   * Show only the first `limit` rows, unpaged. For live feeds — the newest
+   * blocks, the newest transactions — where page two is already stale by the
+   * time you reach it. On a screen too short for all of them the rows scroll
+   * inside the deck.
+   */
+  limit?: number;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [perPage, setPerPage] = useState(12);
@@ -114,12 +122,15 @@ export function RowDeck({
 
   const matched = useMemo(() => filterDeckRows(rows, query), [rows, query]);
 
-  const pages = Math.max(1, Math.ceil(matched.length / perPage));
+  const pages = limit ? 1 : Math.max(1, Math.ceil(matched.length / perPage));
   // A filter that shortens the list must not strand you on a page past its end.
   const current = Math.min(page, pages - 1);
   const shown = useMemo(
-    () => matched.slice(current * perPage, current * perPage + perPage),
-    [matched, current, perPage]
+    () =>
+      limit
+        ? matched.slice(0, limit)
+        : matched.slice(current * perPage, current * perPage + perPage),
+    [matched, current, perPage, limit]
   );
   const open = rows.find((r) => r.key === openKey) ?? null;
 
@@ -144,7 +155,10 @@ export function RowDeck({
         </div>
       ) : null}
 
-      <div ref={bodyRef} className="min-h-0 flex-1 border border-border">
+      <div
+        ref={bodyRef}
+        className={`min-h-0 border border-border ${limit ? "max-h-full shrink overflow-y-auto" : "flex-1"}`}
+      >
         <table className="w-full table-fixed border-collapse">
           <thead>
             <tr className="border-b border-border">
@@ -230,7 +244,9 @@ export function RowDeck({
             ? query
               ? `no match of ${rows.length}`
               : "0"
-            : `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`}
+            : limit
+              ? `latest ${shown.length}`
+              : `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`}
         </span>
         {pages > 1 ? (
           <span className="flex items-center gap-1">

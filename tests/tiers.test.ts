@@ -8,7 +8,7 @@ describe("tiers", () => {
     for (const chain of getAllChains()) byTier[chain.tier].push(chain.chainId);
 
     expect(byTier).toEqual({
-      high: ["sapphire-1", "atomone-1", "atomone-testnet-1"],
+      high: ["gnoland-1", "pearl-1", "atomone-1", "atomone-testnet-1"],
       medium: ["cosmoshub-4", "provider", "akashnet-2"],
       limited: ["osmosis-1", "passage-2", "juno-1"],
     });
@@ -52,7 +52,7 @@ describe("tiers", () => {
   // A tier is a decision about what we serve, so it must never be the reason a
   // capability appears. gno.land has no staking module at any tier.
   it("does not grant a chain anything its kind cannot do", () => {
-    const gno = getChain("sapphire-1")!;
+    const gno = getChain("gnoland-1")!;
     expect(gno.tier).toBe("high");
     expect(gno.kind).toBe("gno");
   });

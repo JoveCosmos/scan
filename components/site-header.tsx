@@ -160,10 +160,10 @@ function ChainSwitcher({
 /**
  * The header: the mark, search, the chain switcher, and the chain's sections.
  *
- * Sections are tabs in a second row rather than a side rail: the rail cost
- * 224px of width on every page to show seven words, and on a phone it hid
- * behind a drawer. A row of tabs scrolls sideways on a narrow screen and is
- * always in view.
+ * Sections are tabs in the header's one row rather than a side rail: the rail
+ * cost 224px of width on every page to show seven words, and on a phone it hid
+ * behind a drawer. The tabs scroll sideways on a narrow screen and are always
+ * in view.
  *
  * The home page has no chain in its route, so there the tabs and the switcher
  * follow the last chain you visited (on a first visit, the first mainnet in
@@ -250,29 +250,72 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
 
   return (
     <header className="relative z-30 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+      {/*
+        One row: the mark, the sections, search, the switcher. On a phone
+        there is not the width for search beside seven tabs, so it wraps onto
+        a row of its own underneath; the tabs keep the top row and scroll.
+      */}
+      <div className="mx-auto flex max-w-[90rem] flex-wrap items-center gap-x-3 px-4">
         <Link
           href="/"
-          className="group mr-auto flex shrink-0 items-center gap-2"
+          title="GATA SCAN"
+          aria-label="GATA SCAN home"
+          className="group flex h-14 shrink-0 items-center"
         >
-          {/* The G and the word are the same height, so they read as one
-              wordmark rather than an icon with a caption. */}
           <Image
             src="/gata_logo_white.png"
             alt=""
             width={30}
             height={33}
             priority
-            className="h-[18px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+            className="h-[22px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
           />
-          <span className="hidden text-[18px] font-semibold uppercase leading-none tracking-[0.18em] text-foreground/90 min-[380px]:inline">
-            Scan
-          </span>
         </Link>
+
+        {chain ? (
+          <nav
+            aria-label="Sections"
+            style={{ ["--tab-acc" as string]: chain.accent }}
+            className="flex h-14 min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]"
+          >
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const active =
+                routeChain !== null &&
+                pathname.startsWith(`/${chain.chainId}${tab.href}`);
+              const na = unavailable(tab);
+              return (
+                <Link
+                  key={tab.href}
+                  href={`/${chain.chainId}${tab.href}`}
+                  title={
+                    na
+                      ? `${tab.label} — not available on this network`
+                      : tab.label
+                  }
+                  aria-current={active ? "page" : undefined}
+                  className={`nav-tab ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
+                >
+                  <Icon className="hidden h-3.5 w-3.5 shrink-0 xl:block" />
+                  {tab.label}
+                  {/* Marked rather than hidden: a tab that vanishes on one
+                      chain makes the reader wonder what else differs. */}
+                  {na ? (
+                    <span className="font-mono text-[8px] leading-none tracking-wide text-[var(--gata-faint)]">
+                      N/A
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </nav>
+        ) : (
+          <div className="flex-1" />
+        )}
 
         {/* Search is global; the active chain is only a tie-breaker hint. */}
         {isHome ? null : (
-          <div className="min-w-0 max-w-xl flex-1">
+          <div className="order-last w-full pb-2.5 md:order-none md:w-64 md:pb-0 lg:w-72">
             <SearchBar chainId={routeChain?.chainId} />
           </div>
         )}
@@ -283,45 +326,6 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           section={section}
         />
       </div>
-
-      {chain ? (
-        <nav
-          aria-label="Sections"
-          style={{ ["--tab-acc" as string]: chain.accent }}
-          className="mx-auto flex h-10 max-w-6xl items-stretch overflow-x-auto px-2 [scrollbar-width:none] sm:px-3"
-        >
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active =
-              routeChain !== null &&
-              pathname.startsWith(`/${chain.chainId}${tab.href}`);
-            const na = unavailable(tab);
-            return (
-              <Link
-                key={tab.href}
-                href={`/${chain.chainId}${tab.href}`}
-                title={
-                  na
-                    ? `${tab.label} — not available on this network`
-                    : tab.label
-                }
-                aria-current={active ? "page" : undefined}
-                className={`nav-tab ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {tab.label}
-                {/* Marked rather than hidden: a tab that vanishes on one chain
-                    makes the reader wonder what else differs. */}
-                {na ? (
-                  <span className="font-mono text-[8px] leading-none tracking-wide text-[var(--gata-faint)]">
-                    N/A
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </nav>
-      ) : null}
     </header>
   );
 }

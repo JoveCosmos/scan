@@ -118,6 +118,7 @@ export function BlocksTable({
         { label: "Hash", optional: true, width: "22%" },
       ]}
       rows={rows}
+      limit={10}
       empty={isError ? "Connection lost — retrying." : "No blocks yet."}
     />
   );

@@ -89,9 +89,12 @@ const chainConfigSchema = z
      */
     fallbackLcdEndpoints: z.array(z.string().url()).default([]),
     fallbackRpcEndpoints: z.array(z.string().url()).default([]),
-    /** Indexing REST API. Required for gno, where the RPC cannot list txs. */
+    /** Indexing REST API. Unused since gno moved to our own tx-indexer. */
     apiEndpoints: z.array(z.string().url()).default([]),
-    /** Optional GraphQL tx-indexer, used to enrich single-tx lookups. */
+    /**
+     * GraphQL tx-indexer (gnolang/tx-indexer). Required for gno, where the RPC
+     * cannot list blocks or transactions; ours runs on this box.
+     */
     indexerEndpoints: z.array(z.string().url()).default([]),
     /**
      * Optional, and currently read by nothing — live data is polled over HTTP.
@@ -110,10 +113,10 @@ const chainConfigSchema = z
         message: `chain "${chain.chainId}" is kind "cosmos" and needs at least one lcdEndpoint`,
       });
     }
-    if (chain.kind === "gno" && chain.apiEndpoints.length === 0) {
+    if (chain.kind === "gno" && chain.indexerEndpoints.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `chain "${chain.chainId}" is kind "gno" and needs at least one apiEndpoint (the RPC cannot list transactions)`,
+        message: `chain "${chain.chainId}" is kind "gno" and needs at least one indexerEndpoint (the RPC cannot list blocks or transactions)`,
       });
     }
   });

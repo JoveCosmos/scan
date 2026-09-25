@@ -8,7 +8,8 @@ describe("chain order", () => {
   // rearranging the switcher.
   it("lists chains in the configured order", () => {
     expect(getAllChains().map((c) => c.chainId)).toEqual([
-      "sapphire-1",
+      "gnoland-1",
+      "pearl-1",
       "atomone-1",
       "atomone-testnet-1",
       "cosmoshub-4",
@@ -28,8 +29,8 @@ describe("chain order", () => {
 
   it("sorts a chain with no order to the end rather than dropping it", () => {
     const chains = getAllChains();
-    expect(chains).toHaveLength(9);
-    expect(new Set(chains.map((c) => c.order)).size).toBe(9);
+    expect(chains).toHaveLength(10);
+    expect(new Set(chains.map((c) => c.order)).size).toBe(10);
   });
 });
 

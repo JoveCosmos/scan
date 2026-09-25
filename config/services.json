@@ -1,6 +1,24 @@
 {
   "chains": [
     {
+      "chainId": "akashnet-2",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://akash-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://akash-api.gatadao.com",
+          "kind": "rest"
+        }
+      ],
+      "snapshotKey": "akash",
+      "daemon": "akash",
+      "home": "$HOME/.akash"
+    },
+    {
       "chainId": "atomone-1",
       "daemon": "atomoned",
       "home": "$HOME/.atomone",
@@ -22,6 +40,101 @@
         "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
       },
       "snapshotKey": "atomone"
+    },
+    {
+      "chainId": "cosmoshub-4",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://cosmoshub-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://cosmoshub-api.gatadao.com",
+          "kind": "rest"
+        }
+      ],
+      "snapshotKey": "gaia",
+      "daemon": "gaiad",
+      "home": "$HOME/.gaia"
+    },
+    {
+      "chainId": "juno-1",
+      "daemon": "junod",
+      "home": "$HOME/.juno",
+      "snapshotKey": "juno",
+      "snapshot": {
+        "schedule": "daily at 05:30 UTC",
+        "pruning": "custom (100/0/10), no tx index",
+        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+      },
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://juno-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://juno-api.gatadao.com",
+          "kind": "rest"
+        }
+      ]
+    },
+    {
+      "chainId": "osmosis-1",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://osmosis-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://osmosis-api.gatadao.com",
+          "kind": "rest"
+        }
+      ],
+      "snapshotKey": "osmosis",
+      "daemon": "osmosisd",
+      "home": "$HOME/.osmosisd"
+    },
+    {
+      "chainId": "passage-2",
+      "snapshotKey": "passage",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://passage-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://passage-api.gatadao.com",
+          "kind": "rest"
+        }
+      ],
+      "daemon": "passage",
+      "home": "$HOME/.passage"
+    },
+    {
+      "chainId": "provider",
+      "snapshotKey": "provider",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://provider-rpc.gatadao.com",
+          "kind": "rpc"
+        },
+        {
+          "label": "REST / API",
+          "url": "https://provider-api.gatadao.com",
+          "kind": "rest"
+        }
+      ],
+      "daemon": "gaiad",
+      "home": "$HOME/.gaia"
     },
     {
       "chainId": "atomone-testnet-1",
@@ -47,7 +160,26 @@
       "snapshotKey": "atomone-testnet"
     },
     {
-      "chainId": "sapphire-1",
+      "chainId": "gnoland-1",
+      "daemon": "gnoland",
+      "home": "gnoland-data",
+      "endpoints": [
+        {
+          "label": "RPC",
+          "url": "https://gnoland-rpc.gatadao.com",
+          "kind": "rpc"
+        }
+      ],
+      "snapshot": {
+        "pruning": "unpruned (gno has no pruning), no tx index",
+        "note": "Taken from a non-validating twin that follows gnoland-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
+      },
+      "snapshotKey": "gnoland",
+      "dataDir": "db",
+      "stateFile": "secrets/priv_validator_state.json"
+    },
+    {
+      "chainId": "pearl-1",
       "daemon": "gnoland",
       "home": "gnoland-data",
       "endpoints": [
@@ -58,32 +190,12 @@
         }
       ],
       "snapshot": {
-        "schedule": "daily at 06:50 UTC",
         "pruning": "unpruned (gno has no pruning), no tx index",
-        "note": "Taken from a non-validating twin that follows sapphire-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
+        "note": "Taken from a non-validating twin that follows pearl-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
       },
-      "snapshotKey": "sapphire",
+      "snapshotKey": "pearl",
       "dataDir": "db",
       "stateFile": "secrets/priv_validator_state.json"
-    },
-    {
-      "chainId": "juno-1",
-      "daemon": "junod",
-      "home": "$HOME/.juno",
-      "snapshotKey": "juno",
-      "snapshot": {
-        "schedule": "daily at 05:30 UTC",
-        "pruning": "custom (100/0/10), no tx index",
-        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
-      }
-    },
-    {
-      "chainId": "passage-2",
-      "snapshotKey": "passage"
-    },
-    {
-      "chainId": "provider",
-      "snapshotKey": "provider"
     }
   ]
 }

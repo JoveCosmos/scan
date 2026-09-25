@@ -1,0 +1,28 @@
+{
+  "chainId": "gnoland-1",
+  "order": 0,
+  "tier": "high",
+  "name": "gnoland",
+  "prettyName": "Gno.land",
+  "logo": "/chains/gnoland.png",
+  "kind": "gno",
+  "network": "mainnet",
+  "bech32Prefix": "g",
+  "denom": "ugnot",
+  "exponent": 6,
+  "lcdEndpoints": [],
+  "rpcEndpoints": [
+    "https://rpc.gno.land",
+    "https://gnoland-1.rpc.onbloc.xyz"
+  ],
+  "fallbackRpcEndpoints": [
+    "https://gnoland-rpc.gatadao.com"
+  ],
+  "indexerEndpoints": [
+    "http://127.0.0.1:8547/graphql/query"
+  ],
+  "featuredValidator": null,
+  "accent": "#62D9FF",
+  "website": "https://gno.land",
+  "repo": "https://github.com/gnolang/gno"
+}

@@ -149,6 +149,7 @@ export function TxsTable({
         { label: "Age", align: "right", phoneHide: true, width: "12%" },
       ]}
       rows={rows}
+      limit={10}
       empty={
         isError
           ? "Connection lost — retrying."
