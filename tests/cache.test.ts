@@ -64,3 +64,31 @@ describe("cached", () => {
     expect(await cached("k", 1000, flaky)).toBe("ok");
   });
 });
+
+describe("cached, stale-while-revalidate", () => {
+  it("returns the stale value at once and refreshes in the background", async () => {
+    let n = 0;
+    const load = async () => {
+      await new Promise((r) => setTimeout(r, 30));
+      return `v${++n}`;
+    };
+    expect(await cached("swr", 10, load, { staleMs: 1000 })).toBe("v1");
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Past the TTL, inside the stale window: no waiting on the loader.
+    const started = Date.now();
+    expect(await cached("swr", 10, load, { staleMs: 1000 })).toBe("v1");
+    expect(Date.now() - started).toBeLessThan(20);
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await cached("swr", 10, load, { staleMs: 1000 })).toBe("v2");
+  });
+
+  it("blocks once the value is older than the stale window", async () => {
+    let n = 0;
+    const load = async () => `v${++n}`;
+    expect(await cached("swr2", 5, load, { staleMs: 10 })).toBe("v1");
+    await new Promise((r) => setTimeout(r, 25));
+    expect(await cached("swr2", 5, load, { staleMs: 10 })).toBe("v2");
+  });
+});

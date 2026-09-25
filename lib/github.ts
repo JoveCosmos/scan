@@ -74,18 +74,3 @@ export async function getLatestRelease(
     return null;
   }
 }
-
-/**
- * Whether the running version differs from the latest release.
- *
- * A plain string comparison on purpose: semver ordering would invite guessing
- * at tag formats that vary between chains, and "differs" is all the UI claims.
- */
-export function isBehind(
-  running: string | null,
-  latest: string | null
-): boolean {
-  if (!running || !latest) return false;
-  const norm = (v: string) => v.trim().replace(/^v/, "");
-  return norm(running) !== norm(latest);
-}

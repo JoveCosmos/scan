@@ -38,8 +38,6 @@ export interface InfraSpec {
     /** Absent until we have actually published for this chain. */
     url?: string;
     rows: Row[];
-    /** Restore commands, built on the server where the daemon and home are known. */
-    script: string | null;
   } | null;
   indexer: { indexed: boolean; rows: Row[] };
 }
@@ -227,9 +225,6 @@ export function InfraBoard({
           {spec.snapshot ? (
             <>
               <Rows rows={spec.snapshot.rows} />
-              {spec.snapshot.script ? (
-                <Code text={spec.snapshot.script} label="restore commands" />
-              ) : null}
             </>
           ) : (
             <p className="py-1.5 text-[13px] text-muted-foreground">

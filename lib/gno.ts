@@ -305,7 +305,7 @@ export async function gnoOverview(chain: ChainConfig): Promise<ChainOverview> {
 
 export async function gnoRecentBlocks(
   chain: ChainConfig,
-  count = 15
+  count = 30
 ): Promise<BlockSummary[]> {
   // The indexer can trail the node by a block or two, so anchor on its own head.
   const [idx, names] = await Promise.all([
@@ -397,7 +397,7 @@ const TX_WINDOWS = [2_000, 50_000, Number.POSITIVE_INFINITY];
 
 export async function gnoRecentTxs(
   chain: ChainConfig,
-  count = 20
+  count = 30
 ): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
   let head: number | null = null;
   try {

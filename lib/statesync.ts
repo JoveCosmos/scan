@@ -93,36 +93,3 @@ export async function getStateSync(
     return { rpcServers: servers, trustHeight, trustHash: hash, trustPeriod, snippet };
   });
 }
-
-interface StatusResponse {
-  result?: { node_info?: { id?: string; network?: string; moniker?: string } };
-}
-
-/**
- * The node id behind each published RPC endpoint.
- *
- * Useful on its own — it is half of the `id@host:port` an operator needs — and
- * it is the only part we can state as fact. The P2P host and port are not
- * discoverable from the RPC and are not assumed here: a peer address that looks
- * authoritative and does not dial is worse than no peer address.
- */
-export async function getNodeIds(rpcServers: string[]): Promise<Map<string, string>> {
-  const found = new Map<string, string>();
-  await Promise.all(
-    rpcServers.map(async (url) => {
-      try {
-        const res = await fetch(`${url.replace(/\/$/, "")}/status`, {
-          cache: "no-store",
-          signal: AbortSignal.timeout(6000),
-        });
-        if (!res.ok) return;
-        const body = (await res.json()) as StatusResponse;
-        const id = body.result?.node_info?.id;
-        if (id) found.set(url, id);
-      } catch {
-        // An endpoint that will not answer simply contributes no id.
-      }
-    })
-  );
-  return found;
-}

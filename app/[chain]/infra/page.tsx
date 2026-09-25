@@ -21,57 +21,6 @@ export async function generateMetadata({
 }
 
 /**
- * The restore sequence, with the double-signing guard kept where it belongs.
- *
- * We publish zstd, not lz4 — the previous `lz4 -dc` would have failed on every
- * archive we have ever served. The archive also ships a ZEROED
- * priv_validator_state.json, so extraction overwrites the operator's own copy:
- * the backup line is not optional advice, it is the difference between a
- * restored node and a slashed one.
- */
-function restoreScript(
-  url: string,
-  daemon: string,
-  home: string,
-  dataDir: string,
-  stateFile: string,
-  sha256?: string
-): string {
-  const file = url.split("/").pop() ?? "snapshot.tar.zst";
-
-  // The signing state only needs saving when it lives INSIDE the directory the
-  // archive replaces. On cosmos it does, and skipping the backup is how you
-  // double-sign. On gno it sits in secrets/, which the archive never touches, so
-  // the backup would be theatre - and telling someone to protect a file that is
-  // not at risk teaches them the step is optional.
-  const stateAtRisk = stateFile.startsWith(`${dataDir}/`);
-
-  const lines = [`sudo systemctl stop ${daemon}`, ``];
-  if (stateAtRisk) {
-    lines.push(
-      `# Keep the signing state — this is the step that prevents double-signing.`,
-      `cp ${home}/${stateFile} ${home}/priv_validator_state.json.backup`,
-      ``
-    );
-  }
-  lines.push(`curl -O -L ${url}`);
-  if (sha256) lines.push(`echo "${sha256}  ${file}" | sha256sum -c   # must print: OK`);
-  lines.push(
-    ``,
-    `rm -rf ${home}/${dataDir}`,
-    `tar --use-compress-program=unzstd -xf ${file} -C ${home}`,
-    ``
-  );
-  if (stateAtRisk) {
-    lines.push(`mv ${home}/priv_validator_state.json.backup ${home}/${stateFile}`);
-  } else {
-    lines.push(`# ${stateFile} is outside ${dataDir}/ and is left untouched.`);
-  }
-  lines.push(`sudo systemctl start ${daemon}`);
-  return lines.join("\n");
-}
-
-/**
  * What we run for this chain: endpoints, a snapshot, and whether we index it.
  *
  * The tab exists for every chain, including chains we run nothing for. That is
@@ -160,20 +109,6 @@ export default async function InfraPage({
       ? {
           live: snapshot.status === "live",
           url: snapshot.url,
-          // Only offer commands for a snapshot that actually exists: a paste-able
-          // recipe pointing at a file we have not published deletes a data
-          // directory and then fails to refill it.
-          script:
-            snapshot.url && snapshot.status === "live" && services?.daemon && services?.home
-              ? restoreScript(
-                  snapshot.url,
-                  services.daemon,
-                  services.home,
-                  services.dataDir,
-                  services.stateFile,
-                  snapshot.sha256
-                )
-              : null,
           rows: [
             { label: "Status", value: snapshot.status === "live" ? "Live" : "Planned" },
             ...(snapshot.height
@@ -220,10 +155,6 @@ export default async function InfraPage({
                   },
                 ]
               : []),
-            ...(services?.daemon
-              ? [{ label: "Daemon", value: services.daemon, mono: true }]
-              : []),
-            ...(services?.home ? [{ label: "Home", value: services.home, mono: true }] : []),
           ],
         }
       : null,
@@ -251,7 +182,7 @@ export default async function InfraPage({
   };
 
   return (
-    <PageFrame title="Infrastructure" sub={chain.prettyName} accent={accent}>
+    <PageFrame title="Infra" sub={chain.prettyName} accent={accent}>
       <InfraBoard chainId={chain.chainId} accent={accent} spec={spec} />
     </PageFrame>
   );

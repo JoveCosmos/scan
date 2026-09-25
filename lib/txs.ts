@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { cached } from "@/lib/cache";
+import { recentFacts } from "@/lib/block-facts";
 import {
   recentTxsFromIndexer,
   type IndexedAccountTx,
@@ -70,13 +72,6 @@ interface TxsByHeightResponse {
 interface SingleTxResponse {
   tx_response?: RawTxResponse;
 }
-interface BlockResponse {
-  block: {
-    header: { height: string; time: string };
-    data: { txs: string[] | null };
-  };
-}
-
 /**
  * A Cosmos tx hash is the SHA-256 of the raw (base64) tx bytes as included in the
  * block — verified to match the node's own `txhash`. Computing it locally means
@@ -154,10 +149,34 @@ export function rawTxToSummary(raw: RawTxResponse): TxSummary {
   };
 }
 
-export async function txsAtHeight(
+export function txsAtHeight(
   chain: ChainConfig,
   height: string,
   fallbackRawTxs: string[],
+  blockTime: string
+): Promise<TxSummary[]> {
+  return txsAtHeightByHash(chain, height, fallbackRawTxs.map(txHashFromBase64), blockTime);
+}
+
+/**
+ * A committed block's transactions never change, so they are cached by height:
+ * the feed polls every few seconds and should only ever resolve new blocks.
+ */
+function txsAtHeightByHash(
+  chain: ChainConfig,
+  height: string,
+  fallbackHashes: string[],
+  blockTime: string
+): Promise<TxSummary[]> {
+  return cached(`txsat:${chain.chainId}:${height}`, 30 * 60_000, () =>
+    readTxsAtHeight(chain, height, fallbackHashes, blockTime)
+  );
+}
+
+async function readTxsAtHeight(
+  chain: ChainConfig,
+  height: string,
+  fallbackHashes: string[],
   blockTime: string
 ): Promise<TxSummary[]> {
   try {
@@ -173,8 +192,8 @@ export async function txsAtHeight(
 
   // Degraded mode: we still know each tx's hash and which block it landed in,
   // which is enough to list it and link to its detail page.
-  return fallbackRawTxs.map((raw) => ({
-    hash: txHashFromBase64(raw),
+  return fallbackHashes.map((hash) => ({
+    hash,
     height,
     time: blockTime,
     code: null,
@@ -239,7 +258,7 @@ export function indexedTxToSummary(t: IndexedAccountTx): TxSummary {
 
 export async function getRecentTxs(
   chain: ChainConfig,
-  { maxTxs = 20, maxBlocks = 20 }: { maxTxs?: number; maxBlocks?: number } = {}
+  { maxTxs = 30, maxBlocks = 30 }: { maxTxs?: number; maxBlocks?: number } = {}
 ): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
   // Indexed first. Scanning a block window answers "what happened lately"; on a
   // chain with mostly empty blocks that shows two transactions while thousands
@@ -256,67 +275,36 @@ export async function getRecentTxs(
     };
   }
 
-  let head: number;
-  let headHeight: string | null = null;
-
+  // The same cached heights the blocks feed reads, so between them each block
+  // is fetched once and each block's transactions resolved once.
+  let facts;
   try {
-    const latest = await fetchLcd<BlockResponse>(
-      chain,
-      "/cosmos/base/tendermint/v1beta1/blocks/latest",
-      { cache: "no-store" }
-    );
-    head = Number(latest.block.header.height);
-    headHeight = latest.block.header.height;
+    facts = await recentFacts(chain, maxBlocks);
   } catch {
     return { txs: [], scannedBlocks: 0, headHeight: null };
   }
+  const headHeight = facts[0]?.summary.height ?? null;
 
-  if (!Number.isFinite(head)) return { txs: [], scannedBlocks: 0, headHeight };
-
-  const heights = Array.from({ length: maxBlocks }, (_, i) => head - i).filter(
-    (h) => h > 0
-  );
-
-  const blocks = await Promise.allSettled(
-    heights.map((h) =>
-      fetchLcd<BlockResponse>(chain, `/cosmos/base/tendermint/v1beta1/blocks/${h}`, {
-        cache: "no-store",
-      })
-    )
-  );
-
-  const withTxs = blocks
-    .filter((b): b is PromiseFulfilledResult<BlockResponse> => b.status === "fulfilled")
-    .map((b) => b.value)
-    .filter((b) => (b.block.data.txs?.length ?? 0) > 0)
-    .sort((a, b) => Number(b.block.header.height) - Number(a.block.header.height));
-
-  // Take enough blocks to satisfy maxTxs, then resolve them in parallel — doing
-  // this sequentially cost several seconds on chains with sparse blocks.
-  const needed: typeof withTxs = [];
+  // Newest first; take enough blocks to satisfy maxTxs, then resolve them in
+  // parallel — sequentially cost several seconds on chains with sparse blocks.
+  const needed: typeof facts = [];
   let running = 0;
-  for (const block of withTxs) {
+  for (const block of facts) {
+    if (block.txHashes.length === 0) continue;
     if (running >= maxTxs) break;
     needed.push(block);
-    running += block.block.data.txs?.length ?? 0;
+    running += block.txHashes.length;
   }
 
   const resolved = await Promise.all(
     needed.map((block) =>
-      txsAtHeight(
-        chain,
-        block.block.header.height,
-        block.block.data.txs ?? [],
-        block.block.header.time
-      )
+      txsAtHeightByHash(chain, block.summary.height, block.txHashes, block.summary.time)
     )
   );
 
-  const collected = resolved.flat();
-
   return {
-    txs: collected.slice(0, maxTxs),
-    scannedBlocks: heights.length,
+    txs: resolved.flat().slice(0, maxTxs),
+    scannedBlocks: facts.length,
     headHeight,
   };
 }

@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import { cached } from "@/lib/cache";
+import { recentFacts } from "@/lib/block-facts";
 
 export interface ValidatorUptime {
   /** Signed share of the chain's slashing window, 0–1. Null when unknown. */
@@ -129,7 +131,17 @@ interface SigningInfo {
 }
 
 /** Slashing-window misses, keyed by valcons. One paged read for the whole set. */
-async function signingInfos(
+function signingInfos(
+  chain: ChainConfig
+): Promise<{ byValcons: Map<string, SigningInfo>; window: number | null }> {
+  // Misses move by at most one per block, so 15s fresh and a minute of
+  // stale-while-revalidate costs nothing a reader could notice.
+  return cached(`signinginfos:${chain.chainId}`, 15_000, () => readSigningInfos(chain), {
+    staleMs: 120_000,
+  });
+}
+
+async function readSigningInfos(
   chain: ChainConfig
 ): Promise<{ byValcons: Map<string, SigningInfo>; window: number | null }> {
   const byValcons = new Map<string, SigningInfo>();
@@ -172,69 +184,29 @@ async function signingInfos(
   return { byValcons, window };
 }
 
-interface CosmosBlock {
-  block: {
-    header: { height: string };
-    last_commit?: {
-      signatures?: { validator_address?: string; block_id_flag?: string }[];
-    };
-  };
-}
-
 /**
  * Who signed each of the last N blocks, keyed by base64 consensus address.
  *
  * A block's `last_commit` describes the *previous* block, which is why this is
- * read from the head backwards and reported oldest-first.
+ * read from the head backwards and reported oldest-first. Heights come from the
+ * shared block cache, so the list's strip and a validator page's longer one
+ * read each block once between them.
  */
 async function recentSigners(
   chain: ChainConfig,
   count: number
 ): Promise<{ heights: string[]; signers: Set<string>[] }> {
-  const empty = { heights: [], signers: [] };
-  let head: number;
-
+  let facts;
   try {
-    const latest = await fetchLcd<CosmosBlock>(
-      chain,
-      "/cosmos/base/tendermint/v1beta1/blocks/latest",
-      { cache: "no-store" }
-    );
-    head = Number(latest.block.header.height);
+    facts = await recentFacts(chain, count);
   } catch {
-    return empty;
+    return { heights: [], signers: [] };
   }
-  if (!Number.isFinite(head)) return empty;
-
-  const heights = Array.from({ length: count }, (_, i) => head - i)
-    .filter((h) => h > 0)
-    .reverse();
-
-  const blocks = await Promise.allSettled(
-    heights.map((h) =>
-      fetchLcd<CosmosBlock>(chain, `/cosmos/base/tendermint/v1beta1/blocks/${h}`, {
-        cache: "no-store",
-        timeoutMs: 8000,
-      })
-    )
-  );
-
-  const signers: Set<string>[] = [];
-  const kept: string[] = [];
-
-  blocks.forEach((result, i) => {
-    if (result.status !== "fulfilled") return;
-    const set = new Set<string>();
-    for (const sig of result.value.block.last_commit?.signatures ?? []) {
-      // An absent vote still occupies a slot, flagged as such.
-      if (sig.block_id_flag === "BLOCK_ID_FLAG_ABSENT") continue;
-      if (sig.validator_address) set.add(sig.validator_address);
-    }
-    signers.push(set);
-    kept.push(String(heights[i]));
-  });
-
-  return { heights: kept, signers };
+  const oldestFirst = [...facts].reverse();
+  return {
+    heights: oldestFirst.map((f) => f.summary.height),
+    signers: oldestFirst.map((f) => new Set(f.signers)),
+  };
 }
 
 /**

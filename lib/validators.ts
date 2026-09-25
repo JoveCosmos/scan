@@ -1,6 +1,7 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { isBech32ish } from "@/lib/input";
+import { cached } from "@/lib/cache";
 
 interface RawValidator {
   operator_address: string;
@@ -96,12 +97,34 @@ interface CommissionResponse {
  * modules — each is optional so a slow or disabled endpoint degrades to "—"
  * instead of failing the page.
  */
-export async function getValidator(
+/**
+ * The bonded set, shared by every page that needs it. Fresh for 30s, and served
+ * stale for up to five minutes while a refresh runs, so no page view waits on
+ * the full-set read after the first.
+ */
+export function getValidatorsCached(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  return cached(`validators:${chain.chainId}`, 30_000, () => getValidators(chain), {
+    staleMs: 5 * 60_000,
+  });
+}
+
+export function getValidator(
   chain: ChainConfig,
   operatorAddress: string
 ): Promise<ValidatorDetail | null> {
   // Operator addresses are interpolated into LCD paths. See lib/input.ts.
-  if (!isBech32ish(operatorAddress)) return null;
+  if (!isBech32ish(operatorAddress)) return Promise.resolve(null);
+  // The page and its metadata both ask for the same validator on every view;
+  // a short cache makes that one pair of requests rather than two.
+  return cached(`validator:${chain.chainId}:${operatorAddress}`, 15_000, () =>
+    readValidator(chain, operatorAddress)
+  );
+}
+
+async function readValidator(
+  chain: ChainConfig,
+  operatorAddress: string
+): Promise<ValidatorDetail | null> {
 
   let single: SingleValidatorResponse;
   try {
@@ -118,7 +141,7 @@ export async function getValidator(
   if (!v) return null;
 
   const [setResult, commissionResult] = await Promise.allSettled([
-    getValidators(chain),
+    getValidatorsCached(chain),
     fetchLcd<CommissionResponse>(
       chain,
       `/cosmos/distribution/v1beta1/validators/${operatorAddress}/commission`,
@@ -273,7 +296,8 @@ export async function getValidatorDelegators(
  * Bonded validator set, ranked by stake. Pages through the LCD because several
  * chains cap page size well below their validator count.
  */
-export async function getValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+/** Every validator in one staking status, paging through the whole set. */
+async function readSet(chain: ChainConfig, status: string): Promise<RawValidator[]> {
   const collected: RawValidator[] = [];
   let nextKey: string | null = null;
 
@@ -285,7 +309,7 @@ export async function getValidators(chain: ChainConfig): Promise<ValidatorSummar
         cache: "no-store",
         timeoutMs: 10_000,
         searchParams: {
-          status: "BOND_STATUS_BONDED",
+          status,
           "pagination.limit": 200,
           ...(nextKey ? { "pagination.key": nextKey } : {}),
         },
@@ -296,8 +320,27 @@ export async function getValidators(chain: ChainConfig): Promise<ValidatorSummar
     nextKey = res.pagination?.next_key ?? null;
     if (!nextKey) break;
   }
+  return collected;
+}
 
-  const ranked = collected
+function toSummary(v: RawValidator, rank: number, power: number, running: number): ValidatorSummary {
+  return {
+    rank,
+    operatorAddress: v.operator_address,
+    moniker: v.description?.moniker?.trim() || v.operator_address,
+    website: v.description?.website ?? "",
+    jailed: v.jailed,
+    status: v.status,
+    tokens: v.tokens,
+    consensusPubkey: v.consensus_pubkey?.key ?? null,
+    votingPower: power,
+    cumulativePower: running,
+    commissionRate: Number(v.commission?.commission_rates?.rate ?? 0),
+  };
+}
+
+export async function getValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  const ranked = (await readSet(chain, "BOND_STATUS_BONDED"))
     .slice()
     .sort((a, b) => Number(b.tokens) - Number(a.tokens));
 
@@ -307,18 +350,31 @@ export async function getValidators(chain: ChainConfig): Promise<ValidatorSummar
   return ranked.map((v, i) => {
     const power = totalBonded > 0 ? Number(v.tokens) / totalBonded : 0;
     running += power;
-    return {
-      rank: i + 1,
-      operatorAddress: v.operator_address,
-      moniker: v.description?.moniker?.trim() || v.operator_address,
-      website: v.description?.website ?? "",
-      jailed: v.jailed,
-      status: v.status,
-      tokens: v.tokens,
-      consensusPubkey: v.consensus_pubkey?.key ?? null,
-      votingPower: power,
-      cumulativePower: running,
-      commissionRate: Number(v.commission?.commission_rates?.rate ?? 0),
-    };
+    return toSummary(v, i + 1, power, running);
   });
+}
+
+/**
+ * Validators outside the active set — unbonding and unbonded, jailed ones
+ * included — largest first. They hold no voting power, so share and cumulative
+ * share are zero, and rank is position within this list.
+ *
+ * Changes only when a validator enters or leaves the set, so fresh for five
+ * minutes and served stale for half an hour while a refresh runs.
+ */
+export function getInactiveValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  return cached(
+    `validators-inactive:${chain.chainId}`,
+    5 * 60_000,
+    async () => {
+      const [unbonding, unbonded] = await Promise.all([
+        readSet(chain, "BOND_STATUS_UNBONDING"),
+        readSet(chain, "BOND_STATUS_UNBONDED"),
+      ]);
+      return [...unbonding, ...unbonded]
+        .sort((a, b) => Number(b.tokens) - Number(a.tokens))
+        .map((v, i) => toSummary(v, i + 1, 0, 0));
+    },
+    { staleMs: 30 * 60_000 }
+  );
 }

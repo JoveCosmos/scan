@@ -1,6 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
-import { getBlock } from "@/lib/blocks";
+import { blockFacts } from "@/lib/block-facts";
 import { cached } from "@/lib/cache";
 import { stakeBaseline } from "@/lib/indexer-db";
 
@@ -41,8 +41,8 @@ export async function blockSeconds(chain: ChainConfig, head: number): Promise<nu
   return cached(`blocktime:${chain.chainId}`, 3_600_000, async () => {
     try {
       const [now, before] = await Promise.all([
-        getBlock(chain, head),
-        getBlock(chain, head - BLOCK_SAMPLE),
+        blockFacts(chain, head).then((f) => f.summary),
+        blockFacts(chain, head - BLOCK_SAMPLE).then((f) => f.summary),
       ]);
       const dt =
         (new Date(now.time).getTime() - new Date(before.time).getTime()) / 1000;

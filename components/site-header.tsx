@@ -4,18 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowLeftRight,
-  Boxes,
-  Cable,
-  Check,
-  ChevronDown,
-  Gauge,
-  Server,
-  ShieldCheck,
-  Vote,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -24,6 +13,8 @@ export interface ChainSummary {
   prettyName: string;
   symbol: string;
   accent: string;
+  /** Null when we have no asset — drawn as an accent dot instead. */
+  logo: string | null;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
   /** Chains with no IBC module never show the Relayers tab. */
@@ -34,6 +25,33 @@ export interface ChainSummary {
    */
   sections: { txs: boolean; proposals: boolean; relayers: boolean };
   network: "mainnet" | "testnet";
+}
+
+/** A network's logo, or its accent dot where we have no logo. */
+function ChainMark({ chain, size = 18 }: { chain: ChainSummary; size?: number }) {
+  if (chain.logo) {
+    return (
+      <Image
+        src={chain.logo}
+        alt=""
+        width={size}
+        height={size}
+        className="shrink-0 rounded-full object-contain"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    <span
+      className="grid shrink-0 place-items-center"
+      style={{ width: size, height: size }}
+    >
+      <span
+        className="h-2 w-2 rounded-full"
+        style={{ background: chain.accent, boxShadow: `0 0 10px ${chain.accent}` }}
+      />
+    </span>
+  );
 }
 
 function ChainSwitcher({
@@ -78,15 +96,7 @@ function ChainSwitcher({
         aria-expanded={open}
         className="flex items-center gap-2 rounded-lg border border-border bg-secondary/60 px-3 py-1.5 text-sm font-medium transition-colors hover:border-[var(--gata-border-hi)] hover:bg-secondary"
       >
-        {active ? (
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{
-              background: active.accent,
-              boxShadow: `0 0 10px ${active.accent}`,
-            }}
-          />
-        ) : null}
+        {active ? <ChainMark chain={active} /> : null}
         {/*
           The name drops below sm, leaving the accent dot and the chevron. This
           button does not shrink, so "Cosmos Hub Testnet" was 18 characters the
@@ -133,13 +143,7 @@ function ChainSwitcher({
                   className="flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors hover:bg-accent"
                 >
                   <span className="flex items-center gap-2.5">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{
-                        background: chain.accent,
-                        boxShadow: `0 0 10px ${chain.accent}`,
-                      }}
-                    />
+                    <ChainMark chain={chain} size={22} />
                     <span className="flex flex-col">
                       <span className="font-medium">{chain.prettyName}</span>
                       <span className="font-mono text-[11px] text-muted-foreground">
@@ -174,7 +178,8 @@ function ChainSwitcher({
 interface Tab {
   href: string;
   label: string;
-  icon: LucideIcon;
+  /** Used on a phone, where all seven must fit one row without scrolling. */
+  short: string;
   governanceOnly?: boolean;
   ibcOnly?: boolean;
   section?: "txs" | "proposals" | "relayers";
@@ -183,26 +188,24 @@ interface Tab {
 // The chain's identity card, then its activity, then who runs it, then IBC,
 // then what we run for it. The route is still /params.
 const TABS: Tab[] = [
-  { href: "/params", label: "Overview", icon: Gauge },
-  { href: "/blocks", label: "Blocks", icon: Boxes },
-  { href: "/txs", label: "Transactions", icon: ArrowLeftRight, section: "txs" },
-  { href: "/validators", label: "Validators", icon: ShieldCheck },
+  { href: "/params", label: "Overview", short: "Home" },
+  { href: "/blocks", label: "Blocks", short: "Blocks" },
+  { href: "/txs", label: "Transactions", short: "Txs", section: "txs" },
+  { href: "/validators", label: "Validators", short: "Vals" },
   {
     href: "/proposals",
-    label: "Governance",
-    icon: Vote,
+    label: "Governance", short: "Gov",
     governanceOnly: true,
     section: "proposals",
   },
   {
     href: "/relayers",
-    label: "Relayers",
-    icon: Cable,
+    label: "Relayers", short: "IBC",
     ibcOnly: true,
     section: "relayers",
   },
   // Not chain-module gated: what we run for a chain, not what the chain has.
-  { href: "/infra", label: "Infrastructure", icon: Server },
+  { href: "/infra", label: "Infra", short: "Infra" },
 ];
 
 const LAST_CHAIN_KEY = "gata-scan-last-chain";
@@ -252,16 +255,18 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   return (
     <header className="relative z-30 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
       {/*
-        One row: the mark, the sections, search, the switcher. On a phone
-        there is not the width for search beside seven tabs, so it wraps onto
-        a row of its own underneath; the tabs keep the top row and scroll.
+        Nothing in the header scrolls sideways, so it reflows by width:
+        - phone: mark, search, switcher on top; all seven tabs, by their short
+          names, share the full-width row under it
+        - tablet: mark, tabs, switcher on top; search gets its own row
+        - desktop: everything in one row
       */}
       <div className="mx-auto flex max-w-[90rem] flex-wrap items-center gap-x-3 px-4">
         <Link
           href="/"
           title="GATA SCAN"
           aria-label="GATA SCAN home"
-          className="group flex h-14 shrink-0 items-center"
+          className="group order-1 flex h-14 shrink-0 items-center"
         >
           <Image
             src="/gata_logo_white.png"
@@ -277,10 +282,9 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           <nav
             aria-label="Sections"
             style={{ ["--tab-acc" as string]: chain.accent }}
-            className="flex h-14 min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none]"
+            className="order-5 -mx-1 flex h-10 w-full items-stretch justify-between border-t border-border/60 sm:order-2 sm:mx-0 sm:h-14 sm:w-auto sm:flex-1 sm:justify-start sm:border-0"
           >
             {TABS.map((tab) => {
-              const Icon = tab.icon;
               const active =
                 routeChain !== null &&
                 pathname.startsWith(`/${chain.chainId}${tab.href}`);
@@ -291,10 +295,10 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
                   href={`/${chain.chainId}${tab.href}`}
                   title={na ? `${tab.label} · N/A` : tab.label}
                   aria-current={active ? "page" : undefined}
-                  className={`nav-tab ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
+                  className={`nav-tab px-1.5 sm:px-2.5 ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
                 >
-                  <Icon className="hidden h-3.5 w-3.5 shrink-0 xl:block" />
-                  {tab.label}
+                  <span className="sm:hidden">{tab.short}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
                   {/* Marked rather than hidden: a tab that vanishes on one
                       chain makes the reader wonder what else differs. */}
                   {na ? (
@@ -306,23 +310,26 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
               );
             })}
           </nav>
-        ) : (
-          <div className="flex-1" />
-        )}
+        ) : null}
+        {/* On a phone the tabs leave the top row, so something must push the
+            switcher right when there is no search to do it. */}
+        {isHome || !chain ? <div className="order-2 flex-1 sm:hidden" /> : null}
 
         {/* Search is global; the active chain is only a tie-breaker hint. */}
         {isHome ? null : (
-          <div className="order-last w-full pb-2.5 md:order-none md:w-64 md:pb-0 lg:w-72">
+          <div className="order-2 min-w-0 flex-1 sm:order-6 sm:w-full sm:flex-none sm:pb-2.5 lg:order-3 lg:w-72 lg:pb-0">
             <SearchBar chainId={routeChain?.chainId} />
           </div>
         )}
 
-        <ChainSwitcher
-          chains={chains}
-          activeChainId={chain?.chainId ?? null}
-          section={section}
-        />
-        <ThemeToggle />
+        <div className="order-3 flex shrink-0 items-center gap-2 sm:order-4">
+          <ChainSwitcher
+            chains={chains}
+            activeChainId={chain?.chainId ?? null}
+            section={section}
+          />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

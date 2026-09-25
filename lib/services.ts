@@ -38,20 +38,6 @@ const chainServicesSchema = z.object({
   chainId: z.string().min(1),
   endpoints: z.array(endpointSchema).default([]),
   /**
-   * P2P addresses, exactly as they go into `config.toml` —
-   * `<node-id>@<host>:<port>`. Declared rather than derived: an RPC endpoint
-   * knows its own node id but not which host and port its P2P listener is
-   * reachable on, and a peer address that looks authoritative and does not dial
-   * wastes more of an operator's time than an absent one.
-   *
-   * Seeds are for discovery and are dropped once a node has peers; persistent
-   * peers are held open. They are separate fields because putting one in the
-   * other's slot is a node that either never finds the network or clings to
-   * three addresses forever.
-   */
-  seeds: z.array(z.string().min(1)).default([]),
-  peers: z.array(z.string().min(1)).default([]),
-  /**
    * Only the parts of state sync that are a choice. The RPC servers come from
    * the endpoints above and the trust height and hash are computed live, since
    * a hash written into a config file is wrong within days.
@@ -66,28 +52,11 @@ const chainServicesSchema = z.object({
     })
     .optional(),
   /**
-   * The node binary and its home directory, used to generate restore commands
-   * someone can paste. Without them the snapshot panel shows details only —
-   * a half-right command that deletes a data directory is worse than none.
-   */
-  daemon: z.string().optional(),
-  home: z.string().optional(),
-  /**
    * Key for this chain in the published snapshot manifest. Everything that
    * changes nightly - height, size, filename, checksum - is read from there at
    * render time rather than committed here, where it goes stale in a day.
    */
   snapshotKey: z.string().optional(),
-  /**
-   * Where the archive unpacks and where the signing state lives, relative to
-   * `home`. Cosmos nodes keep data in data/ and the state file inside it, so the
-   * defaults suit them. gnoland does not: its --data-dir IS the node root, the
-   * chain data is db/, and priv_validator_state.json sits in secrets/ - outside
-   * the archive entirely. Getting this wrong produces a restore recipe that
-   * deletes the wrong directory.
-   */
-  dataDir: z.string().default("data"),
-  stateFile: z.string().default("data/priv_validator_state.json"),
   snapshot: z
     .object({
       /**
@@ -114,11 +83,8 @@ const chainServicesSchema = z.object({
       takenAt: z.string().optional(),
       /** Node version the snapshot is compatible with. */
       version: z.string().optional(),
-      note: z.string().optional(),
     })
     .optional(),
-  /** Installation or joining guide — ours, or the chain's if we have none. */
-  guide: z.string().url().optional(),
 });
 
 const servicesSchema = z.object({
@@ -158,32 +124,3 @@ export function getServices(): Services {
 export function servicesFor(chainId: string): ChainServices | null {
   return getServices().chains.find((c) => c.chainId === chainId) ?? null;
 }
-
-/** Whether there is anything at all worth showing a link to. */
-export function hasServices(): boolean {
-  return getServices().chains.some(hasAnything);
-}
-
-/** Whether this one chain has anything, which decides if its tab appears. */
-export function hasServicesFor(chainId: string): boolean {
-  const c = servicesFor(chainId);
-  return c !== null && hasAnything(c);
-}
-
-/** Chains we publish something for, in config order. */
-export function servedChainIds(): string[] {
-  return getServices()
-    .chains.filter(hasAnything)
-    .map((c) => c.chainId);
-}
-
-function hasAnything(c: ChainServices): boolean {
-  return (
-    c.endpoints.length > 0 ||
-    c.seeds.length > 0 ||
-    c.peers.length > 0 ||
-    c.snapshot !== undefined ||
-    c.guide !== undefined
-  );
-}
-

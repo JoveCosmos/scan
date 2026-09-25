@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Popup, PopupRows } from "@/components/ui/popup";
 import { filterDeckRows } from "@/lib/deck-filter";
@@ -64,9 +65,8 @@ export interface DeckRow {
   };
 }
 
-const ROW_H = 34;
+const ROW_H = 35;
 const HEAD_H = 28;
-const FOOT_H = 34;
 
 function cellColor(cell: DeckCell, accent: string) {
   if (cell.tone === "ok") return "var(--gata-green)";
@@ -82,7 +82,7 @@ export function RowDeck({
   toolbar,
   empty = "Nothing to show.",
   filter,
-  limit,
+  fit = false,
 }: {
   columns: DeckColumn[];
   rows: DeckRow[];
@@ -97,13 +97,13 @@ export function RowDeck({
    */
   filter?: { placeholder: string };
   /**
-   * Show only the first `limit` rows, unpaged. For live feeds — the newest
-   * blocks, the newest transactions — where page two is already stale by the
-   * time you reach it. On a screen too short for all of them the rows scroll
-   * inside the deck.
+   * Live feeds — the newest blocks, the newest transactions — show as many of
+   * the newest rows as fit the frame and never page: page two of a feed is
+   * stale by the time you reach it.
    */
-  limit?: number;
+  fit?: boolean;
 }) {
+  const router = useRouter();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [perPage, setPerPage] = useState(12);
   const [page, setPage] = useState(0);
@@ -114,7 +114,7 @@ export function RowDeck({
     const el = bodyRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => {
-      const usable = el.clientHeight - HEAD_H - FOOT_H;
+      const usable = el.clientHeight - HEAD_H - 2;
       setPerPage(Math.max(3, Math.floor(usable / ROW_H)));
     });
     observer.observe(el);
@@ -123,17 +123,27 @@ export function RowDeck({
 
   const matched = useMemo(() => filterDeckRows(rows, query), [rows, query]);
 
-  const pages = limit ? 1 : Math.max(1, Math.ceil(matched.length / perPage));
+  const pages = fit ? 1 : Math.max(1, Math.ceil(matched.length / perPage));
   // A filter that shortens the list must not strand you on a page past its end.
   const current = Math.min(page, pages - 1);
   const shown = useMemo(
     () =>
-      limit
-        ? matched.slice(0, limit)
+      // Every row of a feed is drawn and the box clips whatever does not fit,
+      // so the list fills the frame exactly at any height with no scrolling
+      // and no measuring.
+      fit
+        ? matched
         : matched.slice(current * perPage, current * perPage + perPage),
-    [matched, current, perPage, limit]
+    [matched, current, perPage, fit],
   );
   const open = rows.find((r) => r.key === openKey) ?? null;
+
+  // A row with a page of its own goes there directly; only rows without one
+  // open the summary popup.
+  const activate = (row: DeckRow) => {
+    if (row.detail.action) router.push(row.detail.action.href);
+    else setOpenKey(row.key);
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -158,7 +168,7 @@ export function RowDeck({
 
       <div
         ref={bodyRef}
-        className={`gata-surface min-h-0 ${limit ? "max-h-full shrink overflow-y-auto" : "flex-1 overflow-hidden"}`}
+        className="gata-surface min-h-0 flex-1 overflow-hidden"
       >
         <table className="w-full table-fixed border-collapse">
           <thead>
@@ -183,15 +193,15 @@ export function RowDeck({
             {shown.map((row) => (
               <tr
                 key={row.key}
-                onClick={() => setOpenKey(row.key)}
+                onClick={() => activate(row)}
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    setOpenKey(row.key);
+                    activate(row);
                   }
                 }}
-                className={`cursor-pointer border-b border-border/40 outline-none last:border-0 hover:bg-[var(--gata-card-hi)] focus-visible:bg-[var(--gata-card-hi)] ${
+                className={`group/row cursor-pointer border-b border-border/40 outline-none last:border-0 hover:bg-[var(--gata-card-hi)] focus-visible:bg-[var(--gata-card-hi)] ${
                   row.fresh ? "gata-flash" : ""
                 }`}
               >
@@ -200,7 +210,15 @@ export function RowDeck({
                   return (
                     <td
                       key={i}
-                      className={`relative h-[34px] truncate px-2.5 text-[13px] ${
+                      className={`h-[34px] truncate px-2.5 text-[13px] ${
+                        cell.bar !== undefined ? "relative" : ""
+                      } ${
+                        // The affordance: the row's first cell is its link, so
+                        // it underlines, and a bar lights on the leading edge.
+                        i === 0
+                          ? "group-hover/row:underline group-hover/row:decoration-current/40 group-hover/row:underline-offset-2 group-hover/row:shadow-[inset_2px_0_0_var(--gata-blue)] group-focus-visible/row:shadow-[inset_2px_0_0_var(--gata-blue)]"
+                          : ""
+                      } ${
                         cell.align === "right" ? "text-right" : ""
                       } ${cell.mono ? "font-mono" : ""} ${
                         cell.dim && !cell.tone ? "text-muted-foreground" : ""
@@ -239,42 +257,43 @@ export function RowDeck({
         </table>
       </div>
 
-      <div className="flex h-[34px] shrink-0 items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground">
-        <span>
-          {matched.length === 0
-            ? query
-              ? `no match of ${rows.length}`
-              : "0"
-            : limit
-              ? `latest ${shown.length}`
+      {/* A feed has no pages to count, so it gives the row back to the list. */}
+      {fit ? null : (
+        <div className="flex h-[34px] shrink-0 items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground">
+          <span>
+            {matched.length === 0
+              ? query
+                ? `no match of ${rows.length}`
+                : "0"
               : `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`}
-        </span>
-        {pages > 1 ? (
-          <span className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPage(Math.max(0, current - 1))}
-              disabled={current === 0}
-              aria-label="Previous page"
-              className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="tabular-nums">
-              {current + 1}/{pages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPage(Math.min(pages - 1, current + 1))}
-              disabled={current >= pages - 1}
-              aria-label="Next page"
-              className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
           </span>
-        ) : null}
-      </div>
+          {pages > 1 ? (
+            <span className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPage(Math.max(0, current - 1))}
+                disabled={current === 0}
+                aria-label="Previous page"
+                className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="tabular-nums">
+                {current + 1}/{pages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage(Math.min(pages - 1, current + 1))}
+                disabled={current >= pages - 1}
+                aria-label="Next page"
+                className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ) : null}
+        </div>
+      )}
 
       <Popup
         open={open !== null}

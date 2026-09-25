@@ -1,37 +1,18 @@
-import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
+import {
+  recentFacts,
+  toSummary,
+  type BlockResponse,
+  type BlockSummary,
+} from "@/lib/block-facts";
 import { isNumericId } from "@/lib/input";
 import { proposerIndex } from "@/lib/uptime";
+import { getValidatorsCached } from "@/lib/validators";
 
-interface BlockResponse {
-  block_id?: { hash: string };
-  block: {
-    header: {
-      chain_id?: string;
-      height: string;
-      time: string;
-      proposer_address: string;
-      last_commit_hash?: string;
-      data_hash?: string;
-      validators_hash?: string;
-      app_hash?: string;
-      consensus_hash?: string;
-    };
-    data: { txs: string[] | null };
-    last_commit?: { signatures?: unknown[] };
-  };
-}
+export type { BlockSummary } from "@/lib/block-facts";
 
-export interface BlockSummary {
-  height: string;
-  time: string;
-  txCount: number;
-  proposer: string;
-  hash: string | null;
-}
-
-export const RECENT_BLOCK_COUNT = 15;
+export const RECENT_BLOCK_COUNT = 30;
 
 /** A block summary with its proposer resolved to a validator, where possible. */
 export interface NamedBlock extends BlockSummary {
@@ -42,10 +23,9 @@ export interface NamedBlock extends BlockSummary {
 /**
  * Name the proposers of a page of blocks.
  *
- * A header carries its proposer as a raw consensus address, and `resolveProposer`
- * costs a validator-set read per block — fine for one block, not for fifteen.
- * This builds the lookup once from a set the caller already holds and applies it
- * to the whole page. A proposer that cannot be resolved keeps its raw address
+ * A header carries its proposer as a raw consensus address. This builds the
+ * lookup once from a set the caller already holds and applies it to the whole
+ * page. A proposer that cannot be resolved keeps its raw address
  * rather than going blank.
  */
 export function nameProposers(
@@ -81,51 +61,19 @@ export interface BlockDetail extends BlockSummary {
   proposerOperator: string | null;
 }
 
-interface ValidatorSetEntry {
-  operator_address: string;
-  consensus_pubkey?: { key?: string };
-  description?: { moniker?: string };
-}
-
 /**
- * A Tendermint consensus address is the first 20 bytes of sha256(ed25519 pubkey),
- * which is exactly what a block header carries as `proposer_address`. Hashing each
- * bonded validator's consensus key lets us name the proposer without a separate
- * bech32 decode or a historical validator-set lookup.
+ * Name a block's proposer from the shared, cached validator set. The header
+ * carries a raw consensus address, which is what proposerIndex keys on.
  */
-export async function resolveProposer(
+async function resolveProposer(
   chain: ChainConfig,
   proposerAddressB64: string
 ): Promise<{ moniker: string | null; operator: string | null }> {
   try {
-    const res = await fetchLcd<{ validators: ValidatorSetEntry[] }>(
-      chain,
-      "/cosmos/staking/v1beta1/validators",
-      {
-        cache: "no-store",
-        timeoutMs: 10_000,
-        searchParams: {
-          status: "BOND_STATUS_BONDED",
-          "pagination.limit": 500,
-        },
-      }
+    const hit = proposerIndex(await getValidatorsCached(chain), chain.bech32Prefix).get(
+      proposerAddressB64
     );
-
-    const match = res.validators.find((v) => {
-      const key = v.consensus_pubkey?.key;
-      if (!key) return false;
-      const consAddr = createHash("sha256")
-        .update(Buffer.from(key, "base64"))
-        .digest()
-        .subarray(0, 20)
-        .toString("base64");
-      return consAddr === proposerAddressB64;
-    });
-
-    return {
-      moniker: match?.description?.moniker ?? null,
-      operator: match?.operator_address ?? null,
-    };
+    return { moniker: hit?.moniker ?? null, operator: hit?.operator ?? null };
   } catch {
     return { moniker: null, operator: null };
   }
@@ -167,27 +115,6 @@ export async function getBlockDetail(
   };
 }
 
-function toSummary(res: BlockResponse): BlockSummary {
-  return {
-    height: res.block.header.height,
-    time: res.block.header.time,
-    txCount: res.block.data.txs?.length ?? 0,
-    proposer: res.block.header.proposer_address,
-    hash: res.block_id?.hash ?? null,
-  };
-}
-
-export async function getBlock(
-  chain: ChainConfig,
-  height: string | number
-): Promise<BlockSummary> {
-  const res = await fetchLcd<BlockResponse>(
-    chain,
-    `/cosmos/base/tendermint/v1beta1/blocks/${height}`,
-    { cache: "no-store" }
-  );
-  return toSummary(res);
-}
 
 /**
  * The Cosmos REST API exposes no "list blocks" endpoint, so we read the head and
@@ -198,29 +125,5 @@ export async function getRecentBlocks(
   chain: ChainConfig,
   count = RECENT_BLOCK_COUNT
 ): Promise<BlockSummary[]> {
-  const latest = await fetchLcd<BlockResponse>(
-    chain,
-    "/cosmos/base/tendermint/v1beta1/blocks/latest",
-    { cache: "no-store" }
-  );
-
-  const head = Number(latest.block.header.height);
-  if (!Number.isFinite(head)) return [toSummary(latest)];
-
-  const previous = Array.from({ length: count - 1 }, (_, i) => head - (i + 1)).filter(
-    (h) => h > 0
-  );
-
-  const settled = await Promise.allSettled(
-    previous.map((height) => getBlock(chain, height))
-  );
-
-  return [
-    toSummary(latest),
-    ...settled
-      .filter(
-        (r): r is PromiseFulfilledResult<BlockSummary> => r.status === "fulfilled"
-      )
-      .map((r) => r.value),
-  ];
+  return (await recentFacts(chain, count)).map((f) => f.summary);
 }

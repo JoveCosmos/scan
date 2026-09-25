@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import {
   filterValidators,
   sortValidators,
@@ -18,15 +18,15 @@ export type { ValidatorRow, SortKey } from "@/lib/validator-sort";
 /**
  * The validator set as a list, with a column for everything worth comparing.
  *
- * It was a wall of tiles carrying four facts each, with the rest in a popup
- * per validator. Comparing validators is the point of this page, and you
- * cannot compare what is hidden behind a click, so every figure the page has
- * is now a column, every column sorts, and a row goes straight to the
- * validator's own page.
+ * Every figure the page has is a column, every column sorts, and a row goes
+ * straight to the validator's own page. Active and inactive validators are two
+ * views of the same list, switched above it.
  *
- * Columns drop out narrowest-first as the screen shrinks, and any column whose
- * data this chain does not provide is not drawn at all. The list scrolls inside
- * its frame; the page does not.
+ * The table never scrolls sideways. Every column but the validator's name has
+ * a fixed width and a breakpoint below which it is not drawn; the name takes
+ * whatever is left and truncates. The breakpoints are chosen so the name keeps
+ * at least ~16rem at every width. Any column whose data this chain does not
+ * provide is not drawn at all.
  */
 
 const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
@@ -51,11 +51,11 @@ const pct = (v: number | null | undefined, d = 2) =>
 function MiniBars({ bars }: { bars: boolean[] }) {
   const shown = bars.slice(-24);
   return (
-    <div className="flex h-[10px] w-full max-w-[6rem] items-end gap-px">
+    <div className="flex h-[10px] w-full items-end gap-px">
       {shown.map((signed, i) => (
         <span
           key={i}
-          className="h-full flex-1"
+          className="h-full flex-1 rounded-[1px]"
           style={{
             background: signed ? "var(--gata-green)" : "var(--destructive)",
             opacity: signed ? 0.55 : 1,
@@ -77,6 +77,8 @@ interface Column {
   label: string;
   sort?: SortKey;
   align?: "right";
+  /** Fixed width; absent only for the name, which takes the rest. */
+  w?: string;
   /** Tailwind visibility for the header and cells, e.g. "hidden md:table-cell". */
   show?: string;
   title?: string;
@@ -87,6 +89,7 @@ export function ValidatorsTable({
   chainId,
   accent,
   rows,
+  inactiveRows = [],
   symbol,
   staking,
   hasUptime,
@@ -95,6 +98,8 @@ export function ValidatorsTable({
   chainId: string;
   accent: string;
   rows: ValidatorRow[];
+  /** Unbonding and unbonded validators, shown when the selector says so. */
+  inactiveRows?: ValidatorRow[];
   symbol: string;
   /** Chains with no staking module rank by assigned consensus weight. */
   staking: boolean;
@@ -106,16 +111,19 @@ export function ValidatorsTable({
   jailingsSince?: string | null;
 }) {
   const router = useRouter();
+  const [set, setSet] = useState<"active" | "inactive">("active");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "rank",
     dir: "asc",
   });
 
+  const source = set === "active" ? rows : inactiveRows;
+
   const visible = useMemo(
     // Sorted before filtering so ranks stay the chain's, not the filtered list's.
-    () => filterValidators(sortValidators(rows, sort.key, sort.dir), query),
-    [rows, sort, query]
+    () => filterValidators(sortValidators(source, sort.key, sort.dir), query),
+    [source, sort, query]
   );
 
   function onSort(key: SortKey) {
@@ -126,11 +134,13 @@ export function ValidatorsTable({
     );
   }
 
-  // A column is drawn only where at least one row has something to put in it.
-  const hasDelta = rows.some((r) => r.delta?.ratio != null);
-  const hasSelfBond = rows.some((r) => r.selfBond?.share != null);
-  const hasJailings = rows.some((r) => r.jailings !== null);
-  const hasMissed = hasUptime && rows.some((r) => r.uptime.missed !== null);
+  // A column is drawn only where at least one row in view has something for it.
+  const hasDelta = source.some((r) => r.delta?.ratio != null);
+  const hasSelfBond = source.some((r) => r.selfBond?.share != null);
+  const hasJailings = source.some((r) => r.jailings !== null);
+  const hasSigning = hasUptime && source.some((r) => r.uptime.ratio !== null);
+  const hasBars = hasUptime && source.some((r) => r.uptime.bars.length > 0);
+  const hasMissed = hasUptime && source.some((r) => r.uptime.missed !== null);
 
   const columns: Column[] = [
     {
@@ -138,6 +148,7 @@ export function ValidatorsTable({
       label: "#",
       sort: "rank",
       align: "right",
+      w: "2.75rem",
       cell: (v) => <span className="text-muted-foreground">{v.rank}</span>,
     },
     {
@@ -145,8 +156,10 @@ export function ValidatorsTable({
       label: "Validator",
       sort: "moniker",
       cell: (v) => (
-        <span className="flex min-w-0 max-w-[8.5rem] flex-col sm:max-w-[16rem]">
-          <span className="truncate font-sans text-[13px] font-medium">{v.moniker}</span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate font-sans text-[13px] font-medium text-foreground transition-colors group-hover/row:text-[var(--gata-blue)]">
+            {v.moniker}
+          </span>
           <span className="truncate text-[10.5px] text-muted-foreground">
             {v.operatorAddress.slice(0, 12)}…{v.operatorAddress.slice(-5)}
           </span>
@@ -155,10 +168,11 @@ export function ValidatorsTable({
     },
     {
       key: "tokens",
-      label: staking ? `Stake` : "Power",
+      label: staking ? "Stake" : "Power",
       title: staking ? `Staked ${symbol}` : "Consensus voting power",
       sort: "tokens",
       align: "right",
+      w: "6.5rem",
       cell: (v) => <span style={{ color: ink(accent) }}>{v.tokensLabel}</span>,
     },
     {
@@ -166,14 +180,16 @@ export function ValidatorsTable({
       label: "Share",
       sort: "tokens",
       align: "right",
+      w: "5rem",
       show: "hidden sm:table-cell",
       cell: (v) => pct(v.votingPower),
     },
     {
       key: "cumulative",
-      label: "Cumulative",
+      label: "Cumul.",
       title: "Share held by this validator and everyone ranked above it",
       align: "right",
+      w: "5.5rem",
       show: "hidden xl:table-cell",
       cell: (v) => (
         <span className={v.cumulativePower > 1 / 3 ? "text-muted-foreground" : undefined}>
@@ -189,6 +205,7 @@ export function ValidatorsTable({
             title: "Change in stake over the last 24 hours",
             sort: "delta" as const,
             align: "right" as const,
+            w: "5rem",
             show: "hidden lg:table-cell",
             cell: (v: ValidatorRow) => {
               const r = v.delta?.ratio;
@@ -208,10 +225,11 @@ export function ValidatorsTable({
       ? [
           {
             key: "selfBond",
-            label: "Self bond",
+            label: "Self",
             title: "The operator's own share of its stake",
             sort: "selfBond" as const,
             align: "right" as const,
+            w: "5rem",
             show: "hidden xl:table-cell",
             cell: (v: ValidatorRow) => pct(v.selfBond?.share ?? null),
           },
@@ -221,22 +239,25 @@ export function ValidatorsTable({
       ? [
           {
             key: "commission",
-            label: "Commission",
+            label: "Comm.",
+            title: "Commission",
             sort: "commission" as const,
             align: "right" as const,
+            w: "5rem",
             show: "hidden sm:table-cell",
             cell: (v: ValidatorRow) => pct(v.commissionRate),
           },
         ]
       : []),
-    ...(hasUptime
+    ...(hasSigning
       ? [
           {
             key: "uptime",
             label: "Uptime",
             sort: "uptime" as const,
             align: "right" as const,
-            show: "hidden sm:table-cell",
+            w: "5.5rem",
+            show: "hidden md:table-cell",
             cell: (v: ValidatorRow) => (
               <span
                 className={
@@ -249,11 +270,16 @@ export function ValidatorsTable({
               </span>
             ),
           },
+        ]
+      : []),
+    ...(hasBars
+      ? [
           {
             key: "signing",
-            label: "Recent blocks",
+            label: "Last 24",
             title: "Last 24 blocks, newest on the right",
-            show: "hidden md:table-cell",
+            w: "7rem",
+            show: "hidden lg:table-cell",
             cell: (v: ValidatorRow) =>
               v.uptime.bars.length > 0 ? (
                 <MiniBars bars={v.uptime.bars} />
@@ -270,7 +296,8 @@ export function ValidatorsTable({
             label: "Missed",
             title: "Blocks missed in the signing window",
             align: "right" as const,
-            show: "hidden lg:table-cell",
+            w: "4.5rem",
+            show: "hidden xl:table-cell",
             cell: (v: ValidatorRow) =>
               v.uptime.missed === null ? "—" : v.uptime.missed.toLocaleString(),
           },
@@ -284,7 +311,8 @@ export function ValidatorsTable({
             title: `Times jailed since ${jailingsSince ?? "genesis"}`,
             sort: "jailings" as const,
             align: "right" as const,
-            show: "hidden lg:table-cell",
+            w: "5.5rem",
+            show: "hidden xl:table-cell",
             cell: (v: ValidatorRow) => {
               const text = jailRecord(v.jailings);
               return (
@@ -306,11 +334,22 @@ export function ValidatorsTable({
       key: "status",
       label: "Status",
       align: "right",
+      w: "5.75rem",
       cell: (v) =>
         v.jailed ? (
-          <span className="text-[var(--destructive)]">Jailed</span>
+          <span className="inline-flex rounded-full bg-[var(--destructive)]/12 px-2 py-0.5 font-sans text-[11px] font-medium text-[var(--destructive)]">
+            Jailed
+          </span>
         ) : (
-          <span className="text-[var(--gata-green)]">{statusLabel(v.status)}</span>
+          <span
+            className={`inline-flex rounded-full px-2 py-0.5 font-sans text-[11px] font-medium ${
+              set === "active"
+                ? "bg-[var(--gata-green)]/12 text-[var(--gata-green)]"
+                : "bg-[var(--gata-faint)]/15 text-muted-foreground"
+            }`}
+          >
+            {statusLabel(v.status)}
+          </span>
         ),
     },
   ];
@@ -319,8 +358,40 @@ export function ValidatorsTable({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-3 pb-2">
-        <div className="relative flex-1 sm:max-w-xs">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 pb-2.5">
+        {/* Active or inactive: two views of one list. */}
+        <div
+          role="tablist"
+          aria-label="Validator set"
+          className="inline-flex shrink-0 rounded-lg border border-border bg-[var(--gata-card)] p-0.5"
+        >
+          {(
+            [
+              ["active", "Active", rows.length],
+              ["inactive", "Inactive", inactiveRows.length],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={set === key}
+              onClick={() => setSet(key)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                set === key
+                  ? "bg-[var(--gata-card-hi)] text-foreground shadow-[inset_0_0_0_1px_var(--gata-border-hi)]"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {label}
+              <span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
+                {count}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative min-w-0 flex-1 sm:max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
@@ -328,17 +399,19 @@ export function ValidatorsTable({
             placeholder="Filter by name or address…"
             aria-label="Filter validators"
             spellCheck={false}
-            className="h-8 w-full rounded-lg border border-border bg-secondary/50 pl-8 pr-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)]"
+            className="h-8 w-full rounded-lg border border-border bg-[var(--gata-card)] pl-8 pr-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)]"
           />
         </div>
-        <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-          {visible.length}
-          {visible.length !== rows.length ? ` of ${rows.length}` : ""} validators
-        </span>
+
+        {query ? (
+          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+            {visible.length} of {source.length}
+          </span>
+        ) : null}
       </div>
 
-      <div className="gata-surface min-h-0 flex-1 overflow-auto">
-        <table className="w-full border-collapse whitespace-nowrap">
+      <div className="gata-surface min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <table className="w-full table-fixed border-collapse">
           <thead className="sticky top-0 z-10 bg-[var(--gata-bg2)]">
             <tr className="border-b border-border">
               {columns.map((c) => {
@@ -349,6 +422,7 @@ export function ValidatorsTable({
                     key={c.key}
                     scope="col"
                     title={c.title}
+                    style={c.w ? { width: c.w } : undefined}
                     aria-sort={
                       active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined
                     }
@@ -373,6 +447,7 @@ export function ValidatorsTable({
                   </th>
                 );
               })}
+              <th aria-hidden="true" style={{ width: "1.75rem" }} />
             </tr>
           </thead>
           <tbody>
@@ -380,14 +455,14 @@ export function ValidatorsTable({
               <tr
                 key={v.operatorAddress}
                 onClick={() => router.push(href(v))}
-                className={`cursor-pointer border-b border-border/40 last:border-0 hover:bg-[var(--gata-card-hi)] ${
-                  v.jailed ? "bg-[var(--destructive)]/[0.06]" : ""
+                className={`group/row cursor-pointer border-b border-border/40 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)] ${
+                  v.jailed ? "bg-[var(--destructive)]/[0.05]" : ""
                 }`}
               >
                 {columns.map((c) => (
                   <td
                     key={c.key}
-                    className={`relative h-[42px] px-2.5 font-mono text-[12.5px] tabular-nums ${
+                    className={`h-[42px] overflow-hidden text-ellipsis whitespace-nowrap px-2.5 font-mono text-[12.5px] tabular-nums ${
                       c.align === "right" ? "text-right" : ""
                     } ${c.show ?? ""}`}
                   >
@@ -396,6 +471,7 @@ export function ValidatorsTable({
                       // keyboard and opens in a new tab like any other link.
                       <Link
                         href={href(v)}
+                        prefetch={false}
                         onClick={(e) => e.stopPropagation()}
                         className="block min-w-0 outline-none focus-visible:underline"
                       >
@@ -406,15 +482,22 @@ export function ValidatorsTable({
                     )}
                   </td>
                 ))}
+                <td aria-hidden="true" className="pr-2 text-right">
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 text-[var(--gata-faint)] transition-[color,transform] group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
+                </td>
               </tr>
             ))}
             {visible.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length}
+                  colSpan={columns.length + 1}
                   className="h-24 text-center text-[13px] text-muted-foreground"
                 >
-                  {query ? `No validator matches "${query}".` : "No validators."}
+                  {query
+                    ? `No validator matches "${query}".`
+                    : set === "inactive"
+                      ? "No inactive validators"
+                      : "No validators"}
                 </td>
               </tr>
             ) : null}

@@ -16,7 +16,6 @@
     "https://cosmos-rpc.publicnode.com",
     "https://rpc.cosmos.directory/cosmoshub"
   ],
-  "wsEndpoint": "wss://cosmos-rpc.publicnode.com/websocket",
   "featuredValidator": null,
   "accent": "#3B9EFF",
   "coingeckoId": "cosmos",

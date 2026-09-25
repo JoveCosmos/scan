@@ -57,8 +57,12 @@ export default async function ValidatorsPage({
 async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
   const adapter = getAdapter(chain);
-  const [validators, registered, overview, chainParams] = await Promise.all([
+  const metrics = policyFor(chain).metrics;
+  const [validators, inactive, registered, overview, chainParams, jailings] = await Promise.all([
     adapter.getValidators(),
+    // Outside the active set. Its own cache, so it never holds up the list once
+    // warm; a failed read just leaves the Inactive view empty.
+    adapter.getInactiveValidators().catch(() => []),
     adapter.getRegisteredCount(),
     // Head height is what anchors the 24h window.
     adapter.getOverview().catch(() => null),
@@ -67,15 +71,18 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     adapter.capabilities.staking
       ? getChainParams(chain).catch(() => null)
       : Promise.resolve(null),
+    // Null whenever the indexer cannot answer, which hides the column entirely
+    // rather than showing every validator a confident zero. Needs nothing from
+    // the set, so it runs alongside it rather than after.
+    metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
   ]);
   const minCommission = chainParams?.staking?.minCommissionRate ?? null;
   // Below the top tier these are skipped rather than fetched and discarded:
   // uptime is a query per validator against endpoints we do not run, and the
   // stake delta needs a second height. The table hides each column when its
   // data is absent, so the page degrades to the set itself.
-  const metrics = policyFor(chain).metrics;
-  // Both need the validator set first: they are keyed by the same identifier.
-  const [uptime, deltas, jailings, selfBonds, economics] = await Promise.all([
+  // These need the validator set first: they are keyed by the same identifier.
+  const [uptime, deltas, selfBonds, economics] = await Promise.all([
     metrics
       ? adapter.getUptime(validators).catch(() => new Map())
       : Promise.resolve(new Map()),
@@ -84,9 +91,6 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
           .getStakeDeltas(validators, overview?.height ?? null)
           .catch(() => new Map())
       : Promise.resolve(new Map()),
-    // Null whenever the indexer cannot answer, which hides the column entirely
-    // rather than showing every validator a confident zero.
-    metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
     // One request per validator, so it is cached for ten minutes and only
     // gathered where the chain has staking at all — see getSelfBonds.
     adapter.capabilities.staking
@@ -134,6 +138,26 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     delta: deltas.get(v.operatorAddress) ?? null,
     jailings: jailingsFor(v.consensusPubkey),
     selfBond: selfBonds.get(v.operatorAddress) ?? null,
+  }));
+
+  // Outside the set there is no signing to measure and no 24h baseline, and a
+  // self-bond read per inactive validator would be hundreds of requests for a
+  // column few would sort by — so those stay empty. Jail records do apply.
+  const inactiveRows: ValidatorRow[] = inactive.map((v) => ({
+    rank: v.rank,
+    operatorAddress: v.operatorAddress,
+    moniker: v.moniker,
+    votingPower: 0,
+    cumulativePower: 0,
+    tokens: v.tokens,
+    tokensLabel: formatToken(v.tokens, chain.exponent),
+    commissionRate: v.commissionRate,
+    jailed: v.jailed,
+    status: v.status,
+    uptime: emptyUptime(),
+    delta: null,
+    jailings: jailingsFor(v.consensusPubkey),
+    selfBond: null,
   }));
   const { staking } = adapter.capabilities;
 
@@ -192,6 +216,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       <ValidatorsTable
         chainId={chainId}
         rows={rows}
+        inactiveRows={inactiveRows}
         accent={accent}
         symbol={symbol}
         staking={staking}

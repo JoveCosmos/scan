@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { AppShell } from "@/components/app-shell";
-import { getAllChains, symbolFor, accentFor } from "@/lib/chains";
+import { getAllChains, symbolFor, accentFor, logoFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { policyFor } from "@/lib/tiers";
 
@@ -37,6 +37,7 @@ export default function RootLayout({
     chainId: chain.chainId,
     prettyName: chain.prettyName,
     symbol: symbolFor(chain),
+    logo: logoFor(chain),
     accent: accentFor(chain),
     governance: getAdapter(chain).capabilities.governance,
     // gno.land has no IBC module; every Cosmos SDK chain here does.
@@ -82,7 +83,7 @@ export default function RootLayout({
                   pinned to the viewport every row the footer takes is a row the
                   page does not get.
                 */}
-                <div className="mx-auto flex h-8 max-w-6xl items-center justify-end px-4 text-[11px] text-muted-foreground">
+                <div className="mx-auto flex h-8 max-w-[90rem] items-center justify-end px-4 text-[11px] text-muted-foreground">
                   <span>
                     powered by{" "}
                     <a

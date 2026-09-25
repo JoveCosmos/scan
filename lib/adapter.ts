@@ -7,7 +7,11 @@ import { txsAtHeight } from "@/lib/txs";
 import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
 import type { ValidatorSummary } from "@/lib/validators";
-import { getValidators, getValidatorDelegators } from "@/lib/validators";
+import {
+  getInactiveValidators,
+  getValidatorsCached,
+  getValidatorDelegators,
+} from "@/lib/validators";
 import type { Delegator } from "@/lib/validators";
 import type { ValidatorUptime } from "@/lib/uptime";
 import type { StakeDelta } from "@/lib/stake-delta";
@@ -108,6 +112,8 @@ export interface ChainAdapter {
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
+  /** Validators outside the active set. Empty where there is no such notion. */
+  getInactiveValidators(): Promise<ValidatorSummary[]>;
   /** Largest delegators to one validator. */
   getDelegators(
     operatorAddress: string
@@ -167,6 +173,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
+      getInactiveValidators: async () => [],
       getDelegators: async () => ({
         delegators: [],
         total: null,
@@ -210,19 +217,23 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       txsAtHeight(chain, block.height, block.rawTxs ?? [], block.time),
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
-    getValidators: () =>
-      cached(`validators:${chain.chainId}`, 30_000, () => getValidators(chain)),
+    getValidators: () => getValidatorsCached(chain),
+    getInactiveValidators: () => getInactiveValidators(chain),
     getDelegators: (operatorAddress) =>
       cached(`delegators:${chain.chainId}:${operatorAddress}`, 30_000, () =>
         getValidatorDelegators(chain, operatorAddress)
       ),
-    getUptime: (validators, barCount) =>
-      cached(`uptime:${chain.chainId}:${barCount ?? "default"}`, 15_000, () =>
-        getCosmosUptime(chain, validators, barCount)
-      ),
+    // Not cached as a whole: the result is keyed by whichever validators were
+    // asked about, so one cache entry per bar count handed a validator page the
+    // map built for a different validator. The expensive parts (signing infos,
+    // blocks) are cached underneath, and assembling the map is arithmetic.
+    getUptime: (validators, barCount) => getCosmosUptime(chain, validators, barCount),
     getStakeDeltas: (validators, headHeight) =>
-      cached(`stakedelta:${chain.chainId}`, 60_000, () =>
-        getStakeDeltas(chain, validators, headHeight)
+      cached(
+        `stakedelta:${chain.chainId}`,
+        60_000,
+        () => getStakeDeltas(chain, validators, headHeight),
+        { staleMs: 15 * 60_000 }
       ),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),

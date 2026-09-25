@@ -312,10 +312,16 @@ export async function getSelfBonds(
   chain: ChainConfig,
   validators: { operatorAddress: string; tokens: string }[]
 ): Promise<Map<string, SelfBond>> {
-  return cached(`selfbond:${chain.chainId}`, 600_000, async () => {
+  // Stale-while-revalidate for an hour: the read is one request per validator
+  // (~3s on a 100-validator set), and nobody should wait on it after the first.
+  return cached(`selfbond:${chain.chainId}`, 600_000, loadSelfBonds, {
+    staleMs: 3_600_000,
+  });
+
+  async function loadSelfBonds(): Promise<Map<string, SelfBond>> {
     const out = new Map<string, SelfBond>();
     const queue = [...validators];
-    const CONCURRENCY = 6;
+    const CONCURRENCY = 10;
 
     async function worker() {
       for (;;) {
@@ -330,5 +336,5 @@ export async function getSelfBonds(
 
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
     return out;
-  });
+  }
 }

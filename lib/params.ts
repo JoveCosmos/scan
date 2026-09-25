@@ -1,7 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { cached } from "@/lib/cache";
-import type { Coin } from "@/lib/accounts";
 
 /**
  * Consensus-level chain parameters, gathered from the modules that own them.
@@ -40,14 +39,6 @@ export interface MintParams {
 export interface DistributionParams {
   communityTax: number | null;
   withdrawAddrEnabled: boolean | null;
-}
-
-export interface GovDisplayParams {
-  quorum: number | null;
-  threshold: number | null;
-  vetoThreshold: number | null;
-  votingPeriod: string | null;
-  minDeposit: Coin[];
 }
 
 export interface ChainParams {
@@ -258,42 +249,6 @@ export async function getChainEconomics(
       stakingApr !== null && minCommission !== null
         ? stakingApr * (1 - minCommission)
         : null,
-  };
-}
-
-export interface NodeInfo {
-  /** Application name, e.g. "gaia". */
-  app: string | null;
-  /** Running version, e.g. "v27.6.0". */
-  version: string | null;
-  cosmosSdkVersion: string | null;
-}
-
-/**
- * What software the chain is actually running, read live rather than pinned in
- * config — an upgrade should show up here without a redeploy.
- *
- * This describes the node that answered, which on a public pool is one of
- * several. They are normally on the same release; a lagging node would report
- * its own older version, which is still a true statement about that node.
- */
-export async function getNodeInfo(chain: ChainConfig): Promise<NodeInfo | null> {
-  const res = await attempt(() =>
-    fetchLcd<{
-      application_version?: {
-        name?: string;
-        version?: string;
-        cosmos_sdk_version?: string;
-      };
-    }>(chain, "/cosmos/base/tendermint/v1beta1/node_info", { timeoutMs: 8000 })
-  );
-
-  const v = res?.application_version;
-  if (!v) return null;
-  return {
-    app: v.name ?? null,
-    version: v.version ?? null,
-    cosmosSdkVersion: v.cosmos_sdk_version ?? null,
   };
 }
 

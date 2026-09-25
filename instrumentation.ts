@@ -13,10 +13,23 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
 
-  const [{ getAllChains }, { getValoperIndex }] = await Promise.all([
+  const [{ getAllChains }, { getValoperIndex }, { warmValidators }] = await Promise.all([
     import("@/lib/chains"),
     import("@/lib/gno-valopers"),
+    import("@/lib/warm"),
   ]);
+
+  // Cosmos validator lists: the self-bond read is a request per validator, so
+  // it is done once here rather than by the first visitor after a deploy.
+  for (const chain of getAllChains()) {
+    if (chain.kind !== "cosmos") continue;
+    const startedAt = Date.now();
+    void warmValidators(chain).then(
+      () => console.log(`[warm] ${chain.chainId} validators in ${Date.now() - startedAt}ms`),
+      (err) =>
+        console.warn(`[warm] ${chain.chainId} failed:`, err instanceof Error ? err.message : err)
+    );
+  }
 
   for (const chain of getAllChains()) {
     if (chain.kind !== "gno") continue;

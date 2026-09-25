@@ -25,7 +25,6 @@
   "fallbackRpcEndpoints": [
     "https://provider-rpc.gatadao.com"
   ],
-  "wsEndpoint": "wss://provider-rpc.gatadao.com/websocket",
   "featuredValidator": null,
   "accent": "#36D399",
   "website": "https://cosmos.network",

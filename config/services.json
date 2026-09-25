@@ -14,14 +14,10 @@
           "kind": "rest"
         }
       ],
-      "snapshotKey": "akash",
-      "daemon": "akash",
-      "home": "$HOME/.akash"
+      "snapshotKey": "akash"
     },
     {
       "chainId": "atomone-1",
-      "daemon": "atomoned",
-      "home": "$HOME/.atomone",
       "endpoints": [
         {
           "label": "RPC",
@@ -36,8 +32,7 @@
       ],
       "snapshot": {
         "schedule": "daily at 06:20 UTC",
-        "pruning": "custom (100/0/10), no tx index",
-        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+        "pruning": "custom (100/0/10), no tx index"
       },
       "snapshotKey": "atomone"
     },
@@ -55,19 +50,14 @@
           "kind": "rest"
         }
       ],
-      "snapshotKey": "gaia",
-      "daemon": "gaiad",
-      "home": "$HOME/.gaia"
+      "snapshotKey": "gaia"
     },
     {
       "chainId": "juno-1",
-      "daemon": "junod",
-      "home": "$HOME/.juno",
       "snapshotKey": "juno",
       "snapshot": {
         "schedule": "daily at 05:30 UTC",
-        "pruning": "custom (100/0/10), no tx index",
-        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+        "pruning": "custom (100/0/10), no tx index"
       },
       "endpoints": [
         {
@@ -96,9 +86,7 @@
           "kind": "rest"
         }
       ],
-      "snapshotKey": "osmosis",
-      "daemon": "osmosisd",
-      "home": "$HOME/.osmosisd"
+      "snapshotKey": "osmosis"
     },
     {
       "chainId": "passage-2",
@@ -114,9 +102,7 @@
           "url": "https://passage-api.gatadao.com",
           "kind": "rest"
         }
-      ],
-      "daemon": "passage",
-      "home": "$HOME/.passage"
+      ]
     },
     {
       "chainId": "provider",
@@ -132,14 +118,10 @@
           "url": "https://provider-api.gatadao.com",
           "kind": "rest"
         }
-      ],
-      "daemon": "gaiad",
-      "home": "$HOME/.gaia"
+      ]
     },
     {
       "chainId": "atomone-testnet-1",
-      "daemon": "atomoned",
-      "home": "$HOME/.atomone",
       "endpoints": [
         {
           "label": "RPC",
@@ -154,15 +136,12 @@
       ],
       "snapshot": {
         "schedule": "daily at 05:50 UTC",
-        "pruning": "custom (100/0/10), no tx index",
-        "note": "Pruned for fast sync, not for historical queries: a restored node keeps ~1000 blocks and rebuilds its transaction index going forward. Every archive is verified before publication by booting a throwaway node against it."
+        "pruning": "custom (100/0/10), no tx index"
       },
       "snapshotKey": "atomone-testnet"
     },
     {
       "chainId": "gnoland-1",
-      "daemon": "gnoland",
-      "home": "gnoland-data",
       "endpoints": [
         {
           "label": "RPC",
@@ -171,17 +150,12 @@
         }
       ],
       "snapshot": {
-        "pruning": "unpruned (gno has no pruning), no tx index",
-        "note": "Taken from a non-validating twin that follows gnoland-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
+        "pruning": "unpruned (gno has no pruning), no tx index"
       },
-      "snapshotKey": "gnoland",
-      "dataDir": "db",
-      "stateFile": "secrets/priv_validator_state.json"
+      "snapshotKey": "gnoland"
     },
     {
       "chainId": "pearl-1",
-      "daemon": "gnoland",
-      "home": "gnoland-data",
       "endpoints": [
         {
           "label": "RPC",
@@ -190,12 +164,9 @@
         }
       ],
       "snapshot": {
-        "pruning": "unpruned (gno has no pruning), no tx index",
-        "note": "Taken from a non-validating twin that follows pearl-1, never from our validator. Ships db/ only - config, genesis and secrets are not in the archive. Every archive is verified before publication by booting a throwaway node against it."
+        "pruning": "unpruned (gno has no pruning), no tx index"
       },
-      "snapshotKey": "pearl",
-      "dataDir": "db",
-      "stateFile": "secrets/priv_validator_state.json"
+      "snapshotKey": "pearl"
     }
   ]
 }

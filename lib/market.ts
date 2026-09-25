@@ -1,4 +1,3 @@
-import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
 
 /**
@@ -25,12 +24,6 @@ interface CoinGeckoResponse {
     usd_market_cap?: number;
     usd_24h_change?: number;
   };
-}
-
-export async function getMarketData(
-  chain: ChainConfig
-): Promise<MarketData | null> {
-  return getMarketDataById(chain.coingeckoId);
 }
 
 /** Market data for one CoinGecko id, or null when there is none to fetch. */

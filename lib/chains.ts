@@ -89,19 +89,11 @@ const chainConfigSchema = z
      */
     fallbackLcdEndpoints: z.array(z.string().url()).default([]),
     fallbackRpcEndpoints: z.array(z.string().url()).default([]),
-    /** Indexing REST API. Unused since gno moved to our own tx-indexer. */
-    apiEndpoints: z.array(z.string().url()).default([]),
     /**
      * GraphQL tx-indexer (gnolang/tx-indexer). Required for gno, where the RPC
      * cannot list blocks or transactions; ours runs on this box.
      */
     indexerEndpoints: z.array(z.string().url()).default([]),
-    /**
-     * Optional, and currently read by nothing — live data is polled over HTTP.
-     * Required until a chain came along with no public websocket to point at,
-     * which would have meant inventing a URL to satisfy a field no code uses.
-     */
-    wsEndpoint: z.string().min(1).optional(),
     featuredValidator: z.string().nullable(),
     /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
     accent: z.string().optional(),
