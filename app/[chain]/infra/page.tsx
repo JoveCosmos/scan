@@ -128,7 +128,11 @@ export default async function InfraPage({
     .filter((e) => e.kind === "rpc")
     .map((e) => e.url);
 
-  const wantsStateSync = services?.stateSync?.enabled ?? true;
+  // Off unless a chain opts in: a state-sync snippet pointing at our RPCs only works
+  // if our nodes also serve snapshots, and none of them keeps a snapshot interval
+  // (snapshot-interval = 0 on every node, checked 2026-09-25). Showing it anyway
+  // tells an operator to sync from infrastructure that cannot serve the sync.
+  const wantsStateSync = services?.stateSync?.enabled ?? false;
   const stateSync = wantsStateSync
     ? await getStateSync(chain, rpcServers, services?.stateSync?.trustPeriod).catch(
         () => null

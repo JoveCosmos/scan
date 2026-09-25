@@ -60,8 +60,9 @@ const chainServicesSchema = z.object({
     .object({
       /** Must be shorter than the chain's unbonding period. */
       trustPeriod: z.string().optional(),
-      /** Set false where we do not keep the snapshot interval a sync needs. */
-      enabled: z.boolean().default(true),
+      /** True only where our node keeps the snapshot interval a sync needs
+       *  (app.toml snapshot-interval > 0). Off by default: none does today. */
+      enabled: z.boolean().default(false),
     })
     .optional(),
   /**
