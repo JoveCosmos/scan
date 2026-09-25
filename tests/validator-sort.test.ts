@@ -7,6 +7,7 @@ function row(over: Partial<ValidatorRow> & { moniker: string }): ValidatorRow {
     rank: 1,
     operatorAddress: `cosmosvaloper1${over.moniker.toLowerCase()}`,
     votingPower: 0.1,
+    cumulativePower: 0.1,
     tokens: "1000",
     tokensLabel: "1K",
     commissionRate: 0.05,

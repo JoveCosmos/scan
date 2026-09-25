@@ -62,7 +62,6 @@ export default async function ProposalsPage({
         chainId={chain.chainId}
         chainName={chain.prettyName}
         accent={accentFor(chain)}
-        reason={`${chain.prettyName} has no on-chain governance module — its decisions are not made through proposals and votes recorded on chain.`}
       />
     );
   }

@@ -251,10 +251,6 @@ export default async function ChainOverviewPage({
                 value: chain.feeSupplyCap ? chain.feeSupplyCap.toLocaleString() : "—",
                 mono: true,
               },
-              {
-                label: "Two tokens",
-                value: `${symbol} secures the chain and votes; ${feeSymbol} pays fees.`,
-              },
             ]
           : []),
       ]),

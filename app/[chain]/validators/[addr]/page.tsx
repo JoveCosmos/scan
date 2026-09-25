@@ -270,11 +270,11 @@ export default async function ValidatorDetailPage({
         // means jailed right now. The slashing module keeps no count, only this.
         {
           label: "Jailed until",
-          value: uptime.jailedUntil ? new Date(uptime.jailedUntil).toLocaleString() : "—",
+          value: uptime.jailedUntil ? new Date(uptime.jailedUntil).toLocaleString() : "Never",
         },
         {
           label: "Tombstoned",
-          value: uptime.tombstoned ? "Yes — permanently removed" : "—",
+          value: uptime.tombstoned ? "Yes — permanently removed" : "No",
         },
       ]),
     });

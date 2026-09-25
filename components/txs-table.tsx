@@ -153,7 +153,7 @@ export function TxsTable({
       empty={
         isError
           ? "Connection lost — retrying."
-          : "No transactions in the blocks scanned."
+          : "No transactions"
       }
     />
   );

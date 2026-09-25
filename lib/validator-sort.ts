@@ -16,6 +16,8 @@ export interface ValidatorRow {
   operatorAddress: string;
   moniker: string;
   votingPower: number;
+  /** Share of power held by this validator and everyone ranked above it. */
+  cumulativePower: number;
   /** Base denom, as a string — a large validator's stake exceeds a safe double. */
   tokens: string;
   /** Pre-formatted by the server, which owns the chain's exponent. */

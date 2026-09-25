@@ -97,7 +97,7 @@ export async function ValidatorDelegators({
       }
       empty={
         failed
-          ? "Could not load delegators — the node did not respond. Several public endpoints disable this query on validators with very large sets."
+          ? "N/A"
           : "No delegations found."
       }
     />

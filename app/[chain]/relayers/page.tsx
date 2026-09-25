@@ -47,7 +47,6 @@ export default async function RelayersPage({
         chainId={chain.chainId}
         chainName={chain.prettyName}
         accent={accentFor(chain)}
-        reason={`${chain.prettyName} runs Tendermint2 and has no IBC module, so it has no channels to relay and no relayers to rank.`}
       />
     );
   }

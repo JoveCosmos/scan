@@ -195,10 +195,10 @@ async function VotesDeck({
       empty={
         failed
           ? // Never claim there are no votes when we simply could not read them.
-            "Could not load votes right now - the node did not respond."
+            "N/A"
           : isVoting(proposal.status)
-            ? "No votes cast yet."
-            : "No votes found for this proposal, in state or in transaction history."
+            ? "No votes yet"
+            : "No votes"
       }
     />
   );

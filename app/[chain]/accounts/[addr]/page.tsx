@@ -170,7 +170,7 @@ async function StakingDeck({
             label: "Reward",
             // Rewards below one base unit are not claimable, so they are
             // truncated upstream rather than rounded into existence.
-            value: d.reward === null ? "Unavailable" : exactAmount(d.reward, chain.exponent),
+            value: d.reward === null ? "N/A" : exactAmount(d.reward, chain.exponent),
             mono: true,
           },
           { label: "Validator", value: d.validator, mono: true },
@@ -233,7 +233,7 @@ async function StakingDeck({
       empty={
         staking.failed
           ? // Never report an empty stake when the module simply did not answer.
-            "The staking module did not answer. Delegations are unavailable right now."
+            "N/A"
           : "This account has nothing staked."
       }
     />
@@ -383,7 +383,7 @@ async function TransactionDeck({
       }
       empty={
         failed
-          ? "Could not load transaction history - the node did not respond."
+          ? "N/A"
           : "No transactions found for this address."
       }
     />
@@ -466,10 +466,6 @@ export default async function AccountPage({
               label: "Validators",
               value: String(account.delegationCount ?? "—"),
               mono: true,
-            },
-            {
-              label: "Counted",
-              value: "Bonded stake only. Anything unbonding is in the Staking tab.",
             },
           ]
         : undefined,
@@ -602,9 +598,7 @@ export default async function AccountPage({
           // with a spent balance still has one.
           <div className="min-h-0 shrink-0 overflow-y-auto">
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">No on-chain activity.</span>{" "}
-              {chain.prettyName} has no record for this address. It may never have been
-              used, or it may belong to a different network.
+              No on-chain activity.
             </p>
             {/* Streamed: checks the same key on every linked chain. */}
             <Suspense fallback={null}>

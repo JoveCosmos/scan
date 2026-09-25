@@ -120,8 +120,13 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     operatorAddress: v.operatorAddress,
     moniker: v.moniker,
     votingPower: v.votingPower,
+    cumulativePower: v.cumulativePower,
     tokens: v.tokens,
-    tokensLabel: formatToken(v.tokens, chain.exponent),
+    // Without staking the figure is consensus weight, a plain integer, not a
+    // token amount to scale by the denom's exponent.
+    tokensLabel: adapter.capabilities.staking
+      ? formatToken(v.tokens, chain.exponent)
+      : Number(v.tokens).toLocaleString(),
     commissionRate: v.commissionRate,
     jailed: v.jailed,
     status: v.status,

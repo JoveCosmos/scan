@@ -52,9 +52,7 @@ export default async function BlockDetailPage({
     return (
       <PageFrame title="Block not found" sub={chain.prettyName} accent={accent}>
         <p className="text-sm text-muted-foreground">
-          Height {Number(height).toLocaleString()} is unavailable on{" "}
-          {chain.prettyName}. It may be above the current head, or pruned from the
-          nodes we query.{" "}
+          Height {Number(height).toLocaleString()}: N/A.{" "}
           <Link href={`/${chainId}/blocks`} className="text-primary hover:underline">
             Back to blocks
           </Link>

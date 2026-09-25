@@ -163,7 +163,7 @@ export function InfraBoard({
         >
           {spec.endpoints.length === 0 && !spec.snapshotsDir ? (
             <p className="py-1.5 text-[13px] text-muted-foreground">
-              We publish no endpoints for this network.
+              N/A
             </p>
           ) : (
             <ul className="divide-y divide-border/50">
@@ -233,7 +233,7 @@ export function InfraBoard({
             </>
           ) : (
             <p className="py-1.5 text-[13px] text-muted-foreground">
-              No snapshot is published for this network yet.
+              N/A
             </p>
           )}
         </Panel>

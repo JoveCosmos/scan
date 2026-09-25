@@ -220,7 +220,6 @@ export default async function InfraPage({
               ? [{ label: "Daemon", value: services.daemon, mono: true }]
               : []),
             ...(services?.home ? [{ label: "Home", value: services.home, mono: true }] : []),
-            ...(snapshot.note ? [{ label: "Note", value: snapshot.note }] : []),
           ],
         }
       : null,
@@ -237,53 +236,13 @@ export default async function InfraPage({
             { label: "Trust hash", value: stateSync.trustHash, mono: true },
             { label: "Trust period", value: stateSync.trustPeriod, mono: true },
             { label: "RPC servers", value: stateSync.rpcServers.join(", "), mono: true },
-            {
-              label: "Height",
-              value:
-                "Deliberately behind the head. State sync verifies against a header the servers must still be able to serve, and a height near the tip can be reorganised out from under it.",
-            },
-            {
-              label: "Freshness",
-              value:
-                "Recomputed on every load. A trust hash written into a config file is wrong within days, and a wrong one fails the sync with an error that reads like a network problem.",
-            },
           ],
         }
       : null,
 
     indexer: {
       indexed: chain.indexed,
-      rows: chain.indexed
-        ? [
-            { label: "Status", value: "This chain is indexed." },
-            {
-              label: "Provides",
-              value:
-                "Account and proposal history, validator commission, jail and slash records, proposer counts, stake movement and relayer rankings.",
-            },
-            {
-              label: "Why",
-              value:
-                "A node answers about now. Anything historical — who voted, what a validator earned, how stake moved — needs a record kept alongside it.",
-            },
-            {
-              label: "Fallback",
-              value:
-                "Where the index cannot answer, the page shows nothing rather than a wrong zero.",
-            },
-          ]
-        : [
-            { label: "Status", value: "This chain is not indexed." },
-            {
-              label: "Reads",
-              value: "Everything comes live from the chain's own endpoints.",
-            },
-            {
-              label: "Effect",
-              value:
-                "Sections that need history — vote records, commission earned, slash history, relayer rankings — are absent rather than empty.",
-            },
-          ],
+      rows: [{ label: "Status", value: chain.indexed ? "Indexed" : "N/A" }],
     },
   };
 

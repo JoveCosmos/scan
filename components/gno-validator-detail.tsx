@@ -32,8 +32,7 @@ async function ValoperProfileBoard({
   if (!profile) {
     return (
       <p className="text-sm text-muted-foreground">
-        This validator has not registered a profile in the{" "}
-        <span className="font-mono text-xs">{REGISTRY}</span> realm.
+        N/A
       </p>
     );
   }
@@ -139,10 +138,6 @@ export async function GnoValidatorDetail({
         },
         { label: "Rank", value: consensus?.rank ? `#${consensus.rank}` : "—", mono: true },
         { label: "Status", value: consensus?.status ?? "—" },
-        {
-          label: "Assigned, not staked",
-          value: "gno.land has no staking module — power is granted by the valset.",
-        },
       ],
     },
     {

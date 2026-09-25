@@ -28,3 +28,19 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
   if (value.length <= head + tail + 1) return value;
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
+
+/**
+ * A validator's jail record, worded the same everywhere it appears: the list,
+ * the validator page, and anywhere later. Zero is "Never", never "0" — a bare
+ * zero reads as a missing figure, not a clean record. Null means the index
+ * cannot say, which is not the same claim and must not look like it.
+ */
+export function jailRecord(
+  jailings: { count: number; tombstoned: boolean } | null
+): string {
+  if (!jailings) return "—";
+  if (jailings.tombstoned) return "Tombstoned";
+  if (jailings.count === 0) return "Never";
+  if (jailings.count === 1) return "Once";
+  return `${jailings.count} times`;
+}
