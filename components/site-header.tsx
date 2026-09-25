@@ -4,9 +4,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Check } from "lucide-react";
+import {
+  ArrowLeftRight,
+  Boxes,
+  Cable,
+  Check,
+  ChevronDown,
+  Gauge,
+  Server,
+  ShieldCheck,
+  Vote,
+  type LucideIcon,
+} from "lucide-react";
 import { SearchBar } from "@/components/search-bar";
-import { MenuButton } from "@/components/menu-button";
 
 export interface ChainSummary {
   chainId: string;
@@ -31,8 +41,10 @@ function ChainSwitcher({
   section,
 }: {
   chains: ChainSummary[];
+  /** The chain the tabs point at: the route's, or on the home page the last
+   *  one visited. */
   activeChainId: string | null;
-  /** Current section ("blocks" | "console" | …), preserved across chains. */
+  /** Current section ("/blocks" | "/txs" | …), preserved across chains. */
   section: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +54,8 @@ function ChainSwitcher({
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     }
     function onEsc(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -67,7 +80,10 @@ function ChainSwitcher({
         {active ? (
           <span
             className="h-2 w-2 rounded-full"
-            style={{ background: active.accent, boxShadow: `0 0 10px ${active.accent}` }}
+            style={{
+              background: active.accent,
+              boxShadow: `0 0 10px ${active.accent}`,
+            }}
           />
         ) : null}
         {/*
@@ -93,7 +109,7 @@ function ChainSwitcher({
       {open ? (
         <ul
           role="listbox"
-          className="absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
+          className="absolute right-0 z-50 mt-2 max-h-[calc(100dvh-7rem)] w-60 overflow-y-auto rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
         >
           {/*
             One flat list in config order, no mainnet/testnet headings: each
@@ -142,97 +158,170 @@ function ChainSwitcher({
 }
 
 /**
- * The header, once the navigation left it.
+ * The header: the mark, search, the chain switcher, and the chain's sections.
  *
- * Sections used to live here as two tab strips — one for desktop and a second
- * scrolling one for phones — and the logo anchored the left. All three moved to
- * `SideRail`, which has room for every section at any width. What is left is
- * what the header was always actually for: search, and which chain you are
- * searching. Search takes the space the tabs used to.
+ * Sections are tabs in a second row rather than a side rail: the rail cost
+ * 224px of width on every page to show seven words, and on a phone it hid
+ * behind a drawer. A row of tabs scrolls sideways on a narrow screen and is
+ * always in view.
+ *
+ * The home page has no chain in its route, so there the tabs and the switcher
+ * follow the last chain you visited (on a first visit, the first mainnet in
+ * config order). Nothing is marked active, because you are not on any of them yet.
  */
-export function SiteHeader({
-  chains,
-  onOpenMenu,
-}: {
-  chains: ChainSummary[];
-  /** Set only where the rail is a drawer, so the header carries its handle. */
-  onOpenMenu?: () => void;
-}) {
+
+interface Tab {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  governanceOnly?: boolean;
+  ibcOnly?: boolean;
+  section?: "txs" | "proposals" | "relayers";
+}
+
+// The chain's identity card, then its activity, then who runs it, then IBC,
+// then what we run for it. The route is still /params.
+const TABS: Tab[] = [
+  { href: "/params", label: "Overview", icon: Gauge },
+  { href: "/blocks", label: "Blocks", icon: Boxes },
+  { href: "/txs", label: "Transactions", icon: ArrowLeftRight, section: "txs" },
+  { href: "/validators", label: "Validators", icon: ShieldCheck },
+  {
+    href: "/proposals",
+    label: "Governance",
+    icon: Vote,
+    governanceOnly: true,
+    section: "proposals",
+  },
+  {
+    href: "/relayers",
+    label: "Relayers",
+    icon: Cable,
+    ibcOnly: true,
+    section: "relayers",
+  },
+  // Not chain-module gated: what we run for a chain, not what the chain has.
+  { href: "/infra", label: "Infrastructure", icon: Server },
+];
+
+const LAST_CHAIN_KEY = "gata-scan-last-chain";
+
+export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  const maybeChain = segments[0] ?? null;
-  const activeChainId =
-    chains.find((c) => c.chainId === maybeChain)?.chainId ?? null;
-
-  // Switching chains keeps you on the same section. Only the section survives —
-  // a block height, tx hash or validator address means nothing on another chain,
-  // so detail routes fall back to their list.
-  // Every section, so switching chains always keeps the tab you were on.
-  // `relayers` was missing here and silently dropped you to the overview.
-  const SECTIONS = [
-    "params",
-    "blocks",
-    "txs",
-    "validators",
-    "proposals",
-    "relayers",
-    "infra",
-    "console",
-  ];
-  const section =
-    activeChainId && SECTIONS.includes(segments[1] ?? "") ? `/${segments[1]}` : "";
+  const routeChain = chains.find((c) => c.chainId === segments[0]) ?? null;
 
   // The landing page is built around its own search field. A second one in the
-  // header directly above it says the same thing twice, and leaves the reader
-  // to work out whether the two differ.
+  // header directly above it says the same thing twice.
   const isHome = pathname === "/";
 
+  // Resolved after mount: the server has no storage, so reading it during
+  // render would be a hydration mismatch.
+  const [lastChainId, setLastChainId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      if (routeChain) localStorage.setItem(LAST_CHAIN_KEY, routeChain.chainId);
+      else setLastChainId(localStorage.getItem(LAST_CHAIN_KEY));
+    } catch {
+      // Private browsing refuses storage; home falls back to the first chain.
+    }
+  }, [routeChain]);
+
+  const chain =
+    routeChain ??
+    chains.find((c) => c.chainId === lastChainId) ??
+    chains.find((c) => c.network === "mainnet") ??
+    chains[0] ??
+    null;
+
+  // Switching chains keeps you on the same section. Only the section survives —
+  // a block height, tx hash or validator address means nothing on another
+  // chain, so detail routes fall back to their list.
+  const section =
+    routeChain && TABS.some((t) => t.href === `/${segments[1]}`)
+      ? `/${segments[1]}`
+      : "";
+
+  const unavailable = (tab: Tab) =>
+    chain !== null &&
+    ((tab.governanceOnly === true && !chain.governance) ||
+      (tab.ibcOnly === true && !chain.ibc) ||
+      (tab.section !== undefined && !chain.sections[tab.section]));
+
   return (
-    // shrink-0, not sticky: the column no longer scrolls, so there is nothing
-    // to stick to and a sticky element here only creates a stacking context.
-    <header className="shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-end gap-3 px-4">
-        {onOpenMenu ? <MenuButton onClick={onOpenMenu} /> : null}
-        {/*
-          The mark lives in the rail, and the rail only exists once a chain is
-          chosen. Without one it belongs here instead — same corner of the
-          screen, so it does not appear to move between the two.
-        */}
-        {activeChainId ? null : (
-          <Link href="/" className="group mr-auto flex shrink-0 items-center gap-2 text-[13px]">
-            {/* The G stands as tall as the capitals beside it (cap height is
-                ~0.72em in Inter), so mark and word read as one wordmark. */}
-            <Image
-              src="/gata_logo_white.png"
-              alt=""
-              width={30}
-              height={33}
-              priority
-              className="h-[0.72em] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
-            />
-            <span className="hidden font-medium uppercase leading-none tracking-[0.2em] text-foreground/90 min-[380px]:inline">
-              Scan
-            </span>
-          </Link>
-        )}
+    <header className="relative z-30 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
+        <Link
+          href="/"
+          className="group mr-auto flex shrink-0 items-center gap-2"
+        >
+          {/* The G and the word are the same height, so they read as one
+              wordmark rather than an icon with a caption. */}
+          <Image
+            src="/gata_logo_white.png"
+            alt=""
+            width={30}
+            height={33}
+            priority
+            className="h-[18px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+          />
+          <span className="hidden text-[18px] font-semibold uppercase leading-none tracking-[0.18em] text-foreground/90 min-[380px]:inline">
+            Scan
+          </span>
+        </Link>
 
         {/* Search is global; the active chain is only a tie-breaker hint. */}
         {isHome ? null : (
           <div className="min-w-0 max-w-xl flex-1">
-            <SearchBar chainId={activeChainId ?? undefined} />
+            <SearchBar chainId={routeChain?.chainId} />
           </div>
         )}
 
-        {/* The landing page has its own picker, in the row it belongs to. A
-            second one up here is the same control twice on one screen. */}
-        {isHome ? null : (
-          <ChainSwitcher
-            chains={chains}
-            activeChainId={activeChainId}
-            section={section}
-          />
-        )}
+        <ChainSwitcher
+          chains={chains}
+          activeChainId={chain?.chainId ?? null}
+          section={section}
+        />
       </div>
+
+      {chain ? (
+        <nav
+          aria-label="Sections"
+          style={{ ["--tab-acc" as string]: chain.accent }}
+          className="mx-auto flex h-10 max-w-6xl items-stretch overflow-x-auto px-2 [scrollbar-width:none] sm:px-3"
+        >
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active =
+              routeChain !== null &&
+              pathname.startsWith(`/${chain.chainId}${tab.href}`);
+            const na = unavailable(tab);
+            return (
+              <Link
+                key={tab.href}
+                href={`/${chain.chainId}${tab.href}`}
+                title={
+                  na
+                    ? `${tab.label} — not available on this network`
+                    : tab.label
+                }
+                aria-current={active ? "page" : undefined}
+                className={`nav-tab ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {tab.label}
+                {/* Marked rather than hidden: a tab that vanishes on one chain
+                    makes the reader wonder what else differs. */}
+                {na ? (
+                  <span className="font-mono text-[8px] leading-none tracking-wide text-[var(--gata-faint)]">
+                    N/A
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
     </header>
   );
 }

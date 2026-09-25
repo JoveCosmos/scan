@@ -34,7 +34,7 @@ async function chainsWithTx(query: string): Promise<ChainConfig[]> {
       } catch {
         return null;
       }
-    })
+    }),
   );
   return hits.filter((c): c is ChainConfig => c !== null);
 }
@@ -49,46 +49,56 @@ function Disambiguation({
   hint: string;
 }) {
   return (
-    <main className="mx-auto flex h-full max-w-2xl flex-col justify-center overflow-y-auto px-4 py-8">
-      <h1 className="text-xl font-semibold tracking-tight">Which chain?</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{hint}</p>
-      <p className="mt-1 break-all font-mono text-xs text-muted-foreground">{query}</p>
+    // The page never scrolls; the list does. `my-auto` on the panel rather than
+    // `justify-center` on the page: centring a column taller than its box
+    // pushes the top out of reach, which is how nine chains lost their heading
+    // and their last rows.
+    <main className="mx-auto flex h-full max-w-2xl flex-col px-4 py-4 sm:py-6">
+      <div className="my-auto flex max-h-full min-h-0 flex-col">
+        <h1 className="shrink-0 text-lg font-semibold tracking-tight">
+          Which chain?
+        </h1>
+        <p className="mt-1 shrink-0 text-sm text-muted-foreground">{hint}</p>
+        <p className="mt-1 shrink-0 break-all font-mono text-xs text-muted-foreground">
+          {query}
+        </p>
 
-      <ul className="mt-6 space-y-2">
-        {candidates.map((c) => (
-          <li key={c.chain.chainId}>
-            <Link
-              href={c.href}
-              className="gata-panel gata-panel-interactive flex items-center justify-between gap-3 px-5 py-4"
-              style={{ ["--panel-accent" as string]: accentFor(c.chain) }}
-            >
-              <span className="flex items-center gap-2.5">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: accentFor(c.chain) }}
-                />
-                <span className="flex flex-col">
-                  <span className="font-medium">{c.chain.prettyName}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {c.note}
+        <ul className="mt-4 grid min-h-0 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          {candidates.map((c) => (
+            <li key={c.chain.chainId}>
+              <Link
+                href={c.href}
+                className="gata-panel gata-panel-interactive flex items-center justify-between gap-3 px-4 py-2.5"
+                style={{ ["--panel-accent" as string]: accentFor(c.chain) }}
+              >
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: accentFor(c.chain) }}
+                  />
+                  <span className="flex flex-col">
+                    <span className="font-medium">{c.chain.prettyName}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {c.note}
+                    </span>
                   </span>
                 </span>
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {c.chain.network}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+                <span className="text-xs text-muted-foreground">
+                  {c.chain.network}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </main>
   );
 }
 
 function NoResult({ query }: { query: string }) {
   return (
-    <main className="mx-auto flex h-full max-w-2xl flex-col justify-center overflow-y-auto px-4 py-8">
-      <div className="gata-panel px-5 py-10 text-center">
+    <main className="mx-auto flex h-full max-w-2xl flex-col px-4 py-4">
+      <div className="gata-panel my-auto px-5 py-8 text-center">
         <SearchX className="mx-auto h-8 w-8 text-muted-foreground" />
         <h1 className="mt-4 text-lg font-semibold">
           {query ? "Nothing matched that search" : "Enter a search term"}

@@ -202,6 +202,21 @@
     animation: gataSheen 7s ease-in-out infinite;
   }
 
+  /* The whole app drawn a notch smaller on anything wider than a phone. Zoom
+     scales viewport units along with everything else, so the shell's height
+     is divided back out to keep it exactly one screen tall. Phones stay at
+     full size, where tap targets are already as small as they should go. */
+  .gata-zoom {
+    --app-zoom: 1;
+    zoom: var(--app-zoom);
+    height: calc(100dvh / var(--app-zoom));
+  }
+  @media (min-width: 640px) {
+    .gata-zoom {
+      --app-zoom: 0.9;
+    }
+  }
+
   .gata-live-dot {
     animation: gataPulse 1.8s ease-in-out infinite;
   }
@@ -211,19 +226,19 @@
     animation: gataFlash 0.9s ease-out both;
   }
 
-  /* Landing-page wallpaper of network marks (components/home-backdrop.tsx).
-     Faded out behind the centre so the search field sits on clear ground. */
-  .gata-backdrop {
-    --cell: 7.5rem;
-    -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 30%, #000 100%);
-    mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 30%, #000 100%);
+  /* Landing-page strip of network marks (components/home-marquee.tsx). The
+     track holds the list twice and slides by exactly one copy per loop, so the
+     wrap is invisible; the edges fade so marks arrive rather than appear. */
+  .gata-marquee {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
   }
-  .gata-backdrop-plane {
-    top: calc(-3 * var(--cell));
-    left: calc(-3 * var(--cell));
-    opacity: 0.11;
-    filter: grayscale(0.55);
-    animation: gataDrift 90s linear infinite;
+  .gata-marquee-track {
+    animation: gataMarquee 40s linear infinite;
+  }
+  .gata-marquee:hover .gata-marquee-track,
+  .gata-marquee:focus-within .gata-marquee-track {
+    animation-play-state: paused;
   }
 
   /*
@@ -299,91 +314,42 @@
   }
 
   /*
-   * The navigation rail, following the hub's menu so the two products behave
-   * the same way. A row is an icon square and a label, not a stacked tile: at
-   * 224px there is room for words, and words are why the rail is worth its
-   * width. Collapsed it keeps the icons and drops the labels.
-   *
-   * The active item is marked on the inside edge nearest the content, with the
-   * chain's own accent — the hub colours each item separately because its
-   * sections are unrelated, where here every section belongs to one chain and
-   * the chain is the thing worth colouring.
+   * Section tabs in the header. The active tab is underlined in the chain's own
+   * accent (--tab-acc): every section belongs to one chain, and the chain is the
+   * thing worth colouring.
    */
-  .rail-item {
-    display: flex;
-    align-items: center;
-    gap: 11px;
-    padding: 9px 10px;
-    border-radius: 11px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--gata-sub);
+  .nav-tab {
     position: relative;
-    border: 1px solid transparent;
-    transition:
-      background 0.18s ease,
-      color 0.18s ease,
-      border-color 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--gata-sub);
+    transition: color 0.16s ease;
   }
 
-  .rail-item:hover {
-    background: rgba(255, 255, 255, 0.045);
+  .nav-tab:hover {
     color: var(--gata-text);
   }
 
-  .rail-item:hover .rail-ico {
-    color: var(--rail-acc, var(--gata-blue));
-    box-shadow: inset 0 0 0 1px var(--gata-border-hi);
-  }
-
-  .rail-item:active {
-    transform: translateX(1px) scale(0.99);
-  }
-
-  .rail-item[aria-current="page"] {
+  .nav-tab[aria-current="page"] {
     color: var(--gata-text);
-    font-weight: 700;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--rail-acc) 15%, transparent),
-      color-mix(in srgb, var(--rail-acc) 5%, transparent) 65%,
-      transparent
-    );
-    border-color: rgba(255, 255, 255, 0.05);
-    box-shadow:
-      inset -3px 0 0 var(--rail-acc),
-      10px 0 26px -12px var(--rail-acc);
   }
 
-  .rail-ico {
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    transition:
-      background 0.18s ease,
-      color 0.18s ease,
-      box-shadow 0.18s ease;
-  }
-
-  /* The toggle is a handle on the panel, so it reacts like one. */
-  .rail-toggle {
-    transition:
-      color 0.16s ease,
-      border-color 0.16s ease,
-      box-shadow 0.16s ease,
-      transform 0.16s ease;
-  }
-
-  .rail-toggle:hover {
-    color: var(--gata-cyan);
-    border-color: var(--gata-cyan);
-    box-shadow:
-      0 0 14px -4px var(--gata-cyan),
-      0 6px 16px -8px rgba(0, 0, 0, 0.9);
-    transform: scale(1.08);
+  .nav-tab[aria-current="page"]::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--tab-acc, var(--gata-blue));
+    box-shadow: 0 0 12px var(--tab-acc, var(--gata-blue));
   }
 
   .gata-grid-lines {
@@ -439,9 +405,9 @@
   }
 }
 
-@keyframes gataDrift {
+@keyframes gataMarquee {
   to {
-    transform: translate(var(--drift-x), var(--drift-y));
+    transform: translateX(-50%);
   }
 }
 
