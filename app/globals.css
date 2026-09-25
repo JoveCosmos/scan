@@ -211,6 +211,21 @@
     animation: gataFlash 0.9s ease-out both;
   }
 
+  /* Landing-page wallpaper of network marks (components/home-backdrop.tsx).
+     Faded out behind the centre so the search field sits on clear ground. */
+  .gata-backdrop {
+    --cell: 7.5rem;
+    -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 30%, #000 100%);
+    mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, transparent 30%, #000 100%);
+  }
+  .gata-backdrop-plane {
+    top: calc(-3 * var(--cell));
+    left: calc(-3 * var(--cell));
+    opacity: 0.11;
+    filter: grayscale(0.55);
+    animation: gataDrift 90s linear infinite;
+  }
+
   /*
    * Responsive data tables.
    *
@@ -421,6 +436,12 @@
   }
   100% {
     background-color: transparent;
+  }
+}
+
+@keyframes gataDrift {
+  to {
+    transform: translate(var(--drift-x), var(--drift-y));
   }
 }
 

@@ -199,16 +199,18 @@ export function SiteHeader({
           screen, so it does not appear to move between the two.
         */}
         {activeChainId ? null : (
-          <Link href="/" className="group mr-auto flex shrink-0 items-center gap-2.5">
+          <Link href="/" className="group mr-auto flex shrink-0 items-center gap-2 text-[13px]">
+            {/* The G stands as tall as the capitals beside it (cap height is
+                ~0.72em in Inter), so mark and word read as one wordmark. */}
             <Image
               src="/gata_logo_white.png"
               alt=""
               width={30}
               height={33}
               priority
-              className="h-[26px] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
+              className="h-[0.72em] w-auto transition-[filter] group-hover:[filter:drop-shadow(0_0_10px_var(--gata-glow))]"
             />
-            <span className="hidden text-[13px] font-medium uppercase leading-none tracking-[0.2em] text-foreground/90 min-[380px]:inline">
+            <span className="hidden font-medium uppercase leading-none tracking-[0.2em] text-foreground/90 min-[380px]:inline">
               Scan
             </span>
           </Link>

@@ -1,48 +1,37 @@
 import { getAllChains, accentFor, symbolFor, logoFor } from "@/lib/chains";
 import { SearchBar } from "@/components/search-bar";
-import { HomeNetworks, type NetworkTile } from "@/components/home-networks";
+import { HomeBackdrop, type BackdropMark } from "@/components/home-backdrop";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The landing page is a search box and the networks under it.
+ * The landing page is a search box, and nothing else.
  *
- * The header's own search field is hidden here on purpose — two search boxes on
- * one screen is one too many, and the one you want is the one the page is built
- * around. Endpoints and snapshots used to hang off the bottom of this page;
- * they are a chain's infrastructure, so they live on that chain's Infra tab
- * now rather than under a dialog on a page about searching.
+ * The networks it covers are the wallpaper behind it rather than a row of tiles
+ * under it; the header's switcher is one click away for anyone who wants to
+ * browse instead of search. The header's own search field is hidden here on
+ * purpose — two search boxes on one screen is one too many.
  */
 export default function HomePage() {
-  const chains: NetworkTile[] = getAllChains().map((chain) => ({
-    chainId: chain.chainId,
-    prettyName: chain.prettyName,
-    symbol: symbolFor(chain),
-    accent: accentFor(chain),
-    logo: logoFor(chain),
-  }));
+  // One mark per logo: a testnet shares its mainnet's, and repeating it would
+  // weight the wallpaper toward whichever chain has the most networks.
+  const marks = new Map<string, BackdropMark>();
+  for (const chain of getAllChains()) {
+    const logo = logoFor(chain);
+    const key = logo ?? `mono:${chain.prettyName.split(" ")[0]}`;
+    if (marks.has(key)) continue;
+    marks.set(key, { key, logo, accent: accentFor(chain), symbol: symbolFor(chain) });
+  }
 
   return (
     <main className="mx-auto flex h-[calc(100dvh-6rem)] max-w-2xl flex-col items-center justify-center px-4">
-      <span className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1 text-xs text-muted-foreground">
-        <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
-        Live across {chains.length} networks
-      </span>
+      <HomeBackdrop marks={[...marks.values()]} />
 
-      <div className="mt-7 w-full">
+      <div className="w-full">
         {/* No chain hint on purpose: an ambiguous query — a bare block height,
             an address valid on several chains — should ask which chain rather
             than quietly picking one. */}
-        <SearchBar size="lg" showSlashHint placeholder="" />
-        <p className="mt-2.5 text-center text-xs text-muted-foreground">
-          Search an address, a transaction hash, or a block height.
-        </p>
-
-        {/* The networks, laid out rather than folded into a dropdown: the count
-            above is a claim, and this is the evidence for it. */}
-        <div className="mt-7">
-          <HomeNetworks chains={chains} />
-        </div>
+        <SearchBar size="lg" showSlashHint />
       </div>
     </main>
   );
