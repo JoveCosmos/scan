@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { AddressLink } from "@/components/address-link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Popup, PopupRows } from "@/components/ui/popup";
 import { filterDeckRows } from "@/lib/deck-filter";
@@ -35,6 +37,10 @@ export interface DeckCell {
   tone?: "ok" | "bad" | "accent";
   /** Drawn as a proportion bar behind the cell, 0–1. */
   bar?: number;
+  /** Renders the cell as a real link. */
+  href?: string;
+  /** An address: routed by lib/address-route, shown as `v`. */
+  address?: string;
 }
 
 export interface DeckColumn {
@@ -60,13 +66,29 @@ export interface DeckRow {
   detail: {
     title: string;
     sub?: string;
-    rows: { label: string; value: string; mono?: boolean; href?: string }[];
+    rows: { label: string; value: string; mono?: boolean; href?: string; address?: string }[];
     action?: { label: string; href: string };
   };
 }
 
 const ROW_H = 35;
 const HEAD_H = 28;
+
+function CellValue({ cell, href }: { cell: DeckCell; href?: string }) {
+  if (cell.address) {
+    return <AddressLink address={cell.address} label={cell.v} />;
+  }
+  if (!href) return <>{cell.v}</>;
+  return (
+    <Link
+      href={href}
+      onClick={(e) => e.stopPropagation()}
+      className="underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+    >
+      {cell.v}
+    </Link>
+  );
+}
 
 function cellColor(cell: DeckCell, accent: string) {
   if (cell.tone === "ok") return "var(--gata-green)";
@@ -237,7 +259,12 @@ export function RowDeck({
                           }}
                         />
                       ) : null}
-                      {cell.v}
+                      <CellValue
+                        cell={cell}
+                        // The row's own page, as a real link on its first cell,
+                        // so it opens in a new tab like any link does.
+                        href={cell.href ?? (i === 0 ? row.detail.action?.href : undefined)}
+                      />
                     </td>
                   );
                 })}

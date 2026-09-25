@@ -25,6 +25,8 @@ export interface ChainSummary {
    */
   sections: { txs: boolean; proposals: boolean; relayers: boolean };
   network: "mainnet" | "testnet";
+  /** Account prefix, for routing addresses to their own chain. */
+  bech32Prefix: string;
 }
 
 /** A network's logo, or its accent dot where we have no logo. */

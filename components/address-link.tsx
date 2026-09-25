@@ -1,48 +1,63 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { routeAddress } from "@/lib/address-route";
 import { truncateMiddle } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useChainDirectory } from "@/components/providers/chain-directory";
 
 /**
- * An on-chain address, always clickable.
+ * An on-chain address, always clickable when we carry its chain.
  *
- * Validator operator addresses (`…valoper1…`) route to the validator page;
- * everything else to the account page. Centralised so no address anywhere in
- * the app ends up as dead text.
+ * Routing is lib/address-route's: operator and consensus addresses go to the
+ * validator page, a foreign prefix goes to its own chain, and an address no
+ * chain of ours uses stays plain text rather than linking to an empty page.
+ * The current chain is read from the URL, so callers pass only the address.
  */
 export function AddressLink({
-  chainId,
   address,
   label,
   className,
   head = 12,
   tail = 6,
+  full = false,
 }: {
-  chainId: string;
   address: string | null | undefined;
-  /** Shown instead of the truncated address — a validator moniker, say. */
+  /** Shown instead of the address — a validator moniker, say. */
   label?: string | null;
   className?: string;
   head?: number;
   tail?: number;
+  /** Show the whole address instead of truncating it. */
+  full?: boolean;
 }) {
+  const chains = useChainDirectory();
+  const current = usePathname().split("/")[1] ?? null;
   if (!address) return <span className="text-muted-foreground">—</span>;
 
-  const isValidator = /valoper1/.test(address);
-  const href = isValidator
-    ? `/${chainId}/validators/${address}`
-    : `/${chainId}/accounts/${address}`;
+  const route = routeAddress(address, current, chains);
+  const text = label ?? (full ? address : truncateMiddle(address, head, tail));
+  if (!route) {
+    return (
+      <span title={address} className={cn(!label && "font-mono", className)}>
+        {text}
+      </span>
+    );
+  }
 
   return (
     <Link
-      href={href}
+      href={route.href}
       title={address}
+      onClick={(e) => e.stopPropagation()}
       className={cn(
-        "text-primary hover:underline",
-        !label && "font-mono text-xs",
+        "text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current",
+        !label && "font-mono",
         className
       )}
     >
-      {label ?? truncateMiddle(address, head, tail)}
+      {text}
     </Link>
   );
 }

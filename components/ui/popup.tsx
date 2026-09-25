@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { AddressLink } from "@/components/address-link";
 import { X } from "lucide-react";
 
 /**
@@ -105,12 +107,38 @@ export function Popup({
   );
 }
 
+export interface PopupRow {
+  label: string;
+  value: React.ReactNode;
+  mono?: boolean;
+  /** Renders the value as a link. External links open in a new tab. */
+  href?: string;
+  /** An address: routed by lib/address-route and rendered as AddressLink. */
+  address?: string;
+}
+
+/** A row's value, as a link when it has somewhere to go. */
+export function RowValue({ row }: { row: PopupRow }) {
+  if (row.address) return <AddressLink address={row.address} full />;
+  if (!row.href) return <>{row.value}</>;
+  const cls =
+    "text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current";
+  if (row.href.startsWith("http")) {
+    return (
+      <a href={row.href} target="_blank" rel="noopener noreferrer nofollow" className={cls}>
+        {row.value}
+      </a>
+    );
+  }
+  return (
+    <Link href={row.href} className={cls}>
+      {row.value}
+    </Link>
+  );
+}
+
 /** Label/value rows, the popup's standard body. */
-export function PopupRows({
-  rows,
-}: {
-  rows: { label: string; value: React.ReactNode; mono?: boolean }[];
-}) {
+export function PopupRows({ rows }: { rows: PopupRow[] }) {
   return (
     <dl className="grid grid-cols-1 gap-x-4 sm:grid-cols-[minmax(7rem,auto)_1fr]">
       {rows.map((row, i) => (
@@ -126,7 +154,7 @@ export function PopupRows({
               row.mono ? "font-mono text-[13px]" : "text-sm"
             }`}
           >
-            {row.value}
+            <RowValue row={row} />
           </dd>
         </div>
       ))}

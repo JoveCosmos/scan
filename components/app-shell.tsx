@@ -1,6 +1,7 @@
 "use client";
 
 import { SiteHeader, type ChainSummary } from "@/components/site-header";
+import { ChainDirectoryProvider } from "@/components/providers/chain-directory";
 
 /**
  * The header, the page, and the footer, pinned to the viewport.
@@ -21,10 +22,12 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="gata-zoom flex flex-col overflow-hidden">
-      <SiteHeader chains={chains} />
-      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
-      {footer}
-    </div>
+    <ChainDirectoryProvider chains={chains}>
+      <div className="gata-zoom flex flex-col overflow-hidden">
+        <SiteHeader chains={chains} />
+        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        {footer}
+      </div>
+    </ChainDirectoryProvider>
   );
 }

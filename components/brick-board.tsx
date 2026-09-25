@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ChainOverview } from "@/lib/overview";
 import { timeAgo } from "@/lib/format";
 import { Brick, BrickButton, BrickGrid, BrickLink, type BrickVisual } from "@/components/brick";
-import { Popup, PopupRows } from "@/components/ui/popup";
+import { Popup, PopupRows, RowValue } from "@/components/ui/popup";
 
 /**
  * A page laid out in bricks, with the detail in popups.
@@ -25,6 +25,8 @@ export interface DetailRow {
   mono?: boolean;
   /** Renders the value as a link. External links open in a new tab. */
   href?: string;
+  /** An address, routed to its own page and chain. */
+  address?: string;
 }
 
 export interface BrickSpec extends BrickVisual {
@@ -43,31 +45,6 @@ export interface BrickSpec extends BrickVisual {
   live?: "height" | "txCount" | "blockTime";
   /** Offered at the foot of the popup. */
   action?: { label: string; href: string };
-}
-
-function RowValue({ row }: { row: DetailRow }) {
-  if (!row.href) return <>{row.value}</>;
-  const external = row.href.startsWith("http");
-  if (external) {
-    return (
-      <a
-        href={row.href}
-        target="_blank"
-        rel="noopener noreferrer nofollow"
-        className="text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
-      >
-        {row.value}
-      </a>
-    );
-  }
-  return (
-    <Link
-      href={row.href}
-      className="text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
-    >
-      {row.value}
-    </Link>
-  );
 }
 
 export function BrickBoard({

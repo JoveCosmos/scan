@@ -43,6 +43,7 @@ export default function RootLayout({
     // gno.land has no IBC module; every Cosmos SDK chain here does.
     ibc: chain.kind === "cosmos",
     network: chain.network,
+    bech32Prefix: chain.bech32Prefix,
     sections: (({ txs, proposals, relayers }) => ({ txs, proposals, relayers }))(
       policyFor(chain)
     ),
