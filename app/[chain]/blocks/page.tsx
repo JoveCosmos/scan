@@ -9,8 +9,9 @@ import { BlocksTable } from "@/components/blocks-table";
 
 export const dynamic = "force-dynamic";
 
+// Sits in the list card's footer bar, beside where the list stands.
 const pager =
-  "inline-flex items-center gap-1 rounded-lg border border-border bg-secondary/60 px-2.5 py-1.5 text-xs transition-colors hover:border-[var(--gata-border-hi)]";
+  "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-[var(--gata-card-hi)] hover:text-foreground";
 
 /**
  * The newest blocks, streaming; `?before=<height>` shows the fixed window of
@@ -36,12 +37,15 @@ export default async function BlocksPage({
       : null;
 
   const [blocks, validators] = await Promise.all([
-    before ? adapter.getBlocksBefore(before, RECENT_BLOCK_COUNT) : adapter.getRecentBlocks(),
+    before
+      ? adapter.getBlocksBefore(before, RECENT_BLOCK_COUNT)
+      : adapter.getRecentBlocks(),
     adapter.getValidators().catch(() => []),
   ]);
   const named = nameProposers(blocks, validators, chain.bech32Prefix);
 
-  const lowest = named.length > 0 ? Number(named[named.length - 1].height) : null;
+  const lowest =
+    named.length > 0 ? Number(named[named.length - 1].height) : null;
   const newer = before ? before + RECENT_BLOCK_COUNT : null;
 
   return (
@@ -53,33 +57,6 @@ export default async function BlocksPage({
           : `Streaming from ${chain.prettyName}`
       }
       accent={accentFor(chain)}
-      actions={
-        <>
-          {before ? (
-            <Link
-              href={`/${chainId}/blocks${newer ? `?before=${newer}` : ""}`}
-              aria-label="Newer blocks"
-              className={pager}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" /> Newer
-            </Link>
-          ) : null}
-          {before ? (
-            <Link href={`/${chainId}/blocks`} className={pager}>
-              Latest
-            </Link>
-          ) : null}
-          {lowest && lowest > 1 ? (
-            <Link
-              href={`/${chainId}/blocks?before=${lowest}`}
-              aria-label="Older blocks"
-              className={pager}
-            >
-              Older <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          ) : null}
-        </>
-      }
     >
       <BlocksTable
         key={before ?? "live"}
@@ -87,6 +64,33 @@ export default async function BlocksPage({
         accent={accentFor(chain)}
         initialBlocks={named}
         live={!before}
+        footer={
+          <>
+            {before ? (
+              <Link
+                href={`/${chainId}/blocks${newer ? `?before=${newer}` : ""}`}
+                aria-label="Newer blocks"
+                className={pager}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Newer
+              </Link>
+            ) : null}
+            {before ? (
+              <Link href={`/${chainId}/blocks`} className={pager}>
+                Latest
+              </Link>
+            ) : null}
+            {lowest && lowest > 1 ? (
+              <Link
+                href={`/${chainId}/blocks?before=${lowest}`}
+                aria-label="Older blocks"
+                className={pager}
+              >
+                Older <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : null}
+          </>
+        }
       />
     </PageFrame>
   );

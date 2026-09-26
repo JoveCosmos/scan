@@ -48,7 +48,9 @@ function signedAmount(movement: AddressMovement | null, denoms: DenomInfo[]): st
 export function buildHistoryRows(
   chain: ChainConfig,
   address: string,
-  txs: TxSummary[]
+  txs: TxSummary[],
+  /** Adds the Role cell, for histories the index's tx_party answered. */
+  withRoles = false
 ): DeckRow[] {
   const denoms = chainDenoms(chain);
 
@@ -65,6 +67,13 @@ export function buildHistoryRows(
       cells: [
         { v: truncateMiddle(tx.hash, 8, 6), mono: true, tone: "accent" as const },
         { v: tx.messages.length > 1 ? `${label} +${tx.messages.length - 1}` : label },
+        ...(withRoles
+          ? [
+              tx.roles && tx.roles.length > 0
+                ? { v: tx.roles.join(" · ") }
+                : { v: "—", dim: true },
+            ]
+          : []),
         movement?.direction === "self"
           ? { v: "self", dim: true }
           : other

@@ -111,6 +111,7 @@ export function RowDeck({
   empty = "Nothing to show.",
   filter,
   fit = false,
+  live = true,
   footer,
 }: {
   columns: DeckColumn[];
@@ -131,6 +132,8 @@ export function RowDeck({
    * stale by the time you reach it.
    */
   fit?: boolean;
+  /** A fit list that polls; a fixed older window says so in its footer. */
+  live?: boolean;
   /** Extra controls on the right of the card's footer, e.g. an "Older" link. */
   footer?: React.ReactNode;
 }) {
@@ -329,8 +332,12 @@ export function RowDeck({
           <span className="flex items-center gap-2">
             {fit ? (
               <>
-                <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
-                <span>Live · latest {fitCount ?? shown.length}</span>
+                {live ? (
+                  <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
+                ) : null}
+                <span>
+                  {live ? "Live · latest" : "Showing"} {fitCount ?? shown.length}
+                </span>
               </>
             ) : matched.length === 0 ? (
               query ? (

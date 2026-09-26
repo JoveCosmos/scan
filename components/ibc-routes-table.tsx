@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeftRight } from "lucide-react";
 import { getChain } from "@/lib/chains";
+import { packetStats } from "@/lib/indexer-tx";
 import { routeHealth, routeIsLive, type SideHealth } from "@/lib/ibc-routes";
 
 /**
@@ -188,5 +189,63 @@ function Dot({ accent }: { accent: string }) {
       className="h-2 w-2 shrink-0 rounded-full"
       style={{ background: accent, boxShadow: `0 0 8px ${accent}` }}
     />
+  );
+}
+
+/**
+ * Per-channel packet health over the last 30 days, from the index: packets
+ * each way, acknowledgement errors, timeouts and the median time to deliver.
+ * Renders nothing where the index doesn't cover packets.
+ */
+export async function ChannelHealth({ chainId }: { chainId: string }) {
+  const stats = await packetStats(chainId, 30).catch(() => null);
+  if (!stats) {
+    return (
+      <p className="py-6 text-center font-mono text-sm uppercase tracking-[0.14em] text-[var(--gata-faint)]">
+        N/A
+      </p>
+    );
+  }
+  return (
+    <div className="gata-surface overflow-x-auto">
+      <table className="w-full min-w-[560px] border-collapse text-[13px] tabular-nums">
+        <thead className="bg-[var(--gata-bg2)]">
+          <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+            <th className="px-3 py-2 font-medium">Channel</th>
+            <th className="px-3 py-2 font-medium">Direction</th>
+            <th className="px-3 py-2 text-right font-medium">Packets 30d</th>
+            <th className="px-3 py-2 text-right font-medium">Ack errors</th>
+            <th className="px-3 py-2 text-right font-medium">Timeouts</th>
+            <th className="px-3 py-2 text-right font-medium">Median</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stats.channels.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                No packets
+              </td>
+            </tr>
+          ) : (
+            stats.channels.map((c) => (
+              <tr key={`${c.channel}-${c.direction}`} className="border-b border-border/40 last:border-0">
+                <td className="px-3 py-1.5 font-mono">{c.channel}</td>
+                <td className="px-3 py-1.5 text-muted-foreground">{c.direction === "out" ? "sent" : "received"}</td>
+                <td className="px-3 py-1.5 text-right">{c.packets.toLocaleString()}</td>
+                <td className={`px-3 py-1.5 text-right ${c.errors > 0 ? "text-[var(--destructive)]" : "text-muted-foreground"}`}>
+                  {c.errors.toLocaleString()}
+                </td>
+                <td className={`px-3 py-1.5 text-right ${c.timeouts > 0 ? "text-[var(--destructive)]" : "text-muted-foreground"}`}>
+                  {c.timeouts.toLocaleString()}
+                </td>
+                <td className="px-3 py-1.5 text-right text-muted-foreground">
+                  {c.medianLatency !== null ? `${c.medianLatency}s` : "—"}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }

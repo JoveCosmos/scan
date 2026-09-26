@@ -5,13 +5,36 @@ import { getChain, getAllChains, accentFor } from "@/lib/chains";
 import { formatCoinsExact } from "@/lib/coin";
 import { getAdapter, type TxView } from "@/lib/adapter";
 import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
-import { denomsForTxs, ibcCounterparts, type IbcCounterpart } from "@/lib/txs";
+import {
+  counterpartyChainOf,
+  denomsForTxs,
+  findPacketTx,
+  ibcCounterparts,
+  indexedDetailToView,
+  type IbcCounterpart,
+} from "@/lib/txs";
+import {
+  packetLatency,
+  packetStatus,
+  packetsForTx,
+  txFromIndex,
+  type MovementRow,
+} from "@/lib/indexer-tx";
+import { indexerHealth } from "@/lib/indexer-coverage";
 import { routeAddress } from "@/lib/address-route";
 import { PageFrame } from "@/components/page-frame";
 import { SectionTabs } from "@/components/section-tabs";
 import { CopyButton } from "@/components/copy-button";
 import { AddressLink } from "@/components/address-link";
-import { EventList, MessageCard, RawJson, SummaryRow } from "./tx-view";
+import {
+  EventList,
+  IbcTraceList,
+  MessageCard,
+  MovementList,
+  RawJson,
+  SummaryRow,
+  type PacketTrace,
+} from "./tx-view";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +88,19 @@ export default async function TxDetailPage({
     tx = null;
     failed = true;
   }
+  // What the node couldn't serve, the index may hold: its own tx search is
+  // off on some endpoints, and pruned nodes forget old transactions.
+  let movements: MovementRow[] | null = null;
+  let fromIndex = false;
+  if (!tx && chain.kind === "cosmos") {
+    const indexed = await txFromIndex(chain.chainId, hash).catch(() => null);
+    if (indexed) {
+      tx = indexedDetailToView(indexed);
+      movements = indexed.movements;
+      fromIndex = true;
+      failed = false;
+    }
+  }
   if (!tx) {
     return (
       <PageFrame title="Transaction" sub={`${chain.prettyName} · ${failed ? "N/A" : "Not found"}`} accent={accent}>
@@ -96,6 +132,39 @@ export default async function TxDetailPage({
       : Promise.resolve([] as IbcCounterpart[]),
   ]);
   const cpBy = new Map(counterparts.map((c) => [c.index, c]));
+
+  // IBC packets this transaction moved, with the far side linked where we
+  // carry the other chain.
+  const [packets, health] = await Promise.all([
+    chain.kind === "cosmos" ? packetsForTx(chain.chainId, tx.hash).catch(() => null) : null,
+    fromIndex ? indexerHealth(chain.chainId) : null,
+  ]);
+  const traces: PacketTrace[] = await Promise.all(
+    (packets ?? []).map(async (p) => {
+      const localPort = p.direction === "out" ? p.srcPort : (p.dstPort ?? "transfer");
+      const localChannel = p.direction === "out" ? p.srcChannel : (p.dstChannel ?? "");
+      const cpId = localChannel
+        ? await counterpartyChainOf(chain, localPort, localChannel).catch(() => null)
+        : null;
+      const cp = cpId ? all.find((c) => c.chainId === cpId && c.kind === "cosmos") : undefined;
+      const counterpartTx = cp
+        ? await findPacketTx(
+            cp,
+            p.direction === "out" ? "recv_packet" : "send_packet",
+            p.srcChannel,
+            p.sequence
+          ).catch(() => null)
+        : null;
+      return {
+        packet: p,
+        status: packetStatus(p),
+        latency: packetLatency(p),
+        counterpartyName: cp?.prettyName ?? null,
+        counterpartyChainId: cpId,
+        counterpartTx,
+      };
+    })
+  );
 
   const ok = tx.code === 0;
   const status = tx.code === null ? "unindexed" : ok ? "success" : "failed";
@@ -145,13 +214,48 @@ export default async function TxDetailPage({
           },
         ]
       : []),
+    ...(traces.length
+      ? [
+          {
+            key: "ibc",
+            label: `IBC · ${traces.length}`,
+            content: (
+              <div className="h-full overflow-y-auto pr-1">
+                <IbcTraceList traces={traces} chainId={chainId} />
+              </div>
+            ),
+          },
+        ]
+      : []),
+    ...(movements && movements.length
+      ? [
+          {
+            key: "movements",
+            label: `Movements · ${movements.length}`,
+            content: (
+              <div className="h-full overflow-y-auto pr-1">
+                <MovementList movements={movements} denoms={denoms} />
+              </div>
+            ),
+          },
+        ]
+      : []),
     ...(tx.rawJson
       ? [{ key: "raw", label: "Raw JSON", content: <RawJson json={tx.rawJson} /> }]
       : []),
   ];
 
   return (
-    <PageFrame title="Transaction" sub={`${chain.prettyName} · ${status}`} accent={accent}>
+    <PageFrame
+      title="Transaction"
+      sub={[
+        chain.prettyName,
+        status,
+        ...(fromIndex ? ["indexed"] : []),
+        ...(health?.stale ? ["Index behind"] : []),
+      ].join(" · ")}
+      accent={accent}
+    >
       <div className="flex h-full flex-col gap-3">
         <div className="gata-surface shrink-0 px-4 py-3">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 lg:grid-cols-4">

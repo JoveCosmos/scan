@@ -7,10 +7,11 @@ import {
   type BlockResponse,
   type BlockSummary,
 } from "@/lib/block-facts";
-import { base64ToHex } from "@/lib/format";
+import { base64ToHex, truncateMiddle } from "@/lib/format";
 import { isNumericId } from "@/lib/input";
 import { consensusIdsFromPubkey, proposerIndex } from "@/lib/uptime";
 import { getValidatorsCached } from "@/lib/validators";
+import { absentAt, operatorsForHex } from "@/lib/indexer-validator";
 
 export type { BlockSummary } from "@/lib/block-facts";
 
@@ -138,6 +139,31 @@ export async function getBlockDetail(
       }
     }
     absentValidators = missing.length === absentCount ? missing : null;
+  }
+
+  // The set has changed since: ask the index which keys missed that commit.
+  // Block N's last commit is for N-1, which is the height missed_signature
+  // records.
+  if (sigs && absentCount > 0 && absentValidators === null) {
+    const hexes = await absentAt(chain.chainId, Number(summary.height) - 1).catch(() => null);
+    if (hexes && hexes.length === absentCount) {
+      const byHex = new Map<string, { moniker: string; operator: string }>();
+      for (const v of validators) {
+        const ids = v.consensusPubkey
+          ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)
+          : null;
+        if (ids) byHex.set(ids.hex.toUpperCase(), { moniker: v.moniker, operator: v.operatorAddress });
+      }
+      const unknown = hexes.filter((h) => !byHex.has(h));
+      const keyed = await operatorsForHex(chain.chainId, unknown);
+      const resolved = hexes.map((h) => {
+        const hit = byHex.get(h);
+        if (hit) return hit;
+        const operator = keyed.get(h);
+        return operator ? { moniker: truncateMiddle(operator, 12, 6), operator } : null;
+      });
+      if (resolved.every((r) => r !== null)) absentValidators = resolved as AbsentValidator[];
+    }
   }
 
   let proposerValcons: string | null = null;

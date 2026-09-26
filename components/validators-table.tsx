@@ -105,7 +105,16 @@ export function ValidatorsTable({
   hasUptime,
   jailingsSince = null,
   chainApr = null,
+  missed30d = null,
+  footer,
 }: {
+  /**
+   * Blocks each validator missed in the last 30 days, by operator address,
+   * from the index. Null hides the column.
+   */
+  missed30d?: Record<string, number> | null;
+  /** Controls on the right of the list card's footer bar. */
+  footer?: React.ReactNode;
   /** Chain staking APR before commission, 0–1; each row nets its own commission. */
   chainApr?: number | null;
   chainId: string;
@@ -136,14 +145,14 @@ export function ValidatorsTable({
   const visible = useMemo(
     // Sorted before filtering so ranks stay the chain's, not the filtered list's.
     () => filterValidators(sortValidators(source, sort.key, sort.dir), query),
-    [source, sort, query]
+    [source, sort, query],
   );
 
   function onSort(key: SortKey) {
     setSort((s) =>
       s.key === key
         ? { key, dir: s.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: DEFAULT_DIR[key] }
+        : { key, dir: DEFAULT_DIR[key] },
     );
   }
 
@@ -210,10 +219,18 @@ export function ValidatorsTable({
             show: "hidden lg:table-cell",
             cell: (v: ValidatorRow) => {
               const r = v.delta?.ratio;
-              if (r == null) return <span className="text-muted-foreground">—</span>;
-              if (r === 0) return <span className="text-muted-foreground">0.00%</span>;
+              if (r == null)
+                return <span className="text-muted-foreground">—</span>;
+              if (r === 0)
+                return <span className="text-muted-foreground">0.00%</span>;
               return (
-                <span className={r > 0 ? "text-[var(--gata-green)]" : "text-[var(--gata-burn)]"}>
+                <span
+                  className={
+                    r > 0
+                      ? "text-[var(--gata-green)]"
+                      : "text-[var(--gata-burn)]"
+                  }
+                >
                   {r > 0 ? "+" : ""}
                   {(r * 100).toFixed(2)}%
                 </span>
@@ -317,6 +334,27 @@ export function ValidatorsTable({
           },
         ]
       : []),
+    ...(missed30d
+      ? [
+          {
+            key: "missed30d",
+            label: "Missed 30d",
+            title: "Blocks missed in the last 30 days",
+            align: "right" as const,
+            w: "5.5rem",
+            show: "hidden lg:table-cell",
+            cell: (v: ValidatorRow) => {
+              const n = missed30d[v.operatorAddress];
+              if (n === undefined) return <span className="text-muted-foreground">—</span>;
+              return (
+                <span className={n > 0 ? "text-[var(--gata-amber)]" : "text-muted-foreground"}>
+                  {n.toLocaleString()}
+                </span>
+              );
+            },
+          },
+        ]
+      : []),
     ...(hasJailings
       ? [
           {
@@ -368,7 +406,8 @@ export function ValidatorsTable({
     },
   ];
 
-  const href = (v: ValidatorRow) => `/${chainId}/validators/${v.operatorAddress}`;
+  const href = (v: ValidatorRow) =>
+    `/${chainId}/validators/${v.operatorAddress}`;
 
   return (
     <div className="flex h-full flex-col">
@@ -416,107 +455,119 @@ export function ValidatorsTable({
             className="h-8 w-full rounded-lg border border-border bg-[var(--gata-card)] pl-8 pr-3 text-[13px] outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-[var(--gata-border-hi)]"
           />
         </div>
-
-        {query ? (
-          <span className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-            {visible.length} of {source.length}
-          </span>
-        ) : null}
       </div>
 
-      <div className="gata-surface min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <table className="w-full table-fixed border-collapse">
-          <thead className="sticky top-0 z-10 bg-[var(--gata-bg2)]">
-            <tr className="border-b border-border">
-              {columns.map((c) => {
-                // Share sorts by stake too; only the stake column shows the arrow.
-                const active = c.sort === sort.key && c.key !== "share";
-                return (
-                  <th
-                    key={c.key}
-                    scope="col"
-                    title={c.title}
-                    style={c.w ? { width: c.w } : undefined}
-                    aria-sort={
-                      active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined
-                    }
-                    className={`h-8 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
-                      c.align === "right" ? "text-right" : "text-left"
-                    } ${c.show ?? ""}`}
-                  >
-                    {c.sort ? (
-                      <button
-                        type="button"
-                        onClick={() => onSort(c.sort!)}
-                        className={`uppercase tracking-[0.1em] transition-colors hover:text-foreground ${
-                          active ? "text-foreground" : ""
-                        }`}
-                      >
-                        {c.label}
-                        {active ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
-                      </button>
-                    ) : (
-                      c.label
-                    )}
-                  </th>
-                );
-              })}
-              <th aria-hidden="true" style={{ width: "1.75rem" }} />
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((v) => (
-              <tr
-                key={v.operatorAddress}
-                onClick={() => router.push(href(v))}
-                className={`group/row cursor-pointer border-b border-border/40 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)] ${
-                  v.jailed ? "bg-[var(--destructive)]/[0.05]" : ""
-                }`}
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={`h-[42px] overflow-hidden text-ellipsis whitespace-nowrap px-2.5 font-mono text-[12.5px] tabular-nums ${
-                      c.align === "right" ? "text-right" : ""
-                    } ${c.show ?? ""}`}
-                  >
-                    {c.key === "moniker" ? (
-                      // A real link inside the row, so the page is reachable by
-                      // keyboard and opens in a new tab like any other link.
-                      <Link
-                        href={href(v)}
-                        prefetch={false}
-                        onClick={(e) => e.stopPropagation()}
-                        className="block min-w-0 outline-none focus-visible:underline"
-                      >
-                        {c.cell(v)}
-                      </Link>
-                    ) : (
-                      c.cell(v)
-                    )}
-                  </td>
-                ))}
-                <td aria-hidden="true" className="pr-2 text-right">
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 text-[var(--gata-faint)] transition-[color,transform] group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
-                </td>
+      {/* One card: the scrolling list, then a footer bar, so the list never
+          ends abruptly on a row. */}
+      <div className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <table className="w-full table-fixed border-collapse">
+            <thead className="sticky top-0 z-10 bg-[var(--gata-bg2)]">
+              <tr className="border-b border-border">
+                {columns.map((c) => {
+                  // Share sorts by stake too; only the stake column shows the arrow.
+                  const active = c.sort === sort.key && c.key !== "share";
+                  return (
+                    <th
+                      key={c.key}
+                      scope="col"
+                      title={c.title}
+                      style={c.w ? { width: c.w } : undefined}
+                      aria-sort={
+                        active
+                          ? sort.dir === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : undefined
+                      }
+                      className={`h-8 px-2.5 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
+                        c.align === "right" ? "text-right" : "text-left"
+                      } ${c.show ?? ""}`}
+                    >
+                      {c.sort ? (
+                        <button
+                          type="button"
+                          onClick={() => onSort(c.sort!)}
+                          className={`uppercase tracking-[0.1em] transition-colors hover:text-foreground ${
+                            active ? "text-foreground" : ""
+                          }`}
+                        >
+                          {c.label}
+                          {active ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
+                        </button>
+                      ) : (
+                        c.label
+                      )}
+                    </th>
+                  );
+                })}
+                <th aria-hidden="true" style={{ width: "1.75rem" }} />
               </tr>
-            ))}
-            {visible.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length + 1}
-                  className="h-24 text-center text-[13px] text-muted-foreground"
+            </thead>
+            <tbody>
+              {visible.map((v) => (
+                <tr
+                  key={v.operatorAddress}
+                  onClick={() => router.push(href(v))}
+                  className={`group/row cursor-pointer border-b border-border/40 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)] ${
+                    v.jailed ? "bg-[var(--destructive)]/[0.05]" : ""
+                  }`}
                 >
-                  {query
-                    ? `No validator matches "${query}".`
-                    : set === "inactive"
-                      ? "No inactive validators"
-                      : "No validators"}
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+                  {columns.map((c) => (
+                    <td
+                      key={c.key}
+                      className={`h-[42px] overflow-hidden text-ellipsis whitespace-nowrap px-2.5 font-mono text-[12.5px] tabular-nums ${
+                        c.align === "right" ? "text-right" : ""
+                      } ${c.show ?? ""}`}
+                    >
+                      {c.key === "moniker" ? (
+                        // A real link inside the row, so the page is reachable by
+                        // keyboard and opens in a new tab like any other link.
+                        <Link
+                          href={href(v)}
+                          prefetch={false}
+                          onClick={(e) => e.stopPropagation()}
+                          className="block min-w-0 outline-none focus-visible:underline"
+                        >
+                          {c.cell(v)}
+                        </Link>
+                      ) : (
+                        c.cell(v)
+                      )}
+                    </td>
+                  ))}
+                  <td aria-hidden="true" className="pr-2 text-right">
+                    <ChevronRight className="ml-auto h-3.5 w-3.5 text-[var(--gata-faint)] transition-[color,transform] group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
+                  </td>
+                </tr>
+              ))}
+              {visible.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length + 1}
+                    className="h-24 text-center text-[13px] text-muted-foreground"
+                  >
+                    {query
+                      ? `No validator matches "${query}".`
+                      : set === "inactive"
+                        ? "No inactive validators"
+                        : "No validators"}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-border bg-[var(--gata-bg2)] px-3 font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span>
+            {query
+              ? `${visible.length} of ${source.length}`
+              : `${source.length} validator${source.length === 1 ? "" : "s"}`}
+          </span>
+          {footer ? (
+            <span className="flex items-center gap-2">{footer}</span>
+          ) : null}
+        </div>
       </div>
     </div>
   );

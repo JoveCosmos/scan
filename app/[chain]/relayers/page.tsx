@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { RelayerOperators } from "@/components/relayer-operators";
-import { IbcRoutesTable } from "@/components/ibc-routes-table";
+import { ChannelHealth, IbcRoutesTable } from "@/components/ibc-routes-table";
+import { coverageOf } from "@/lib/indexer-coverage";
 import { LoadingPanel } from "@/components/loading-panel";
 import { PageFrame } from "@/components/page-frame";
 import { SectionUnavailable } from "@/components/section-unavailable";
@@ -61,6 +62,9 @@ export default async function RelayersPage({
     );
   }
 
+  // Channel health needs the index's packet table; the tab appears only where it's covered.
+  const packetsCovered = (await coverageOf(chain.chainId, "ibc_packet")) !== null;
+
   return (
     <PageFrame title="Relayers" sub={chain.prettyName} accent={accentFor(chain)}>
       {/* Routes and operators take turns rather than stack: on a fixed-height
@@ -97,6 +101,21 @@ export default async function RelayersPage({
               </div>
             ),
           },
+          ...(packetsCovered
+            ? [
+                {
+                  key: "channels",
+                  label: "Channels",
+                  content: (
+                    <div className="h-full overflow-y-auto">
+                      <Suspense fallback={<LoadingPanel label="Counting packets…" rows={4} />}>
+                        <ChannelHealth chainId={chainId} />
+                      </Suspense>
+                    </div>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </PageFrame>

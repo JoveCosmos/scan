@@ -31,12 +31,21 @@ import {
   type SlashKind,
 } from "@/lib/indexer-db";
 import {
+  consHexOf,
+  indexBehind,
+  powerEvents,
+  powerHistory,
   proposedBlocks,
   proposerFairness,
+  signingHistory,
   validatorEvents,
   validatorVotes,
+  voterRecasts,
   type ValidatorEventKind,
 } from "@/lib/indexer-validator";
+import { formatDuration, jailSpells } from "@/lib/signing-stats";
+import { ValidatorSigningHistory } from "@/components/validator-signing-history";
+import { ValidatorPowerHistory } from "@/components/validator-power-history";
 import { getSelfBond } from "@/lib/staking";
 import { getChainAprCached } from "@/lib/params";
 import { voteOptionLabel } from "@/lib/proposals";
@@ -114,7 +123,7 @@ const day = (iso: string) =>
     day: "numeric",
   });
 
-const TABS = ["delegators", "signing", "proposed", "votes", "events", "stake", "jailings"];
+const TABS = ["delegators", "signing", "proposed", "votes", "events", "power", "stake", "jailings"];
 
 /**
  * One validator: what it is worth, how it behaves, and who backs it.
@@ -209,6 +218,10 @@ export default async function ValidatorDetailPage({
     selfBond,
     apr,
     keybase,
+    signingHist,
+    powerEv,
+    powerHist,
+    behind,
   ] = await Promise.all([
     adapter
       .getUptime([validator], DETAIL_BAR_COUNT)
@@ -219,7 +232,7 @@ export default async function ValidatorDetailPage({
     ids ? proposerStats(chain.chainId, ids.hex).catch(() => null) : null,
     ids ? proposerFairness(chain.chainId, addr, ids.hex).catch(() => null) : null,
     ids ? proposedBlocks(chain.chainId, ids.hex).catch(() => null) : null,
-    ids ? slashHistory(chain.chainId, ids.valcons).catch(() => null) : null,
+    ids ? slashHistory(chain.chainId, ids.valcons, addr).catch(() => null) : null,
     stakeHistory(chain.chainId, addr).catch((err) => {
       console.error(`stakeHistory failed for ${addr}:`, err);
       return null;
@@ -228,14 +241,29 @@ export default async function ValidatorDetailPage({
     getSelfBond(chain, addr, validator.tokens).catch(() => null),
     getChainAprCached(chain).catch(() => null),
     validator.identity ? keybaseUsername(validator.identity) : null,
+    // Signing record from the index: the key the index files it under, or the
+    // one derived from the validator's consensus pubkey.
+    (async () => {
+      const hex = ids?.hex ?? (await consHexOf(chain.chainId, addr));
+      return hex ? signingHistory(chain.chainId, hex) : null;
+    })().catch(() => null),
+    powerEvents(chain.chainId, addr).catch(() => null),
+    (async () => {
+      const hex = ids?.hex ?? (await consHexOf(chain.chainId, addr));
+      return hex ? powerHistory(chain.chainId, hex) : null;
+    })().catch(() => null),
+    indexBehind(chain.chainId).catch(() => false),
   ]);
 
   // The validator's own creation, where the index holds it, bounds what it can
   // be counted absent from in governance.
   const created = events?.filter((e) => e.kind === "create").at(-1)?.time ?? null;
-  const votes = selfDelegation
-    ? await validatorVotes(chain.chainId, selfDelegation, created).catch(() => null)
-    : null;
+  const [votes, recasts] = selfDelegation
+    ? await Promise.all([
+        validatorVotes(chain.chainId, selfDelegation, created).catch(() => null),
+        voterRecasts(chain.chainId, selfDelegation).catch(() => null),
+      ])
+    : [null, null];
 
   // The chain's own denoms carry a symbol and an exponent; anything else (an
   // IBC hash) is shown as-is rather than scaled by a guess.
@@ -520,8 +548,14 @@ export default async function ValidatorDetailPage({
       tx: null,
       bad: e.kind !== "unjailed",
     })),
-    // The chain emits no event for an unjail; the MsgUnjail transaction is it.
-    ...unjails.map((e) => ({
+    // Before extract version 4 the index kept no unjail; the MsgUnjail
+    // transaction stands in, unless the index already has that unjail.
+    ...unjails
+      .filter(
+        (u) =>
+          !(slashes?.events ?? []).some((e) => e.kind === "unjailed" && e.height === u.height)
+      )
+      .map((e) => ({
       height: e.height,
       time: e.time,
       label: "Unjailed",
@@ -532,11 +566,31 @@ export default async function ValidatorDetailPage({
     })),
   ].sort((a, b) => b.height - a.height);
 
+  // Each jailing paired with the unjail that ended it: how long it was down.
+  const downtimeAt = new Map(
+    jailSpells(
+      jailRows
+        .filter((r) => r.label === "Jailed" || r.label === "Unjailed")
+        .map((r) => ({ kind: r.label === "Jailed" ? "jailed" : "unjailed", height: r.height, time: r.time }))
+    ).map((spell) => [spell.jailedAt.height, spell])
+  );
+
   const jailDeck: DeckRow[] = jailRows.map((e) => ({
     key: `${e.height}-${e.label}`,
     cells: [
       { v: e.label, tone: e.bad ? "bad" : "ok" },
       { v: e.reason, dim: true },
+      (() => {
+        const spell = e.label === "Jailed" ? downtimeAt.get(e.height) : undefined;
+        if (!spell) return { v: "—", dim: true, align: "right" as const };
+        return spell.unjailedAt
+          ? { v: formatDuration(spell.downtimeMs), mono: true, align: "right" as const }
+          : // Open only while the chain still says jailed; otherwise the unjail
+            // predates what the index holds.
+            validator.jailed
+            ? { v: "ongoing", tone: "bad" as const, align: "right" as const }
+            : { v: "—", dim: true, align: "right" as const };
+      })(),
       {
         v: e.burned ? coin({ denom: chain.denom, amount: e.burned }) : "—",
         mono: true,
@@ -582,7 +636,13 @@ export default async function ValidatorDetailPage({
             key: `v-${v.proposalId}`,
             cells: [
               { v: `#${v.proposalId}`, mono: true, tone: "accent" as const },
-              { v: `${voteOptionLabel(v.option)}${v.weighted ? " · split" : ""}` },
+              {
+                v: `${voteOptionLabel(v.option)}${v.weighted ? " · split" : ""}${
+                  recasts?.get(v.proposalId)
+                    ? ` · was ${recasts.get(v.proposalId)!.map(voteOptionLabel).join(", ")}`
+                    : ""
+                }`,
+              },
               {
                 v: truncateMiddle(v.txHash, 6, 4),
                 mono: true,
@@ -645,6 +705,67 @@ export default async function ValidatorDetailPage({
     },
   }));
 
+  // Power events: stake moving in and out, signed from this validator's side.
+  const powerKind = (e: { kind: string; validator: string | null; validatorDst: string | null }) => {
+    switch (e.kind) {
+      case "delegate":
+        return { label: "Delegate", sign: 1 };
+      case "undelegate":
+        return { label: "Undelegate", sign: -1 };
+      case "redelegate":
+        return e.validatorDst === addr
+          ? { label: "Redelegate in", sign: 1 }
+          : { label: "Redelegate out", sign: -1 };
+      case "cancel_unbonding":
+        return { label: "Cancel unbonding", sign: 1 };
+      case "create_validator":
+        return { label: "Create", sign: 1 };
+      case "edit_validator":
+        return { label: "Edit", sign: 0 };
+      default:
+        return { label: e.kind, sign: 0 };
+    }
+  };
+  const signedAmount = (amount: string | null, sign: number) => {
+    if (!amount || sign === 0) return "—";
+    return `${sign > 0 ? "+" : "−"}${coin({ denom: chain.denom, amount })}`;
+  };
+  const flow = (net: string | null) => {
+    if (net === null) return null;
+    const neg = net.startsWith("-");
+    const abs = neg ? net.slice(1) : net;
+    return `${neg ? "−" : abs === "0" ? "" : "+"}${coin({ denom: chain.denom, amount: abs })}`;
+  };
+  const powerDeck: DeckRow[] = (powerEv?.events ?? []).map((e) => {
+    const k = powerKind(e);
+    return {
+      key: `${e.txHash}-${e.height}-${e.kind}-${e.delegator ?? ""}`,
+      cells: [
+        { v: k.label, tone: k.sign > 0 ? "ok" : k.sign < 0 ? "bad" : undefined },
+        e.delegator
+          ? { v: truncateMiddle(e.delegator, 10, 6), address: e.delegator, mono: true }
+          : { v: "—", dim: true },
+        { v: signedAmount(e.amount, k.sign), mono: true, align: "right", dim: k.sign === 0 },
+        {
+          v: `#${e.height.toLocaleString()}`,
+          mono: true,
+          align: "right",
+          href: `/${chainId}/blocks/${e.height}`,
+        },
+        { v: day(e.time), dim: true, align: "right" },
+      ],
+      detail: {
+        title: k.label,
+        rows: [],
+        action: e.txHash
+          ? { label: "Transaction", href: `/${chainId}/txs/${e.txHash}` }
+          : { label: "Block", href: `/${chainId}/blocks/${e.height}` },
+      },
+    };
+  });
+  const flow7 = flow(powerEv?.flow7 ?? null);
+  const flow30 = flow(powerEv?.flow30 ?? null);
+
   const sections = [
     {
       key: "delegators",
@@ -659,13 +780,15 @@ export default async function ValidatorDetailPage({
         </Suspense>
       ),
     },
-    ...(uptime.bars.length > 0
+    ...(uptime.bars.length > 0 || signingHist
       ? [
           {
             key: "signing",
             label: "Signing",
             content: (
-              <div className="gata-surface flex h-full flex-col gap-2 px-4 py-3">
+              <div className="gata-surface flex h-full flex-col gap-2 overflow-y-auto px-4 py-3">
+                {uptime.bars.length > 0 ? (
+                <>
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-[11.5px]">
                   <Fact label={`last ${uptime.bars.length} blocks`} />
                   <Fact
@@ -685,6 +808,13 @@ export default async function ValidatorDetailPage({
                   expand
                   chainId={chainId}
                 />
+                </>
+                ) : null}
+                {signingHist ? (
+                  <div className={uptime.bars.length > 0 ? "mt-2 border-t border-border/60 pt-3" : undefined}>
+                    <ValidatorSigningHistory history={signingHist} chainId={chainId} />
+                  </div>
+                ) : null}
               </div>
             ),
           },
@@ -752,7 +882,45 @@ export default async function ValidatorDetailPage({
           },
         ]
       : []),
-    ...(stake && stake.length >= 2
+    ...(powerEv
+      ? [
+          {
+            key: "power",
+            label: "Power events",
+            content: (
+              <RowDeck
+                accent={accent}
+                columns={[
+                  { label: "Event", width: "18%" },
+                  { label: "Delegator", phoneHide: true },
+                  { label: "Amount", align: "right", width: "22%" },
+                  { label: "Block", align: "right", width: "15%", optional: true },
+                  { label: "Date", align: "right", width: "16%" },
+                ]}
+                rows={powerDeck}
+                toolbar={
+                  flow7 || flow30 ? (
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                      {flow7 ? <Fact label="net 7d" value={flow7} /> : null}
+                      {flow30 ? <Fact label="net 30d" value={flow30} /> : null}
+                    </div>
+                  ) : undefined
+                }
+                empty="None"
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(powerHist && powerHist.length >= 1
+      ? [
+          {
+            key: "stake",
+            label: "Power",
+            content: <ValidatorPowerHistory points={powerHist} accent={accent} />,
+          },
+        ]
+      : stake && stake.length >= 2
       ? [
           {
             key: "stake",
@@ -777,9 +945,10 @@ export default async function ValidatorDetailPage({
               <RowDeck
                 accent={accent}
                 columns={[
-                  { label: "Event", width: "18%" },
+                  { label: "Event", width: "16%" },
                   { label: "Reason" },
-                  { label: "Burned", align: "right", width: "20%", phoneHide: true },
+                  { label: "Down", align: "right", width: "13%" },
+                  { label: "Burned", align: "right", width: "17%", phoneHide: true },
                   { label: "Block", align: "right", width: "18%", optional: true },
                   { label: "Date", align: "right", width: "22%" },
                 ]}
@@ -801,6 +970,11 @@ export default async function ValidatorDetailPage({
       accent={accent}
       actions={
         <>
+          {behind ? (
+            <span className="rounded-full bg-[var(--gata-amber)]/12 px-2 py-0.5 text-[11px] font-medium text-[var(--gata-amber)]">
+              Index behind
+            </span>
+          ) : null}
           {links.length > 0 ? <LinkedAddresses links={links} currentChainId={chainId} /> : null}
           <ValidatorStatus
             jailed={validator.jailed}

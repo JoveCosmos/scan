@@ -8,6 +8,7 @@ import { getAdapter } from "@/lib/adapter";
 import { formatDate, formatDateTime, timeAgo, timeUntil, truncateMiddle } from "@/lib/format";
 import { cached } from "@/lib/cache";
 import { decodeMessage } from "@/lib/msg-decode";
+import { govDeposits, govProposalRecord, proposalRecasts } from "@/lib/indexer-validator";
 import {
   getBondedTokens,
   getDeposits,
@@ -150,12 +151,14 @@ async function VotesDeck({
   page: number;
 }) {
   const adapter = getAdapter(chain);
-  const [{ votes, byOption, truncated, failed }, validators] = await Promise.all([
+  const [{ votes, byOption, truncated, failed }, validators, recasts] = await Promise.all([
     adapter.getProposalVotes(proposal.id, {
       start: proposal.votingStartTime,
       end: proposal.votingEndTime,
     }),
     adapter.getValidators().catch(() => []),
+    // Earlier choices of voters who changed their vote, from the index.
+    proposalRecasts(chain.chainId, proposal.id, proposal.votingStartTime).catch(() => null),
   ]);
 
   const chainId = chain.chainId;
@@ -276,7 +279,9 @@ async function VotesDeck({
           ? { v: validator.moniker, href: target }
           : { v: truncateMiddle(vote.voter, 12, 6), address: vote.voter, mono: true },
         {
-          v: voteLabel(vote),
+          v: recasts?.get(vote.voter)
+            ? `${voteLabel(vote)} · was ${recasts.get(vote.voter)!.map(voteOptionLabel).join(", ")}`
+            : voteLabel(vote),
           tone: vote.weighted ? undefined : VOTE_TONE[vote.primary],
           dim: vote.primary === "VOTE_OPTION_ABSTAIN",
         },
@@ -378,10 +383,18 @@ export default async function ProposalDetailPage({
 
   const voting = isVoting(proposal.status);
   const depositing = proposal.status === "PROPOSAL_STATUS_DEPOSIT_PERIOD";
-  const [bonded, deposits] = await Promise.all([
+  const [bonded, liveDeposits, record, indexedDeposits] = await Promise.all([
     voting ? cached(`bonded:${chain.chainId}`, 60_000, () => getBondedTokens(chain)) : null,
     voting || depositing ? getDeposits(chain, proposal.id) : null,
+    // The index's record of the proposal's life: submit tx, proposer, outcome.
+    govProposalRecord(chain.chainId, proposal.id).catch(() => null),
+    // After the deposit period the chain forgets its depositors; the index doesn't.
+    voting || depositing
+      ? null
+      : govDeposits(chain.chainId, proposal.id, proposal.submitTime).catch(() => null),
   ]);
+  const deposits = liveDeposits ?? indexedDeposits;
+  const proposer = proposal.proposer ?? record?.proposer ?? null;
 
   const denoms = chainDenoms(chain);
   const exact = (c: { denom: string; amount: string }[]) => formatCoinsExact(c, denoms);
@@ -417,8 +430,8 @@ export default async function ProposalDetailPage({
       ]
     : [{ label: "Tally", value: "N/A" }];
 
-  const proposerValidator = proposal.proposer
-    ? indexValidatorAccounts(validators, chain.bech32Prefix).get(proposal.proposer)
+  const proposerValidator = proposer
+    ? indexValidatorAccounts(validators, chain.bech32Prefix).get(proposer)
     : undefined;
 
   const vetoBad =
@@ -465,6 +478,36 @@ export default async function ProposalDetailPage({
         { label: "Status", value: proposalStatusLabel(proposal.status) },
         { label: "Expedited", value: proposal.expedited ? "Yes" : "No" },
         { label: "Submitted", value: when(proposal.submitTime) },
+        ...(record?.submitTx
+          ? [
+              {
+                label: "Submit tx",
+                value: truncateMiddle(record.submitTx, 10, 6),
+                mono: true,
+                href: `/${chainId}/txs/${record.submitTx}`,
+              },
+            ]
+          : []),
+        ...(record?.outcome
+          ? [
+              {
+                label: "Outcome",
+                value: `${record.outcome.charAt(0).toUpperCase()}${record.outcome.slice(1)}${
+                  record.outcomeTime ? ` · ${when(record.outcomeTime)}` : ""
+                }`,
+              },
+            ]
+          : []),
+        ...(record?.outcomeHeight
+          ? [
+              {
+                label: "Outcome block",
+                value: record.outcomeHeight.toLocaleString(),
+                mono: true,
+                href: `/${chainId}/blocks/${record.outcomeHeight}`,
+              },
+            ]
+          : []),
         ...(proposal.failedReason
           ? [{ label: "Failure reason", value: proposal.failedReason }]
           : []),
@@ -510,17 +553,17 @@ export default async function ProposalDetailPage({
           : [{ label: "Depositors", value: "N/A" }]),
       ],
     },
-    ...(proposal.proposer
+    ...(proposer
       ? [
           {
             key: "proposer",
             label: "Proposer",
-            value: proposerValidator?.moniker ?? truncateMiddle(proposal.proposer, 10, 6),
+            value: proposerValidator?.moniker ?? truncateMiddle(proposer, 10, 6),
             sub: proposerValidator ? "validator" : "account",
             text: !!proposerValidator,
             href: proposerValidator
               ? `/${chainId}/validators/${proposerValidator.operatorAddress}`
-              : `/${chainId}/accounts/${proposal.proposer}`,
+              : `/${chainId}/accounts/${proposer}`,
           },
         ]
       : []),

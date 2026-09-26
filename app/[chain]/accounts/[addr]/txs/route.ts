@@ -20,7 +20,7 @@ export async function GET(
 
   const url = new URL(req.url);
   const cursor = url.searchParams.get("cursor");
-  if (!cursor || !/^(i:\d+:[0-9A-Fa-f]+|p:\d+)$/.test(cursor)) {
+  if (!cursor || !/^(i4:\d+:[0-9A-Fa-f]+|i:\d+:([0-9A-Fa-f]+|~)|p:\d+)$/.test(cursor)) {
     return NextResponse.json({ error: "bad cursor" }, { status: 400 });
   }
   const kindParam = url.searchParams.get("kind");
@@ -29,9 +29,10 @@ export async function GET(
   const address = decodeParam(addr).toLowerCase();
   const res = await getAdapter(chain).getAccountTxs(address, { cursor, kind });
   if (res.failed) return NextResponse.json({ error: "unavailable" }, { status: 502 });
+  const withRoles = url.searchParams.get("roles") === "1";
 
   return NextResponse.json({
-    rows: buildHistoryRows(chain, address, res.txs),
+    rows: buildHistoryRows(chain, address, res.txs, withRoles),
     next: res.next ?? null,
   });
 }

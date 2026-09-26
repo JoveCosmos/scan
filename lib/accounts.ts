@@ -4,9 +4,11 @@ import { isBech32ish } from "@/lib/input";
 import { accountTxsFromIndexer } from "@/lib/indexer-db";
 import { parseAuthAccount, resolveAddressKind, type AddressKind } from "@/lib/address-kind";
 import { sumUnits } from "@/lib/format";
+import { decodePartyCursor, encodePartyCursor, partyHistory } from "@/lib/indexer-tx";
 import {
   rawTxToSummary,
   indexedTxToSummary,
+  partyTxToSummary,
   type RawTxResponse,
   type TxSummary,
 } from "@/lib/txs";
@@ -204,7 +206,10 @@ export interface AccountTxs {
 
 export interface AccountTxsOptions {
   limit?: number;
-  /** "i:<height>:<hash>" for the index, "p:<page>" for tx search. */
+  /**
+   * "i4:<height>:<hash>" for the index's tx_party walk, "i:<height>:<hash>" for
+   * the older signer-and-transfer union below it, "p:<page>" for tx search.
+   */
   cursor?: string | null;
   /** Decides which searches can find this address's transactions. */
   kind?: AddressKind["kind"];
@@ -248,8 +253,54 @@ export async function getCosmosAccountTxs(
   }
 
   const cursor = options.cursor ?? null;
-  const indexedCursor = cursor?.match(/^i:(\d+):([0-9A-Fa-f]+)$/);
+  const partyCursor = decodePartyCursor(cursor);
+  // "~" sorts after every hex digit: "below this height, nothing at it".
+  const indexedCursor = cursor?.match(/^i:(\d+):([0-9A-Fa-f]+|~)$/);
   const pageCursor = cursor?.match(/^p:(\d+)$/);
+
+  // Every transaction the address touched, in any role, failed ones too —
+  // where the index's tx_party covers. Below its floor the older union takes
+  // over, on the same page when this one runs short, so paging never notices
+  // the seam.
+  if (!pageCursor && !indexedCursor) {
+    const party = await partyHistory(chain.chainId, address, limit, partyCursor).catch(
+      () => null
+    );
+    if (party && (party.txs.length > 0 || partyCursor || party.floor <= 1)) {
+      const txs = party.txs.map((t) => partyTxToSummary(t, address));
+      let more = party.more;
+      let next: string | null = null;
+      const last = party.txs[party.txs.length - 1];
+      if (party.more && last) {
+        next = encodePartyCursor({ height: last.height, hash: last.hash });
+      } else if (party.floor > 1 && txs.length >= limit) {
+        // The page filled exactly at the floor: the next one starts below it.
+        next = `i:${party.floor}:~`;
+        more = true;
+      } else if (party.floor > 1) {
+        const below = await accountTxsFromIndexer(chain.chainId, address, limit - txs.length, {
+          height: String(party.floor),
+          hash: "~",
+        }).catch(() => null);
+        if (below) {
+          txs.push(...below.txs.map(indexedTxToSummary));
+          const tail = below.txs[below.txs.length - 1];
+          more = below.more;
+          next = below.more && tail ? `i:${tail.height}:${tail.hash}` : null;
+        }
+      }
+      return {
+        txs,
+        total: null,
+        failed: false,
+        source: "indexer",
+        since: undefined,
+        fromGenesis: party.floor <= 1,
+        more,
+        next,
+      };
+    }
+  }
 
   // Our index first: tx search answers only as well as whichever node is asked,
   // and a load-balanced public endpoint can report 2 on one request and 14 on

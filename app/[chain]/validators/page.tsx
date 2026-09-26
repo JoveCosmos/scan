@@ -10,6 +10,7 @@ import { ValidatorsTable, type ValidatorRow } from "@/components/validators-tabl
 import { emptyUptime, consensusIdsFromPubkey } from "@/lib/uptime";
 import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
+import { missedLast30d } from "@/lib/indexer-validator";
 import { getSelfBonds } from "@/lib/staking";
 import { getChainEconomics } from "@/lib/params";
 import { PageFrame } from "@/components/page-frame";
@@ -58,7 +59,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const chainId = chain.chainId;
   const adapter = getAdapter(chain);
   const metrics = policyFor(chain).metrics;
-  const [validators, inactive, registered, overview, chainParams, jailings] = await Promise.all([
+  const [validators, inactive, registered, overview, chainParams, jailings, missed30] = await Promise.all([
     adapter.getValidators(),
     // Outside the active set. Its own cache, so it never holds up the list once
     // warm; a failed read just leaves the Inactive view empty.
@@ -75,6 +76,8 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     // rather than showing every validator a confident zero. Needs nothing from
     // the set, so it runs alongside it rather than after.
     metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
+    // Missed blocks over 30 days from the index; null hides the column.
+    missedLast30d(chainId).catch(() => null),
   ]);
   const minCommission = chainParams?.staking?.minCommissionRate ?? null;
   // Below the top tier these are skipped rather than fetched and discarded:
@@ -211,6 +214,19 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         ]),
   ].join(" · ");
 
+  // Keyed by operator for the table; a validator the index knows but that
+  // missed nothing reads zero, one without a consensus key reads "—".
+  const missed30d = missed30
+    ? Object.fromEntries(
+        validators.flatMap((v) => {
+          const hex = v.consensusPubkey
+            ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)?.hex
+            : null;
+          return hex ? [[v.operatorAddress, missed30.get(hex.toUpperCase()) ?? 0]] : [];
+        })
+      )
+    : null;
+
   return (
     <PageFrame title="Validators" sub={summary} accent={accent}>
       <ValidatorsTable
@@ -223,6 +239,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         hasUptime={metrics}
         jailingsSince={jailingsSince}
         chainApr={economics?.stakingApr ?? null}
+        missed30d={missed30d}
       />
     </PageFrame>
   );

@@ -187,7 +187,12 @@ export interface SlashHistory {
  */
 export async function slashHistory(
   chainId: string,
-  consAddr: string
+  consAddr: string,
+  /**
+   * Also match rows filed under the operator. From extract version 4 an unjail
+   * names only the operator, and the indexer fills `operator` where it knows it.
+   */
+  operator: string | null = null
 ): Promise<SlashHistory | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
@@ -205,11 +210,12 @@ export async function slashHistory(
     }>(
       `SELECT height::text, time::text, kind, reason, burned::text
          FROM slash_event
-        WHERE chain_id = $1 AND cons_addr = $2
+        WHERE chain_id = $1
+          AND (cons_addr = $2 OR ($5::text IS NOT NULL AND operator = $5))
           AND height BETWEEN $3 AND $4
         ORDER BY height DESC
         LIMIT 200`,
-      [chainId, consAddr, c.lowest, c.highest]
+      [chainId, consAddr, c.lowest, c.highest, operator]
     );
 
     return {

@@ -10,6 +10,7 @@ import {
   formatDate,
   formatDateTime,
   formatUnits,
+  timeAgo,
   timeUntil,
   truncateMiddle,
 } from "@/lib/format";
@@ -31,6 +32,17 @@ import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
+import { coverageOf, indexerHealth } from "@/lib/indexer-coverage";
+import {
+  packetStatus,
+  packetsForAddress,
+  stakingHistory,
+  type PacketRow,
+  type StakingEventRow,
+} from "@/lib/indexer-tx";
+import { counterpartyChainOf } from "@/lib/txs";
+import { formatCoin } from "@/lib/coin";
+import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
 import { AccountHistory } from "./history";
 import { buildHistoryRows } from "./history-rows";
 
@@ -189,6 +201,222 @@ const HISTORY_COLUMNS: DeckColumn[] = [
   { label: "Age", align: "right", width: "12%", phoneHide: true },
 ];
 
+const STAKING_KIND: Record<string, string> = {
+  delegate: "Delegate",
+  undelegate: "Undelegate",
+  redelegate: "Redelegate",
+  cancel_unbonding: "Cancel unbonding",
+  create_validator: "Create validator",
+  edit_validator: "Edit validator",
+  complete_unbonding: "Unbonding completed",
+  complete_redelegation: "Redelegation completed",
+};
+
+/** Monikers for operator addresses, from the cached active and inactive sets. */
+async function monikers(chain: ChainConfig): Promise<Map<string, string>> {
+  const [active, inactive] = await Promise.all([
+    getValidatorsCached(chain).catch(() => []),
+    getInactiveValidators(chain).catch(() => []),
+  ]);
+  return new Map([...active, ...inactive].map((v) => [v.operatorAddress, v.moniker]));
+}
+
+/** Every delegation, undelegation and redelegation this address made, from the index. */
+async function StakingHistoryDeck({
+  chain,
+  address,
+  accent,
+}: {
+  chain: ChainConfig;
+  address: string;
+  accent: string;
+}) {
+  const [events, names] = await Promise.all([
+    stakingHistory(chain.chainId, address),
+    monikers(chain),
+  ]);
+  const denoms = chainDenoms(chain);
+  const vname = (v: string | null) => (v ? (names.get(v) ?? truncateMiddle(v, 14, 6)) : "—");
+
+  const columns: DeckColumn[] = [
+    { label: "Event", width: "18%" },
+    { label: "Validator" },
+    { label: "Amount", align: "right", width: "18%" },
+    { label: "Completes", align: "right", width: "18%", optional: true },
+    { label: "Height", align: "right", width: "12%", phoneHide: true },
+    { label: "Age", align: "right", width: "10%", phoneHide: true },
+  ];
+
+  const rows: DeckRow[] = (events ?? []).map((e: StakingEventRow, i) => ({
+    key: `${e.height}-${e.txHash}-${i}`,
+    cells: [
+      { v: STAKING_KIND[e.kind] ?? e.kind },
+      e.validator
+        ? {
+            v:
+              e.kind === "redelegate" && e.validatorDst
+                ? `${vname(e.validator)} → ${vname(e.validatorDst)}`
+                : vname(e.validator),
+            address: e.kind === "redelegate" && e.validatorDst ? e.validatorDst : e.validator,
+          }
+        : { v: "—", dim: true },
+      {
+        v: e.amount && e.denom ? formatCoin({ denom: e.denom, amount: e.amount }, denoms, 4) : "—",
+        mono: true,
+        align: "right" as const,
+        tone:
+          e.kind === "delegate" ? ("ok" as const) : e.kind === "undelegate" ? ("bad" as const) : undefined,
+      },
+      {
+        v: e.completionTime ? completes(e.completionTime) : "—",
+        dim: true,
+        align: "right" as const,
+      },
+      {
+        v: Number(e.height).toLocaleString(),
+        mono: true,
+        dim: true,
+        align: "right" as const,
+        href: `/${chain.chainId}/blocks/${e.height}`,
+      },
+      { v: timeAgo(e.time), dim: true, align: "right" as const },
+    ],
+    detail: {
+      title: STAKING_KIND[e.kind] ?? e.kind,
+      rows: [
+        ...(e.validator ? [{ label: "Validator", value: e.validator, mono: true, address: e.validator }] : []),
+        ...(e.validatorDst
+          ? [{ label: "To validator", value: e.validatorDst, mono: true, address: e.validatorDst }]
+          : []),
+      ],
+      ...(e.txHash
+        ? {
+            action: {
+              label: "Transaction",
+              href: `/${chain.chainId}/txs/${encodeURIComponent(e.txHash)}`,
+            },
+          }
+        : {}),
+    },
+  }));
+
+  return (
+    <RowDeck columns={columns} rows={rows} accent={accent} empty={events ? "No staking events" : "N/A"} />
+  );
+}
+
+const PACKET_STATUS: Record<ReturnType<typeof packetStatus>, string> = {
+  acked: "acked",
+  error: "ack error",
+  timeout: "timed out",
+  received: "received",
+  pending: "pending",
+};
+
+/** This address's IBC transfers, sent and received, from the index. */
+async function IbcDeck({
+  chain,
+  address,
+  accent,
+}: {
+  chain: ChainConfig;
+  address: string;
+  accent: string;
+}) {
+  const packets = await packetsForAddress(chain.chainId, address);
+  const denoms = chainDenoms(chain);
+  const carried = getAllChains();
+
+  // The chain on the far side of each local channel, looked up once per channel.
+  const local = (p: PacketRow) =>
+    p.direction === "out"
+      ? { port: p.srcPort, channel: p.srcChannel }
+      : { port: p.dstPort ?? "transfer", channel: p.dstChannel ?? "" };
+  const channels = [...new Set((packets ?? []).map((p) => `${local(p).port}|${local(p).channel}`))];
+  const cpByChannel = new Map(
+    await Promise.all(
+      channels.map(async (key) => {
+        const [port, channel] = key.split("|");
+        const id = channel ? await counterpartyChainOf(chain, port, channel).catch(() => null) : null;
+        return [key, id] as const;
+      })
+    )
+  );
+
+  const columns: DeckColumn[] = [
+    { label: "Direction", width: "12%" },
+    { label: "Other chain" },
+    { label: "Amount", align: "right", width: "20%" },
+    { label: "Status", width: "12%", phoneHide: true },
+    { label: "Channel", width: "12%", optional: true },
+    { label: "Age", align: "right", width: "10%", phoneHide: true },
+  ];
+
+  const rows: DeckRow[] = (packets ?? []).map((p) => {
+    const l = local(p);
+    const cpId = cpByChannel.get(`${l.port}|${l.channel}`) ?? null;
+    const cp = cpId ? carried.find((c) => c.chainId === cpId) : undefined;
+    const other = p.direction === "out" ? p.receiver : p.sender;
+    const status = packetStatus(p);
+    const txHash = p.direction === "out" ? p.sendTx : p.recvTx;
+    const time = p.direction === "out" ? p.sendTime : p.recvTime;
+    return {
+      key: `${p.direction}-${p.srcChannel}-${p.sequence}`,
+      cells: [
+        {
+          v: p.direction === "out" ? "sent" : "received",
+          tone: p.direction === "out" ? ("bad" as const) : ("ok" as const),
+        },
+        other
+          ? { v: `${cp?.prettyName ?? cpId ?? "—"} · ${truncateMiddle(other, 10, 6)}`, address: other }
+          : { v: cp?.prettyName ?? cpId ?? "—", dim: !cp },
+        {
+          v: p.amount && p.denom ? formatCoin({ denom: p.denom, amount: p.amount }, denoms, 4) : "—",
+          mono: true,
+          align: "right" as const,
+        },
+        {
+          v: PACKET_STATUS[status],
+          tone:
+            status === "error" || status === "timeout"
+              ? ("bad" as const)
+              : status === "acked" || status === "received"
+                ? ("ok" as const)
+                : undefined,
+          dim: status === "pending",
+        },
+        { v: l.channel || "—", mono: true, dim: true },
+        { v: time ? timeAgo(time) : "—", dim: true, align: "right" as const },
+      ],
+      detail: {
+        title: `Packet ${p.sequence}`,
+        rows: [
+          { label: "Sender", value: p.sender ?? "—", mono: true, ...(p.sender ? { address: p.sender } : {}) },
+          {
+            label: "Receiver",
+            value: p.receiver ?? "—",
+            mono: true,
+            ...(p.receiver ? { address: p.receiver } : {}),
+          },
+          ...(p.ackError ? [{ label: "Ack error", value: p.ackError, mono: true }] : []),
+        ],
+        ...(txHash
+          ? {
+              action: {
+                label: "Transaction",
+                href: `/${chain.chainId}/txs/${encodeURIComponent(txHash)}`,
+              },
+            }
+          : {}),
+      },
+    };
+  });
+
+  return <RowDeck columns={columns} rows={rows} accent={accent} empty={packets ? "No IBC transfers" : "N/A"} />;
+}
+
+const ROLE_COLUMN: DeckColumn = { label: "Role", width: "12%", phoneHide: true };
+
 /**
  * Transactions this address sent or received, newest first, with an "Older"
  * control. Streamed on its own so the tiles above do not wait on tx search.
@@ -207,9 +435,18 @@ async function TransactionDeck({
   sequence: string | null;
 }) {
   const res = await getAdapter(chain).getAccountTxs(address, { kind: kind ?? undefined });
-  const rows = buildHistoryRows(chain, address, res.txs);
+  const withRoles = res.txs.some((t) => t.roles && t.roles.length > 0);
+  const rows = buildHistoryRows(chain, address, res.txs, withRoles);
+  const columns = withRoles
+    ? [...HISTORY_COLUMNS.slice(0, 2), ROLE_COLUMN, ...HISTORY_COLUMNS.slice(2)]
+    : HISTORY_COLUMNS;
 
   const facts: string[] = [];
+  if (res.source === "indexer") {
+    const health = await indexerHealth(chain.chainId);
+    if (health?.stale) facts.push("Index behind");
+    else if (health?.lag != null && health.lag > 50) facts.push(`${health.lag.toLocaleString()} blocks behind`);
+  }
   if (res.source === "indexer" && !res.fromGenesis && res.since) {
     facts.push(`Indexed since ${formatDate(res.since)}`);
   }
@@ -229,7 +466,8 @@ async function TransactionDeck({
       chainId={chain.chainId}
       address={address}
       kind={kind}
-      columns={HISTORY_COLUMNS}
+      withRoles={withRoles}
+      columns={columns}
       initialRows={rows}
       initialNext={res.next ?? null}
       facts={facts}
@@ -683,6 +921,14 @@ export default async function AccountPage({
     },
   }));
 
+  // Indexed tabs appear only where the index covers them.
+  const [stakeCov, ibcCov] = adapter.capabilities.staking
+    ? await Promise.all([
+        coverageOf(chain.chainId, "staking_event"),
+        coverageOf(chain.chainId, "ibc_packet"),
+      ])
+    : [null, null];
+
   const sections = [
     ...(account.balances.length > 0 || account.balancesFailed
       ? [
@@ -708,6 +954,32 @@ export default async function AccountPage({
             content: (
               <Suspense fallback={<LoadingPanel label="Loading delegations…" rows={3} />}>
                 <StakingDeck chain={chain} address={address} accent={accent} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
+    ...(stakeCov
+      ? [
+          {
+            key: "staking-history",
+            label: "Staking history",
+            content: (
+              <Suspense fallback={<LoadingPanel label="Loading staking history…" rows={3} />}>
+                <StakingHistoryDeck chain={chain} address={address} accent={accent} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
+    ...(ibcCov
+      ? [
+          {
+            key: "ibc",
+            label: "IBC",
+            content: (
+              <Suspense fallback={<LoadingPanel label="Loading IBC transfers…" rows={3} />}>
+                <IbcDeck chain={chain} address={address} accent={accent} />
               </Suspense>
             ),
           },

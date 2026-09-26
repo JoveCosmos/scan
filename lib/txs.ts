@@ -30,6 +30,8 @@ import {
   prettyJson,
   type DecodedField,
 } from "@/lib/msg-decode";
+import { netMovement, roleWords, type IndexedTxDetail, type PartyTx } from "@/lib/indexer-tx";
+import { indexerHealth } from "@/lib/indexer-coverage";
 
 export interface TxMessage {
   typeUrl: string;
@@ -72,6 +74,8 @@ export interface TxSummary {
   memo: string;
   /** Who signed; filled where the source says so. */
   signer?: string | null;
+  /** How the address a list is about took part, from the index ("sent", "voted"). */
+  roles?: string[];
 }
 
 export interface TxDetail extends TxSummary {
@@ -401,6 +405,73 @@ export function indexedTxToSummary(t: IndexedAccountTx): TxSummary {
   };
 }
 
+/** An account-history row from the index's tx_party table. */
+export function partyTxToSummary(t: PartyTx, address: string): TxSummary {
+  const move = netMovement(t.movements, address);
+  return {
+    hash: t.hash,
+    height: t.height,
+    time: t.time,
+    code: t.code,
+    messages: t.msgTypes.map((typeUrl) => ({
+      typeUrl,
+      label: labelForType(typeUrl),
+      transfer: null,
+    })),
+    messageCount: t.msgTypes.length,
+    transfer: move ? { from: move.from, to: move.to, amount: move.amount, staking: false } : null,
+    fee: t.feeCoins,
+    gasUsed: t.gasUsed,
+    gasWanted: t.gasWanted,
+    memo: "",
+    signer: t.signer,
+    roles: roleWords(t.roles),
+  };
+}
+
+/**
+ * A transaction as the index holds it, in the page's shape. Messages come from
+ * tx_msg (authz inner ones nested under their MsgExec) with each message's
+ * signer as its one field; the index keeps no message bodies, so amounts are
+ * shown from the transaction's movements instead.
+ */
+export function indexedDetailToView(d: IndexedTxDetail): TxDetail {
+  const toMessage = (typeUrl: string, sender: string | null): TxMessage => ({
+    typeUrl,
+    label: labelForType(typeUrl),
+    transfer: null,
+    fields: sender ? [{ label: "Signer", value: { kind: "address", address: sender } }] : [],
+  });
+  const messages: TxMessage[] = d.messages
+    ? d.messages.map((m) => ({
+        ...toMessage(m.typeUrl, m.sender),
+        ...(m.inner.length > 0 ? { inner: m.inner.map((i) => toMessage(i.typeUrl, i.sender)) } : {}),
+      }))
+    : d.msgTypes.map((t) => toMessage(t, null));
+  const move = (d.movements ?? []).find((m) => m.kind === "transfer") ?? null;
+  return {
+    hash: d.hash,
+    height: d.height,
+    time: d.time,
+    code: d.code,
+    messages,
+    messageCount: messages.length,
+    transfer: move
+      ? { from: move.from, to: move.to, amount: [{ denom: move.denom, amount: move.amount }], staking: false }
+      : null,
+    fee: d.feeCoins,
+    gasUsed: d.gasUsed,
+    gasWanted: d.gasWanted,
+    memo: d.memo ?? "",
+    signer: d.signers[0] ?? null,
+    rawLog: "",
+    signers: d.signers,
+    timeoutHeight: null,
+    codespace: d.codespace,
+    feeGranter: d.feeGranter,
+  };
+}
+
 export async function getRecentTxs(
   chain: ChainConfig,
   { maxTxs = 30, maxBlocks = 30 }: { maxTxs?: number; maxBlocks?: number } = {}
@@ -408,13 +479,18 @@ export async function getRecentTxs(
   // Indexed first. Scanning a block window answers "what happened lately"; on a
   // chain with mostly empty blocks that shows two transactions while thousands
   // exist, because the window is the limit rather than the activity.
-  const [indexed, freshAt] = await Promise.all([
+  const [indexed, health, freshAt] = await Promise.all([
     recentTxsFromIndexer(chain.chainId, maxTxs).catch(() => null),
+    indexerHealth(chain.chainId),
     indexerFreshness(chain.chainId),
   ]);
   // A follower that stopped advancing would otherwise keep serving its last
-  // rows as "latest". Past ten minutes, the live block window takes over.
-  const indexFresh = freshAt !== null && Date.now() - freshAt.getTime() < 10 * 60_000;
+  // rows as "latest". The indexer heartbeats every poll at the head, so two
+  // minutes without one means stuck (its contract); before that heartbeat
+  // shipped, only a ten-minute silence was a safe signal.
+  const indexFresh = health
+    ? !health.stale
+    : freshAt !== null && Date.now() - freshAt.getTime() < 10 * 60_000;
   if (indexed && indexed.length > 0 && indexFresh) {
     return {
       txs: indexed.map(indexedTxToSummary),
@@ -545,7 +621,7 @@ interface ClientStateResponse {
 }
 
 /** The chain on the other end of one of our channels. Never changes; cached a day. */
-function counterpartyChainOf(chain: ChainConfig, port: string, channel: string): Promise<string | null> {
+export function counterpartyChainOf(chain: ChainConfig, port: string, channel: string): Promise<string | null> {
   return cached(`ibc-cp:${chain.chainId}:${port}:${channel}`, 24 * 3_600_000, async () => {
     try {
       const res = await fetchLcd<ClientStateResponse>(
@@ -565,7 +641,7 @@ function counterpartyChainOf(chain: ChainConfig, port: string, channel: string):
  * `query=`; older nodes only `events=`, one condition, so the channel is then
  * checked on the results.
  */
-async function findPacketTx(
+export async function findPacketTx(
   target: ChainConfig,
   event: "recv_packet" | "send_packet",
   srcChannel: string,

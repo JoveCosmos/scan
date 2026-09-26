@@ -7,6 +7,7 @@ import { relayerStats } from "@/lib/indexer-db";
 import { relayerPackets } from "@/lib/indexer-validator";
 import { RELAYER_MSG_TYPES } from "@/lib/relayers";
 import { AddressLink } from "@/components/address-link";
+import { packetStats } from "@/lib/indexer-tx";
 
 /** Messages that each deliver, acknowledge or time out one packet. */
 const PACKET_MSG_TYPES = RELAYER_MSG_TYPES.filter((t) => !t.endsWith("MsgUpdateClient"));
@@ -24,10 +25,14 @@ function NotAvailable() {
  * relay transactions, the packets inside them, fees paid and the last relay.
  */
 export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
-  const [stats, packets] = await Promise.all([
+  const [stats, packets, legs] = await Promise.all([
     relayerStats(chain.chainId, RELAYER_MSG_TYPES),
     relayerPackets(chain.chainId, PACKET_MSG_TYPES).catch(() => null),
+    // Delivered legs from the index's packet table: a receive on an inbound
+    // packet, an acknowledgement on an outbound one.
+    packetStats(chain.chainId, 30).catch(() => null),
   ]);
+  const legBy = new Map((legs?.relayers ?? []).map((r) => [r.relayer, r]));
   const accent = accentFor(chain);
 
   if (!stats || stats.operators.length === 0) return <NotAvailable />;
@@ -70,6 +75,12 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
               {packets ? (
                 <th className="px-4 py-3 text-right font-medium text-muted-foreground">Packets</th>
               ) : null}
+              {legs ? (
+                <>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Delivered 30d</th>
+                  <th className="px-4 py-3 text-right font-medium text-muted-foreground">Median</th>
+                </>
+              ) : null}
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Share</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Fees paid</th>
               <th className="px-4 py-3 text-right font-medium text-muted-foreground">Last relay</th>
@@ -95,6 +106,18 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
                   <td data-label="Packets" className="px-4 py-2.5 text-right tabular-nums">
                     {(packets.get(op.address) ?? 0).toLocaleString()}
                   </td>
+                ) : null}
+                {legs ? (
+                  <>
+                    <td data-label="Delivered 30d" className="px-4 py-2.5 text-right tabular-nums">
+                      {(legBy.get(op.address)?.packets ?? 0).toLocaleString()}
+                    </td>
+                    <td data-label="Median" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {legBy.get(op.address)?.medianLatency != null
+                        ? `${legBy.get(op.address)!.medianLatency}s`
+                        : "—"}
+                    </td>
+                  </>
                 ) : null}
                 <td data-label="Share" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                   {stats.totalTxs > 0

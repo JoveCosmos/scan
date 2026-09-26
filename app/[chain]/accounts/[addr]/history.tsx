@@ -12,6 +12,7 @@ export function AccountHistory({
   chainId,
   address,
   kind,
+  withRoles = false,
   columns,
   initialRows,
   initialNext,
@@ -22,6 +23,8 @@ export function AccountHistory({
   chainId: string;
   address: string;
   kind: string | null;
+  /** The rows carry a Role cell; older pages must too. */
+  withRoles?: boolean;
   columns: DeckColumn[];
   initialRows: DeckRow[];
   initialNext: string | null;
@@ -40,6 +43,7 @@ export function AccountHistory({
     try {
       const params = new URLSearchParams({ cursor: next });
       if (kind) params.set("kind", kind);
+      if (withRoles) params.set("roles", "1");
       const res = await fetch(`/${chainId}/accounts/${address}/txs?${params}`);
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as { rows: DeckRow[]; next: string | null };

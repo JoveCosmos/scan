@@ -206,3 +206,198 @@ export function RawJson({ json }: { json: string }) {
     </div>
   );
 }
+
+/** One IBC packet as this chain saw it, with the far side linked where we carry it. */
+export interface PacketTrace {
+  packet: import("@/lib/indexer-tx").PacketRow;
+  status: string;
+  latency: number | null;
+  counterpartyName: string | null;
+  counterpartyChainId: string | null;
+  /** The matching transaction on the other chain, when found. */
+  counterpartTx: string | null;
+}
+
+function Leg({
+  label,
+  chainId,
+  height,
+  tx,
+  time,
+  relayer,
+}: {
+  label: string;
+  chainId: string;
+  height: string | null;
+  tx: string | null;
+  time: string | null;
+  relayer?: string | null;
+}) {
+  if (!height && !tx) return null;
+  return (
+    <>
+      <dt className="text-[12px] text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[12.5px]">
+        {height ? (
+          <Link
+            href={`/${chainId}/blocks/${height}`}
+            className="font-mono text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
+          >
+            {Number(height).toLocaleString()}
+          </Link>
+        ) : null}
+        {tx ? (
+          <Link
+            href={`/${chainId}/txs/${encodeURIComponent(tx)}`}
+            className="font-mono text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
+          >
+            {tx.slice(0, 8)}…{tx.slice(-6)}
+          </Link>
+        ) : null}
+        {time ? <span className="text-muted-foreground">{time.slice(0, 19).replace("T", " ")}</span> : null}
+        {relayer ? (
+          <span className="text-muted-foreground">
+            by <AddressLink address={relayer} />
+          </span>
+        ) : null}
+      </dd>
+    </>
+  );
+}
+
+export function IbcTraceList({ traces, chainId }: { traces: PacketTrace[]; chainId: string }) {
+  return (
+    <div className="flex flex-col gap-2.5">
+      {traces.map(({ packet: p, status, latency, counterpartyName, counterpartyChainId, counterpartTx }) => (
+        <section key={`${p.direction}-${p.srcChannel}-${p.sequence}`} className="gata-surface px-4 py-3">
+          <header className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+            <h3 className="text-[14px] font-semibold">
+              {p.direction === "out" ? "Sent" : "Received"} · packet {p.sequence}
+            </h3>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                status === "error" || status === "timeout"
+                  ? "bg-[var(--destructive)]/12 text-[var(--destructive)]"
+                  : status === "acked" || status === "received"
+                    ? "bg-[var(--gata-green)]/12 text-[var(--gata-green)]"
+                    : "bg-[var(--gata-card-hi)] text-muted-foreground"
+              }`}
+            >
+              {status === "error" ? "ack error" : status === "timeout" ? "timed out" : status}
+            </span>
+            {latency !== null ? (
+              <span className="font-mono text-[11px] text-muted-foreground">{latency}s</span>
+            ) : null}
+          </header>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 sm:grid-cols-[9rem_1fr]">
+            <dt className="text-[12px] text-muted-foreground">Channels</dt>
+            <dd className="font-mono text-[12.5px]">
+              {p.srcPort}/{p.srcChannel} → {p.dstPort ?? "?"}/{p.dstChannel ?? "?"}
+            </dd>
+            <dt className="text-[12px] text-muted-foreground">Other chain</dt>
+            <dd className="text-[12.5px]">
+              {counterpartyName && counterpartyChainId ? (
+                counterpartTx ? (
+                  <Link
+                    href={`/${counterpartyChainId}/txs/${encodeURIComponent(counterpartTx)}`}
+                    className="text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
+                  >
+                    {counterpartyName} · {counterpartTx.slice(0, 8)}…
+                  </Link>
+                ) : (
+                  counterpartyName
+                )
+              ) : (
+                <span className="font-mono text-muted-foreground">{counterpartyChainId ?? "—"}</span>
+              )}
+            </dd>
+            {p.sender ? (
+              <>
+                <dt className="text-[12px] text-muted-foreground">Sender</dt>
+                <dd className="text-[12.5px]"><AddressLink address={p.sender} full /></dd>
+              </>
+            ) : null}
+            {p.receiver ? (
+              <>
+                <dt className="text-[12px] text-muted-foreground">Receiver</dt>
+                <dd className="text-[12.5px]"><AddressLink address={p.receiver} full /></dd>
+              </>
+            ) : null}
+            {p.amount && p.denom ? (
+              <>
+                <dt className="text-[12px] text-muted-foreground">Amount</dt>
+                <dd className="font-mono text-[12.5px]">
+                  {p.amount} {p.denom}
+                </dd>
+              </>
+            ) : null}
+            <Leg label="Sent" chainId={chainId} height={p.sendHeight} tx={p.sendTx} time={p.sendTime} />
+            <Leg
+              label="Received"
+              chainId={chainId}
+              height={p.recvHeight}
+              tx={p.recvTx}
+              time={p.recvTime}
+              relayer={p.recvRelayer}
+            />
+            <Leg
+              label="Acknowledged"
+              chainId={chainId}
+              height={p.ackHeight}
+              tx={p.ackTx}
+              time={p.ackTime}
+              relayer={p.ackRelayer}
+            />
+            {p.ackError ? (
+              <>
+                <dt className="text-[12px] text-muted-foreground">Ack error</dt>
+                <dd className="font-mono text-[12px] text-[var(--destructive)] [overflow-wrap:anywhere]">
+                  {p.ackError}
+                </dd>
+              </>
+            ) : null}
+            {p.timeoutTx ? (
+              <Leg label="Timed out" chainId={chainId} height={null} tx={p.timeoutTx} time={null} />
+            ) : null}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/** Every value movement, in event order, as the index recorded it. */
+export function MovementList({
+  movements,
+  denoms,
+}: {
+  movements: import("@/lib/indexer-tx").MovementRow[];
+  denoms: DenomInfo[];
+}) {
+  return (
+    <div className="gata-surface overflow-hidden">
+      <table className="w-full border-collapse text-[12.5px]">
+        <thead className="bg-[var(--gata-bg2)]">
+          <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+            <th className="px-3 py-2 font-medium">Kind</th>
+            <th className="px-3 py-2 font-medium">From</th>
+            <th className="px-3 py-2 font-medium">To</th>
+            <th className="px-3 py-2 text-right font-medium">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movements.map((m, i) => (
+            <tr key={i} className="border-b border-border/40 last:border-0">
+              <td className="px-3 py-1.5 text-muted-foreground">{m.kind}</td>
+              <td className="px-3 py-1.5"><AddressLink address={m.from} /></td>
+              <td className="px-3 py-1.5"><AddressLink address={m.to} /></td>
+              <td className="px-3 py-1.5 text-right font-mono">
+                {formatCoinsExact([{ denom: m.denom, amount: m.amount }], denoms)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

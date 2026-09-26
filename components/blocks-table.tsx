@@ -31,19 +31,24 @@ export function BlocksTable({
   accent,
   initialBlocks,
   live = true,
+  footer,
 }: {
   chainId: string;
   accent: string;
   initialBlocks: NamedBlock[];
   /** Poll the head. Off on the older pages, which are fixed windows. */
   live?: boolean;
+  /** Paging controls, shown in the list card's footer bar. */
+  footer?: React.ReactNode;
 }) {
   const { data, isError } = useQuery<{ blocks: NamedBlock[] }>({
     // An older page is its own entry: sharing the live key would hand it the
     // live feed from the cache.
     queryKey: ["blocks", chainId, live ? "live" : initialBlocks[0]?.height],
     queryFn: async () => {
-      const res = await fetch(`/api/chains/${chainId}/blocks`, { cache: "no-store" });
+      const res = await fetch(`/api/chains/${chainId}/blocks`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(`blocks request failed: ${res.status}`);
       return res.json();
     },
@@ -74,7 +79,8 @@ export function BlocksTable({
     // A resolved proposer links to its validator. An unresolved one is either
     // a raw address (truncated) or, on gno, a name already — shown whole.
     const raw = block.proposer;
-    const looksLikeAddress = /^[A-Za-z0-9+/=]{24,}$/.test(raw) || /^g1[0-9a-z]{30,}$/.test(raw);
+    const looksLikeAddress =
+      /^[A-Za-z0-9+/=]{24,}$/.test(raw) || /^g1[0-9a-z]{30,}$/.test(raw);
     const hash = base64ToHex(block.hash);
     return {
       key: block.height,
@@ -95,8 +101,14 @@ export function BlocksTable({
           dim: block.txCount === 0,
         },
         block.proposerMoniker && block.proposerOperator
-          ? { v: block.proposerMoniker, href: `/${chainId}/validators/${block.proposerOperator}` }
-          : { v: looksLikeAddress ? truncateMiddle(raw, 8, 6) : raw, dim: looksLikeAddress },
+          ? {
+              v: block.proposerMoniker,
+              href: `/${chainId}/validators/${block.proposerOperator}`,
+            }
+          : {
+              v: looksLikeAddress ? truncateMiddle(raw, 8, 6) : raw,
+              dim: looksLikeAddress,
+            },
         { v: hash ? truncateMiddle(hash, 10, 6) : "—", mono: true, dim: true },
       ],
       detail: {
@@ -119,6 +131,8 @@ export function BlocksTable({
       ]}
       rows={rows}
       fit
+      live={live}
+      footer={footer}
       empty={isError ? "Connection lost — retrying." : "No blocks yet."}
     />
   );
