@@ -13,6 +13,13 @@ export interface ValidatorUptime {
   window: number | null;
   /** Most recent blocks, oldest first. true = signed. Empty when unavailable. */
   bars: boolean[];
+  /** Height each bar describes, aligned with `bars`. Absent where unknown. */
+  barHeights?: number[];
+  /**
+   * The chain's min_signed_per_window, 0–1: below it the validator is jailed.
+   * Absent where the chain has no slashing module.
+   */
+  minSigned?: number | null;
   tombstoned: boolean;
   /**
    * When the validator's most recent jail ends (ISO), or null if never jailed.
@@ -56,6 +63,46 @@ export function emptyUptime(): ValidatorUptime {
     tombstoned: false,
     jailedUntil: null,
   };
+}
+
+/**
+ * Blocks a validator can still miss before it is jailed:
+ * window × (1 − min_signed_per_window) − missed, floored at zero.
+ * Null when any input is unknown.
+ */
+export function missBudget(
+  window: number | null,
+  minSigned: number | null | undefined,
+  missed: number | null
+): number | null {
+  if (window === null || missed === null || minSigned === null || minSigned === undefined) {
+    return null;
+  }
+  if (!Number.isFinite(window) || !Number.isFinite(minSigned) || window <= 0) return null;
+  return Math.max(0, Math.floor(window * (1 - minSigned)) - missed);
+}
+
+/** Longest run of consecutive missed blocks in a bar strip. */
+export function longestMissStreak(bars: boolean[]): number {
+  let best = 0;
+  let run = 0;
+  for (const signed of bars) {
+    run = signed ? 0 : run + 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/**
+ * Whether a validator is jailed right now, from the slashing module's
+ * jailed_until. While jailed its signing window is reset and stops counting,
+ * so a percentage read from it would be a clean record it did not earn.
+ */
+export function jailedNow(uptime: ValidatorUptime, jailedFlag: boolean, now = Date.now()): boolean {
+  if (jailedFlag) return true;
+  if (!uptime.jailedUntil) return false;
+  const t = Date.parse(uptime.jailedUntil);
+  return Number.isFinite(t) && t > now;
 }
 
 /**
@@ -133,7 +180,11 @@ interface SigningInfo {
 /** Slashing-window misses, keyed by valcons. One paged read for the whole set. */
 function signingInfos(
   chain: ChainConfig
-): Promise<{ byValcons: Map<string, SigningInfo>; window: number | null }> {
+): Promise<{
+  byValcons: Map<string, SigningInfo>;
+  window: number | null;
+  minSigned: number | null;
+}> {
   // Misses move by at most one per block, so 15s fresh and a minute of
   // stale-while-revalidate costs nothing a reader could notice.
   return cached(`signinginfos:${chain.chainId}`, 15_000, () => readSigningInfos(chain), {
@@ -141,20 +192,23 @@ function signingInfos(
   });
 }
 
-async function readSigningInfos(
-  chain: ChainConfig
-): Promise<{ byValcons: Map<string, SigningInfo>; window: number | null }> {
+async function readSigningInfos(chain: ChainConfig): Promise<{
+  byValcons: Map<string, SigningInfo>;
+  window: number | null;
+  minSigned: number | null;
+}> {
   const byValcons = new Map<string, SigningInfo>();
   let window: number | null = null;
+  let minSigned: number | null = null;
 
   try {
-    const params = await fetchLcd<{ params?: { signed_blocks_window?: string } }>(
-      chain,
-      "/cosmos/slashing/v1beta1/params",
-      { cache: "no-store", timeoutMs: 10_000 }
-    );
+    const params = await fetchLcd<{
+      params?: { signed_blocks_window?: string; min_signed_per_window?: string };
+    }>(chain, "/cosmos/slashing/v1beta1/params", { cache: "no-store", timeoutMs: 10_000 });
     const w = Number(params.params?.signed_blocks_window);
     if (Number.isFinite(w) && w > 0) window = w;
+    const m = Number(params.params?.min_signed_per_window);
+    if (Number.isFinite(m) && m >= 0 && m <= 1) minSigned = m;
   } catch {
     // Uptime percentages just stay null.
   }
@@ -181,7 +235,7 @@ async function readSigningInfos(
     }
   }
 
-  return { byValcons, window };
+  return { byValcons, window, minSigned };
 }
 
 /**
@@ -221,7 +275,7 @@ export async function getCosmosUptime(
   validators: { operatorAddress: string; consensusPubkey: string | null }[],
   barCount = RECENT_BAR_COUNT
 ): Promise<Map<string, ValidatorUptime>> {
-  const [{ byValcons, window }, recent] = await Promise.all([
+  const [{ byValcons, window, minSigned }, recent] = await Promise.all([
     signingInfos(chain),
     recentSigners(chain, barCount),
   ]);
@@ -230,6 +284,9 @@ export async function getCosmosUptime(
 
   for (const v of validators) {
     const entry = emptyUptime();
+    entry.minSigned = minSigned;
+    // A block's last_commit records who signed the block before it.
+    entry.barHeights = recent.heights.map((h) => Number(h) - 1);
     const ids = v.consensusPubkey
       ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)
       : null;

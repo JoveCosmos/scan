@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ChainOverview } from "@/lib/overview";
 import { timeAgo } from "@/lib/format";
 import { Brick, BrickButton, BrickGrid, BrickLink, type BrickVisual } from "@/components/brick";
-import { Popup, PopupRows, RowValue } from "@/components/ui/popup";
+import { Popup, PopupRows } from "@/components/ui/popup";
 
 /**
  * A page laid out in bricks, with the detail in popups.
@@ -43,6 +43,8 @@ export interface BrickSpec extends BrickVisual {
   href?: string;
   /** Re-read from the live head poll rather than the server render. */
   live?: "height" | "txCount" | "blockTime";
+  /** With a live height: the link follows it to the block being shown. */
+  liveHref?: "block";
   /** Offered at the foot of the popup. */
   action?: { label: string; href: string };
 }
@@ -103,10 +105,12 @@ export function BrickBoard({
       <BrickGrid className={className}>
         {bricks.map((brick) => {
           const visual = resolve(brick);
-          if (brick.href) {
-            return (
-              <BrickLink key={brick.key} brick={visual} accent={accent} href={brick.href} />
-            );
+          const href =
+            brick.liveHref === "block" && data?.height && chainId
+              ? `/${chainId}/blocks/${data.height}`
+              : brick.href;
+          if (href) {
+            return <BrickLink key={brick.key} brick={visual} accent={accent} href={href} />;
           }
           if ((brick.rows && brick.rows.length > 0) || brick.body) {
             return (
@@ -133,13 +137,7 @@ export function BrickBoard({
           <p className="mb-3 whitespace-pre-line text-sm leading-relaxed">{open.body}</p>
         ) : null}
         {open?.rows ? (
-          <PopupRows
-            rows={open.rows.map((row) => ({
-              label: row.label,
-              mono: row.mono,
-              value: <RowValue row={row} />,
-            }))}
-          />
+          <PopupRows rows={open.rows} />
         ) : null}
         {open?.action ? (
           <Link

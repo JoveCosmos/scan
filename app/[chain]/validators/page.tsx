@@ -222,6 +222,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         staking={staking}
         hasUptime={metrics}
         jailingsSince={jailingsSince}
+        chainApr={economics?.stakingApr ?? null}
       />
     </PageFrame>
   );

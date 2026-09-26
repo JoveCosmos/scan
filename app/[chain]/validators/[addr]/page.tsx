@@ -1,34 +1,57 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
-import { getValidator } from "@/lib/validators";
+import {
+  findValidator,
+  getValidator,
+  keybaseUsername,
+  statusLabel,
+} from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { shortDenom } from "@/lib/coin";
 import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
-import { accountFromOperator, linkedAddresses } from "@/lib/bech32";
+import { accountFromOperator, convertAddress, decodePrefix, linkedAddresses } from "@/lib/bech32";
 import { getAdapter } from "@/lib/adapter";
-import { emptyUptime, consensusIdsFromPubkey, DETAIL_BAR_COUNT } from "@/lib/uptime";
+import { resolveGnoValidatorAddress } from "@/lib/gno";
+import {
+  emptyUptime,
+  consensusIdsFromPubkey,
+  DETAIL_BAR_COUNT,
+  jailedNow,
+  longestMissStreak,
+  missBudget,
+} from "@/lib/uptime";
 import {
   commissionEarned,
-  governanceParticipation,
   proposerStats,
   slashHistory,
   stakeHistory,
   type SlashKind,
 } from "@/lib/indexer-db";
+import {
+  proposedBlocks,
+  proposerFairness,
+  validatorEvents,
+  validatorVotes,
+  type ValidatorEventKind,
+} from "@/lib/indexer-validator";
+import { getSelfBond } from "@/lib/staking";
+import { getChainAprCached } from "@/lib/params";
 import { voteOptionLabel } from "@/lib/proposals";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 import { SectionTabs } from "@/components/section-tabs";
 import { CopyButton } from "@/components/copy-button";
+import { AddressLink } from "@/components/address-link";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { LoadingPanel } from "@/components/loading-panel";
 import { UptimeBars } from "@/components/uptime-bars";
 import { ValidatorDelegators } from "@/components/validator-delegators";
+import { ValidatorElsewhere } from "@/components/validator-elsewhere";
 import { ValidatorStakeChart } from "@/components/validator-stake-history";
 import { ValidatorStatus } from "@/components/validator-status";
 
@@ -57,11 +80,11 @@ const pct = (value: number | null, decimals = 2) =>
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
 const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
 
-/** How a proposed-blocks share compares to the share of stake it was owed. */
+/** Blocks proposed against blocks owed by stake. */
 function verdict(ratio: number): string {
-  if (ratio >= 0.95) return "in line with stake";
+  if (ratio >= 0.95) return "in line";
   if (ratio >= 0.85) return "slightly under";
-  return "well under — missing turns";
+  return "under";
 }
 
 const SLASH_LABEL: Record<SlashKind, string> = {
@@ -69,6 +92,13 @@ const SLASH_LABEL: Record<SlashKind, string> = {
   unjailed: "Unjailed",
   slashed: "Slashed",
   tombstoned: "Tombstoned",
+};
+
+const EVENT_LABEL: Record<ValidatorEventKind, string> = {
+  create: "Created",
+  edit: "Edited",
+  unjail: "Unjailed",
+  commission: "Commission withdrawn",
 };
 
 function reasonLabel(reason: string | null): string {
@@ -84,42 +114,60 @@ const day = (iso: string) =>
     day: "numeric",
   });
 
+const TABS = ["delegators", "signing", "proposed", "votes", "events", "stake", "jailings"];
+
 /**
  * One validator: what it is worth, how it behaves, and who backs it.
  *
- * This page used to be nine stacked sections — a profile table, four stat rails
- * and three tables — and everything below the second of them was off the screen
- * on any laptop. The sections are all still here. Each of the rails is now the
- * single brick it was always summarising, with the rest of its figures a click
- * away, and the three lists take turns in one full-height deck instead of
- * queueing up.
+ * The header carries identity (operator, account, consensus address, Keybase,
+ * the same operator on other networks); the bricks carry the figures; the tabs
+ * carry the lists — delegators, signing, proposed blocks, votes, events, stake
+ * and jailings — each addressable by `?tab=`.
  *
- * The indexer-backed bricks stay absent rather than zero when the index cannot
- * answer. That distinction is the point of them: nobody can tell "this
- * validator has never been jailed" from "we have no jailing data" once a zero
- * has been printed, and only one of those is a fact about the validator.
- *
- * Everything except the delegator list is awaited together up front. Bricks
- * have to be laid out at once, so a section arriving late cannot slot into the
- * board — and each of these reads is a bounded, indexed query. Delegators is
- * the exception in both respects: it pages every delegation off the LCD, takes
- * seconds on a large validator, and owns a whole tab that can carry a spinner.
+ * Indexed sections stay absent rather than zero when the index cannot answer:
+ * nobody can tell "never jailed" from "no data" once a zero has been printed.
  */
 export default async function ValidatorDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ chain: string; addr: string }>;
+  searchParams: Promise<{ tab?: string; dp?: string }>;
 }) {
   const { chain: chainId, addr: rawAddr } = await params;
+  const { tab, dp } = await searchParams;
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const addr = decodeParam(rawAddr);
+  const addr = decodeParam(rawAddr).trim().toLowerCase();
 
   // gno.land has no staking module — identity comes from the valopers realm
   // instead, so it gets an entirely different detail view.
   if (chain.kind === "gno") {
-    return <GnoValidatorDetail chain={chain} address={addr} />;
+    const raw = decodeParam(rawAddr);
+    // A gno operator address and its signing address are two names for one
+    // validator; the signing address is the page.
+    const page = await resolveGnoValidatorAddress(chain, raw);
+    if (page && page !== raw) redirect(`/${chainId}/validators/${page}`);
+    return <GnoValidatorDetail chain={chain} address={raw} />;
+  }
+
+  // Any of a validator's three addresses lands on its page: the operator
+  // address is the page, a consensus address or the operator's own account
+  // redirect to it.
+  const prefix = decodePrefix(addr);
+  if (prefix === `${chain.bech32Prefix}valcons`) {
+    const hit = await findValidator(
+      chain,
+      { valcons: addr },
+      (pubkey) => consensusIdsFromPubkey(pubkey, chain.bech32Prefix)?.valcons ?? null
+    );
+    if (hit) redirect(`/${chainId}/validators/${hit.operatorAddress}`);
+  } else if (prefix === chain.bech32Prefix) {
+    const operator = convertAddress(addr, `${chain.bech32Prefix}valoper`);
+    if (operator && (await getValidator(chain, operator))) {
+      redirect(`/${chainId}/validators/${operator}`);
+    }
   }
 
   const validator = await getValidator(chain, addr);
@@ -130,13 +178,10 @@ export default async function ValidatorDetailPage({
     return (
       <PageFrame title="Validator not found" sub={chain.prettyName} accent={accent}>
         <p className="text-sm text-muted-foreground">
-          No validator with operator address{" "}
-          <span className="font-mono">{truncateMiddle(addr, 12, 8)}</span> on{" "}
-          {chain.prettyName}.{" "}
+          <span className="font-mono">{truncateMiddle(addr, 12, 8)}</span>: N/A.{" "}
           <Link href={`/${chainId}/validators`} className="text-primary hover:underline">
-            Back to validators
+            Validators
           </Link>
-          .
         </p>
       </PageFrame>
     );
@@ -144,42 +189,53 @@ export default async function ValidatorDetailPage({
 
   const selfDelegation = accountFromOperator(addr, chain.bech32Prefix);
   // Derived from the self-delegation account, never from the operator address:
-  // re-encoding a …valoper1… under another chain's prefix yields a valid-looking
-  // address that is a different entity. linkedAddresses refuses one anyway, so
-  // passing the operator here would silently render nothing.
+  // re-encoding a …valoper1… under another prefix is a different entity.
   const links = selfDelegation ? linkedAddresses(selfDelegation) : [];
-  // Slashing and block production are recorded against the consensus address —
-  // neither ever mentions the operator — so both reads are keyed on it.
+  // Slashing and block production are recorded against the consensus address.
   const ids = validator.consensusPubkey
     ? consensusIdsFromPubkey(validator.consensusPubkey, chain.bech32Prefix)
     : null;
   const adapter = getAdapter(chain);
 
-  const [uptime, earned, governance, proposer, slashes, stake] = await Promise.all([
-    // Shares the validators-page cache key, so opening a validator right after
-    // the list costs nothing extra. A longer strip than the list shows: the
-    // block reads are per chain, not per validator, so one page can afford more
-    // history than 100 rows can.
+  const [
+    uptime,
+    earned,
+    proposer,
+    fairness,
+    proposedList,
+    slashes,
+    stake,
+    events,
+    selfBond,
+    apr,
+    keybase,
+  ] = await Promise.all([
     adapter
       .getUptime([validator], DETAIL_BAR_COUNT)
       .then((m) => m.get(addr) ?? emptyUptime())
       .catch(() => emptyUptime()),
-    // Keyed on the account, not the operator: commission is attributed through
-    // the signer of the withdrawal — see commissionEarned.
+    // Keyed on the account: commission is attributed through the signer.
     selfDelegation ? commissionEarned(chain.chainId, selfDelegation).catch(() => null) : null,
-    selfDelegation
-      ? governanceParticipation(chain.chainId, selfDelegation).catch(() => null)
-      : null,
     ids ? proposerStats(chain.chainId, ids.hex).catch(() => null) : null,
+    ids ? proposerFairness(chain.chainId, addr, ids.hex).catch(() => null) : null,
+    ids ? proposedBlocks(chain.chainId, ids.hex).catch(() => null) : null,
     ids ? slashHistory(chain.chainId, ids.valcons).catch(() => null) : null,
-    // Logged rather than swallowed. A failing query and a validator with no
-    // snapshots both render nothing, and the last feature that hid a SQL error
-    // this way shipped broken — the log is the only thing that tells them apart.
     stakeHistory(chain.chainId, addr).catch((err) => {
       console.error(`stakeHistory failed for ${addr}:`, err);
       return null;
     }),
+    selfDelegation ? validatorEvents(chain.chainId, selfDelegation).catch(() => null) : null,
+    getSelfBond(chain, addr, validator.tokens).catch(() => null),
+    getChainAprCached(chain).catch(() => null),
+    validator.identity ? keybaseUsername(validator.identity) : null,
   ]);
+
+  // The validator's own creation, where the index holds it, bounds what it can
+  // be counted absent from in governance.
+  const created = events?.filter((e) => e.kind === "create").at(-1)?.time ?? null;
+  const votes = selfDelegation
+    ? await validatorVotes(chain.chainId, selfDelegation, created).catch(() => null)
+    : null;
 
   // The chain's own denoms carry a symbol and an exponent; anything else (an
   // IBC hash) is shown as-is rather than scaled by a guess.
@@ -191,24 +247,23 @@ export default async function ValidatorDetailPage({
       : `${c.amount} ${shortDenom(c.denom)}`;
   };
 
+  const jailed = jailedNow(uptime, validator.jailed);
   const signed =
     uptime.window !== null && uptime.missed !== null ? uptime.window - uptime.missed : null;
+  const budget = missBudget(uptime.window, uptime.minSigned, uptime.missed);
+  const streak = uptime.bars.length > 0 ? longestMissStreak(uptime.bars) : null;
   const website = validator.website.replace(/^https?:\/\//, "");
+  const status = validator.jailed ? "Jailed" : statusLabel(validator.status);
+  const expectedApr =
+    apr?.stakingApr != null ? apr.stakingApr * (1 - validator.commissionRate) : null;
 
   const bricks: BrickSpec[] = [];
 
-  // Stake and voting power were kept off this page while it scrolled, because
-  // they are columns on the list you arrived from and repeating them pushed
-  // everything that is *only* here below the fold. A brick costs no such thing,
-  // and the size of a validator is the first thing its page should say.
   bricks.push({
     key: "stake",
     label: "Bonded",
     value: formatToken(validator.tokens, chain.exponent),
-    sub:
-      validator.votingPower !== null
-        ? `${pct(validator.votingPower)} of the set`
-        : symbol,
+    sub: validator.votingPower !== null ? `${pct(validator.votingPower)} of the set` : symbol,
     lead: true,
     rows: kept([
       {
@@ -218,35 +273,49 @@ export default async function ValidatorDetailPage({
       },
       { label: "Voting power", value: pct(validator.votingPower), mono: true },
       { label: "Rank", value: validator.rank ? `#${validator.rank}` : "—", mono: true },
-      { label: "Status", value: validator.jailed ? "Jailed" : validator.status },
+      { label: "Status", value: status },
       {
         label: "Min self delegation",
         value: `${formatToken(validator.minSelfDelegation, chain.exponent, 6)} ${symbol}`,
         mono: true,
       },
-      {
-        label: "Unbonding since",
-        value: validator.unbondingHeight
-          ? `height ${Number(validator.unbondingHeight).toLocaleString()}`
-          : "—",
-        mono: true,
-      },
+      // Only while it is actually unbonding: the field keeps the height of the
+      // last unbonding forever, and on a bonded validator it read as a status.
+      ...(validator.status === "BOND_STATUS_UNBONDING" && validator.unbondingHeight
+        ? [
+            {
+              label: "Unbonding since",
+              value: `#${Number(validator.unbondingHeight).toLocaleString()}`,
+              mono: true,
+              href: `/${chainId}/blocks/${validator.unbondingHeight}`,
+            },
+          ]
+        : []),
     ]),
+  });
+
+  bricks.push({
+    key: "selfbond",
+    label: "Self bond",
+    value: selfBond ? formatToken(selfBond.amount, chain.exponent) : "N/A",
+    sub: selfBond?.share != null ? `${pct(selfBond.share)} of its stake` : symbol,
   });
 
   if (uptime.window !== null || uptime.bars.length > 0) {
     bricks.push({
       key: "signing",
       label: "Signing",
-      value: pct(uptime.ratio),
-      sub:
-        uptime.missed !== null && uptime.window !== null
+      // Jailed, the window is reset and stops counting; its percentage would be
+      // a clean record the validator did not earn.
+      value: jailed ? "N/A" : pct(uptime.ratio),
+      sub: jailed
+        ? "jailed"
+        : uptime.missed !== null && uptime.window !== null
           ? `${uptime.missed.toLocaleString()} missed of ${uptime.window.toLocaleString()}`
           : "slashing window",
-      // Same thresholds the bar strip uses: 99% is healthy, under 95% is the
-      // neighbourhood of the slashing floor on most chains.
-      tone:
-        uptime.ratio === null
+      tone: jailed
+        ? "bad"
+        : uptime.ratio === null
           ? undefined
           : uptime.ratio >= 0.99
             ? "ok"
@@ -254,10 +323,14 @@ export default async function ValidatorDetailPage({
               ? "bad"
               : undefined,
       rows: kept([
-        { label: "Signed", value: signed !== null ? signed.toLocaleString() : "—", mono: true },
+        {
+          label: "Signed",
+          value: !jailed && signed !== null ? signed.toLocaleString() : "—",
+          mono: true,
+        },
         {
           label: "Missed",
-          value: uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
+          value: !jailed && uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
           mono: true,
         },
         {
@@ -265,17 +338,21 @@ export default async function ValidatorDetailPage({
           value: uptime.window !== null ? `${uptime.window.toLocaleString()} blocks` : "—",
           mono: true,
         },
-        { label: "Uptime", value: pct(uptime.ratio), mono: true },
-        // A date in the past means jailed and since released; a future one
-        // means jailed right now. The slashing module keeps no count, only this.
+        {
+          label: "Miss budget",
+          value: !jailed && budget !== null ? `${budget.toLocaleString()} blocks` : "—",
+          mono: true,
+        },
+        {
+          label: `Longest miss streak · last ${uptime.bars.length}`,
+          value: streak !== null ? String(streak) : "—",
+          mono: true,
+        },
         {
           label: "Jailed until",
           value: uptime.jailedUntil ? new Date(uptime.jailedUntil).toLocaleString() : "Never",
         },
-        {
-          label: "Tombstoned",
-          value: uptime.tombstoned ? "Yes — permanently removed" : "No",
-        },
+        { label: "Tombstoned", value: uptime.tombstoned ? "Yes" : "No" },
       ]),
     });
   }
@@ -306,12 +383,18 @@ export default async function ValidatorDetailPage({
     ]),
   });
 
-  /**
-   * What the commission rate actually produced. Every explorer shows the rate;
-   * none show the outcome, because the chain does not keep it — once commission
-   * is withdrawn the amount survives nowhere but in the block events. Read
-   * beside self bond it says something a rate cannot.
-   */
+  bricks.push({
+    key: "apr",
+    label: "Expected APR",
+    value: expectedApr !== null ? pct(expectedApr) : "N/A",
+    sub: "after commission",
+    rows: kept([
+      { label: "Chain APR", value: pct(apr?.stakingApr ?? null), mono: true },
+      { label: "Commission", value: pct(validator.commissionRate), mono: true },
+      { label: "Expected APR", value: pct(expectedApr), mono: true },
+    ]),
+  });
+
   if (earned) {
     bricks.push({
       key: "earned",
@@ -325,154 +408,240 @@ export default async function ValidatorDetailPage({
           mono: true,
         })),
         { label: "Withdrawals", value: earned.withdrawals.toLocaleString(), mono: true },
+        { label: "First", value: earned.first ? day(earned.first) : "—" },
         { label: "Last", value: earned.last ? timeAgo(earned.last) : "—" },
       ]),
     });
   }
 
-  /**
-   * How much of the chain's block production this validator actually did —
-   * distinct from the signing percentage, which measures whether it signed
-   * *other* proposers' blocks. A validator can sign reliably and still fail to
-   * produce its own when its turn comes, and only the proposed share shows it.
-   * Selection is weighted by voting power, so the gap between the two shares is
-   * the interesting number.
-   */
   if (proposer && proposer.totalBlocks > 0) {
     const share = proposer.proposed / proposer.totalBlocks;
-    // Expected turns, from voting power. Null when we cannot say, rather than
-    // assuming the current power held across the whole window — it did not.
-    const expected = validator.votingPower;
-    const ratio = expected && expected > 0 ? share / expected : null;
     bricks.push({
       key: "proposed",
       label: "Blocks proposed",
       value: proposer.proposed.toLocaleString(),
-      sub: `${pct(share)} of the chain's`,
+      sub: fairness
+        ? `${fairness.ratio.toFixed(2)}× expected · ${verdict(fairness.ratio)}`
+        : `${pct(share)} of the chain's`,
+      tone: fairness ? (fairness.ratio >= 0.95 ? "ok" : fairness.ratio < 0.85 ? "bad" : undefined) : undefined,
       rows: kept([
         { label: "Proposed", value: proposer.proposed.toLocaleString(), mono: true },
         { label: "Share of blocks", value: pct(share), mono: true },
-        { label: "Share of stake", value: pct(expected), mono: true },
-        {
-          label: "Versus stake",
-          value: ratio !== null ? `${ratio.toFixed(2)}x — ${verdict(ratio)}` : "—",
-        },
+        ...(fairness
+          ? [
+              {
+                label: "Expected from stake",
+                value: Math.round(fairness.expected).toLocaleString(),
+                mono: true,
+              },
+              {
+                label: "Proposed in that window",
+                value: fairness.proposed.toLocaleString(),
+                mono: true,
+              },
+              {
+                label: "Versus stake",
+                value: `${fairness.ratio.toFixed(2)}× · ${verdict(fairness.ratio)}`,
+              },
+              {
+                label: "Window",
+                value: `#${fairness.fromHeight.toLocaleString()} – #${fairness.toHeight.toLocaleString()}`,
+                mono: true,
+              },
+            ]
+          : []),
         {
           label: "Last proposed",
-          value: proposer.lastTime
-            ? `${timeAgo(proposer.lastTime)}${
-                proposer.lastHeight ? ` at ${proposer.lastHeight.toLocaleString()}` : ""
-              }`
+          value: proposer.lastHeight
+            ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? ` · ${timeAgo(proposer.lastTime)}` : ""}`
             : "Never",
+          mono: true,
+          ...(proposer.lastHeight ? { href: `/${chainId}/blocks/${proposer.lastHeight}` } : {}),
         },
-        // Stated only when the index does not reach the first block. Once the
-        // backfill lands on genesis, "since <genesis date>" is the chain's own
-        // age dressed as a caveat.
         {
           label: "Measured over",
           value: proposer.fromGenesis
-            ? `${proposer.totalBlocks.toLocaleString()} blocks, all of them`
+            ? `${proposer.totalBlocks.toLocaleString()} blocks`
             : `${proposer.totalBlocks.toLocaleString()} blocks since ${day(proposer.since)}`,
         },
       ]),
     });
   }
 
-  /**
-   * Whether the operator turns up. A validator carries its delegators' voting
-   * power by default, so one that never votes is deciding by absence. The gov
-   * module deletes votes once a proposal tallies, so for anything decided this
-   * index is the only lasting record — hence absent, not empty, where we do not
-   * index the chain.
-   */
-  if (governance && governance.total > 0) {
+  if (votes && votes.total > 0) {
+    const byOption = new Map<string, number>();
+    for (const v of votes.votes) byOption.set(v.option, (byOption.get(v.option) ?? 0) + 1);
     bricks.push({
       key: "governance",
       label: "Governance",
-      value: pct(governance.voted / governance.total, 0),
-      sub: `voted on ${governance.voted} of ${governance.total}`,
+      value: pct(votes.voted / votes.total, 0),
+      sub: `voted on ${votes.voted} of ${votes.total}`,
       rows: kept([
+        { label: "Participation", value: `${votes.voted} of ${votes.total} proposals`, mono: true },
+        { label: "Skipped", value: String(votes.skipped.length), mono: true },
+        ...[...byOption.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([option, n]) => ({ label: voteOptionLabel(option), value: String(n), mono: true })),
+        { label: "Counted since", value: day(votes.since) },
         {
-          label: "Participation",
-          value: `${governance.voted} of ${governance.total} proposals`,
-          mono: true,
+          label: "Last voted",
+          value: votes.votes[0] ? timeAgo(votes.votes.reduce((m, v) => (v.time > m ? v.time : m), votes.votes[0].time)) : "—",
         },
-        ...governance.byOption.map((o) => ({
-          label: voteOptionLabel(o.option),
-          value: String(o.count),
-          mono: true,
-        })),
-        { label: "Last voted", value: governance.lastVote ? timeAgo(governance.lastVote) : "—" },
       ]),
     });
   }
 
-  const identityRows = kept([
-    { label: "Operator", value: validator.operatorAddress, mono: true },
-    ...(selfDelegation
-      ? [
-          {
-            label: "Account",
-            value: selfDelegation,
-            mono: true,
-            // Same key as the operator address, under the account prefix. Links
-            // onward to its balances, history and the address switcher.
-            href: `/${chainId}/accounts/${selfDelegation}`,
-          },
-        ]
-      : []),
-    ...(validator.website ? [{ label: "Website", value: website, href: validator.website }] : []),
-    { label: "Security contact", value: validator.securityContact },
-    { label: "Identity", value: validator.identity, mono: true },
-    { label: "Details", value: validator.details },
-  ]);
-  bricks.push({
-    key: "identity",
-    label: "Identity",
-    // Prose rather than a figure: what a validator says about itself is a
-    // sentence, and there is no number here that would be worth the tile.
-    value: validator.details || website || validator.moniker,
-    text: true,
-    sub: validator.details && website ? website : "operator & account",
-    count: identityRows.length,
-    rows: identityRows,
-  });
+  if (validator.details) {
+    bricks.push({
+      key: "identity",
+      label: "About",
+      value: validator.details,
+      text: true,
+      sub: website || validator.moniker,
+      body: validator.details,
+      rows: kept([
+        ...(validator.website ? [{ label: "Website", value: website, href: validator.website }] : []),
+        { label: "Security contact", value: validator.securityContact },
+      ]),
+    });
+  }
 
-  const jailings = slashes?.events.filter((e) => e.kind === "jailed").length ?? 0;
-  const tombstoned = slashes?.events.some((e) => e.kind === "tombstoned") ?? false;
-  // "since <genesis>" is not a qualification, it is the chain's whole life — so
-  // once the index reaches the first block the sentence drops the clause.
-  const over = slashes && !slashes.fromGenesis ? ` since ${day(slashes.since)}` : "";
+  // ── Lists ────────────────────────────────────────────────────────────────
 
-  const slashRows: DeckRow[] = (slashes?.events ?? []).map((e) => ({
-    key: `${e.height}-${e.kind}`,
+  const unjails = (events ?? []).filter((e) => e.kind === "unjail");
+  type JailRow = { height: number; time: string; label: string; reason: string; burned: string | null; tx: string | null; bad: boolean };
+  const jailRows: JailRow[] = [
+    ...(slashes?.events ?? []).map((e) => ({
+      height: e.height,
+      time: e.time,
+      label: SLASH_LABEL[e.kind],
+      reason: reasonLabel(e.reason),
+      burned: e.burned,
+      tx: null,
+      bad: e.kind !== "unjailed",
+    })),
+    // The chain emits no event for an unjail; the MsgUnjail transaction is it.
+    ...unjails.map((e) => ({
+      height: e.height,
+      time: e.time,
+      label: "Unjailed",
+      reason: "—",
+      burned: null,
+      tx: e.txHash,
+      bad: false,
+    })),
+  ].sort((a, b) => b.height - a.height);
+
+  const jailDeck: DeckRow[] = jailRows.map((e) => ({
+    key: `${e.height}-${e.label}`,
     cells: [
-      { v: SLASH_LABEL[e.kind], tone: e.kind === "unjailed" ? "ok" : "bad" },
-      { v: reasonLabel(e.reason), dim: true },
+      { v: e.label, tone: e.bad ? "bad" : "ok" },
+      { v: e.reason, dim: true },
       {
         v: e.burned ? coin({ denom: chain.denom, amount: e.burned }) : "—",
         mono: true,
         align: "right",
         dim: !e.burned,
       },
-      { v: e.height.toLocaleString(), mono: true, align: "right", dim: true },
+      {
+        v: `#${e.height.toLocaleString()}`,
+        mono: true,
+        align: "right",
+        href: `/${chainId}/blocks/${e.height}`,
+      },
       { v: day(e.time), dim: true, align: "right" },
     ],
     detail: {
-      title: SLASH_LABEL[e.kind],
+      title: e.label,
       sub: day(e.time),
-      rows: [
-        { label: "Event", value: SLASH_LABEL[e.kind] },
-        { label: "Reason", value: reasonLabel(e.reason) },
-        {
-          label: "Burned",
-          value: e.burned ? coin({ denom: chain.denom, amount: e.burned }, 6) : "—",
-          mono: true,
-        },
-        { label: "Height", value: e.height.toLocaleString(), mono: true },
-        { label: "Time", value: new Date(e.time).toLocaleString() },
-      ],
-      action: { label: "Block", href: `/${chainId}/blocks/${e.height}` },
+      rows: [],
+      action: e.tx
+        ? { label: "Transaction", href: `/${chainId}/txs/${e.tx}` }
+        : { label: "Block", href: `/${chainId}/blocks/${e.height}` },
+    },
+  }));
+
+  const jailings = slashes?.events.filter((e) => e.kind === "jailed").length ?? 0;
+
+  const proposedDeck: DeckRow[] = (proposedList?.blocks ?? []).map((b) => ({
+    key: String(b.height),
+    cells: [
+      { v: `#${b.height.toLocaleString()}`, mono: true, tone: "accent" },
+      { v: timeAgo(b.time), dim: true, align: "right" },
+      { v: String(b.txCount), mono: true, align: "right" },
+    ],
+    detail: { title: `Block ${b.height}`, rows: [], action: { label: "Block", href: `/${chainId}/blocks/${b.height}` } },
+  }));
+
+  const skipped = new Set(votes?.skipped ?? []);
+  const voteDeck: DeckRow[] = votes
+    ? [
+        ...votes.votes.map((v) => ({
+          id: v.proposalId,
+          row: {
+            key: `v-${v.proposalId}`,
+            cells: [
+              { v: `#${v.proposalId}`, mono: true, tone: "accent" as const },
+              { v: `${voteOptionLabel(v.option)}${v.weighted ? " · split" : ""}` },
+              {
+                v: truncateMiddle(v.txHash, 6, 4),
+                mono: true,
+                dim: true,
+                href: `/${chainId}/txs/${v.txHash}`,
+              },
+              { v: day(v.time), dim: true, align: "right" as const },
+            ],
+            detail: {
+              title: `Proposal #${v.proposalId}`,
+              rows: [],
+              action: { label: "Proposal", href: `/${chainId}/proposals/${v.proposalId}` },
+            },
+          } satisfies DeckRow,
+        })),
+        ...[...skipped].map((id) => ({
+          id,
+          row: {
+            key: `s-${id}`,
+            cells: [
+              { v: `#${id}`, mono: true, tone: "accent" as const },
+              { v: "Did not vote", tone: "bad" as const },
+              { v: "—", dim: true },
+              { v: "—", dim: true, align: "right" as const },
+            ],
+            detail: {
+              title: `Proposal #${id}`,
+              rows: [],
+              action: { label: "Proposal", href: `/${chainId}/proposals/${id}` },
+            },
+          } satisfies DeckRow,
+        })),
+      ]
+        .sort((a, b) => b.id - a.id)
+        .map((x) => x.row)
+    : [];
+
+  const eventDeck: DeckRow[] = (events ?? []).map((e) => ({
+    key: e.txHash,
+    cells: [
+      { v: EVENT_LABEL[e.kind], tone: e.ok ? undefined : "bad" },
+      {
+        v: e.amounts.length > 0 ? e.amounts.map((a) => coin(a)).join(", ") : "—",
+        mono: true,
+        align: "right",
+        dim: e.amounts.length === 0,
+      },
+      {
+        v: `#${e.height.toLocaleString()}`,
+        mono: true,
+        align: "right",
+        href: `/${chainId}/blocks/${e.height}`,
+      },
+      { v: day(e.time), dim: true, align: "right" },
+    ],
+    detail: {
+      title: EVENT_LABEL[e.kind],
+      rows: [],
+      action: { label: "Transaction", href: `/${chainId}/txs/${e.txHash}` },
     },
   }));
 
@@ -481,16 +650,12 @@ export default async function ValidatorDetailPage({
       key: "delegators",
       label: "Delegators",
       content: (
-        <Suspense
-          fallback={
-            <LoadingPanel
-              label="Loading delegators…"
-              hint="Reading every delegation so the largest are ranked correctly."
-              rows={5}
-            />
-          }
-        >
-          <ValidatorDelegators chain={chain} operatorAddress={addr} />
+        <Suspense fallback={<LoadingPanel label="Loading delegators…" rows={5} />}>
+          <ValidatorDelegators
+            chain={chain}
+            operatorAddress={addr}
+            page={Math.max(0, (Number(dp) || 1) - 1)}
+          />
         </Suspense>
       ),
     },
@@ -500,12 +665,89 @@ export default async function ValidatorDetailPage({
             key: "signing",
             label: "Signing",
             content: (
-              <div className="flex h-full flex-col gap-2 border border-border bg-[var(--gata-card)] px-4 py-3">
-                <p className="shrink-0 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Last {uptime.bars.length} blocks, newest right
-                </p>
-                <UptimeBars uptime={uptime} slashingWindow expand />
+              <div className="gata-surface flex h-full flex-col gap-2 px-4 py-3">
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-[11.5px]">
+                  <Fact label={`last ${uptime.bars.length} blocks`} />
+                  <Fact
+                    value={String(uptime.bars.filter((b) => !b).length)}
+                    label="missed"
+                  />
+                  {streak !== null ? <Fact label="longest streak" value={String(streak)} /> : null}
+                  {!jailed && budget !== null ? (
+                    <Fact label="miss budget" value={budget.toLocaleString()} />
+                  ) : null}
+                  {jailed ? <Fact label="jailed" /> : null}
+                </div>
+                <UptimeBars
+                  // Jailed, the window is reset: show the strip, not its percentage.
+                  uptime={jailed ? { ...uptime, ratio: null, missed: null } : uptime}
+                  slashingWindow
+                  expand
+                  chainId={chainId}
+                />
               </div>
+            ),
+          },
+        ]
+      : []),
+    ...(proposedList
+      ? [
+          {
+            key: "proposed",
+            label: "Proposed",
+            content: (
+              <RowDeck
+                accent={accent}
+                columns={[
+                  { label: "Block" },
+                  { label: "Age", align: "right", width: "30%" },
+                  { label: "Txs", align: "right", width: "18%" },
+                ]}
+                rows={proposedDeck}
+                empty="None"
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(votes
+      ? [
+          {
+            key: "votes",
+            label: skipped.size > 0 ? `Votes · ${skipped.size} skipped` : "Votes",
+            content: (
+              <RowDeck
+                accent={accent}
+                columns={[
+                  { label: "Proposal", width: "16%" },
+                  { label: "Vote" },
+                  { label: "Tx", width: "22%", phoneHide: true },
+                  { label: "Date", align: "right", width: "22%" },
+                ]}
+                rows={voteDeck}
+                empty="None"
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(events
+      ? [
+          {
+            key: "events",
+            label: "Events",
+            content: (
+              <RowDeck
+                accent={accent}
+                columns={[
+                  { label: "Event" },
+                  { label: "Amount", align: "right", width: "26%", phoneHide: true },
+                  { label: "Block", align: "right", width: "20%" },
+                  { label: "Date", align: "right", width: "20%" },
+                ]}
+                rows={eventDeck}
+                empty="None"
+              />
             ),
           },
         ]
@@ -526,9 +768,6 @@ export default async function ValidatorDetailPage({
           },
         ]
       : []),
-    // Absent entirely without the indexer. No node can answer this: the staking
-    // module keeps only the current jailed flag, so a validator jailed three
-    // times and one jailed once are indistinguishable through the API.
     ...(slashes
       ? [
           {
@@ -541,33 +780,19 @@ export default async function ValidatorDetailPage({
                   { label: "Event", width: "18%" },
                   { label: "Reason" },
                   { label: "Burned", align: "right", width: "20%", phoneHide: true },
-                  { label: "Height", align: "right", width: "18%", optional: true },
+                  { label: "Block", align: "right", width: "18%", optional: true },
                   { label: "Date", align: "right", width: "22%" },
                 ]}
-                rows={slashRows}
-                toolbar={
-                  slashRows.length > 0 ? (
-                    <p className="text-[11px] text-muted-foreground">
-                      {tombstoned ? (
-                        <span className="text-[var(--gata-burn)]">
-                          Tombstoned — permanently removed from the validator set.
-                        </span>
-                      ) : (
-                        <>
-                          Jailed {jailings === 1 ? "once" : `${jailings} times`}
-                          {over || " in the chain's history"}.
-                        </>
-                      )}
-                    </p>
-                  ) : undefined
-                }
-                empty={`Never jailed or slashed${over}.`}
+                rows={jailDeck}
+                empty="Never"
               />
             ),
           },
         ]
       : []),
   ];
+
+  const initialTab = tab && TABS.includes(tab) ? tab : undefined;
 
   return (
     <PageFrame
@@ -576,10 +801,7 @@ export default async function ValidatorDetailPage({
       accent={accent}
       actions={
         <>
-          <CopyButton value={validator.operatorAddress} label="operator address" />
-          {links.length > 0 ? (
-            <LinkedAddresses links={links} currentChainId={chainId} />
-          ) : null}
+          {links.length > 0 ? <LinkedAddresses links={links} currentChainId={chainId} /> : null}
           <ValidatorStatus
             jailed={validator.jailed}
             status={validator.status}
@@ -589,13 +811,100 @@ export default async function ValidatorDetailPage({
       }
     >
       <div className="flex h-full flex-col gap-3">
+        {/* Identity: every address this validator goes by, each linked or copyable. */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
+          <IdentityItem label="Operator" copy={validator.operatorAddress}>
+            <span className="font-mono">{truncateMiddle(validator.operatorAddress, 14, 6)}</span>
+          </IdentityItem>
+          {selfDelegation ? (
+            <IdentityItem label="Account" copy={selfDelegation}>
+              <AddressLink address={selfDelegation} head={10} tail={6} />
+            </IdentityItem>
+          ) : null}
+          {ids ? (
+            <>
+              <IdentityItem label="Consensus" copy={ids.valcons}>
+                <span className="font-mono">{truncateMiddle(ids.valcons, 14, 6)}</span>
+              </IdentityItem>
+              <IdentityItem label="Hex" copy={ids.hex}>
+                <span className="font-mono">{truncateMiddle(ids.hex, 8, 6)}</span>
+              </IdentityItem>
+            </>
+          ) : null}
+          {validator.identity ? (
+            <IdentityItem label="Keybase">
+              {keybase ? (
+                <a
+                  href={`https://keybase.io/${keybase}`}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="text-primary hover:underline"
+                >
+                  {keybase}
+                </a>
+              ) : (
+                <span className="font-mono">{validator.identity}</span>
+              )}
+            </IdentityItem>
+          ) : null}
+          {validator.website ? (
+            <IdentityItem label="Website">
+              <a
+                href={validator.website}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className="text-primary hover:underline"
+              >
+                {website}
+              </a>
+            </IdentityItem>
+          ) : null}
+          <Suspense fallback={null}>
+            <ValidatorElsewhere
+              chain={chain}
+              account={selfDelegation}
+              identity={validator.identity}
+            />
+          </Suspense>
+        </div>
         <div className="shrink-0">
           <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
         </div>
         <div className="min-h-0 flex-1">
-          <SectionTabs sections={sections} />
+          <SectionTabs sections={sections} initial={initialTab} param="tab" />
         </div>
       </div>
     </PageFrame>
+  );
+}
+
+function IdentityItem({
+  label,
+  copy,
+  children,
+}: {
+  label: string;
+  copy?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </span>
+      {children}
+      {copy ? <CopyButton value={copy} label={label.toLowerCase()} /> : null}
+    </span>
+  );
+}
+
+function Fact({ label, value }: { label: string; value?: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
+      {value !== undefined ? (
+        <span className="font-mono font-semibold text-foreground">{value}</span>
+      ) : null}
+      <span className="text-muted-foreground">{label}</span>
+    </span>
   );
 }

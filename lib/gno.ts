@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchFrom } from "@/lib/lcd";
+import { cached } from "@/lib/cache";
 import { isNumericId, isBech32ish } from "@/lib/input";
 import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
@@ -142,9 +144,38 @@ interface IdxBlock {
 
 const BLOCK_FIELDS = "hash height time chain_id num_txs proposer_address_raw";
 
+type IdxPackage = { name: string; path: string } | null;
+
 type IdxMessageValue =
-  | { __typename: "MsgCall"; func: string; pkg_path: string }
-  | { __typename: "BankMsgSend" | "MsgAddPackage" | "MsgRun" | "UnexpectedMessage" };
+  | { __typename: "BankMsgSend"; from_address: string; to_address: string; amount: string }
+  | {
+      __typename: "MsgCall";
+      caller: string;
+      send: string;
+      pkg_path: string;
+      func: string;
+      args: string[] | null;
+      max_deposit: string;
+    }
+  | { __typename: "MsgAddPackage"; creator: string; send: string; max_deposit: string; package: IdxPackage }
+  | { __typename: "MsgRun"; caller: string; send: string; max_deposit: string; package: IdxPackage }
+  | { __typename: "UnexpectedMessage" };
+
+type IdxEvent =
+  | { __typename: "GnoEvent"; type: string; pkg_path: string; attrs: { key: string; value: string }[] | null }
+  | {
+      __typename: "StorageDepositEvent";
+      bytes_delta: number;
+      fee_delta: { amount: number; denom: string } | null;
+      pkg_path: string;
+    }
+  | {
+      __typename: "StorageUnlockEvent";
+      bytes_delta: number;
+      fee_refund: { amount: number; denom: string } | null;
+      pkg_path: string;
+    }
+  | { __typename: "UnknownEvent" };
 
 interface IdxTx {
   hash: string;
@@ -156,12 +187,427 @@ interface IdxTx {
   gas_fee: { amount: number; denom: string } | null;
   memo: string;
   messages: { typeUrl: string; route: string; value: IdxMessageValue | null }[];
-  response: { error: string; log: string } | null;
+  response: { error: string; log: string; events: IdxEvent[] | null } | null;
 }
 
 const TX_FIELDS = `hash index block_height success gas_used gas_wanted
-  gas_fee { amount denom } memo response { error log }
-  messages { typeUrl route value { __typename ... on MsgCall { func pkg_path } } }`;
+  gas_fee { amount denom } memo
+  response { error log events {
+    __typename
+    ... on GnoEvent { type pkg_path attrs { key value } }
+    ... on StorageDepositEvent { bytes_delta fee_delta { amount denom } pkg_path }
+    ... on StorageUnlockEvent { bytes_delta fee_refund { amount denom } pkg_path }
+  } }
+  messages { typeUrl route value {
+    __typename
+    ... on BankMsgSend { from_address to_address amount }
+    ... on MsgCall { caller send pkg_path func args max_deposit }
+    ... on MsgAddPackage { creator send max_deposit package { name path } }
+    ... on MsgRun { caller send max_deposit package { name path } }
+  } }`;
+
+/* ------------------------------------------------------------------------
+ * Hashes. gno names a transaction by the base64 of its sha256; gnoscan and
+ * the node's /tx route use the hex of the same bytes. Both are accepted
+ * everywhere and both are shown.
+ * --------------------------------------------------------------------- */
+
+/** Base64 transaction hash → uppercase hex. Null when it is not a 32-byte hash. */
+export function gnoHashToHex(hash: string): string | null {
+  try {
+    const bytes = Buffer.from(hash.trim(), "base64");
+    return bytes.length === 32 ? bytes.toString("hex").toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Hex transaction hash, with or without 0x → gno's base64 form. */
+export function hexToGnoHash(input: string): string | null {
+  const hex = input.trim().replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) return null;
+  return Buffer.from(hex, "hex").toString("base64");
+}
+
+/** Either form in, base64 out. Null when the input is neither. */
+export function normalizeGnoHash(input: string): string | null {
+  const fromHex = hexToGnoHash(input);
+  if (fromHex) return fromHex;
+  const trimmed = input.trim();
+  return gnoHashToHex(trimmed) ? trimmed : null;
+}
+
+/* ------------------------------------------------------------------------
+ * One transaction shape for both sources. The tx-indexer is the fast path,
+ * but it drops some records (block rows list hashes whose transactions answer
+ * "item not found in storage"), so every read can fall back to the node,
+ * whose raw transaction is decoded below into the same shape.
+ * --------------------------------------------------------------------- */
+
+type GnoCoin = { denom: string; amount: string };
+
+/** A decoded gno message, carried on TxMessage as `gno` for the tx page. */
+export interface GnoMessageValue {
+  kind: "send" | "call" | "addpkg" | "run" | "other";
+  /** "/bank.send", "/vm.exec", "/vm.add_package", "/vm.run". */
+  type: string;
+  from?: string;
+  to?: string;
+  amount?: GnoCoin[];
+  caller?: string;
+  creator?: string;
+  send?: GnoCoin[];
+  maxDeposit?: GnoCoin[];
+  pkgPath?: string;
+  pkgName?: string;
+  func?: string;
+  args?: string[];
+}
+
+export interface GnoEventView {
+  type: string;
+  pkgPath: string | null;
+  attrs: { key: string; value: string }[];
+}
+
+export interface GnoStorageChange {
+  kind: "deposit" | "unlock";
+  pkgPath: string | null;
+  bytesDelta: number;
+  /** Fee locked (deposit) or refunded (unlock). */
+  fee: GnoCoin | null;
+}
+
+/** A GRC-20 "Transfer" event: the token is the realm that emitted it. */
+export interface GnoTokenTransfer {
+  token: string;
+  from: string | null;
+  to: string | null;
+  value: string;
+}
+
+/** Everything gno-specific about a transaction, carried on the tx as `gno`. */
+export interface GnoTxExtras {
+  hashHex: string | null;
+  /** Where the record came from; "node" means the indexer did not have it. */
+  source: "indexer" | "node";
+  events: GnoEventView[];
+  storage: GnoStorageChange[];
+  tokenTransfers: GnoTokenTransfer[];
+  /** Coin movements the chain itself reported (bank TransferEvent). */
+  bankTransfers: { from: string | null; to: string | null; amount: GnoCoin[] }[];
+}
+
+interface GnoTxRecord {
+  hash: string;
+  index: number;
+  height: number;
+  success: boolean;
+  error: string;
+  gasUsed: number | null;
+  gasWanted: number | null;
+  fee: GnoCoin | null;
+  memo: string;
+  messages: GnoMessageValue[];
+  events: GnoEventView[];
+  storage: GnoStorageChange[];
+  bankTransfers: GnoTxExtras["bankTransfers"];
+  source: "indexer" | "node";
+}
+
+const coins = (value: string | null | undefined): GnoCoin[] =>
+  value ? parseCoinString(value) : [];
+
+function fromIndexer(tx: IdxTx): GnoTxRecord {
+  const messages: GnoMessageValue[] = (tx.messages ?? []).map((m) => {
+    const type = `/${m.route}.${m.typeUrl}`;
+    const v = m.value;
+    switch (v?.__typename) {
+      case "BankMsgSend":
+        return { kind: "send", type, from: v.from_address, to: v.to_address, amount: coins(v.amount) };
+      case "MsgCall":
+        return {
+          kind: "call",
+          type,
+          caller: v.caller,
+          send: coins(v.send),
+          maxDeposit: coins(v.max_deposit),
+          pkgPath: v.pkg_path,
+          func: v.func,
+          args: v.args ?? [],
+        };
+      case "MsgAddPackage":
+        return {
+          kind: "addpkg",
+          type,
+          creator: v.creator,
+          send: coins(v.send),
+          maxDeposit: coins(v.max_deposit),
+          pkgPath: v.package?.path,
+          pkgName: v.package?.name,
+        };
+      case "MsgRun":
+        return {
+          kind: "run",
+          type,
+          caller: v.caller,
+          send: coins(v.send),
+          maxDeposit: coins(v.max_deposit),
+          pkgPath: v.package?.path,
+          pkgName: v.package?.name,
+        };
+      default:
+        return { kind: "other", type };
+    }
+  });
+
+  const events: GnoEventView[] = [];
+  const storage: GnoStorageChange[] = [];
+  for (const e of tx.response?.events ?? []) {
+    if (e.__typename === "GnoEvent") {
+      events.push({ type: e.type, pkgPath: e.pkg_path || null, attrs: e.attrs ?? [] });
+    } else if (e.__typename === "StorageDepositEvent") {
+      storage.push({
+        kind: "deposit",
+        pkgPath: e.pkg_path || null,
+        bytesDelta: e.bytes_delta,
+        fee: e.fee_delta ? { denom: e.fee_delta.denom, amount: String(e.fee_delta.amount) } : null,
+      });
+    } else if (e.__typename === "StorageUnlockEvent") {
+      storage.push({
+        kind: "unlock",
+        pkgPath: e.pkg_path || null,
+        bytesDelta: e.bytes_delta,
+        fee: e.fee_refund ? { denom: e.fee_refund.denom, amount: String(e.fee_refund.amount) } : null,
+      });
+    }
+  }
+
+  return {
+    hash: tx.hash,
+    index: tx.index ?? 0,
+    height: tx.block_height,
+    success: tx.success,
+    error: tx.response?.error ?? "",
+    gasUsed: tx.gas_used ?? null,
+    gasWanted: tx.gas_wanted ?? null,
+    fee: tx.gas_fee?.amount ? { denom: tx.gas_fee.denom, amount: String(tx.gas_fee.amount) } : null,
+    memo: tx.memo ?? "",
+    messages,
+    events,
+    storage,
+    // The indexer does not expose bank TransferEvents; sends carry their own parties.
+    bankTransfers: [],
+    source: "indexer",
+  };
+}
+
+/* ---- Minimal protobuf reader for the node's raw transaction bytes. gno's
+ * amino binary is protobuf-compatible: std.Tx { 1 msgs: Any, 2 fee, 3 sigs,
+ * 4 memo }, Any { 1 type_url, 2 value }. Field numbers were checked against
+ * the indexer's decoding of the same transactions. */
+
+type PbField = { field: number; wire: number; int?: number; bytes?: Uint8Array };
+
+function readVarint(b: Uint8Array, at: number): [number, number] {
+  let value = 0;
+  let scale = 1;
+  let i = at;
+  while (i < b.length) {
+    const byte = b[i++];
+    value += (byte & 0x7f) * scale;
+    if (byte < 0x80) return [value, i];
+    scale *= 128;
+  }
+  throw new Error("truncated varint");
+}
+
+function pbFields(b: Uint8Array): PbField[] {
+  const out: PbField[] = [];
+  let i = 0;
+  while (i < b.length) {
+    const [key, next] = readVarint(b, i);
+    i = next;
+    const field = Math.floor(key / 8);
+    const wire = key % 8;
+    if (wire === 0) {
+      const [v, n] = readVarint(b, i);
+      i = n;
+      out.push({ field, wire, int: v });
+    } else if (wire === 2) {
+      const [len, n] = readVarint(b, i);
+      i = n;
+      out.push({ field, wire, bytes: b.subarray(i, i + len) });
+      i += len;
+    } else if (wire === 1) {
+      i += 8;
+    } else if (wire === 5) {
+      i += 4;
+    } else {
+      throw new Error(`unsupported wire type ${wire}`);
+    }
+  }
+  return out;
+}
+
+const utf8 = (b?: Uint8Array) => (b ? Buffer.from(b).toString("utf8") : "");
+
+function pbStrings(fields: PbField[]): Map<number, string[]> {
+  const map = new Map<number, string[]>();
+  for (const f of fields) {
+    if (f.wire !== 2) continue;
+    const list = map.get(f.field) ?? [];
+    list.push(utf8(f.bytes));
+    map.set(f.field, list);
+  }
+  return map;
+}
+
+function decodePackage(bytes?: Uint8Array): { name?: string; path?: string } {
+  if (!bytes) return {};
+  const s = pbStrings(pbFields(bytes));
+  return { name: s.get(1)?.[0], path: s.get(2)?.[0] };
+}
+
+function decodeMessage(typeUrl: string, value?: Uint8Array): GnoMessageValue {
+  const fields = value ? pbFields(value) : [];
+  const s = pbStrings(fields);
+  const one = (n: number) => s.get(n)?.[0] || undefined;
+  const bytesOf = (n: number) => fields.find((f) => f.field === n && f.wire === 2)?.bytes;
+  switch (typeUrl) {
+    case "/bank.MsgSend":
+      return { kind: "send", type: "/bank.send", from: one(1), to: one(2), amount: coins(one(3)) };
+    case "/vm.m_call":
+      return {
+        kind: "call",
+        type: "/vm.exec",
+        caller: one(1),
+        send: coins(one(2)),
+        maxDeposit: coins(one(3)),
+        pkgPath: one(4),
+        func: one(5),
+        args: s.get(6) ?? [],
+      };
+    case "/vm.m_addpkg": {
+      const pkg = decodePackage(bytesOf(2));
+      return {
+        kind: "addpkg",
+        type: "/vm.add_package",
+        creator: one(1),
+        send: coins(one(3)),
+        maxDeposit: coins(one(4)),
+        pkgPath: pkg.path,
+        pkgName: pkg.name,
+      };
+    }
+    case "/vm.m_run": {
+      const pkg = decodePackage(bytesOf(3));
+      return {
+        kind: "run",
+        type: "/vm.run",
+        caller: one(1),
+        send: coins(one(2)),
+        maxDeposit: coins(one(4)),
+        pkgPath: pkg.path,
+        pkgName: pkg.name,
+      };
+    }
+    default:
+      return { kind: "other", type: typeUrl };
+  }
+}
+
+/** Decode a base64 std.Tx: its messages, fee and memo. Exported for tests. */
+export function decodeGnoTx(txBase64: string): {
+  messages: GnoMessageValue[];
+  gasWanted: number | null;
+  fee: GnoCoin | null;
+  memo: string;
+} {
+  const top = pbFields(Buffer.from(txBase64, "base64"));
+  const messages: GnoMessageValue[] = [];
+  let gasWanted: number | null = null;
+  let fee: GnoCoin | null = null;
+  let memo = "";
+  for (const f of top) {
+    if (f.field === 1 && f.bytes) {
+      const any = pbFields(f.bytes);
+      const typeUrl = utf8(any.find((x) => x.field === 1)?.bytes);
+      messages.push(decodeMessage(typeUrl, any.find((x) => x.field === 2)?.bytes));
+    } else if (f.field === 2 && f.bytes) {
+      const feeFields = pbFields(f.bytes);
+      gasWanted = feeFields.find((x) => x.field === 1)?.int ?? null;
+      fee = coins(utf8(feeFields.find((x) => x.field === 2)?.bytes))[0] ?? null;
+    } else if (f.field === 4 && f.bytes) {
+      memo = utf8(f.bytes);
+    }
+  }
+  return { messages, gasWanted, fee, memo };
+}
+
+/** The node's /tx result, as served by gno.land's TM2 RPC. */
+export interface GnoNodeTx {
+  hash: string;
+  height: string;
+  index: number;
+  tx: string;
+  tx_result: {
+    ResponseBase: {
+      Error: unknown;
+      Events: Record<string, unknown>[] | null;
+      Log: string;
+    };
+    GasWanted: string;
+    GasUsed: string;
+  };
+}
+
+/** Map the node's record onto the shared shape. Exported for tests. */
+export function fromNodeTx(node: GnoNodeTx): GnoTxRecord {
+  const decoded = decodeGnoTx(node.tx);
+  const base = node.tx_result.ResponseBase;
+  const events: GnoEventView[] = [];
+  const storage: GnoStorageChange[] = [];
+  const bankTransfers: GnoTxExtras["bankTransfers"] = [];
+  for (const raw of base.Events ?? []) {
+    const type = String(raw["@type"] ?? "");
+    const str = (k: string) => (typeof raw[k] === "string" ? (raw[k] as string) : null);
+    if (type.endsWith("TransferEvent")) {
+      bankTransfers.push({ from: str("from"), to: str("to"), amount: coins(str("coins")) });
+    } else if (type.endsWith("StorageDepositEvent") || type.endsWith("StorageUnlockEvent")) {
+      const deposit = type.endsWith("StorageDepositEvent");
+      storage.push({
+        kind: deposit ? "deposit" : "unlock",
+        pkgPath: str("pkg_path"),
+        bytesDelta: Number(raw.bytes_delta ?? 0),
+        fee: coins(str(deposit ? "fee_delta" : "fee_refund"))[0] ?? null,
+      });
+    } else if (Array.isArray(raw.attrs) || str("type")) {
+      events.push({
+        type: str("type") ?? type,
+        pkgPath: str("pkg_path"),
+        attrs: Array.isArray(raw.attrs) ? (raw.attrs as { key: string; value: string }[]) : [],
+      });
+    }
+  }
+  const failed = base.Error !== null && base.Error !== undefined;
+  return {
+    hash: node.hash,
+    index: node.index ?? 0,
+    height: Number(node.height),
+    success: !failed,
+    error: failed ? base.Log || JSON.stringify(base.Error) : "",
+    gasUsed: Number(node.tx_result.GasUsed) || null,
+    gasWanted: Number(node.tx_result.GasWanted) || decoded.gasWanted,
+    fee: decoded.fee,
+    memo: decoded.memo,
+    messages: decoded.messages,
+    events,
+    storage,
+    bankTransfers,
+    source: "node",
+  };
+}
 
 /** "vm" + "exec" calling Approve reads better as "Approve". */
 function labelForGnoMessage(fn: {
@@ -177,63 +623,231 @@ function labelForGnoMessage(fn: {
     .replace(/^([a-z])/, (m) => m.toUpperCase());
 }
 
-function toTxMessages(tx: IdxTx): TxMessage[] {
-  return (tx.messages ?? []).map((m) => {
-    const messageType = `/${m.route}.${m.typeUrl}`;
-    const call = m.value?.__typename === "MsgCall" ? m.value : null;
-    return {
-      typeUrl: call?.pkg_path ? `${messageType} ${call.pkg_path}` : messageType,
-      label: labelForGnoMessage({
-        messageType,
-        funcType: call?.func ?? "",
-        pkgPath: call?.pkg_path ?? "",
-      }),
-      transfer: null,
-    };
-  });
+function labelFor(m: GnoMessageValue): string {
+  switch (m.kind) {
+    case "send":
+      return "Send";
+    case "call":
+      return m.func || "Call";
+    case "addpkg":
+      return "Add package";
+    case "run":
+      return "Run";
+    default:
+      return labelForGnoMessage({ messageType: m.type, funcType: "", pkgPath: "" });
+  }
 }
 
-function toTxSummary(tx: IdxTx, time: string | null): TxSummary {
-  const messages = toTxMessages(tx);
+/** Parties and amount for the shared list views. Exported for tests. */
+export function gnoMessageTransfer(m: GnoMessageValue): TxMessage["transfer"] {
+  switch (m.kind) {
+    case "send":
+      return { from: m.from ?? null, to: m.to ?? null, amount: m.amount ?? [], staking: false };
+    case "call":
+    case "run":
+      return m.caller ? { from: m.caller, to: null, amount: m.send ?? [], staking: false } : null;
+    case "addpkg":
+      return m.creator ? { from: m.creator, to: null, amount: m.send ?? [], staking: false } : null;
+    default:
+      return null;
+  }
+}
+
+export type GnoTxMessage = TxMessage & { gno: GnoMessageValue };
+export type GnoTxSummary = TxSummary & { messages: GnoTxMessage[]; gno: GnoTxExtras };
+
+function toTxSummary(rec: GnoTxRecord, time: string | null): GnoTxSummary {
+  const messages: GnoTxMessage[] = rec.messages.map((m) => ({
+    // A realm call keeps its path in the type, as the list has always shown it.
+    typeUrl: m.kind === "call" && m.pkgPath ? `${m.type} ${m.pkgPath}` : m.type,
+    label: labelFor(m),
+    transfer: gnoMessageTransfer(m),
+    gno: m,
+  }));
+
+  const tokenTransfers: GnoTokenTransfer[] = rec.events
+    .filter((e) => e.type === "Transfer" && e.pkgPath)
+    .map((e) => {
+      const get = (k: string) => e.attrs.find((a) => a.key === k)?.value ?? null;
+      return { token: e.pkgPath as string, from: get("from"), to: get("to"), value: get("value") ?? "" };
+    });
+
+  // One line for list views: the first message that moved coins, else the
+  // chain's own transfer event, else the first message with a party.
+  const moved = messages.find((m) => (m.transfer?.amount.length ?? 0) > 0)?.transfer;
+  const bank = rec.bankTransfers[0];
+  const transfer =
+    moved ??
+    (bank ? { from: bank.from, to: bank.to, amount: bank.amount, staking: false } : null) ??
+    messages.find((m) => m.transfer)?.transfer ??
+    null;
+
   return {
-    hash: tx.hash,
-    height: String(tx.block_height),
-    time: time ?? "",
+    hash: rec.hash,
+    height: String(rec.height),
+    time,
     // Map onto the ABCI convention where 0 means success so the shared UI can
     // render it unchanged.
-    code: tx.success ? 0 : 1,
+    code: rec.success ? 0 : 1,
     messages,
     messageCount: messages.length,
-    transfer: null,
-    fee: tx.gas_fee?.amount
-      ? [{ denom: tx.gas_fee.denom, amount: String(tx.gas_fee.amount) }]
-      : [],
-    gasUsed: tx.gas_used ? String(tx.gas_used) : null,
-    gasWanted: tx.gas_wanted ? String(tx.gas_wanted) : null,
-    memo: tx.memo ?? "",
+    transfer,
+    fee: rec.fee ? [rec.fee] : [],
+    gasUsed: rec.gasUsed ? String(rec.gasUsed) : null,
+    gasWanted: rec.gasWanted ? String(rec.gasWanted) : null,
+    memo: rec.memo,
+    gno: {
+      hashHex: gnoHashToHex(rec.hash),
+      source: rec.source,
+      events: rec.events,
+      storage: rec.storage,
+      tokenTransfers,
+      bankTransfers: rec.bankTransfers,
+    },
   };
 }
 
-/** Block times for a set of heights — transactions carry a height but no time. */
-async function blockTimes(
-  chain: ChainConfig,
-  heights: number[]
-): Promise<Map<number, string>> {
-  const unique = [...new Set(heights)];
-  if (unique.length === 0) return new Map();
-  const data = await gql<{ getBlocks: { height: number; time: string }[] | null }>(
-    chain,
-    `query($o: [FilterBlock!]) { getBlocks(where: { _or: $o }) { height time } }`,
-    { o: unique.map((h) => ({ height: { eq: h } })) }
-  );
-  return new Map((data.getBlocks ?? []).map((b) => [b.height, b.time]));
+/* ---- Fetching. Committed blocks and transactions never change, so each is
+ * cached by height or hash for half an hour; only the head moves. */
+
+const FINAL_TTL = 30 * 60_000;
+
+/** One block's time. An equality lookup is ~1 ms; an `_or` over heights is a scan. */
+function blockTime(chain: ChainConfig, height: number): Promise<string | null> {
+  return cached(`gno-btime:${chain.chainId}:${height}`, FINAL_TTL, async () => {
+    try {
+      const data = await gql<{ getBlocks: { time: string }[] | null }>(
+        chain,
+        `query($h: Int!) { getBlocks(where: { height: { eq: $h } }) { time } }`,
+        { h: height },
+        5000
+      );
+      const t = data.getBlocks?.[0]?.time;
+      if (t) return t;
+    } catch {
+      // fall through to the node
+    }
+    const res = await gnoRpc<{ block_meta?: { header?: { time?: string } } }>(
+      chain,
+      `/block?height=${height}`
+    ).catch(() => null);
+    return res?.block_meta?.header?.time ?? null;
+  });
 }
 
-async function withTimes(chain: ChainConfig, txs: IdxTx[]): Promise<TxSummary[]> {
-  const times = await blockTimes(chain, txs.map((t) => t.block_height)).catch(
-    () => new Map<number, string>()
+/** Block times for a set of heights, looked up in parallel and bounded. */
+async function blockTimes(chain: ChainConfig, heights: number[]): Promise<Map<number, string>> {
+  const unique = [...new Set(heights)];
+  const out = new Map<number, string>();
+  await mapLimit(unique, 10, async (h) => {
+    const t = await blockTime(chain, h).catch(() => null);
+    if (t) out.set(h, t);
+  });
+  return out;
+}
+
+async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
+}
+
+/** Transactions the indexer holds at one height. */
+function indexedTxsAt(chain: ChainConfig, height: number): Promise<IdxTx[]> {
+  return cached(`gno-htxs:${chain.chainId}:${height}`, FINAL_TTL, async () => {
+    const data = await gql<{ getTransactions: IdxTx[] | null }>(
+      chain,
+      `query($h: Int!) { getTransactions(where: { block_height: { eq: $h } }, order: { heightAndIndex: ASC }) { ${TX_FIELDS} } }`,
+      { h: height }
+    );
+    return data.getTransactions ?? [];
+  });
+}
+
+/** Only successful node reads are cached; a miss is retried next time. */
+const nodeTxCache = new Map<string, { at: number; value: GnoNodeTx }>();
+
+/** One transaction from the node. Null when the node says it has none. */
+async function nodeTx(chain: ChainConfig, hash: string): Promise<GnoNodeTx | null> {
+  const key = `${chain.chainId}:${hash}`;
+  const hit = nodeTxCache.get(key);
+  if (hit && Date.now() - hit.at < FINAL_TTL) return hit.value;
+  const hex = gnoHashToHex(hash);
+  if (!hex) return null;
+  try {
+    const value = await gnoRpc<GnoNodeTx>(chain, `/tx?hash=0x${hex}`, { timeoutMs: 8000 });
+    if (nodeTxCache.size > 2000) nodeTxCache.clear();
+    nodeTxCache.set(key, { at: Date.now(), value });
+    return value;
+  } catch (err) {
+    if (/could not find|not found/i.test(String((err as Error)?.message ?? err))) return null;
+    throw err;
+  }
+}
+
+/** Hashes a block contains, from the indexer's block row or else the node. */
+function blockTxHashes(chain: ChainConfig, height: number): Promise<string[]> {
+  return cached(`gno-bhashes:${chain.chainId}:${height}`, FINAL_TTL, async () => {
+    try {
+      const data = await gql<{ getBlocks: { txs: { hash: string }[] | null }[] | null }>(
+        chain,
+        `query($h: Int!) { getBlocks(where: { height: { eq: $h } }) { txs { hash } } }`,
+        { h: height },
+        5000
+      );
+      const block = data.getBlocks?.[0];
+      if (block) return (block.txs ?? []).map((t) => t.hash);
+    } catch {
+      // fall through to the node
+    }
+    const res = await gnoRpc<{ block?: { data?: { txs?: string[] | null } } }>(
+      chain,
+      `/block?height=${height}`
+    );
+    return (res.block?.data?.txs ?? []).map((raw) =>
+      createHash("sha256").update(Buffer.from(raw, "base64")).digest("base64")
+    );
+  });
+}
+
+/**
+ * Resolve transactions by (hash, height): the indexer first, the node for any
+ * hash the indexer does not hold. Order follows `refs`.
+ */
+async function resolveTxs(
+  chain: ChainConfig,
+  refs: { hash: string; height: number }[]
+): Promise<GnoTxRecord[]> {
+  const heights = [...new Set(refs.map((r) => r.height))];
+  const byHash = new Map<string, GnoTxRecord>();
+  await mapLimit(heights, 8, async (h) => {
+    const txs = await indexedTxsAt(chain, h).catch(() => [] as IdxTx[]);
+    for (const tx of txs) byHash.set(tx.hash, fromIndexer(tx));
+  });
+
+  const missing = refs.filter((r) => !byHash.has(r.hash));
+  await mapLimit(missing, 6, async (r) => {
+    const node = await nodeTx(chain, r.hash).catch(() => null);
+    if (node) byHash.set(r.hash, fromNodeTx(node));
+  });
+
+  return refs.flatMap((r) => {
+    const rec = byHash.get(r.hash);
+    return rec ? [rec] : [];
+  });
+}
+
+async function withTimes(chain: ChainConfig, recs: GnoTxRecord[]): Promise<GnoTxSummary[]> {
+  const times = await blockTimes(
+    chain,
+    recs.map((r) => r.height)
   );
-  return txs.map((t) => toTxSummary(t, times.get(t.block_height) ?? null));
+  return recs.map((r) => toTxSummary(r, times.get(r.height) ?? null));
 }
 
 /** signing address -> moniker, from whatever the realm index has ready. */
@@ -250,12 +864,21 @@ async function proposerNames(chain: ChainConfig): Promise<Map<string, string>> {
   }
 }
 
-function toBlockSummary(block: IdxBlock, names: Map<string, string>): BlockSummary {
+/**
+ * The proposer is kept as its signing address, which is also the id of its
+ * validator page, so it can be linked; the name travels beside it.
+ */
+function toBlockSummary(
+  block: IdxBlock,
+  names: Map<string, string>
+): BlockSummary & { proposerMoniker: string | null; proposerOperator: string | null } {
   return {
     height: String(block.height),
     time: block.time,
     txCount: block.num_txs ?? 0,
-    proposer: names.get(block.proposer_address_raw) || block.proposer_address_raw,
+    proposer: block.proposer_address_raw,
+    proposerMoniker: names.get(block.proposer_address_raw) ?? null,
+    proposerOperator: block.proposer_address_raw || null,
     hash: block.hash,
   };
 }
@@ -319,6 +942,9 @@ export async function gnoRecentBlocks(
 export interface GnoBlockDetail extends BlockSummary {
   chainId: string | null;
   proposerLabel: string | null;
+  proposerMoniker: string | null;
+  /** The proposer's validator page id (its signing address). */
+  proposerOperator: string | null;
   gasUsed: string | null;
   gasWanted: string | null;
   totalFees: string | null;
@@ -332,28 +958,29 @@ export async function gnoBlockDetail(
   const h = Number(height);
 
   let block: IdxBlock | undefined;
-  let txs: IdxTx[] = [];
   try {
-    const data = await gql<{ getBlocks: IdxBlock[] | null; getTransactions: IdxTx[] | null }>(
+    const data = await gql<{ getBlocks: IdxBlock[] | null }>(
       chain,
-      `query($h: Int!) {
-        getBlocks(where: { height: { eq: $h } }) { ${BLOCK_FIELDS} }
-        getTransactions(where: { block_height: { eq: $h } }) { ${TX_FIELDS} }
-      }`,
+      `query($h: Int!) { getBlocks(where: { height: { eq: $h } }) { ${BLOCK_FIELDS} } }`,
       { h }
     );
     block = data.getBlocks?.[0];
-    txs = data.getTransactions ?? [];
   } catch {
     return null;
   }
   if (!block) return null;
 
-  const names = await proposerNames(chain);
-  const sum = (pick: (t: IdxTx) => number) => txs.reduce((acc, t) => acc + (pick(t) || 0), 0);
-  const gasUsed = sum((t) => t.gas_used);
-  const gasWanted = sum((t) => t.gas_wanted);
-  const fees = sum((t) => t.gas_fee?.amount ?? 0);
+  // Gas and fees are summed over every transaction the block holds, including
+  // any the indexer is missing and the node supplies.
+  const [names, txs] = await Promise.all([
+    proposerNames(chain),
+    blockRecords(chain, h).catch(() => [] as GnoTxRecord[]),
+  ]);
+  const sum = (pick: (t: GnoTxRecord) => number | null) =>
+    txs.reduce((acc, t) => acc + (pick(t) || 0), 0);
+  const gasUsed = sum((t) => t.gasUsed);
+  const gasWanted = sum((t) => t.gasWanted);
+  const fees = sum((t) => (t.fee ? Number(t.fee.amount) : 0));
 
   return {
     height: String(block.height),
@@ -363,42 +990,52 @@ export async function gnoBlockDetail(
     hash: block.hash,
     chainId: block.chain_id || null,
     proposerLabel: names.get(block.proposer_address_raw) ?? null,
+    proposerMoniker: names.get(block.proposer_address_raw) ?? null,
+    proposerOperator: block.proposer_address_raw || null,
     gasUsed: gasUsed ? String(gasUsed) : null,
     gasWanted: gasWanted ? String(gasWanted) : null,
     totalFees: fees ? String(fees) : null,
   };
 }
 
+/** Every transaction in a block, from the indexer or, where it has none, the node. */
+async function blockRecords(chain: ChainConfig, height: number): Promise<GnoTxRecord[]> {
+  const hashes = await blockTxHashes(chain, height);
+  return resolveTxs(
+    chain,
+    hashes.map((hash) => ({ hash, height }))
+  );
+}
+
+/**
+ * The transactions in one block. Throws when neither the indexer nor the node
+ * can say what the block holds, so the page can tell an outage from an empty
+ * block.
+ */
 export async function gnoBlockTxs(
   chain: ChainConfig,
   height: string | number
-): Promise<TxSummary[]> {
+): Promise<GnoTxSummary[]> {
   if (!isNumericId(height)) return [];
-
-  try {
-    const data = await gql<{ getTransactions: IdxTx[] | null }>(
-      chain,
-      `query($h: Int!) { getTransactions(where: { block_height: { eq: $h } }, order: { heightAndIndex: ASC }) { ${TX_FIELDS} } }`,
-      { h: Number(height) }
-    );
-    return withTimes(chain, data.getTransactions ?? []);
-  } catch {
-    return [];
-  }
+  const recs = await blockRecords(chain, Number(height));
+  return withTimes(chain, recs);
 }
 
 /**
  * Transactions are sparse on gno — a quiet testnet can go ten thousand blocks
- * without one — and the indexer takes no limit, so look back in widening
- * windows and stop at the first that holds enough. The last window is the
- * whole chain, which the indexer caps at its newest 10,000 rows.
+ * without one — so look back in widening windows over blocks that hold any,
+ * and stop at the first window with enough. Block rows list every hash even
+ * where the indexer lost the transaction itself, so nothing is skipped; the
+ * transactions are then resolved from the indexer or the node. The widest
+ * window is capped: past it the list shows what it found rather than scanning
+ * the whole chain on every poll.
  */
-const TX_WINDOWS = [2_000, 50_000, Number.POSITIVE_INFINITY];
+const TX_WINDOWS = [2_000, 20_000, 100_000];
 
-export async function gnoRecentTxs(
+async function recentTxRefs(
   chain: ChainConfig,
-  count = 30
-): Promise<{ txs: TxSummary[]; scannedBlocks: number; headHeight: string | null }> {
+  count: number
+): Promise<{ head: number | null; refs: { hash: string; height: number }[] }> {
   let head: number | null = null;
   try {
     head = (await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }"))
@@ -406,51 +1043,86 @@ export async function gnoRecentTxs(
   } catch {
     head = await headHeight(chain).catch(() => null);
   }
-  if (head === null) return { txs: [], scannedBlocks: 0, headHeight: null };
+  if (head === null) return { head: null, refs: [] };
 
-  let found: IdxTx[] = [];
+  let refs: { hash: string; height: number }[] = [];
   for (const window of TX_WINDOWS) {
-    const above = Number.isFinite(window) ? Math.max(0, head - window) : 0;
     try {
-      const data = await gql<{ getTransactions: IdxTx[] | null }>(
+      const data = await gql<{ getBlocks: { height: number; txs: { hash: string }[] | null }[] | null }>(
         chain,
-        `query($h: Int!) { getTransactions(where: { block_height: { gt: $h } }, order: { heightAndIndex: DESC }) { ${TX_FIELDS} } }`,
-        { h: above }
+        `query($h: Int!) { getBlocks(where: { height: { gt: $h }, num_txs: { gt: 0 } }, order: { height: DESC }) { height txs { hash } } }`,
+        { h: Math.max(0, head - window) },
+        15_000
       );
-      found = data.getTransactions ?? [];
+      refs = (data.getBlocks ?? []).flatMap((b) =>
+        [...(b.txs ?? [])].reverse().map((t) => ({ hash: t.hash, height: b.height }))
+      );
     } catch {
+      // The indexer caps a result at 10,000 rows; keep what the smaller window held.
       break;
     }
-    if (found.length >= count) break;
+    if (refs.length >= count) break;
   }
-
-  return {
-    txs: await withTimes(chain, found.slice(0, count)),
-    scannedBlocks: 0,
-    headHeight: String(head),
-  };
+  return { head, refs: refs.slice(0, count) };
 }
 
-/** A single transaction by hash, with its messages, gas, memo and error log. */
+export async function gnoRecentTxs(
+  chain: ChainConfig,
+  count = 30
+): Promise<{ txs: GnoTxSummary[]; scannedBlocks: number; headHeight: string | null }> {
+  // The feed is polled every few seconds; the window scan is shared and
+  // refreshed in the background.
+  const { head, refs } = await cached(
+    `gno-recent-refs:${chain.chainId}:${count}`,
+    5_000,
+    () => recentTxRefs(chain, count),
+    { staleMs: 60_000 }
+  );
+  if (head === null) return { txs: [], scannedBlocks: 0, headHeight: null };
+  const recs = await resolveTxs(chain, refs);
+  return { txs: await withTimes(chain, recs), scannedBlocks: 0, headHeight: String(head) };
+}
+
+/**
+ * A single transaction by hash, in either form (base64 or hex, with or
+ * without 0x): the indexer first, the node when the indexer lacks it. Null
+ * when neither has it; throws when neither could be asked.
+ */
 export async function gnoTx(
   chain: ChainConfig,
-  hash: string
-): Promise<(TxSummary & { rawLog: string }) | null> {
-  let tx: IdxTx | undefined;
+  hashInput: string
+): Promise<(GnoTxSummary & { rawLog: string }) | null> {
+  const hash = normalizeGnoHash(hashInput);
+  if (!hash) return null;
+
+  let rec: GnoTxRecord | null = null;
+  let indexerError: unknown = null;
   try {
     const data = await gql<{ getTransactions: IdxTx[] | null }>(
       chain,
       `query($h: String!) { getTransactions(where: { hash: { eq: $h } }) { ${TX_FIELDS} } }`,
       { h: hash }
     );
-    tx = data.getTransactions?.[0];
-  } catch {
-    return null;
+    const tx = data.getTransactions?.[0];
+    if (tx) rec = fromIndexer(tx);
+  } catch (err) {
+    // "item not found in storage" is the indexer's way of saying it lost the
+    // record; anything else is an outage. Either way, ask the node.
+    if (!/not found/i.test(String((err as Error)?.message ?? err))) indexerError = err;
   }
-  if (!tx) return null;
 
-  const [summary] = await withTimes(chain, [tx]);
-  return { ...summary, rawLog: tx.response?.error ?? "" };
+  if (!rec) {
+    try {
+      const node = await nodeTx(chain, hash);
+      if (node) rec = fromNodeTx(node);
+    } catch (err) {
+      if (indexerError) throw err;
+    }
+  }
+  if (!rec) return null;
+
+  const [summary] = await withTimes(chain, [rec]);
+  return { ...summary, rawLog: rec.error };
 }
 
 /**
@@ -613,7 +1285,9 @@ export async function gnoAccountTxs(
       20_000
     );
     const all = data.getTransactions ?? [];
-    const txs = await withTimes(chain, all.slice(0, limit));
+    // Times come from per-height lookups (an `_or` across 50 heights timed out
+    // and left every row without a time).
+    const txs = await withTimes(chain, all.slice(0, limit).map(fromIndexer));
     // The indexer caps a result at 10,000 rows, so a full page is a floor.
     return {
       txs,
@@ -712,16 +1386,56 @@ export interface GnoValidatorDetail {
   votingPower: string | null;
   sharePercent: number | null;
   rank: number | null;
-  firstCommittedHeight: number | null;
-  firstCommittedTime: string | null;
 }
 
-/** Consensus-side facts about one validator, keyed by its signing address. */
 /**
- * How many validators have registered a profile in the valopers realm. This is
- * the registry size, which is larger than the active consensus set — operators
- * register before (or after) they hold a slot in the valset.
+ * A validator page id from either address a gno operator has: the signing
+ * address (the page id, and what blocks name as proposer) or the operator
+ * address its valopers profile is registered under. Null when neither is known.
  */
+export async function resolveGnoValidatorAddress(
+  chain: ChainConfig,
+  address: string
+): Promise<string | null> {
+  try {
+    const index = await getValoperIndexNow(chain, 3000);
+    if (index.bySigning.has(address)) return address;
+    return index.byOperator.get(address)?.signingAddress ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Registered validators outside the active consensus set: valopers profiles
+ * whose signing address holds no voting power right now. Each is keyed by its
+ * signing address when it registered one, so its page resolves like any other.
+ */
+export async function gnoInactiveValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+  const [set, index] = await Promise.all([
+    gnoRpc<ValidatorsResult>(chain, "/validators", { timeoutMs: 12_000 }),
+    getValoperIndexNow(chain, 5000),
+  ]);
+  const active = new Set(set.validators.map((v) => v.address));
+  const profiles = [...index.byOperator.values()]
+    .filter((p) => !p.signingAddress || !active.has(p.signingAddress))
+    .sort((a, b) => (a.moniker || "").localeCompare(b.moniker || ""));
+  return profiles.map((p, i) => ({
+    rank: i + 1,
+    operatorAddress: p.signingAddress ?? p.operatorAddress,
+    moniker: p.moniker || p.operatorAddress,
+    consensusPubkey: null,
+    website: "",
+    jailed: false,
+    status: "INACTIVE",
+    tokens: "0",
+    votingPower: 0,
+    cumulativePower: 0,
+    commissionRate: 0,
+  }));
+}
+
+/** How many validators have registered a profile in the valopers realm. */
 export async function gnoRegisteredCount(chain: ChainConfig): Promise<number | null> {
   try {
     const index = await getValoperIndexNow(chain, 40_000);
@@ -731,12 +1445,18 @@ export async function gnoRegisteredCount(chain: ChainConfig): Promise<number | n
   }
 }
 
+/**
+ * Consensus-side facts about one validator. Accepts the operator address too,
+ * resolving it to the signing address; a registered validator outside the set
+ * comes back as Inactive rather than as not found.
+ */
 export async function gnoValidatorDetail(
   chain: ChainConfig,
   address: string
 ): Promise<GnoValidatorDetail | null> {
   prewarmValoperIndex(chain);
   try {
+    const signing = (await resolveGnoValidatorAddress(chain, address)) ?? address;
     const [set, monikers] = await Promise.all([
       gnoRpc<ValidatorsResult>(chain, "/validators", { timeoutMs: 12_000 }),
       valoperMonikers(chain),
@@ -744,12 +1464,15 @@ export async function gnoValidatorDetail(
     const ranked = [...set.validators].sort(
       (a, b) => Number(b.voting_power) - Number(a.voting_power)
     );
-    const index = ranked.findIndex((v) => v.address === address);
-    if (index < 0) return null;
+    const index = ranked.findIndex((v) => v.address === signing);
+    if (index < 0) {
+      const moniker = monikers.get(signing) ?? null;
+      if (!moniker) return null;
+      return { address: signing, moniker, status: "INACTIVE", votingPower: "0", sharePercent: 0, rank: null };
+    }
 
     const hit = ranked[index];
     const total = ranked.reduce((sum, v) => sum + Number(v.voting_power), 0);
-
     return {
       address: hit.address,
       moniker: monikers.get(hit.address) || null,
@@ -757,10 +1480,6 @@ export async function gnoValidatorDetail(
       votingPower: hit.voting_power,
       sharePercent: total > 0 ? (Number(hit.voting_power) / total) * 100 : null,
       rank: index + 1,
-      // Neither the node nor the tx-indexer records when a validator first
-      // signed, and a guess would be a wrong fact on the page.
-      firstCommittedHeight: null,
-      firstCommittedTime: null,
     };
   } catch {
     return null;

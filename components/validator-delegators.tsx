@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ChainConfig } from "@/lib/chains";
 import { symbolFor, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
@@ -5,38 +7,45 @@ import { formatToken } from "@/lib/overview";
 import { truncateMiddle } from "@/lib/format";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
+/** Delegators per server page. The deck pages these to fit the frame. */
+export const DELEGATOR_PAGE = 100;
+
 /**
- * Delegators, largest first. Still streamed separately — a validator with
- * thousands of delegations makes this the slowest read on the page, and it is
- * the one section here whose absence costs nothing above it, since the deck
- * owns the whole tab it sits in.
+ * Delegators, largest first, every one of them reachable.
  *
- * A server component rendering a client deck: the rows are plain data, so the
- * ranking happens once on the server and the browser never sees the adapter.
+ * The whole ranking is read once and cached (lib/validators); each server page
+ * is a slice of it, so moving through 23,000 delegators costs one read. Still
+ * streamed separately — the first read is the slowest thing on the page.
  */
 export async function ValidatorDelegators({
   chain,
   operatorAddress,
+  page = 0,
 }: {
   chain: ChainConfig;
   operatorAddress: string;
+  /** Zero-based server page. */
+  page?: number;
 }) {
-  const { delegators, total, truncated, failed } = await getAdapter(
-    chain
-  ).getDelegators(operatorAddress);
+  const result = await getAdapter(chain).getDelegators(operatorAddress, {
+    offset: page * DELEGATOR_PAGE,
+    limit: DELEGATOR_PAGE,
+  });
+  const { delegators, total, truncated, failed } = result;
+  const offset = result.offset ?? page * DELEGATOR_PAGE;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);
 
-  // The largest share sets the bar scale, so the bars compare delegators to the
-  // biggest one rather than to a validator's whole stake — on a set of 4,000
-  // every bar against the total would be an invisible sliver.
+  // The largest share on the page sets the bar scale, so bars compare
+  // delegators to each other rather than to the whole stake, where every bar
+  // on a set of 4,000 would be an invisible sliver.
   const topShare = delegators[0]?.share || 1;
 
   const rows: DeckRow[] = delegators.map((d, i) => ({
     key: d.address,
     cells: [
-      { v: String(i + 1), mono: true, dim: true, align: "right" },
-      { v: truncateMiddle(d.address, 14, 8), mono: true, tone: "accent" },
+      { v: String(offset + i + 1), mono: true, dim: true, align: "right" },
+      { v: truncateMiddle(d.address, 14, 8), mono: true, address: d.address },
       {
         v: `${formatToken(d.amount, chain.exponent, 2)} ${symbol}`,
         mono: true,
@@ -51,14 +60,9 @@ export async function ValidatorDelegators({
     ],
     detail: {
       title: truncateMiddle(d.address, 16, 10),
-      sub: `#${i + 1} of ${delegators.length}`,
+      sub: `#${offset + i + 1}`,
       rows: [
-        {
-          label: "Delegator",
-          value: d.address,
-          mono: true,
-          href: `/${chain.chainId}/accounts/${d.address}`,
-        },
+        { label: "Delegator", value: d.address, mono: true, address: d.address },
         {
           label: "Delegated",
           value: `${formatToken(d.amount, chain.exponent, 6)} ${symbol}`,
@@ -66,19 +70,47 @@ export async function ValidatorDelegators({
         },
         { label: "Share", value: `${(d.share * 100).toFixed(4)}%`, mono: true },
       ],
-      action: {
-        label: "Account",
-        href: `/${chain.chainId}/accounts/${d.address}`,
-      },
+      action: { label: "Account", href: `/${chain.chainId}/accounts/${d.address}` },
     },
   }));
 
-  // The ranking is only complete when we read every delegation, so a capped
-  // read says so. Without it "the 200 largest" and "all 200" look identical.
-  const partial =
-    total !== null && total > delegators.length
-      ? `Showing the ${delegators.length} largest of ${total.toLocaleString()} delegators${truncated ? "+" : ""}.`
-      : null;
+  const pages = total !== null ? Math.max(1, Math.ceil(total / DELEGATOR_PAGE)) : 1;
+  const base = `/${chain.chainId}/validators/${operatorAddress}?tab=delegators`;
+  const pageHref = (p: number) => (p === 0 ? base : `${base}&dp=${p + 1}`);
+
+  const toolbar =
+    total !== null && total > 0 ? (
+      <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+        <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
+          <span className="font-mono font-semibold text-foreground">
+            {total.toLocaleString()}
+            {truncated ? "+" : ""}
+          </span>
+          <span className="text-muted-foreground">delegators</span>
+        </span>
+        {result.top10Share != null && total > 10 ? (
+          <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
+            <span className="text-muted-foreground">top 10 hold</span>
+            <span className="font-mono font-semibold text-foreground">
+              {(result.top10Share * 100).toFixed(1)}%
+            </span>
+          </span>
+        ) : null}
+        {pages > 1 ? (
+          <span className="ml-auto inline-flex items-center gap-1 font-mono text-[11px] text-muted-foreground">
+            <span>
+              {(offset + 1).toLocaleString()}–{(offset + delegators.length).toLocaleString()}
+            </span>
+            <PageLink href={page > 0 ? pageHref(page - 1) : null} label="Previous delegators">
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </PageLink>
+            <PageLink href={page < pages - 1 ? pageHref(page + 1) : null} label="Next delegators">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </PageLink>
+          </span>
+        ) : null}
+      </div>
+    ) : undefined;
 
   return (
     <RowDeck
@@ -90,16 +122,33 @@ export async function ValidatorDelegators({
         { label: "Share", align: "right", width: "18%", phoneHide: true },
       ]}
       rows={rows}
-      toolbar={
-        partial ? (
-          <p className="text-[11px] text-muted-foreground">{partial}</p>
-        ) : undefined
-      }
-      empty={
-        failed
-          ? "N/A"
-          : "No delegations found."
-      }
+      toolbar={toolbar}
+      empty={failed ? "N/A" : "No delegations"}
     />
+  );
+}
+
+function PageLink({
+  href,
+  label,
+  children,
+}: {
+  href: string | null;
+  label: string;
+  children: React.ReactNode;
+}) {
+  const cls =
+    "rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground";
+  if (!href) {
+    return (
+      <span aria-disabled="true" className={`${cls} opacity-35`}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} aria-label={label} scroll={false} className={cls}>
+      {children}
+    </Link>
   );
 }

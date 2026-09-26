@@ -1,0 +1,24 @@
+{
+ "hash": "blaECkHs0QwUjKZxhvL1dIqz1mQSkKJWVvU8eCIaETU=",
+ "height": "333184",
+ "index": 0,
+ "tx_result": {
+  "ResponseBase": {
+   "Error": null,
+   "Data": null,
+   "Events": [
+    {
+     "@type": "/bank.TransferEvent",
+     "from": "g1juss2tuc97sr77rn6vprhh9lr7d9e07uu68x59",
+     "to": "g19ulvh44r54nc44pekne4cy6e7lptheq7a0wavt",
+     "coins": "11421ugnot"
+    }
+   ],
+   "Log": "msg:0,success:true,log:,events:[]",
+   "Info": ""
+  },
+  "GasWanted": "983235",
+  "GasUsed": "936478"
+ },
+ "tx": "CnEKDS9iYW5rLk1zZ1NlbmQSYAooZzFqdXNzMnR1Yzk3c3I3N3JuNnZwcmhoOWxyN2Q5ZTA3dXU2OHg1ORIoZzE5dWx2aDQ0cjU0bmM0NHBla25lNGN5NmU3bHB0aGVxN2Ewd2F2dBoKMTE0MjF1Z25vdBIPCIaDeBIJMTAyN3Vnbm90GqgBCjoKEy90bS5QdWJLZXlTZWNwMjU2azESIwohAy1RzMHAo8yq98JebqHEsKFKceaj3bEo3e+3TR3zvnezEkAc9sxA8heuMtq9ZxDw39zpzpCAuQd6yrFcClsiBF6Uqk1ekOkQAjlb0AXn8OvlOS+aBvylLH/+boxqFS5zipNVGihnMXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcWx1dXhl"
+}

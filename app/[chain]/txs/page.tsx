@@ -6,6 +6,7 @@ import { getAdapter } from "@/lib/adapter";
 import { PageFrame } from "@/components/page-frame";
 import { SectionUnavailable } from "@/components/section-unavailable";
 import { TxsTable } from "@/components/txs-table";
+import { denomsForTxs } from "@/lib/txs";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,11 @@ export default async function TxsPage({
     );
   }
 
-  const initial = await getAdapter(chain).getRecentTxs();
+  const recent = await getAdapter(chain).getRecentTxs();
+  const initial = {
+    ...recent,
+    denoms: chain.kind === "cosmos" ? await denomsForTxs(chain, recent.txs) : [],
+  };
 
   return (
     <PageFrame

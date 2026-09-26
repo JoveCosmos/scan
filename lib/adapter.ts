@@ -2,7 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import type { ChainOverview } from "@/lib/overview";
 import { getChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
-import { getRecentBlocks, getBlockDetail } from "@/lib/blocks";
+import { getRecentBlocks, getBlockDetail, getBlocksBefore, type AbsentValidator } from "@/lib/blocks";
 import { txsAtHeight } from "@/lib/txs";
 import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
@@ -23,6 +23,7 @@ import {
   getCosmosAccount,
   getCosmosAccountTxs,
   type AccountTxs,
+  type AccountTxsOptions,
 } from "@/lib/accounts";
 import type { ProposalSummary, GovParams, ProposalVotes } from "@/lib/proposals";
 import {
@@ -43,6 +44,7 @@ import {
   gnoRegisteredCount,
   gnoAccountTxs,
   gnoUptime,
+  gnoInactiveValidators,
 } from "@/lib/gno";
 
 /**
@@ -50,7 +52,20 @@ import {
  * or signer list, so those fields are optional across the adapter boundary.
  */
 export type TxView = TxSummary &
-  Partial<Pick<TxDetail, "rawLog" | "signers" | "timeoutHeight">>;
+  Partial<
+    Pick<
+      TxDetail,
+      | "rawLog"
+      | "signers"
+      | "timeoutHeight"
+      | "codespace"
+      | "feePayer"
+      | "feeGranter"
+      | "gasLimit"
+      | "events"
+      | "rawJson"
+    >
+  >;
 
 /**
  * Union of what either chain kind can say about a single block. Cosmos supplies
@@ -68,6 +83,11 @@ export type BlockView = BlockSummary & {
   proposerOperator?: string | null;
   /** gno exposes a proposer label without a linkable validator profile. */
   proposerLabel?: string | null;
+  /** Bech32 consensus address of the proposer, where it can be derived. */
+  proposerValcons?: string | null;
+  signedCount?: number | null;
+  absentCount?: number | null;
+  absentValidators?: AbsentValidator[] | null;
   gasUsed?: string | null;
   gasWanted?: string | null;
   totalFees?: string | null;
@@ -78,6 +98,8 @@ export interface RecentTxs {
   txs: TxSummary[];
   scannedBlocks: number;
   headHeight: string | null;
+  /** The newest block available was hours old: nothing here is "latest". */
+  stale?: boolean;
 }
 
 /**
@@ -109,16 +131,23 @@ export interface ChainAdapter {
   getBlockDetail(height: string): Promise<BlockView | null>;
   /** Transactions contained in one block. */
   getBlockTxs(block: BlockView): Promise<TxSummary[]>;
+  /** The `count` blocks below `before`, newest first: the blocks list's older pages. */
+  getBlocksBefore(before: number, count?: number): Promise<BlockSummary[]>;
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
   /** Validators outside the active set. Empty where there is no such notion. */
   getInactiveValidators(): Promise<ValidatorSummary[]>;
-  /** Largest delegators to one validator. */
+  /** Delegators to one validator, largest first, one page at a time. */
   getDelegators(
-    operatorAddress: string
+    operatorAddress: string,
+    page?: { offset: number; limit: number }
   ): Promise<{
     delegators: Delegator[];
+    /** Rank of the first row, 1-based offset into the ranking. */
+    offset?: number;
+    /** Share held by the ten largest delegators, 0–1. */
+    top10Share?: number | null;
     total: number | null;
     /** True when the delegation read hit its page cap, so ranking may be partial. */
     truncated: boolean;
@@ -139,8 +168,8 @@ export interface ChainAdapter {
   /** Size of the validator registry, where one exists. */
   getRegisteredCount(): Promise<number | null>;
   getAccount(address: string): Promise<AccountView>;
-  /** Transactions this address sent or received. */
-  getAccountTxs(address: string): Promise<AccountTxs>;
+  /** Transactions this address sent or received, one page at a time. */
+  getAccountTxs(address: string, options?: AccountTxsOptions): Promise<AccountTxs>;
   getProposals(
     limit?: number
   ): Promise<{ proposals: ProposalSummary[]; total: number | null }>;
@@ -170,10 +199,23 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
       getBlockDetail: (height) => gnoBlockDetail(chain, height),
       getBlockTxs: (block) => gnoBlockTxs(chain, block.height),
+      getBlocksBefore: async (before, count = 30) => {
+        const heights = Array.from({ length: count }, (_, i) => before - 1 - i).filter(
+          (h) => h > 0
+        );
+        const blocks = await Promise.all(
+          heights.map((h) => gnoBlockDetail(chain, h).catch(() => null))
+        );
+        return blocks.filter((b): b is NonNullable<typeof b> => b !== null);
+      },
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
-      getInactiveValidators: async () => [],
+      // Registered in the valopers realm but holding no voting power now.
+      getInactiveValidators: () =>
+        cached(`gno-inactive:${chain.chainId}`, 60_000, () => gnoInactiveValidators(chain), {
+          staleMs: 10 * 60_000,
+        }).catch(() => []),
       getDelegators: async () => ({
         delegators: [],
         total: null,
@@ -213,16 +255,16 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
     getBlockDetail: (height) => getBlockDetail(chain, height),
+    getBlocksBefore: (before, count) => getBlocksBefore(chain, before, count),
     getBlockTxs: (block) =>
       txsAtHeight(chain, block.height, block.rawTxs ?? [], block.time),
     getRecentTxs: () => getRecentTxs(chain),
     getTx: (hash) => getTx(chain, hash),
     getValidators: () => getValidatorsCached(chain),
     getInactiveValidators: () => getInactiveValidators(chain),
-    getDelegators: (operatorAddress) =>
-      cached(`delegators:${chain.chainId}:${operatorAddress}`, 30_000, () =>
-        getValidatorDelegators(chain, operatorAddress)
-      ),
+    // The ranked list is cached inside; each page is a slice of it.
+    getDelegators: (operatorAddress, page) =>
+      getValidatorDelegators(chain, operatorAddress, page),
     // Not cached as a whole: the result is keyed by whichever validators were
     // asked about, so one cache entry per bar count handed a validator page the
     // map built for a different validator. The expensive parts (signing infos,
@@ -237,7 +279,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       ),
     getRegisteredCount: async () => null,
     getAccount: (address) => getCosmosAccount(chain, address),
-    getAccountTxs: (address) => getCosmosAccountTxs(chain, address),
+    getAccountTxs: (address, options) => getCosmosAccountTxs(chain, address, options),
     getProposals: (limit) => getProposals(chain, limit),
     getProposal: (id) => getProposal(chain, id),
     // Cached and coalesced: a finished proposal is reconstructed from tens of

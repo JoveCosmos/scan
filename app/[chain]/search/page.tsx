@@ -1,18 +1,18 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { SearchX } from "lucide-react";
 import { getChain } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { classifyQuery } from "@/lib/search";
+import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Search" };
 
 /**
- * Resolves a search term server-side and redirects, so the input can stay dumb
- * and the ambiguous cases (an address that may be a validator or an account)
- * are settled against the chain rather than guessed in the browser.
+ * Resolves a search term against one chain and redirects. Anything this chain
+ * cannot answer — another chain's address, a validator's name, a key, a gno
+ * realm path — goes on to the global search, with this chain as the hint that
+ * wins when the answer exists here too.
  */
 export default async function SearchPage({
   params,
@@ -32,50 +32,30 @@ export default async function SearchPage({
   switch (guess.kind) {
     case "height":
       redirect(`/${chainId}/blocks/${guess.value}`);
-    case "tx":
-      redirect(`/${chainId}/txs/${encodeURIComponent(guess.value)}`);
+    case "tx": {
+      // gno hashes are base64; a hex one (gnoscan's form) is converted.
+      const hash = chain.kind === "gno" ? (normalizeGnoHash(guess.value) ?? guess.value) : guess.value;
+      redirect(`/${chainId}/txs/${encodeURIComponent(hash)}`);
+    }
     case "validator":
       redirect(`/${chainId}/validators/${guess.value}`);
     case "address": {
-      // On gno a plain address may be a consensus validator; only the validator
-      // set can tell us, so ask before choosing a destination.
-      const validators = await getAdapter(chain)
-        .getValidators()
-        .catch(() => []);
-      const isValidator = validators.some((v) => v.operatorAddress === guess.value);
+      // On gno a plain address may be a validator's signing or operator address.
+      const validator =
+        chain.kind === "gno"
+          ? await resolveGnoValidatorAddress(chain, guess.value).catch(() => null)
+          : (await getAdapter(chain).getValidators().catch(() => [])).some(
+                (v) => v.operatorAddress === guess.value
+              )
+            ? guess.value
+            : null;
       redirect(
-        isValidator
-          ? `/${chainId}/validators/${guess.value}`
+        validator
+          ? `/${chainId}/validators/${validator}`
           : `/${chainId}/accounts/${guess.value}`
       );
     }
   }
 
-  return (
-    <main className="mx-auto flex h-full max-w-2xl items-center justify-center px-4">
-      <div className="w-full">
-      <div className="gata-panel px-5 py-10 text-center">
-        <SearchX className="mx-auto h-8 w-8 text-muted-foreground" />
-        <h1 className="mt-4 text-lg font-semibold">
-          {query ? "Nothing matched that search" : "Enter a search term"}
-        </h1>
-        {query ? (
-          <p className="mt-2 break-all font-mono text-xs text-muted-foreground">
-            {query}
-          </p>
-        ) : null}
-        <p className="mt-4 text-sm text-muted-foreground">
-          Try a block height, a transaction hash, or an address starting with{" "}
-          <span className="font-mono">{chain.bech32Prefix}</span>.
-        </p>
-        <Link
-          href={`/${chainId}`}
-          className="mt-6 inline-block rounded-lg border border-border bg-secondary/60 px-4 py-2 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
-        >
-          Back to {chain.prettyName}
-        </Link>
-      </div>
-      </div>
-    </main>
-  );
+  redirect(`/search?${new URLSearchParams({ q: query, chain: chainId })}`);
 }

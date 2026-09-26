@@ -74,11 +74,7 @@ export default async function RelayersPage({
               <div className="h-full overflow-y-auto">
                 <Suspense
                   fallback={
-                    <LoadingPanel
-                      label="Checking routes…"
-                      hint="Reading light client status and pending packets on both sides."
-                      rows={3}
-                    />
+<LoadingPanel label="Checking routes…" rows={3} />
                   }
                 >
                   <IbcRoutesTable chainId={chainId} />
@@ -93,11 +89,7 @@ export default async function RelayersPage({
               <div className="h-full overflow-y-auto">
                 <Suspense
                   fallback={
-                    <LoadingPanel
-                      label="Counting relays…"
-                      hint="Attributing every IBC message to the operator who paid for it."
-                      rows={5}
-                    />
+<LoadingPanel label="Counting relays…" rows={5} />
                   }
                 >
                   <RelayerOperators chain={chain} />

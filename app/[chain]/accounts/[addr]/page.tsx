@@ -1,17 +1,28 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
-import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
+import { notFound, redirect } from "next/navigation";
+import { getAllChains, getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
 import type { ChainConfig } from "@/lib/chains";
-import type { DenomInfo } from "@/lib/coin";
-import { formatCoin, formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
-import { linkedAddresses } from "@/lib/bech32";
-import { resolveIbcDenoms, type DenomTrace } from "@/lib/ibc";
-import { getAccountStaking } from "@/lib/staking";
-import { directionFor, type TxTransfer } from "@/lib/tx-parties";
+import {
+  decodeParam,
+  formatDate,
+  formatDateTime,
+  formatUnits,
+  timeUntil,
+  truncateMiddle,
+} from "@/lib/format";
+import { convertAddress, linkedAddresses } from "@/lib/bech32";
+import { decodeBech32, gnoPathHref, routeAddress } from "@/lib/address-route";
+import { isUserKey, type AddressKind } from "@/lib/address-kind";
+import { resolveAssets, type AssetInfo } from "@/lib/ibc";
+import { getAccountStaking, getSelfBond, type ValidatorState } from "@/lib/staking";
+import { findValidator, type ValidatorSummary } from "@/lib/validators";
+import { consensusIdsFromPubkey } from "@/lib/uptime";
+import { fetchLcd } from "@/lib/lcd";
+import { getValoperIndexNow } from "@/lib/gno-valopers";
+import type { AccountView, Coin } from "@/lib/accounts";
 import { CopyButton } from "@/components/copy-button";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { AddressElsewhere } from "@/components/address-elsewhere";
@@ -20,6 +31,8 @@ import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
+import { AccountHistory } from "./history";
+import { buildHistoryRows } from "./history-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -32,94 +45,31 @@ export async function generateMetadata({
   return { title: `Account ${decodeParam(addr).slice(0, 12)}…` };
 }
 
-/**
- * IBC denoms are opaque hashes until resolved through a denom trace.
- *
- * Natives covers every denom the chain declares, not just the staking one:
- * AtomOne issues PHOTON alongside ATONE, and matching on chain.denom alone left
- * a PHOTON balance labelled "uphoton" and printed unscaled.
- */
-function denomLabel(
-  denom: string,
-  natives: Map<string, DenomInfo>,
-  trace?: DenomTrace
-): string {
-  const native = natives.get(denom);
-  if (native) return native.symbol;
-  if (trace) return trace.symbol;
-  if (denom.startsWith("ibc/")) return `IBC ${denom.slice(4, 10)}…`;
-  return denom;
+const prefixes = () =>
+  getAllChains().map((c) => ({
+    chainId: c.chainId,
+    bech32Prefix: c.bech32Prefix,
+    network: c.network,
+  }));
+
+/** Where a validator stands, in one word. */
+const STATE_LABEL: Record<Exclude<ValidatorState, null>, string> = {
+  active: "active",
+  jailed: "jailed",
+  inactive: "inactive",
+  unbonding: "unbonding",
+};
+
+/** "12 Oct 2026 · in 11d 4h" for a completion time. */
+function completes(iso: string): string {
+  const until = timeUntil(iso);
+  return until && until !== "ended" ? `${formatDate(iso)} · ${until}` : formatDate(iso);
 }
 
 /**
- * Exact display amount. The brick above uses compact notation, so the deck
- * deliberately shows the full number — abbreviating both meant a balance of
- * 999.999997B also rendered as "1000.0000B", two values for one figure.
- */
-function exactAmount(raw: string, exponent: number): string {
-  if (!/^\d+$/.test(raw)) return raw;
-
-  // Balances routinely exceed Number.MAX_SAFE_INTEGER — a 999999997125000000
-  // ugnot balance divided as a float rendered as ...124.9999. Split with BigInt.
-  // BigInt(...) rather than 10n literals, which need an ES2020 target.
-  const value = BigInt(raw);
-  const base = BigInt(10) ** BigInt(exponent);
-  const whole = (value / base).toLocaleString();
-  const fraction = (value % base).toString().padStart(exponent, "0").replace(/0+$/, "");
-
-  return fraction ? `${whole}.${fraction}` : whole;
-}
-
-/**
- * What a transaction moved, from this account's point of view.
- *
- * Signed rather than arrowed: the page is already about one address, so "−12
- * ATONE" says in one glance what an arrow needs a legend to say. Four decimals
- * would round a dust payment to "0.0000", which is not a small number but a
- * wrong one, so those are named as small instead.
- */
-function movedAmount(
-  transfer: TxTransfer | null,
-  direction: ReturnType<typeof directionFor>,
-  denoms: DenomInfo[]
-): string {
-  if (!transfer || transfer.amount.length === 0) return "—";
-
-  const sign = direction === "out" ? "−" : direction === "in" ? "+" : "";
-  const text = transfer.amount
-    .map((coin) => {
-      const formatted = formatCoin(coin, denoms, 4);
-      const dust =
-        formatted.startsWith("0.0000") && /^\d+$/.test(coin.amount) && coin.amount !== "0";
-      return dust ? formatted.replace("0.0000", "<0.0001") : formatted;
-    })
-    .join(", ");
-
-  return `${sign}${text}`;
-}
-
-/** "in 12 days", for an unbonding or redelegation that has not completed yet. */
-function completesIn(iso: string): string {
-  const ms = new Date(iso).getTime() - Date.now();
-  if (!Number.isFinite(ms)) return "—";
-  if (ms <= 0) return "any moment";
-  const days = Math.floor(ms / 86_400_000);
-  if (days >= 1) return `in ${days} day${days === 1 ? "" : "s"}`;
-  const hours = Math.floor(ms / 3_600_000);
-  if (hours >= 1) return `in ${hours} hour${hours === 1 ? "" : "s"}`;
-  return "in under an hour";
-}
-
-/**
- * What an account has at stake, per validator.
- *
- * Three lists on the wire — bonded, unbonding, redelegating — and one deck
- * here. They were three stacked tables, which on a fixed-height page would put
- * the second one below the fold; as one list with a state column they stay
- * comparable, and a delegation carries its dates and addresses in its popup.
- *
- * Read here rather than in a shared component so the rows arrive as plain data:
- * the deck is a client component and the staking module is not.
+ * What an account has at stake, per validator: bonded, unbonding and
+ * redelegating in one list with a state column. Every validator is a real
+ * link, the source of a redelegation included.
  */
 async function StakingDeck({
   chain,
@@ -134,46 +84,43 @@ async function StakingDeck({
   const symbol = symbolFor(chain);
   const base = `/${chain.chainId}/validators`;
   const amount = (raw: string) => `${formatToken(raw, chain.exponent, 2)} ${symbol}`;
+  const name = (valoper: string, moniker: string | null) =>
+    moniker ?? truncateMiddle(valoper, 14, 8);
 
   const columns: DeckColumn[] = [
     { label: "Validator" },
-    { label: "State", width: "18%", phoneHide: true },
-    { label: "Amount", align: "right", width: "22%" },
-    { label: "Reward", align: "right", width: "20%", optional: true },
+    { label: "State", width: "22%", phoneHide: true },
+    { label: "Amount", align: "right", width: "20%" },
+    { label: "Reward / completes", align: "right", width: "24%" },
   ];
 
   const rows: DeckRow[] = [
     ...staking.delegations.map((d) => ({
       key: `delegation-${d.validator}`,
       cells: [
-        { v: d.moniker ?? truncateMiddle(d.validator, 14, 8), tone: "accent" as const },
         {
-          v: d.jailed ? "jailed" : "bonded",
-          dim: true,
-          tone: d.jailed ? ("bad" as const) : undefined,
+          v: name(d.validator, d.moniker),
+          tone: "accent" as const,
+          href: `${base}/${d.validator}`,
+        },
+        {
+          v: d.state ? STATE_LABEL[d.state] : "delegated",
+          dim: d.state !== "jailed",
+          tone: d.state === "jailed" ? ("bad" as const) : undefined,
         },
         { v: amount(d.amount), mono: true, align: "right" as const },
         {
-          v: d.reward === null ? "—" : amount(d.reward),
+          v: d.reward === null ? "N/A" : amount(d.reward),
           mono: true,
           dim: true,
           align: "right" as const,
         },
       ],
       detail: {
-        title: d.moniker ?? "Delegation",
-        sub: d.validator,
+        title: name(d.validator, d.moniker),
         rows: [
-          { label: "State", value: d.jailed ? "Bonded, validator jailed" : "Bonded" },
-          { label: "Delegated", value: exactAmount(d.amount, chain.exponent), mono: true },
-          {
-            label: "Reward",
-            // Rewards below one base unit are not claimable, so they are
-            // truncated upstream rather than rounded into existence.
-            value: d.reward === null ? "N/A" : exactAmount(d.reward, chain.exponent),
-            mono: true,
-          },
-          { label: "Validator", value: d.validator, mono: true },
+          { label: "Delegated", value: formatUnits(d.amount, chain.exponent), mono: true },
+          { label: "Validator", value: d.validator, mono: true, address: d.validator },
         ],
         action: { label: "Validator", href: `${base}/${d.validator}` },
       },
@@ -181,19 +128,21 @@ async function StakingDeck({
     ...staking.unbonding.map((u, i) => ({
       key: `unbonding-${u.validator}-${u.completion}-${i}`,
       cells: [
-        { v: u.moniker ?? truncateMiddle(u.validator, 14, 8), tone: "accent" as const },
+        {
+          v: name(u.validator, u.moniker),
+          tone: "accent" as const,
+          href: `${base}/${u.validator}`,
+        },
         { v: "unbonding", dim: true },
         { v: amount(u.amount), mono: true, align: "right" as const },
-        { v: completesIn(u.completion), dim: true, align: "right" as const },
+        { v: completes(u.completion), dim: true, align: "right" as const },
       ],
       detail: {
-        title: u.moniker ?? "Unbonding",
-        sub: u.validator,
+        title: name(u.validator, u.moniker),
         rows: [
-          { label: "State", value: "Unbonding" },
-          { label: "Amount", value: exactAmount(u.amount, chain.exponent), mono: true },
-          { label: "Liquid", value: `${completesIn(u.completion)} — ${u.completion}` },
-          { label: "Validator", value: u.validator, mono: true },
+          { label: "Amount", value: formatUnits(u.amount, chain.exponent), mono: true },
+          { label: "Completes", value: formatDateTime(u.completion) },
+          { label: "Validator", value: u.validator, mono: true, address: u.validator },
         ],
         action: { label: "Validator", href: `${base}/${u.validator}` },
       },
@@ -201,24 +150,18 @@ async function StakingDeck({
     ...staking.redelegations.map((r, i) => ({
       key: `redelegation-${r.from}-${r.to}-${r.completion}-${i}`,
       cells: [
-        {
-          v: `${r.fromMoniker ?? truncateMiddle(r.from, 8, 6)} → ${
-            r.toMoniker ?? truncateMiddle(r.to, 8, 6)
-          }`,
-          tone: "accent" as const,
-        },
-        { v: "redelegating", dim: true },
+        { v: name(r.to, r.toMoniker), tone: "accent" as const, href: `${base}/${r.to}` },
+        { v: `from ${name(r.from, r.fromMoniker)}`, dim: true, href: `${base}/${r.from}` },
         { v: amount(r.amount), mono: true, align: "right" as const },
-        { v: completesIn(r.completion), dim: true, align: "right" as const },
+        { v: completes(r.completion), dim: true, align: "right" as const },
       ],
       detail: {
         title: "Redelegating",
-        sub: `${r.fromMoniker ?? r.from} → ${r.toMoniker ?? r.to}`,
         rows: [
-          { label: "Amount", value: exactAmount(r.amount, chain.exponent), mono: true },
-          { label: "Completes", value: `${completesIn(r.completion)} — ${r.completion}` },
-          { label: "From", value: r.from, mono: true },
-          { label: "To", value: r.to, mono: true },
+          { label: "Amount", value: formatUnits(r.amount, chain.exponent), mono: true },
+          { label: "Completes", value: formatDateTime(r.completion) },
+          { label: "From", value: r.from, mono: true, address: r.from },
+          { label: "To", value: r.to, mono: true, address: r.to },
         ],
         action: { label: "Destination validator", href: `${base}/${r.to}` },
       },
@@ -230,174 +173,260 @@ async function StakingDeck({
       columns={columns}
       rows={rows}
       accent={accent}
-      empty={
-        staking.failed
-          ? // Never report an empty stake when the module simply did not answer.
-            "N/A"
-          : "This account has nothing staked."
-      }
+      empty={staking.failed ? "N/A" : "Nothing staked"}
     />
   );
 }
 
+const HISTORY_COLUMNS: DeckColumn[] = [
+  { label: "Hash", width: "16%" },
+  { label: "Type" },
+  { label: "Counterparty", optional: true },
+  { label: "Amount", align: "right", width: "18%" },
+  { label: "Status", width: "11%", phoneHide: true },
+  { label: "Height", align: "right", width: "12%", optional: true },
+  { label: "Fee", align: "right", width: "12%", optional: true },
+  { label: "Age", align: "right", width: "12%", phoneHide: true },
+];
+
 /**
- * Transactions this address sent or received.
- *
- * Streamed on its own because on Cosmos it costs two indexed tx searches, and
- * the bricks above do not wait on it.
+ * Transactions this address sent or received, newest first, with an "Older"
+ * control. Streamed on its own so the tiles above do not wait on tx search.
  */
 async function TransactionDeck({
   chain,
   address,
   accent,
+  kind,
+  sequence,
 }: {
   chain: ChainConfig;
   address: string;
   accent: string;
+  kind: AddressKind["kind"] | null;
+  sequence: string | null;
 }) {
-  const { txs, total, failed, source, since, more, fromGenesis } =
-    await getAdapter(chain).getAccountTxs(address);
-  const denoms = chainDenoms(chain);
+  const res = await getAdapter(chain).getAccountTxs(address, { kind: kind ?? undefined });
+  const rows = buildHistoryRows(chain, address, res.txs);
 
-  const columns: DeckColumn[] = [
-    { label: "Hash", width: "16%" },
-    { label: "Type" },
-    { label: "Counterparty", optional: true },
-    { label: "Amount", align: "right", width: "18%" },
-    { label: "Status", width: "11%", phoneHide: true },
-    { label: "Height", align: "right", width: "12%", optional: true },
-    { label: "Fee", align: "right", width: "12%", optional: true },
-    { label: "Age", align: "right", width: "12%", phoneHide: true },
-  ];
-
-  const rows: DeckRow[] = txs.map((tx) => {
-    const direction = directionFor(tx.transfer, address);
-    const other =
-      direction === "out" ? tx.transfer?.to : direction === "in" ? tx.transfer?.from : null;
-    // Spelled out rather than arrowed: the page is about one address already,
-    // so "to osmo1…" reads without a key, and an account that is not a party —
-    // a vote, a grant — gets a dash rather than an invented counterparty.
-    const counterparty =
-      direction === "self"
-        ? "self"
-        : other
-          ? `${direction === "out" ? "to" : "from"} ${truncateMiddle(other, 10, 6)}`
-          : "—";
-    const status =
-      tx.code === null ? "unindexed" : tx.code === 0 ? "success" : `failed ${tx.code}`;
-    const label = tx.messages[0]?.label ?? "—";
-
-    return {
-      key: tx.hash,
-      cells: [
-        { v: truncateMiddle(tx.hash, 8, 6), mono: true, tone: "accent" as const },
-        { v: tx.messages.length > 1 ? `${label} +${tx.messages.length - 1}` : label },
-        { v: counterparty, dim: true },
-        {
-          v: movedAmount(tx.transfer, direction, denoms),
-          mono: true,
-          align: "right" as const,
-          tone: direction === "out" ? ("bad" as const) : direction === "in" ? ("ok" as const) : undefined,
-        },
-        {
-          v: status,
-          dim: tx.code === null,
-          tone: tx.code === null ? undefined : tx.code === 0 ? ("ok" as const) : ("bad" as const),
-        },
-        {
-          v: Number(tx.height).toLocaleString(),
-          mono: true,
-          dim: true,
-          align: "right" as const,
-        },
-        {
-          v: formatCoins(tx.fee, denoms),
-          mono: true,
-          dim: true,
-          align: "right" as const,
-        },
-        { v: timeAgo(tx.time), dim: true, align: "right" as const },
-      ],
-      detail: {
-        title: label,
-        sub: tx.hash,
-        rows: [
-          { label: "Hash", value: tx.hash, mono: true },
-          {
-            label: "Messages",
-            value: tx.messages.map((m) => m.label).join(", ") || String(tx.messageCount),
-          },
-          {
-            label: "Counterparty",
-            value:
-              direction === "self" ? address : (other ?? "Not a party to this transaction"),
-            mono: direction === "self" || other !== null,
-          },
-          { label: "Amount", value: movedAmount(tx.transfer, direction, denoms), mono: true },
-          { label: "Fee", value: formatCoins(tx.fee, denoms), mono: true },
-          { label: "Status", value: status },
-          { label: "Height", value: Number(tx.height).toLocaleString(), mono: true },
-          { label: "When", value: `${timeAgo(tx.time)} — ${tx.time ?? "unknown"}` },
-        ],
-        action: {
-          label: "Full transaction",
-          href: `/${chain.chainId}/txs/${encodeURIComponent(tx.hash)}`,
-        },
-      },
-    };
-  });
-
-  // The window is stated only while there is one. A list that stops at the edge
-  // of a partial index reads as the account's whole history and has to say
-  // otherwise — but once the backfill reaches genesis it *is* the whole
-  // history, and naming the chain's start date implies a limit that no longer
-  // exists.
-  const provenance =
-    txs.length === 0
-      ? null
-      : source === "indexer"
-        ? `${more ? `Showing the ${txs.length} most recent. ` : ""}${
-            fromGenesis
-              ? "From our index of the chain's full history."
-              : `From our index of block history, covering ${new Date(
-                  since ?? ""
-                ).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })} onwards.`
-          }`
-        : total !== null && total > txs.length
-          ? `Showing the ${txs.length} most recent of ${total.toLocaleString()}.`
-          : null;
+  const facts: string[] = [];
+  if (res.source === "indexer" && !res.fromGenesis && res.since) {
+    facts.push(`Indexed since ${formatDate(res.since)}`);
+  }
+  if (res.source === "search" && res.total !== null && res.total > res.txs.length) {
+    facts.push(`of ≥${res.total.toLocaleString()}`);
+  }
+  // Every signed transaction bumps the sequence, so a sequence above what the
+  // search found, with nothing older to fetch, means the node's index is cut.
+  const signed = Number(sequence ?? 0);
+  const partial =
+    !res.failed &&
+    (res.partial || (!res.next && res.source === "search" && signed > res.txs.length));
+  if (partial) facts.push("Partial");
 
   return (
-    <RowDeck
-      columns={columns}
-      rows={rows}
+    <AccountHistory
+      chainId={chain.chainId}
+      address={address}
+      kind={kind}
+      columns={HISTORY_COLUMNS}
+      initialRows={rows}
+      initialNext={res.next ?? null}
+      facts={facts}
       accent={accent}
-      toolbar={
-        provenance ? (
-          <p className="text-[11px] text-muted-foreground">{provenance}</p>
-        ) : undefined
-      }
-      empty={
-        failed
-          ? "N/A"
-          : "No transactions found for this address."
-      }
+      empty={res.failed || (signed > 0 && rows.length === 0) ? "N/A" : "No transactions"}
     />
   );
 }
 
+/** Natives first in config order, then IBC, factory, other, CW20; then name. */
+function assetOrder(natives: string[]) {
+  const rank: Record<AssetInfo["kind"], number> = {
+    native: 0,
+    ibc: 1,
+    factory: 2,
+    other: 3,
+    cw20: 4,
+  };
+  return (a: { coin: Coin; asset: AssetInfo }, b: { coin: Coin; asset: AssetInfo }) => {
+    const r = rank[a.asset.kind] - rank[b.asset.kind];
+    if (r !== 0) return r;
+    if (a.asset.kind === "native") {
+      return natives.indexOf(a.coin.denom) - natives.indexOf(b.coin.denom);
+    }
+    return a.asset.symbol.localeCompare(b.asset.symbol);
+  };
+}
+
+function routeLabel(asset: AssetInfo): string {
+  if (asset.kind === "native") return "native";
+  if (asset.kind === "ibc") {
+    return asset.channels.length ? `via ${asset.channels.join(" → ")}` : "ibc";
+  }
+  return asset.kind;
+}
+
+/** A validator this account operates, for the Validator tile. */
+interface OperatedValidator {
+  href: string;
+  moniker: string;
+  status: string;
+  commissionRate: number | null;
+  outstanding: Coin[] | null;
+  selfBond: string | null;
+}
+
+async function operatedValidator(
+  chain: ChainConfig,
+  address: string
+): Promise<OperatedValidator | null> {
+  if (chain.kind === "gno") {
+    const index = await getValoperIndexNow(chain).catch(() => null);
+    const profile = index?.byOperator.get(address);
+    if (!profile) return null;
+    return {
+      href: `/${chain.chainId}/validators/${address}`,
+      moniker: profile.moniker ?? truncateMiddle(address, 10, 6),
+      status: "registered",
+      commissionRate: null,
+      outstanding: null,
+      selfBond: null,
+    };
+  }
+
+  const valoper = convertAddress(address, `${chain.bech32Prefix}valoper`);
+  if (!valoper) return null;
+  const v: ValidatorSummary | null = await findValidator(
+    chain,
+    { operator: valoper },
+    () => null
+  ).catch(() => null);
+  if (!v) return null;
+
+  const [commission, bond] = await Promise.allSettled([
+    fetchLcd<{ commission?: { commission?: Coin[] } }>(
+      chain,
+      `/cosmos/distribution/v1beta1/validators/${valoper}/commission`,
+      { cache: "no-store", timeoutMs: 6000, deadlineMs: 9000 }
+    ),
+    getSelfBond(chain, valoper, v.tokens),
+  ]);
+
+  return {
+    href: `/${chain.chainId}/validators/${valoper}`,
+    moniker: v.moniker,
+    status: v.jailed
+      ? "jailed"
+      : v.status === "BOND_STATUS_BONDED"
+        ? "active"
+        : v.status === "BOND_STATUS_UNBONDING"
+          ? "unbonding"
+          : "inactive",
+    commissionRate: v.commissionRate,
+    outstanding:
+      commission.status === "fulfilled"
+        ? (commission.value.commission?.commission ?? [])
+            .map((c) => ({ denom: c.denom, amount: c.amount.split(".")[0] }))
+            .filter((c) => /^\d+$/.test(c.amount) && c.amount !== "0")
+        : null,
+    selfBond: bond.status === "fulfilled" && bond.value ? bond.value.amount : null,
+  };
+}
+
+/** The tile that says what an address is when it is not a plain account. */
+function kindTile(kind: AddressKind | null, chainId: string): BrickSpec | null {
+  if (!kind || kind.kind === "user") return null;
+  switch (kind.kind) {
+    case "module":
+      return {
+        key: "kind",
+        label: "Module",
+        value: kind.name,
+        sub: kind.permissions.join(", ") || "module account",
+        lead: true,
+      };
+    case "escrow":
+      return {
+        key: "kind",
+        label: "IBC escrow",
+        value: kind.channel,
+        sub: "transfer",
+        lead: true,
+        href: `/${chainId}/relayers`,
+      };
+    case "ica":
+      return {
+        key: "kind",
+        label: "Interchain account",
+        value: kind.owner ? truncateMiddle(kind.owner, 10, 6) : "N/A",
+        sub: "owner",
+        rows: kind.owner
+          ? [{ label: "Owner", value: kind.owner, mono: true, address: kind.owner }]
+          : undefined,
+      };
+    case "contract":
+      return {
+        key: "kind",
+        label: kind.cw20 ? "CW20 contract" : "Contract",
+        value:
+          kind.cw20?.symbol ?? kind.label ?? (kind.codeId ? `code ${kind.codeId}` : "contract"),
+        sub: kind.codeId ? `code ${kind.codeId}` : "cosmwasm",
+        lead: true,
+        rows: [
+          ...(kind.label ? [{ label: "Label", value: kind.label }] : []),
+          ...(kind.codeId ? [{ label: "Code id", value: kind.codeId, mono: true }] : []),
+          ...(kind.creator
+            ? [{ label: "Creator", value: kind.creator, mono: true, address: kind.creator }]
+            : []),
+          kind.admin
+            ? { label: "Admin", value: kind.admin, mono: true, address: kind.admin }
+            : { label: "Admin", value: "None" },
+          ...(kind.cw20
+            ? [
+                { label: "Token", value: `${kind.cw20.name} (${kind.cw20.symbol})` },
+                { label: "Decimals", value: String(kind.cw20.decimals), mono: true },
+                {
+                  label: "Supply",
+                  value: formatUnits(kind.cw20.totalSupply, kind.cw20.decimals),
+                  mono: true,
+                },
+              ]
+            : []),
+        ],
+      };
+    case "vesting":
+      return {
+        key: "kind",
+        label: "Vesting",
+        value: kind.schedule,
+        sub: kind.endTime ? `ends ${formatDate(kind.endTime)}` : "vesting account",
+        rows: [
+          { label: "Schedule", value: kind.schedule },
+          ...(kind.startTime ? [{ label: "Starts", value: formatDateTime(kind.startTime) }] : []),
+          ...(kind.endTime ? [{ label: "Ends", value: formatDateTime(kind.endTime) }] : []),
+          {
+            label: "Original",
+            value: kind.original.map((c) => `${c.amount} ${c.denom}`).join(", ") || "—",
+            mono: true,
+          },
+          {
+            label: "Delegated vesting",
+            value: kind.delegatedVesting.map((c) => `${c.amount} ${c.denom}`).join(", ") || "0",
+            mono: true,
+          },
+          ...(kind.periods.length
+            ? [{ label: "Periods", value: String(kind.periods.length), mono: true }]
+            : []),
+        ],
+      };
+  }
+}
+
 /**
- * One account, in one screen.
- *
- * The three headline figures are bricks and the three lists take turns, because
- * stacked they ran to four screens: balances, then delegations, then unbonding,
- * then a transaction table nobody scrolled to. Nothing is gone — the address,
- * account number and sequence that filled a panel of their own are behind the
- * Account brick, and each row carries its full record in a popup.
+ * One account, in one screen: what it holds, what it is, what it has at stake
+ * and what it has done. Wrong-shaped URLs recover by redirect rather than
+ * rendering an empty account: an operator or consensus address goes to its
+ * validator, a foreign prefix to its own chain, upper case to lower.
  */
 export default async function AccountPage({
   params,
@@ -408,83 +437,198 @@ export default async function AccountPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
 
-  const address = decodeParam(rawAddr);
+  const raw = decodeParam(rawAddr).trim();
+  const realm = gnoPathHref(raw);
+  if (realm) redirect(realm);
+
+  const decoded = decodeBech32(raw);
+  if (!decoded) notFound();
+  const address = decoded.address;
+  if (address !== raw) redirect(`/${chainId}/accounts/${address}`);
+
+  const route = routeAddress(address, chainId, prefixes());
+  if (!route) notFound();
+  if (route.kind === "validator") redirect(route.href);
+  if (route.kind === "consensus") {
+    const target = getChain(route.chainId) ?? chain;
+    const v = await findValidator(
+      target,
+      { valcons: address },
+      (pk) => consensusIdsFromPubkey(pk, target.bech32Prefix)?.valcons ?? null
+    ).catch(() => null);
+    if (!v) notFound();
+    redirect(`/${target.chainId}/validators/${v.operatorAddress}`);
+  }
+  if (route.chainId !== chainId) redirect(route.href);
+
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
-  const account = await getAdapter(chain).getAccount(address);
-  // Same key, different prefix — offered so one account can be followed across
-  // chains without deriving the address by hand.
-  const links = linkedAddresses(address);
-  // Every denom the chain issues, keyed for lookup — not just the staking one.
-  const natives = new Map(chainDenoms(chain).map((d) => [d.denom, d]));
-  // Turns "IBC 3EF74C…" into the asset it actually is.
-  const traces = await resolveIbcDenoms(
+  const adapter = getAdapter(chain);
+  const natives = chainDenoms(chain);
+
+  const [account, operated] = await Promise.all([
+    adapter.getAccount(address) as Promise<AccountView>,
+    operatedValidator(chain, address).catch(() => null),
+  ]);
+  const kind = account.kind ?? null;
+
+  const assets = await resolveAssets(
     chain,
-    account.balances.map((b) => b.denom)
+    [...account.balances.map((b) => b.denom), ...(account.rewards ?? []).map((c) => c.denom)],
+    natives
   );
+  const held = account.balances
+    .flatMap((coin) => {
+      const asset = assets.get(coin.denom);
+      return asset ? [{ coin, asset }] : [];
+    })
+    .sort(assetOrder(natives.map((n) => n.denom)));
+
+  // Same key, different prefix — only meaningful for a 20-byte user key.
+  const links = isUserKey(address, kind) ? linkedAddresses(address) : [];
 
   const primary = account.balances.find((b) => b.denom === chain.denom);
-  const others = account.balances.filter((b) => b.denom !== chain.denom);
+  const others = held.filter((h) => h.coin.denom !== chain.denom);
+  const exact = (c: Coin) => {
+    const a = assets.get(c.denom);
+    return `${formatUnits(c.amount, a?.exponent ?? null)} ${a?.symbol ?? c.denom}`;
+  };
+  const compactNative = (value: string | null | undefined) =>
+    value ? formatToken(value, chain.exponent, 2) : "N/A";
+  const nativeRewards = account.rewards?.find((c) => c.denom === chain.denom);
+  const otherRewards = (account.rewards?.length ?? 0) - (nativeRewards ? 1 : 0);
+  const tile = kindTile(kind, chainId);
 
   const facts: BrickSpec[] = [
+    ...(operated
+      ? [
+          {
+            key: "validator",
+            label: "Validator",
+            value: operated.moniker,
+            sub: operated.status,
+            lead: true,
+            tone: operated.status === "jailed" ? ("bad" as const) : undefined,
+            rows: [
+              { label: "Validator", value: operated.moniker, href: operated.href },
+              { label: "Status", value: operated.status },
+              ...(operated.commissionRate !== null
+                ? [
+                    {
+                      label: "Commission rate",
+                      value: `${(operated.commissionRate * 100).toFixed(2)}%`,
+                      mono: true,
+                    },
+                  ]
+                : []),
+              ...(operated.outstanding
+                ? [
+                    {
+                      label: "Commission outstanding",
+                      value: operated.outstanding.length
+                        ? operated.outstanding.map(exact).join(", ")
+                        : "0",
+                      mono: true,
+                    },
+                  ]
+                : []),
+              ...(operated.selfBond
+                ? [
+                    {
+                      label: "Self-bond",
+                      value: `${formatUnits(operated.selfBond, chain.exponent)} ${symbol}`,
+                      mono: true,
+                    },
+                  ]
+                : []),
+            ],
+            action: { label: "Validator page", href: operated.href },
+          },
+        ]
+      : []),
+    ...(tile ? [tile] : []),
     {
       key: "available",
       label: "Available",
-      value: primary ? formatToken(primary.amount, chain.exponent, 2) : "0",
+      value: account.balancesFailed
+        ? "N/A"
+        : primary
+          ? formatToken(primary.amount, chain.exponent, 2)
+          : "0",
       sub: symbol,
-      lead: true,
+      lead: !operated && !tile,
       rows: primary
         ? [
             {
               label: "Available",
-              value: `${exactAmount(primary.amount, chain.exponent)} ${symbol}`,
+              value: `${formatUnits(primary.amount, chain.exponent)} ${symbol}`,
               mono: true,
             },
-            { label: "Base denom", value: chain.denom, mono: true },
             { label: "Base units", value: primary.amount, mono: true },
           ]
         : undefined,
     },
-    {
-      key: "delegated",
-      label: "Delegated",
-      value: account.delegatedTotal
-        ? formatToken(account.delegatedTotal, chain.exponent, 2)
-        : "—",
-      sub:
-        account.delegationCount != null
-          ? `${account.delegationCount} validator${account.delegationCount === 1 ? "" : "s"}`
-          : "not applicable",
-      rows: account.delegatedTotal
-        ? [
-            {
-              label: "Delegated",
-              value: `${exactAmount(account.delegatedTotal, chain.exponent)} ${symbol}`,
-              mono: true,
-            },
-            {
-              label: "Validators",
-              value: String(account.delegationCount ?? "—"),
-              mono: true,
-            },
-          ]
-        : undefined,
-    },
+    ...(adapter.capabilities.staking
+      ? [
+          {
+            key: "delegated",
+            label: "Delegated",
+            value: compactNative(account.delegatedTotal),
+            sub:
+              account.delegationCount != null
+                ? `${account.delegationCount} validator${account.delegationCount === 1 ? "" : "s"}`
+                : symbol,
+            rows: account.delegatedTotal
+              ? [
+                  {
+                    label: "Delegated",
+                    value: `${formatUnits(account.delegatedTotal, chain.exponent)} ${symbol}`,
+                    mono: true,
+                  },
+                ]
+              : undefined,
+          },
+          {
+            key: "unbonding",
+            label: "Unbonding",
+            value: compactNative(account.unbondingTotal),
+            sub: symbol,
+            rows: account.unbondingTotal
+              ? [
+                  {
+                    label: "Unbonding",
+                    value: `${formatUnits(account.unbondingTotal, chain.exponent)} ${symbol}`,
+                    mono: true,
+                  },
+                ]
+              : undefined,
+          },
+          {
+            key: "rewards",
+            label: "Rewards",
+            value:
+              account.rewards === null || account.rewards === undefined
+                ? "N/A"
+                : nativeRewards
+                  ? formatToken(nativeRewards.amount, chain.exponent, 2)
+                  : "0",
+            sub: otherRewards > 0 ? `${symbol} +${otherRewards} denoms` : symbol,
+            rows:
+              account.rewards && account.rewards.length
+                ? account.rewards.map((c) => ({
+                    label: assets.get(c.denom)?.symbol ?? c.denom,
+                    value: exact(c),
+                    mono: true,
+                  }))
+                : undefined,
+          },
+        ]
+      : []),
     {
       key: "others",
       label: "Other assets",
       value: String(others.length),
       sub: "denominations",
-      rows:
-        others.length > 0
-          ? others.map((b) => ({
-              label: denomLabel(b.denom, natives, traces.get(b.denom)),
-              value: natives.has(b.denom)
-                ? exactAmount(b.amount, natives.get(b.denom)!.exponent)
-                : Number(b.amount).toLocaleString(),
-              mono: true,
-            }))
-          : undefined,
     },
     {
       key: "account",
@@ -505,55 +649,58 @@ export default async function AccountPage({
     { label: "Amount", align: "right", width: "40%" },
   ];
 
-  const balanceRows: DeckRow[] = account.balances.map((b) => {
-    const trace = traces.get(b.denom);
-    const native = natives.get(b.denom);
-    const exact = native
-      ? exactAmount(b.amount, native.exponent)
-      : Number(b.amount).toLocaleString();
-
-    return {
-      key: b.denom,
-      cells: [
-        { v: denomLabel(b.denom, natives, trace), tone: "accent" as const },
-        { v: trace?.channels.length ? `via ${trace.channels.join(" → ")}` : "—", dim: true },
-        { v: exact, mono: true, align: "right" as const },
-      ],
-      detail: {
-        title: denomLabel(b.denom, natives, trace),
-        sub: b.denom,
-        rows: [
-          { label: "Amount", value: exact, mono: true },
-          { label: "Base units", value: b.amount, mono: true },
-          { label: "Denom", value: b.denom, mono: true },
-          ...(native ? [{ label: "Exponent", value: String(native.exponent), mono: true }] : []),
-          // An IBC hash says nothing about what it holds; the trace is the only
-          // place the asset names itself.
-          ...(trace ? [{ label: "Home denom", value: trace.base, mono: true }] : []),
-          ...(trace?.channels.length
-            ? [{ label: "Channels", value: trace.channels.join(" → "), mono: true }]
-            : []),
-        ],
+  const balanceRows: DeckRow[] = held.map(({ coin, asset }) => ({
+    key: coin.denom,
+    cells: [
+      { v: asset.symbol, tone: "accent" as const },
+      { v: routeLabel(asset), dim: true },
+      {
+        v:
+          asset.exponent === null
+            ? `${formatUnits(coin.amount, null)} base`
+            : formatUnits(coin.amount, asset.exponent),
+        mono: true,
+        align: "right" as const,
       },
-    };
-  });
+    ],
+    detail: {
+      title: asset.symbol,
+      sub: coin.denom,
+      rows: [
+        { label: "Amount", value: formatUnits(coin.amount, asset.exponent), mono: true },
+        { label: "Base units", value: coin.amount, mono: true },
+        { label: "Denom", value: coin.denom, mono: true },
+        {
+          label: "Decimals",
+          value: asset.exponent === null ? "N/A" : String(asset.exponent),
+          mono: true,
+        },
+        ...(asset.base ? [{ label: "Home denom", value: asset.base, mono: true }] : []),
+        ...(asset.channels.length
+          ? [{ label: "Channels", value: asset.channels.join(" → "), mono: true }]
+          : []),
+      ],
+    },
+  }));
 
   const sections = [
-    ...(account.balances.length > 0
+    ...(account.balances.length > 0 || account.balancesFailed
       ? [
           {
             key: "balances",
-            label: `Balances (${account.balances.length})`,
+            label: account.balancesFailed ? "Balances" : `Balances (${account.balances.length})`,
             content: (
-              <RowDeck columns={balanceColumns} rows={balanceRows} accent={accent} />
+              <RowDeck
+                columns={balanceColumns}
+                rows={balanceRows}
+                accent={accent}
+                empty={account.balancesFailed ? "N/A" : "No balances"}
+              />
             ),
           },
         ]
       : []),
-    // Skipped where the chain has no staking module at all — gno.land has no
-    // validators to delegate to, so an empty "nothing staked" tab there would
-    // offer a feature that does not exist.
-    ...(getAdapter(chain).capabilities.staking
+    ...(adapter.capabilities.staking
       ? [
           {
             key: "staking",
@@ -571,15 +718,27 @@ export default async function AccountPage({
       label: "Transactions",
       content: (
         <Suspense fallback={<LoadingPanel label="Loading transactions…" rows={4} />}>
-          <TransactionDeck chain={chain} address={address} accent={accent} />
+          <TransactionDeck
+            chain={chain}
+            address={address}
+            accent={accent}
+            kind={kind?.kind ?? null}
+            sequence={account.sequence}
+          />
         </Suspense>
       ),
     },
   ];
 
+  const title = operated
+    ? operated.moniker
+    : kind?.kind === "module"
+      ? `Module ${kind.name}`
+      : "Account";
+
   return (
     <PageFrame
-      title="Account"
+      title={title}
       sub={address}
       accent={accent}
       actions={
@@ -594,13 +753,9 @@ export default async function AccountPage({
           <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
         ) : (
           // An unused address keeps the tabs below: the transaction list is
-          // read from block history, not from account state, and an address
-          // with a spent balance still has one.
+          // read from block history, not from account state.
           <div className="min-h-0 shrink-0 overflow-y-auto">
-            <p className="text-sm text-muted-foreground">
-              No on-chain activity.
-            </p>
-            {/* Streamed: checks the same key on every linked chain. */}
+            <p className="text-sm text-muted-foreground">No on-chain activity</p>
             <Suspense fallback={null}>
               <AddressElsewhere links={links} currentChainId={chainId} />
             </Suspense>

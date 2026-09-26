@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { ValidatorUptime } from "@/lib/uptime";
 
@@ -16,15 +17,19 @@ export function UptimeBars({
   uptime,
   slashingWindow,
   expand,
+  chainId,
   className,
 }: {
+  /** When given, and the bars carry heights, each bar links to its block. */
+  chainId?: string;
   uptime: ValidatorUptime;
   /** True when the percentage comes from the chain's slashing window. */
   slashingWindow: boolean;
   expand?: boolean;
   className?: string;
 }) {
-  const { bars, ratio, missed, window } = uptime;
+  const { bars, ratio, missed, window, barHeights } = uptime;
+  const linked = chainId !== undefined && barHeights?.length === bars.length;
   const pct = ratio === null ? null : ratio * 100;
 
   const tone =
@@ -59,7 +64,7 @@ export function UptimeBars({
           tone
         )}
       >
-        {pct === null ? "—" : `${pct.toFixed(2)}%`}
+        {pct === null ? "N/A" : `${pct.toFixed(2)}%`}
       </span>
 
       {bars.length > 0 ? (
@@ -68,18 +73,28 @@ export function UptimeBars({
             "flex gap-[2px]",
             expand ? "min-h-0 flex-1 items-stretch" : "items-end"
           )}
-          aria-hidden="true"
+          aria-hidden={linked ? undefined : "true"}
         >
-          {bars.map((signed, i) => (
-            <span
-              key={i}
-              className={cn(
-                "rounded-[1px]",
-                expand ? "min-w-[2px] flex-1" : "h-3 w-[3px]",
-                signed ? "bg-[var(--gata-green)]/70" : "bg-[var(--gata-burn)]"
-              )}
-            />
-          ))}
+          {bars.map((signed, i) => {
+            const cls = cn(
+              "rounded-[1px]",
+              expand ? "min-w-[2px] flex-1" : "h-3 w-[3px]",
+              signed ? "bg-[var(--gata-green)]/70" : "bg-[var(--gata-burn)]",
+              linked && "transition-opacity hover:opacity-60"
+            );
+            if (!linked) return <span key={i} className={cls} />;
+            const h = barHeights![i];
+            return (
+              <Link
+                key={i}
+                href={`/${chainId}/blocks/${h}`}
+                prefetch={false}
+                title={`#${h.toLocaleString()} · ${signed ? "signed" : "missed"}`}
+                aria-label={`Block ${h}, ${signed ? "signed" : "missed"}`}
+                className={cls}
+              />
+            );
+          })}
         </span>
       ) : null}
 

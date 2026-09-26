@@ -16,10 +16,30 @@ import { useState } from "react";
  */
 export function SectionTabs({
   sections,
+  initial,
+  param,
 }: {
   sections: { key: string; label: string; content: React.ReactNode }[];
+  /** Tab open on arrival, e.g. from the URL; ignored if no such tab. */
+  initial?: string;
+  /**
+   * Query parameter mirroring the open tab, so a tab can be linked to. The URL
+   * is replaced, not pushed: switching tabs is not navigation worth a Back.
+   */
+  param?: string;
 }) {
-  const [active, setActive] = useState(sections[0]?.key ?? "");
+  const [active, setActiveState] = useState(
+    initial && sections.some((s) => s.key === initial) ? initial : (sections[0]?.key ?? "")
+  );
+
+  function setActive(key: string) {
+    setActiveState(key);
+    if (!param) return;
+    const url = new URL(window.location.href);
+    if (key === sections[0]?.key) url.searchParams.delete(param);
+    else url.searchParams.set(param, key);
+    window.history.replaceState(window.history.state, "", url);
+  }
 
   return (
     <div className="flex h-full flex-col">

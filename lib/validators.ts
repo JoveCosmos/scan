@@ -30,6 +30,8 @@ export interface ValidatorSummary {
   operatorAddress: string;
   moniker: string;
   website: string;
+  /** Keybase key suffix the operator published; absent or "" when none. */
+  identity?: string;
   jailed: boolean;
   status: string;
   tokens: string;
@@ -220,76 +222,148 @@ const DELEGATION_MAX_PAGES = 25;
  * Reading everything also makes the total exact by construction, with no
  * `count_total` scan.
  */
-export async function getValidatorDelegators(
-  chain: ChainConfig,
-  operatorAddress: string,
-  limit = 25
-): Promise<{
+export interface DelegatorPage {
   delegators: Delegator[];
+  /** Rank of the first row, 1-based. */
+  offset: number;
   total: number | null;
+  /** Share of the validator's stake held by its ten largest delegators, 0–1. */
+  top10Share: number | null;
   /** True when the page cap was hit, so the ranking may miss a delegator. */
   truncated: boolean;
   failed: boolean;
-}> {
+}
+
+interface RankedDelegations {
+  rows: { address: string; amount: string; raw: bigint }[];
+  totalStake: bigint;
+  truncated: boolean;
+}
+
+/** Share of `total` held by `part`, through BigInt so large stakes stay exact. */
+function shareOf(part: bigint, total: bigint): number {
+  return total > BigInt(0) ? Number((part * BigInt(1_000_000)) / total) / 1_000_000 : 0;
+}
+
+/**
+ * Who delegates to this validator, largest first, one page at a time.
+ *
+ * This reads *every* delegation, not one page. The LCD returns delegations in
+ * key order, not by size, so ranking a single page ranks an arbitrary subset —
+ * GATA HUB has 4,598 delegators, and sorting the first 200 of them silently
+ * omitted the largest. Paging the lot costs ~4.7s there, so the ranked list is
+ * cached and every page after the first is served from it.
+ */
+export async function getValidatorDelegators(
+  chain: ChainConfig,
+  operatorAddress: string,
+  page: { offset: number; limit: number } = { offset: 0, limit: 100 }
+): Promise<DelegatorPage> {
+  const offset = Math.max(0, Math.floor(page.offset));
+  const failed: DelegatorPage = {
+    delegators: [],
+    offset,
+    total: null,
+    top10Share: null,
+    truncated: false,
+    failed: true,
+  };
   // Same gate as getValidator: the address goes into an LCD path.
-  if (!isBech32ish(operatorAddress)) {
-    return { delegators: [], total: null, truncated: false, failed: true };
+  if (!isBech32ish(operatorAddress)) return failed;
+
+  let ranked: RankedDelegations;
+  try {
+    ranked = await cached(
+      `delegations:${chain.chainId}:${operatorAddress}`,
+      5 * 60_000,
+      () => readDelegations(chain, operatorAddress),
+      { staleMs: 30 * 60_000 }
+    );
+  } catch {
+    return failed;
   }
 
-  try {
-    const rows: DelegationRow[] = [];
-    let nextKey: string | null = null;
-    let truncated = true;
+  const { rows, totalStake, truncated } = ranked;
+  const top10 = rows.slice(0, 10).reduce((sum, d) => sum + d.raw, BigInt(0));
 
-    for (let page = 0; page < DELEGATION_MAX_PAGES; page++) {
-      const res: {
-        delegation_responses?: DelegationRow[];
-        pagination?: { next_key?: string | null };
-      } = await fetchLcd(chain, `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`, {
-        cache: "no-store",
-        timeoutMs: 20_000,
-        searchParams: {
-          "pagination.limit": DELEGATION_PAGE,
-          ...(nextKey ? { "pagination.key": nextKey } : {}),
-        },
-      });
-
-      rows.push(...(res.delegation_responses ?? []));
-      nextKey = res.pagination?.next_key || null;
-      if (!nextKey) {
-        truncated = false;
-        break;
-      }
-    }
-
-    // BigInt: a large validator's stake exceeds what a double can hold exactly,
-    // and an off-by-a-few-uatom sort would reorder equal-looking delegations.
-    const parsed = rows
-      .map((r) => ({
-        address: r.delegation?.delegator_address ?? "",
-        amount: r.balance?.amount ?? "0",
-        raw: BigInt(r.balance?.amount ?? "0"),
-      }))
-      .filter((d) => d.address);
-
-    const totalStake = parsed.reduce((sum, d) => sum + d.raw, BigInt(0));
-    parsed.sort((a, b) => (a.raw < b.raw ? 1 : a.raw > b.raw ? -1 : 0));
-
-    const delegators: Delegator[] = parsed.slice(0, limit).map((d) => ({
+  return {
+    delegators: rows.slice(offset, offset + page.limit).map((d) => ({
       address: d.address,
       amount: d.amount,
-      // Scaled through BigInt before the division so the ratio survives stakes
-      // beyond Number.MAX_SAFE_INTEGER.
-      share:
-        totalStake > BigInt(0)
-          ? Number((d.raw * BigInt(1_000_000)) / totalStake) / 1_000_000
-          : 0,
-    }));
+      share: shareOf(d.raw, totalStake),
+    })),
+    offset,
+    total: rows.length,
+    top10Share: rows.length > 0 ? shareOf(top10, totalStake) : null,
+    truncated,
+    failed: false,
+  };
+}
 
-    return { delegators, total: parsed.length, truncated, failed: false };
-  } catch {
-    return { delegators: [], total: null, truncated: false, failed: true };
+async function readDelegations(
+  chain: ChainConfig,
+  operatorAddress: string
+): Promise<RankedDelegations> {
+  const rows: DelegationRow[] = [];
+  let nextKey: string | null = null;
+  let truncated = true;
+
+  for (let page = 0; page < DELEGATION_MAX_PAGES; page++) {
+    const res: {
+      delegation_responses?: DelegationRow[];
+      pagination?: { next_key?: string | null };
+    } = await fetchLcd(chain, `/cosmos/staking/v1beta1/validators/${operatorAddress}/delegations`, {
+      cache: "no-store",
+      timeoutMs: 20_000,
+      searchParams: {
+        "pagination.limit": DELEGATION_PAGE,
+        ...(nextKey ? { "pagination.key": nextKey } : {}),
+      },
+    });
+
+    rows.push(...(res.delegation_responses ?? []));
+    nextKey = res.pagination?.next_key || null;
+    if (!nextKey) {
+      truncated = false;
+      break;
+    }
   }
+
+  // BigInt: a large validator's stake exceeds what a double can hold exactly,
+  // and an off-by-a-few-uatom sort would reorder equal-looking delegations.
+  const parsed = rows
+    .map((r) => ({
+      address: r.delegation?.delegator_address ?? "",
+      amount: (r.balance?.amount ?? "0").split(".")[0],
+      raw: BigInt((r.balance?.amount ?? "0").split(".")[0] || "0"),
+    }))
+    .filter((d) => d.address);
+
+  parsed.sort((a, b) => (a.raw < b.raw ? 1 : a.raw > b.raw ? -1 : 0));
+  const totalStake = parsed.reduce((sum, d) => sum + d.raw, BigInt(0));
+  return { rows: parsed, totalStake, truncated };
+}
+
+/**
+ * A validator in either set, found by operator, consensus (valcons) or account
+ * address. Lets a URL carrying any of the three land on the validator page.
+ */
+export async function findValidator(
+  chain: ChainConfig,
+  match: { operator?: string; valcons?: string },
+  toValcons: (pubkey: string) => string | null
+): Promise<ValidatorSummary | null> {
+  const [active, inactive] = await Promise.all([
+    getValidatorsCached(chain).catch(() => [] as ValidatorSummary[]),
+    getInactiveValidators(chain).catch(() => [] as ValidatorSummary[]),
+  ]);
+  for (const v of [...active, ...inactive]) {
+    if (match.operator && v.operatorAddress === match.operator) return v;
+    if (match.valcons && v.consensusPubkey && toValcons(v.consensusPubkey) === match.valcons) {
+      return v;
+    }
+  }
+  return null;
 }
 
 /**
@@ -329,6 +403,7 @@ function toSummary(v: RawValidator, rank: number, power: number, running: number
     operatorAddress: v.operator_address,
     moniker: v.description?.moniker?.trim() || v.operator_address,
     website: v.description?.website ?? "",
+    identity: v.description?.identity ?? "",
     jailed: v.jailed,
     status: v.status,
     tokens: v.tokens,
@@ -376,5 +451,34 @@ export function getInactiveValidators(chain: ChainConfig): Promise<ValidatorSumm
         .map((v, i) => toSummary(v, i + 1, 0, 0));
     },
     { staleMs: 30 * 60_000 }
+  );
+}
+
+/**
+ * The Keybase username behind a validator's published identity (a PGP key
+ * suffix), or null. Cached for a day: identities almost never change, and the
+ * lookup is a third-party call we should not repeat per view.
+ */
+export function keybaseUsername(identity: string): Promise<string | null> {
+  const id = identity.trim();
+  if (!/^[0-9A-Fa-f]{16}$/.test(id)) return Promise.resolve(null);
+  return cached(
+    `keybase:${id.toUpperCase()}`,
+    24 * 60 * 60_000,
+    async () => {
+      try {
+        const res = await fetch(
+          `https://keybase.io/_/api/1.0/user/lookup.json?key_suffix=${id}&fields=basics`,
+          { cache: "no-store", signal: AbortSignal.timeout(3000) }
+        );
+        if (!res.ok) return null;
+        const json = (await res.json()) as {
+          them?: { basics?: { username?: string } }[];
+        };
+        return json.them?.[0]?.basics?.username ?? null;
+      } catch {
+        return null;
+      }
+    }
   );
 }

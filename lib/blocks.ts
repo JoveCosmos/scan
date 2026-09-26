@@ -1,13 +1,15 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import {
+  blockFacts,
   recentFacts,
   toSummary,
   type BlockResponse,
   type BlockSummary,
 } from "@/lib/block-facts";
+import { base64ToHex } from "@/lib/format";
 import { isNumericId } from "@/lib/input";
-import { proposerIndex } from "@/lib/uptime";
+import { consensusIdsFromPubkey, proposerIndex } from "@/lib/uptime";
 import { getValidatorsCached } from "@/lib/validators";
 
 export type { BlockSummary } from "@/lib/block-facts";
@@ -20,32 +22,53 @@ export interface NamedBlock extends BlockSummary {
   proposerOperator: string | null;
 }
 
+interface NamedValidator {
+  moniker: string;
+  operatorAddress: string;
+  consensusPubkey: string | null;
+}
+
 /**
  * Name the proposers of a page of blocks.
  *
- * A header carries its proposer as a raw consensus address. This builds the
- * lookup once from a set the caller already holds and applies it to the whole
- * page. A proposer that cannot be resolved keeps its raw address
- * rather than going blank.
+ * A Cosmos header carries its proposer as a raw consensus address, matched
+ * through the validators' consensus keys. gno has no consensus keys on the
+ * set, so there the proposer is matched on the signing address the validator
+ * is listed under, or on the name the gno feed already substituted for it.
+ * A proposer that cannot be resolved keeps its raw value rather than going
+ * blank.
  */
 export function nameProposers(
   blocks: BlockSummary[],
-  validators: {
-    moniker: string;
-    operatorAddress: string;
-    consensusPubkey: string | null;
-  }[],
+  validators: NamedValidator[],
   bech32Prefix: string
 ): NamedBlock[] {
   const index = proposerIndex(validators, bech32Prefix);
+  const byOperator = new Map(validators.map((v) => [v.operatorAddress, v]));
+  const byMoniker = new Map(validators.map((v) => [v.moniker, v]));
   return blocks.map((block) => {
+    // A feed may already have named its proposer (gno does, from its own
+    // registry); a match here refines it, a miss never erases it.
+    const given = block as BlockSummary & {
+      proposerMoniker?: string | null;
+      proposerOperator?: string | null;
+    };
     const hit = index.get(block.proposer);
+    if (hit) {
+      return { ...block, proposerMoniker: hit.moniker, proposerOperator: hit.operator };
+    }
+    const direct = byOperator.get(block.proposer) ?? byMoniker.get(block.proposer);
     return {
       ...block,
-      proposerMoniker: hit?.moniker ?? null,
-      proposerOperator: hit?.operator ?? null,
+      proposerMoniker: direct?.moniker ?? given.proposerMoniker ?? null,
+      proposerOperator: direct?.operatorAddress ?? given.proposerOperator ?? null,
     };
   });
+}
+
+export interface AbsentValidator {
+  moniker: string;
+  operator: string;
 }
 
 export interface BlockDetail extends BlockSummary {
@@ -54,29 +77,22 @@ export interface BlockDetail extends BlockSummary {
   dataHash: string | null;
   validatorsHash: string | null;
   lastCommitHash: string | null;
+  /** Entries in the block's last commit, which describes the previous block. */
   signatureCount: number | null;
+  /** Of those, the ones that actually signed (commit or nil vote). */
+  signedCount: number | null;
+  absentCount: number | null;
+  /**
+   * The absent validators by name, when the current set accounts for exactly
+   * the absent entries. Null when it cannot (the set has changed since), so a
+   * guess is never shown as a list.
+   */
+  absentValidators: AbsentValidator[] | null;
   rawTxs: string[];
   /** Resolved from the consensus address when the validator set is reachable. */
   proposerMoniker: string | null;
   proposerOperator: string | null;
-}
-
-/**
- * Name a block's proposer from the shared, cached validator set. The header
- * carries a raw consensus address, which is what proposerIndex keys on.
- */
-async function resolveProposer(
-  chain: ChainConfig,
-  proposerAddressB64: string
-): Promise<{ moniker: string | null; operator: string | null }> {
-  try {
-    const hit = proposerIndex(await getValidatorsCached(chain), chain.bech32Prefix).get(
-      proposerAddressB64
-    );
-    return { moniker: hit?.moniker ?? null, operator: hit?.operator ?? null };
-  } catch {
-    return { moniker: null, operator: null };
-  }
+  proposerValcons: string | null;
 }
 
 export async function getBlockDetail(
@@ -99,22 +115,56 @@ export async function getBlockDetail(
 
   const summary = toSummary(res);
   const header = res.block.header;
-  const proposer = await resolveProposer(chain, header.proposer_address);
+  const validators = await getValidatorsCached(chain).catch(() => []);
+  const hit = proposerIndex(validators, chain.bech32Prefix).get(header.proposer_address);
+
+  // Signing: ABSENT entries carry no address, so who was absent is found by
+  // subtracting the signers from the set.
+  const sigs = res.block.last_commit?.signatures ?? null;
+  const signers = new Set<string>();
+  let absentCount = 0;
+  for (const sig of sigs ?? []) {
+    if (sig.block_id_flag === "BLOCK_ID_FLAG_ABSENT") absentCount++;
+    else if (sig.validator_address) signers.add(sig.validator_address);
+  }
+  let absentValidators: AbsentValidator[] | null = null;
+  if (sigs) {
+    const missing: AbsentValidator[] = [];
+    for (const v of validators) {
+      if (!v.consensusPubkey) continue;
+      const ids = consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix);
+      if (ids && !signers.has(ids.base64)) {
+        missing.push({ moniker: v.moniker, operator: v.operatorAddress });
+      }
+    }
+    absentValidators = missing.length === absentCount ? missing : null;
+  }
+
+  let proposerValcons: string | null = null;
+  const proposerOp = hit?.operator ?? null;
+  const proposerV = proposerOp ? validators.find((v) => v.operatorAddress === proposerOp) : null;
+  if (proposerV?.consensusPubkey) {
+    proposerValcons =
+      consensusIdsFromPubkey(proposerV.consensusPubkey, chain.bech32Prefix)?.valcons ?? null;
+  }
 
   return {
     ...summary,
     chainId: header.chain_id ?? null,
-    appHash: header.app_hash ?? null,
-    dataHash: header.data_hash ?? null,
-    validatorsHash: header.validators_hash ?? null,
-    lastCommitHash: header.last_commit_hash ?? null,
-    signatureCount: res.block.last_commit?.signatures?.length ?? null,
+    appHash: base64ToHex(header.app_hash ?? null),
+    dataHash: base64ToHex(header.data_hash ?? null),
+    validatorsHash: base64ToHex(header.validators_hash ?? null),
+    lastCommitHash: base64ToHex(header.last_commit_hash ?? null),
+    signatureCount: sigs ? sigs.length : null,
+    signedCount: sigs ? sigs.length - absentCount : null,
+    absentCount: sigs ? absentCount : null,
+    absentValidators,
     rawTxs: res.block.data.txs ?? [],
-    proposerMoniker: proposer.moniker,
-    proposerOperator: proposer.operator,
+    proposerMoniker: hit?.moniker ?? null,
+    proposerOperator: proposerOp,
+    proposerValcons,
   };
 }
-
 
 /**
  * The Cosmos REST API exposes no "list blocks" endpoint, so we read the head and
@@ -126,4 +176,21 @@ export async function getRecentBlocks(
   count = RECENT_BLOCK_COUNT
 ): Promise<BlockSummary[]> {
   return (await recentFacts(chain, count)).map((f) => f.summary);
+}
+
+/**
+ * The `count` blocks below `before`, newest first — the "Older" pages of the
+ * blocks list. Committed blocks never change, so these come from the shared
+ * block cache. A pruned height is dropped rather than failing the page.
+ */
+export async function getBlocksBefore(
+  chain: ChainConfig,
+  before: number,
+  count = RECENT_BLOCK_COUNT
+): Promise<BlockSummary[]> {
+  const heights = Array.from({ length: count }, (_, i) => before - 1 - i).filter((h) => h > 0);
+  const settled = await Promise.allSettled(heights.map((h) => blockFacts(chain, h)));
+  return settled
+    .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockFacts>>> => r.status === "fulfilled")
+    .map((r) => r.value.summary);
 }

@@ -296,3 +296,31 @@ export async function getSupplyOf(
   );
   return res?.amount?.amount ?? null;
 }
+
+/**
+ * Chain APR with the parameters it depends on, cached. Validator pages each
+ * need the chain-wide figure to derive an APR after their own commission, and
+ * the underlying reads move on the scale of hours.
+ */
+export function getChainAprCached(chain: ChainConfig): Promise<{
+  stakingApr: number | null;
+  minCommission: number | null;
+}> {
+  return cached(
+    `chainapr:${chain.chainId}`,
+    10 * 60_000,
+    async () => {
+      const p = await getChainParams(chain).catch(() => null);
+      const economics = await getChainEconomics(
+        chain,
+        p?.distribution?.communityTax ?? null,
+        p?.staking?.minCommissionRate ?? null
+      ).catch(() => null);
+      return {
+        stakingApr: economics?.stakingApr ?? null,
+        minCommission: p?.staking?.minCommissionRate ?? null,
+      };
+    },
+    { staleMs: 60 * 60_000 }
+  );
+}

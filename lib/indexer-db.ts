@@ -51,7 +51,7 @@ export function indexerPool(): Pool | null {
  * An unknown chainId keeps the pool: the indexer holds chains the scan may not
  * have a config for, and refusing those would be a silent regression.
  */
-function poolFor(chainId: string): Pool | null {
+export function poolFor(chainId: string): Pool | null {
   const chain = getChain(chainId);
   if (chain && !chain.indexed) return null;
   return indexerPool();
@@ -488,6 +488,10 @@ export interface IndexedAccountTx {
     denom: string;
     amount: string;
   } | null;
+  /** Selected by the recent-transactions read; absent elsewhere. */
+  gasUsed?: string | null;
+  gasWanted?: string | null;
+  signer?: string | null;
 }
 
 export interface IndexedAccountTxs {
@@ -521,7 +525,9 @@ export interface IndexedAccountTxs {
 export async function accountTxsFromIndexer(
   chainId: string,
   address: string,
-  limit = 50
+  limit = 50,
+  /** Keyset cursor: return only transactions older than this row. */
+  before?: { height: string; hash: string }
 ): Promise<IndexedAccountTxs | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
@@ -567,9 +573,19 @@ export async function accountTxsFromIndexer(
           AND tr.kind <> 'fee'
           AND (tr.from_addr = $2 OR tr.to_addr = $2)
         WHERE t.chain_id = $1
+          AND ($6::bigint IS NULL OR t.height < $6 OR (t.height = $6 AND t.hash > $7))
         ORDER BY t.height DESC, t.hash, tr.msg_index, tr.coin_index
         LIMIT $5`,
-      [chainId, address, c.lowest, c.highest, limit + 1]
+      [
+        chainId,
+        address,
+        c.lowest,
+        // The CTE's range stops at the cursor too, so older pages stay cheap.
+        before ? Math.min(Number(before.height), c.highest) : c.highest,
+        limit + 1,
+        before ? before.height : null,
+        before ? before.hash : "",
+      ]
     );
 
     const rows = res.rows.slice(0, limit);
@@ -631,6 +647,9 @@ export async function recentTxsFromIndexer(
       msg_types: string[];
       fee_denom: string | null;
       fee_amount: string | null;
+      gas_used: string | null;
+      gas_wanted: string | null;
+      signer: string | null;
       from_addr: string | null;
       to_addr: string | null;
       denom: string | null;
@@ -641,6 +660,7 @@ export async function recentTxsFromIndexer(
       `SELECT DISTINCT ON (t.height, t.hash)
               t.hash, t.height::text, t.time::text, t.code, t.msg_types,
               t.fee_denom, t.fee_amount::text,
+              t.gas_used::text, t.gas_wanted::text, t.signer,
               tr.from_addr, tr.to_addr, tr.denom, tr.amount::text
          FROM tx t
          LEFT JOIN transfer tr
@@ -659,11 +679,32 @@ export async function recentTxsFromIndexer(
       msgTypes: r.msg_types ?? [],
       feeDenom: r.fee_denom,
       feeAmount: r.fee_amount,
+      gasUsed: r.gas_used,
+      gasWanted: r.gas_wanted,
+      signer: r.signer,
       transfer:
         r.denom && r.amount
           ? { from: r.from_addr, to: r.to_addr, denom: r.denom, amount: r.amount }
           : null,
     }));
+  }).catch(() => null);
+}
+
+/**
+ * When the indexer last advanced its cursor for a chain, or null when it can't
+ * be read. A reader that serves "latest" from the index checks this first, so
+ * a stalled follower is noticed instead of passing old rows off as new.
+ */
+export async function indexerFreshness(chainId: string): Promise<Date | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  return cached(`idx:fresh:${chainId}`, 10_000, async () => {
+    const res = await pool.query<{ updated_at: string | null }>(
+      `SELECT updated_at::text FROM indexer_cursor WHERE chain_id = $1`,
+      [chainId]
+    );
+    const at = res.rows[0]?.updated_at;
+    return at ? new Date(at) : null;
   }).catch(() => null);
 }
 
@@ -720,6 +761,10 @@ export interface IndexedVote {
   option: string;
   weighted: boolean;
   options: { option: string; weight: string }[] | null;
+  /** The transaction that cast the counted (latest) vote, and when. */
+  txHash: string | null;
+  height: string | null;
+  time: string | null;
 }
 
 /**
@@ -746,13 +791,24 @@ export async function votesFromIndexer(
       option: string;
       weighted: boolean;
       options: { option: string; weight: string }[] | null;
+      tx_hash: string | null;
+      height: string | null;
+      time: Date | string | null;
     }>(
-      `SELECT voter, option, weighted, options
+      `SELECT voter, option, weighted, options, tx_hash, height::text AS height, time
          FROM vote
         WHERE chain_id = $1 AND proposal_id = $2`,
       [chainId, proposalId]
     );
-    return res.rows;
+    return res.rows.map((r) => ({
+      voter: r.voter,
+      option: r.option,
+      weighted: r.weighted,
+      options: r.options,
+      txHash: r.tx_hash,
+      height: r.height,
+      time: r.time instanceof Date ? r.time.toISOString() : r.time,
+    }));
   } catch {
     // A database that is down must look exactly like one that is unconfigured.
     return null;

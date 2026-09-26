@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { cached } from "@/lib/cache";
+import { base64ToHex } from "@/lib/format";
 
 /**
  * What the app needs from one Cosmos block, cached by height.
@@ -62,7 +63,8 @@ export function toSummary(res: BlockResponse): BlockSummary {
     time: res.block.header.time,
     txCount: res.block.data.txs?.length ?? 0,
     proposer: res.block.header.proposer_address,
-    hash: res.block_id?.hash ?? null,
+    // Hex, as every other tool shows a block hash; the LCD sends base64.
+    hash: base64ToHex(res.block_id?.hash ?? null),
   };
 }
 

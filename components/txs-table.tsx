@@ -3,17 +3,16 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { timeAgo, truncateMiddle } from "@/lib/format";
-import { formatCoins, type DenomInfo } from "@/lib/coin";
+import { formatCoinsShort, type DenomInfo } from "@/lib/coin";
 import type { RecentTxs } from "@/lib/adapter";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 /**
- * The transaction list.
+ * The transaction list: the newest transactions, as many as fit.
  *
- * Same deck as blocks: as many rows as fit, the rest paged, and the record in a
- * popup rather than a page away. A transaction is the clearest case for it —
- * most visits ask one question ("did it land, and what did it move?") that the
- * popup answers outright.
+ * Each row names the message that matters (a relayer's client update is never
+ * it), counts the rest as "+N", and shows the amount that message moved. The
+ * hash is a real link to the transaction.
  */
 function useSecondsTicker() {
   const [, force] = useState(0);
@@ -23,6 +22,8 @@ function useSecondsTicker() {
   }, []);
 }
 
+type Feed = RecentTxs & { denoms?: DenomInfo[] };
+
 export function TxsTable({
   chainId,
   accent,
@@ -31,11 +32,11 @@ export function TxsTable({
 }: {
   chainId: string;
   accent: string;
-  /** Known denoms for fee formatting — a chain may pay fees in another token. */
+  /** Known denoms, including resolved IBC tokens — a fee may be in another token. */
   denoms: DenomInfo[];
-  initial: RecentTxs;
+  initial: Feed;
 }) {
-  const { data, isError } = useQuery<RecentTxs>({
+  const { data, isError } = useQuery<Feed>({
     queryKey: ["txs", chainId],
     queryFn: async () => {
       const res = await fetch(`/api/chains/${chainId}/txs`, { cache: "no-store" });
@@ -48,23 +49,31 @@ export function TxsTable({
   });
 
   useSecondsTicker();
+  const known = [...denoms, ...(data.denoms ?? [])];
 
   const rows: DeckRow[] = data.txs.map((tx) => {
     const ok = tx.code === 0;
-    const amount =
-      tx.transfer && tx.transfer.amount.length > 0
-        ? formatCoins(tx.transfer.amount, denoms, 2)
-        : "—";
     const type =
-      tx.messages[0]?.label ??
-      (tx.messageCount > 1 ? `${tx.messageCount} messages` : "—");
+      tx.primaryLabel ??
+      (tx.messages[0]
+        ? tx.messageCount > 1
+          ? `${tx.messages[0].label} +${tx.messageCount - 1}`
+          : tx.messages[0].label
+        : "—");
+    const href = `/${chainId}/txs/${encodeURIComponent(tx.hash)}`;
 
     return {
       key: tx.hash,
       cells: [
         { v: truncateMiddle(tx.hash, 10, 6), mono: true, tone: "accent" },
         { v: type },
-        { v: amount, mono: true, align: "right" },
+        {
+          v: tx.transfer && tx.transfer.amount.length > 0 ? formatCoinsShort(tx.transfer.amount, known) : "—",
+          mono: true,
+          align: "right",
+          dim: !tx.transfer?.amount.length,
+        },
+        { v: formatCoinsShort(tx.fee, known, 6), mono: true, align: "right", dim: true },
         {
           v: tx.code === null ? "—" : ok ? "ok" : `fail ${tx.code}`,
           mono: true,
@@ -75,64 +84,15 @@ export function TxsTable({
           mono: true,
           dim: true,
           align: "right",
+          href: `/${chainId}/blocks/${tx.height}`,
         },
         { v: timeAgo(tx.time), dim: true, align: "right" },
       ],
       detail: {
         title: truncateMiddle(tx.hash, 12, 8),
         sub: type,
-        rows: [
-          { label: "Hash", value: tx.hash, mono: true },
-          {
-            label: "Status",
-            value: tx.code === null ? "—" : ok ? "success" : `failed (code ${tx.code})`,
-          },
-          {
-            label: "Height",
-            value: Number(tx.height).toLocaleString(),
-            mono: true,
-            href: `/${chainId}/blocks/${tx.height}`,
-          },
-          ...(tx.time ? [{ label: "Time", value: tx.time, mono: true }] : []),
-          { label: "Messages", value: String(tx.messageCount), mono: true },
-          ...(tx.messages.length > 0
-            ? [
-                {
-                  label: "Types",
-                  value: tx.messages.map((m) => m.label).join(", "),
-                },
-              ]
-            : []),
-          ...(amount !== "—" ? [{ label: "Amount", value: amount, mono: true }] : []),
-          ...(tx.transfer?.from
-            ? [
-                {
-                  label: "From",
-                  value: truncateMiddle(tx.transfer.from, 14, 8),
-                  mono: true,
-                  href: `/${chainId}/accounts/${tx.transfer.from}`,
-                },
-              ]
-            : []),
-          ...(tx.transfer?.to
-            ? [
-                {
-                  label: "To",
-                  value: truncateMiddle(tx.transfer.to, 14, 8),
-                  mono: true,
-                  href: tx.transfer.to.includes("valoper")
-                    ? `/${chainId}/validators/${tx.transfer.to}`
-                    : `/${chainId}/accounts/${tx.transfer.to}`,
-                },
-              ]
-            : []),
-          { label: "Fee", value: formatCoins(tx.fee, denoms), mono: true },
-          ...(tx.memo ? [{ label: "Memo", value: tx.memo }] : []),
-        ],
-        action: {
-          label: "Full transaction and messages",
-          href: `/${chainId}/txs/${encodeURIComponent(tx.hash)}`,
-        },
+        rows: [],
+        action: { label: "Transaction", href },
       },
     };
   });
@@ -141,20 +101,17 @@ export function TxsTable({
     <RowDeck
       accent={accent}
       columns={[
-        { label: "Hash", width: "22%" },
+        { label: "Hash", width: "18%" },
         { label: "Type" },
-        { label: "Amount", align: "right", phoneHide: true },
-        { label: "Status", width: "12%" },
-        { label: "Height", align: "right", optional: true, width: "14%" },
-        { label: "Age", align: "right", phoneHide: true, width: "12%" },
+        { label: "Amount", align: "right", phoneHide: true, width: "17%" },
+        { label: "Fee", align: "right", optional: true, width: "12%" },
+        { label: "Status", width: "9%" },
+        { label: "Height", align: "right", optional: true, width: "12%" },
+        { label: "Age", align: "right", phoneHide: true, width: "9%" },
       ]}
       rows={rows}
       fit
-      empty={
-        isError
-          ? "Connection lost — retrying."
-          : "No transactions"
-      }
+      empty={isError || data.stale ? "N/A" : "No transactions"}
     />
   );
 }

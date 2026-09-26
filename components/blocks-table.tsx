@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { timeAgo, truncateMiddle } from "@/lib/format";
+import { base64ToHex, timeAgo, truncateMiddle } from "@/lib/format";
 import type { NamedBlock } from "@/lib/blocks";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
@@ -10,9 +10,9 @@ import { RowDeck, type DeckRow } from "@/components/row-deck";
  * The block list.
  *
  * A deck rather than a table that grows: the page has a fixed height, so this
- * shows as many blocks as fit and pages the rest. Clicking a row opens the
- * block's record where it stands — the whole block page is still one link away
- * inside the popup, for the transactions and the header hashes.
+ * shows as many blocks as fit. The height is a real link to the block and the
+ * proposer a real link to its validator. Live, it polls the head; on an
+ * "Older" page (`live` false) it shows a fixed window and never polls.
  *
  * The ticker is separate from the poll on purpose. Blocks arrive every few
  * seconds but "12s ago" is wrong the moment it is painted, so the ages re-render
@@ -30,20 +30,26 @@ export function BlocksTable({
   chainId,
   accent,
   initialBlocks,
+  live = true,
 }: {
   chainId: string;
   accent: string;
   initialBlocks: NamedBlock[];
+  /** Poll the head. Off on the older pages, which are fixed windows. */
+  live?: boolean;
 }) {
   const { data, isError } = useQuery<{ blocks: NamedBlock[] }>({
-    queryKey: ["blocks", chainId],
+    // An older page is its own entry: sharing the live key would hand it the
+    // live feed from the cache.
+    queryKey: ["blocks", chainId, live ? "live" : initialBlocks[0]?.height],
     queryFn: async () => {
       const res = await fetch(`/api/chains/${chainId}/blocks`, { cache: "no-store" });
       if (!res.ok) throw new Error(`blocks request failed: ${res.status}`);
       return res.json();
     },
     initialData: { blocks: initialBlocks },
-    refetchInterval: 3000,
+    refetchInterval: live ? 3000 : false,
+    enabled: live,
     refetchIntervalInBackground: false,
   });
 
@@ -63,49 +69,43 @@ export function BlocksTable({
     }
   }, [topHeight]);
 
-  const rows: DeckRow[] = blocks.map((block) => ({
-    key: block.height,
-    fresh: block.height === freshHeight,
-    cells: [
-      {
-        v: Number(block.height).toLocaleString(),
-        mono: true,
-        tone: "accent",
-        align: "right",
-      },
-      { v: timeAgo(block.time), dim: true, align: "right" },
-      {
-        v: String(block.txCount),
-        mono: true,
-        align: "right",
-        dim: block.txCount === 0,
-      },
-      { v: block.proposerMoniker ?? truncateMiddle(block.proposer, 8, 6), dim: !block.proposerMoniker },
-      { v: block.hash ? truncateMiddle(block.hash, 10, 6) : "—", mono: true, dim: true },
-    ],
-    detail: {
-      title: `Block ${Number(block.height).toLocaleString()}`,
-      sub: timeAgo(block.time),
-      rows: [
-        { label: "Height", value: Number(block.height).toLocaleString(), mono: true },
-        { label: "Time", value: block.time, mono: true },
-        { label: "Transactions", value: String(block.txCount), mono: true },
+  const rows: DeckRow[] = blocks.map((block) => {
+    const href = `/${chainId}/blocks/${block.height}`;
+    // A resolved proposer links to its validator. An unresolved one is either
+    // a raw address (truncated) or, on gno, a name already — shown whole.
+    const raw = block.proposer;
+    const looksLikeAddress = /^[A-Za-z0-9+/=]{24,}$/.test(raw) || /^g1[0-9a-z]{30,}$/.test(raw);
+    const hash = base64ToHex(block.hash);
+    return {
+      key: block.height,
+      fresh: block.height === freshHeight,
+      cells: [
         {
-          label: "Proposer",
-          value: block.proposerMoniker ?? block.proposer,
-          mono: !block.proposerMoniker,
-          href: block.proposerOperator
-            ? `/${chainId}/validators/${block.proposerOperator}`
-            : undefined,
+          v: Number(block.height).toLocaleString(),
+          mono: true,
+          tone: "accent",
+          align: "right",
+          href,
         },
-        ...(block.hash ? [{ label: "Hash", value: block.hash, mono: true }] : []),
+        { v: timeAgo(block.time), dim: true, align: "right" },
+        {
+          v: String(block.txCount),
+          mono: true,
+          align: "right",
+          dim: block.txCount === 0,
+        },
+        block.proposerMoniker && block.proposerOperator
+          ? { v: block.proposerMoniker, href: `/${chainId}/validators/${block.proposerOperator}` }
+          : { v: looksLikeAddress ? truncateMiddle(raw, 8, 6) : raw, dim: looksLikeAddress },
+        { v: hash ? truncateMiddle(hash, 10, 6) : "—", mono: true, dim: true },
       ],
-      action: {
-        label: "Transactions and header hashes",
-        href: `/${chainId}/blocks/${block.height}`,
+      detail: {
+        title: `Block ${Number(block.height).toLocaleString()}`,
+        rows: [],
+        action: { label: "Block", href },
       },
-    },
-  }));
+    };
+  });
 
   return (
     <RowDeck

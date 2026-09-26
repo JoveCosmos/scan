@@ -6,7 +6,7 @@ import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
 import { formatCoins } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { timeAgo, truncateMiddle } from "@/lib/format";
+import { formatDateTime, timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
@@ -44,83 +44,103 @@ export default async function BlockDetailPage({
   if (!/^\d+$/.test(height)) notFound();
 
   const adapter = getAdapter(chain);
-  const block = await adapter.getBlockDetail(height);
+  const [block, head] = await Promise.all([
+    adapter.getBlockDetail(height),
+    // Only to know whether there is a next block to link to.
+    adapter
+      .getRecentBlocks(1)
+      .then((b) => (b[0] ? Number(b[0].height) : null))
+      .catch(() => null),
+  ]);
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
 
-  if (!block) {
-    return (
-      <PageFrame title="Block not found" sub={chain.prettyName} accent={accent}>
-        <p className="text-sm text-muted-foreground">
-          Height {Number(height).toLocaleString()}: N/A.{" "}
-          <Link href={`/${chainId}/blocks`} className="text-primary hover:underline">
-            Back to blocks
-          </Link>
-          .
-        </p>
-      </PageFrame>
-    );
-  }
+  // Above the head, or pruned from every node we read: a real 404.
+  if (!block) notFound();
 
   const txs = await adapter.getBlockTxs(block);
   const heightNum = Number(block.height);
   const denoms = chainDenoms(chain);
+
+  // Cosmos blocks carry no gas totals of their own; they are the sum of their
+  // transactions', and only when every transaction in the block was read.
+  const complete = txs.length === block.txCount && txs.every((t) => t.code !== null);
+  let gasUsed = block.gasUsed ?? null;
+  let gasWanted = block.gasWanted ?? null;
+  let totalFees = block.totalFees ?? null;
+  if (!gasUsed && complete && txs.length > 0) {
+    gasUsed = String(txs.reduce((a, t) => a + Number(t.gasUsed ?? 0), 0));
+    gasWanted = String(txs.reduce((a, t) => a + Number(t.gasWanted ?? 0), 0));
+    totalFees = String(
+      txs.reduce(
+        (a, t) =>
+          a + t.fee.filter((c) => c.denom === chain.denom).reduce((x, c) => x + BigInt(c.amount), BigInt(0)),
+        BigInt(0)
+      )
+    );
+  }
   const gasPct =
-    block.gasUsed && block.gasWanted && Number(block.gasWanted) > 0
-      ? (Number(block.gasUsed) / Number(block.gasWanted)) * 100
+    gasUsed && gasWanted && Number(gasWanted) > 0
+      ? (Number(gasUsed) / Number(gasWanted)) * 100
       : null;
 
   const proposerName =
     block.proposerMoniker ?? block.proposerLabel ?? truncateMiddle(block.proposer, 8, 6);
+  // gno lists validators under their signing address, which is the proposer.
+  const proposerOperator =
+    block.proposerOperator ??
+    (chain.kind === "gno" && /^g1[0-9a-z]+$/.test(block.proposer) ? block.proposer : null);
+  const proposerId = block.proposerValcons ?? (chain.kind === "gno" ? block.proposer : null);
+
+  const listedAll = txs.length >= block.txCount;
 
   const bricks: BrickSpec[] = [
     {
       key: "time",
       label: "Produced",
       value: timeAgo(block.time),
-      sub: new Date(block.time).toLocaleTimeString(),
+      sub: formatDateTime(block.time),
       lead: true,
-      rows: [
-        { label: "Height", value: heightNum.toLocaleString(), mono: true },
-        { label: "Time", value: block.time, mono: true },
-        { label: "Local", value: new Date(block.time).toLocaleString() },
-        { label: "Chain", value: block.chainId ?? chain.chainId, mono: true },
-      ],
     },
     {
       key: "proposer",
       label: "Proposer",
       value: proposerName,
-      sub: block.signatureCount != null ? `${block.signatureCount} signatures` : undefined,
+      sub: proposerId ? truncateMiddle(proposerId, 12, 6) : undefined,
       text: true,
-      rows: [
-        { label: "Proposer", value: proposerName },
-        {
-          label: "Consensus address",
-          value: block.proposer,
-          mono: true,
-          ...(block.proposerOperator
-            ? { href: `/${chainId}/validators/${block.proposerOperator}` }
-            : {}),
-        },
-        ...(block.signatureCount != null
-          ? [
-              {
-                label: "Signatures",
-                value: String(block.signatureCount),
-                mono: true,
-              },
-            ]
-          : []),
-      ],
+      ...(proposerOperator ? { href: `/${chainId}/validators/${proposerOperator}` } : {}),
     },
+    ...(block.signatureCount != null
+      ? [
+          {
+            key: "signatures",
+            label: "Signed previous",
+            value: `${block.signedCount ?? block.signatureCount} of ${block.signatureCount}`,
+            sub: block.absentCount ? `${block.absentCount} absent` : "none absent",
+            tone: block.absentCount ? ("bad" as const) : undefined,
+            ...(block.absentCount && block.absentValidators && block.absentValidators.length > 0
+              ? {
+                  count: block.absentValidators.length,
+                  rows: block.absentValidators.map((v) => ({
+                    label: "Absent",
+                    value: v.moniker,
+                    href: `/${chainId}/validators/${v.operator}`,
+                  })),
+                }
+              : {}),
+          },
+        ]
+      : []),
     {
       key: "txs",
       label: "Transactions",
       value: String(block.txCount),
-      sub: block.totalFees
-        ? `${formatToken(block.totalFees, chain.exponent, 6)} ${symbol} in fees`
-        : "in this block",
+      sub: !listedAll
+        ? `${txs.length} listed · N/A`
+        : totalFees && totalFees !== "0"
+          ? `${formatToken(totalFees, chain.exponent, 6)} ${symbol} in fees`
+          : "in this block",
+      tone: !listedAll ? ("bad" as const) : undefined,
     },
     ...(gasPct !== null
       ? [
@@ -128,21 +148,8 @@ export default async function BlockDetailPage({
             key: "gas",
             label: "Gas",
             value: `${gasPct.toFixed(1)}%`,
-            sub: "of wanted",
+            sub: `${Number(gasUsed).toLocaleString()} of ${Number(gasWanted).toLocaleString()}`,
             tone: gasPct > 90 ? ("bad" as const) : undefined,
-            rows: [
-              {
-                label: "Used",
-                value: Number(block.gasUsed).toLocaleString(),
-                mono: true,
-              },
-              {
-                label: "Wanted",
-                value: Number(block.gasWanted).toLocaleString(),
-                mono: true,
-              },
-              { label: "Share", value: `${gasPct.toFixed(2)}%`, mono: true },
-            ],
           },
         ]
       : []),
@@ -158,6 +165,7 @@ export default async function BlockDetailPage({
         ...(block.validatorsHash
           ? [{ label: "Validators", value: block.validatorsHash, mono: true }]
           : []),
+        { label: "Chain", value: block.chainId ?? chain.chainId, mono: true },
       ],
     },
   ];
@@ -174,30 +182,18 @@ export default async function BlockDetailPage({
           }`,
         },
         {
-          v: tx.code === null ? "unindexed" : ok ? "ok" : `fail ${tx.code}`,
+          v: tx.code === null ? "N/A" : ok ? "ok" : `fail ${tx.code}`,
           mono: true,
           tone: tx.code === null ? undefined : ok ? "ok" : "bad",
+          dim: tx.code === null,
         },
         { v: formatCoins(tx.fee, denoms), mono: true, dim: true, align: "right" },
       ],
       detail: {
         title: truncateMiddle(tx.hash, 12, 8),
-        sub: tx.messages[0]?.label,
-        rows: [
-          { label: "Hash", value: tx.hash, mono: true },
-          {
-            label: "Status",
-            value: tx.code === null ? "Unindexed" : ok ? "Success" : `Failed (${tx.code})`,
-          },
-          { label: "Messages", value: String(tx.messageCount), mono: true },
-          ...(tx.messages.length > 0
-            ? [{ label: "Types", value: tx.messages.map((m) => m.label).join(", ") }]
-            : []),
-          { label: "Fee", value: formatCoins(tx.fee, denoms), mono: true },
-          ...(tx.memo ? [{ label: "Memo", value: tx.memo }] : []),
-        ],
+        rows: [],
         action: {
-          label: "Full transaction",
+          label: "Transaction",
           href: `/${chainId}/txs/${encodeURIComponent(tx.hash)}`,
         },
       },
@@ -213,6 +209,7 @@ export default async function BlockDetailPage({
       <Icon className="h-3.5 w-3.5" />
     </Link>
   );
+  const atHead = head !== null && heightNum >= head;
 
   return (
     <PageFrame
@@ -222,7 +219,7 @@ export default async function BlockDetailPage({
       actions={
         <>
           {heightNum > 1 ? step(heightNum - 1, "Previous block", ChevronLeft) : null}
-          {step(heightNum + 1, "Next block", ChevronRight)}
+          {atHead ? null : step(heightNum + 1, "Next block", ChevronRight)}
         </>
       }
     >
@@ -240,7 +237,7 @@ export default async function BlockDetailPage({
               { label: "Fee", align: "right", width: "20%", phoneHide: true },
             ]}
             rows={rows}
-            empty="No transactions in this block."
+            empty={listedAll ? "No transactions in this block." : "N/A"}
           />
         </div>
       </div>

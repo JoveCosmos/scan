@@ -49,7 +49,7 @@ const pct = (v: number | null | undefined, d = 2) =>
  * full-height mark in a contrasting colour, because the gaps are the point.
  */
 function MiniBars({ bars }: { bars: boolean[] }) {
-  const shown = bars.slice(-24);
+  const shown = bars;
   return (
     <div className="flex h-[10px] w-full items-end gap-px">
       {shown.map((signed, i) => (
@@ -67,9 +67,19 @@ function MiniBars({ bars }: { bars: boolean[] }) {
 }
 
 /** "BOND_STATUS_BONDED" and "ACTIVE" both read as one capitalised word. */
+/** One wording everywhere: Active, Unbonding, Inactive (Jailed is shown apart). */
 function statusLabel(status: string): string {
-  const s = status.replace("BOND_STATUS_", "").toLowerCase();
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Active";
+  const s = status.replace("BOND_STATUS_", "").toUpperCase();
+  if (s === "BONDED" || s === "ACTIVE" || s === "") return "Active";
+  if (s === "UNBONDING") return "Unbonding";
+  if (s === "UNBONDED" || s === "INACTIVE") return "Inactive";
+  return s.charAt(0) + s.slice(1).toLowerCase();
+}
+
+/** The data part of a bech32 address, past its prefix — the part that differs. */
+function addressTail(address: string): string {
+  const data = address.slice(address.lastIndexOf("1") + 1);
+  return data.length > 14 ? `${data.slice(0, 7)}…${data.slice(-6)}` : data;
 }
 
 interface Column {
@@ -94,7 +104,10 @@ export function ValidatorsTable({
   staking,
   hasUptime,
   jailingsSince = null,
+  chainApr = null,
 }: {
+  /** Chain staking APR before commission, 0–1; each row nets its own commission. */
+  chainApr?: number | null;
   chainId: string;
   accent: string;
   rows: ValidatorRow[];
@@ -140,6 +153,7 @@ export function ValidatorsTable({
   const hasJailings = source.some((r) => r.jailings !== null);
   const hasSigning = hasUptime && source.some((r) => r.uptime.ratio !== null);
   const hasBars = hasUptime && source.some((r) => r.uptime.bars.length > 0);
+  const barCount = Math.max(0, ...source.map((r) => r.uptime.bars.length));
   const hasMissed = hasUptime && source.some((r) => r.uptime.missed !== null);
 
   const columns: Column[] = [
@@ -161,7 +175,7 @@ export function ValidatorsTable({
             {v.moniker}
           </span>
           <span className="truncate text-[10.5px] text-muted-foreground">
-            {v.operatorAddress.slice(0, 12)}…{v.operatorAddress.slice(-5)}
+            {addressTail(v.operatorAddress)}
           </span>
         </span>
       ),
@@ -249,6 +263,19 @@ export function ValidatorsTable({
           },
         ]
       : []),
+    ...(staking && chainApr !== null
+      ? [
+          {
+            key: "apr",
+            label: "APR",
+            title: "Expected APR after commission",
+            align: "right" as const,
+            w: "5rem",
+            show: "hidden lg:table-cell",
+            cell: (v: ValidatorRow) => pct(chainApr * (1 - v.commissionRate)),
+          },
+        ]
+      : []),
     ...(hasSigning
       ? [
           {
@@ -276,8 +303,8 @@ export function ValidatorsTable({
       ? [
           {
             key: "signing",
-            label: "Last 24",
-            title: "Last 24 blocks, newest on the right",
+            label: `Last ${barCount}`,
+            title: `Last ${barCount} blocks, newest on the right`,
             w: "7rem",
             show: "hidden lg:table-cell",
             cell: (v: ValidatorRow) =>

@@ -25,6 +25,18 @@ export interface TxTransfer {
   staking: boolean;
 }
 
+/** Who a message names, by role — "delegator", "validator", "voter"… */
+export interface PartyRole {
+  role: string;
+  address: string;
+}
+
+/** A multi-send's inputs and outputs, kept whole. */
+export interface MultiSendIO {
+  inputs: { address: string; coins: Coin[] }[];
+  outputs: { address: string; coins: Coin[] }[];
+}
+
 /** A raw message: shape varies by type, so every field is optional. */
 export interface RawMessage {
   "@type": string;
@@ -37,6 +49,12 @@ export interface RawMessage {
   sender?: string;
   receiver?: string;
   voter?: string;
+  depositor?: string;
+  proposer?: string;
+  contract?: string;
+  signer?: string;
+  withdraw_address?: string;
+  validator_addr?: string;
   granter?: string;
   grantee?: string;
   amount?: Coin[] | Coin;
@@ -182,4 +200,160 @@ export function directionFor(
   if (from) return "out";
   if (to) return "in";
   return null;
+}
+
+/**
+ * Every address a message names, with its role. Unlike transferOf, which reads
+ * as "value moved from → to", this says who each party is — a delegator is a
+ * delegator whether stake goes in or out.
+ */
+export function partiesOf(msg: RawMessage): PartyRole[] {
+  const type = msg["@type"].split(".").pop() ?? "";
+  const out: PartyRole[] = [];
+  const add = (role: string, address: string | undefined | null) => {
+    if (address) out.push({ role, address });
+  };
+  switch (type) {
+    case "MsgSend":
+      add("sender", msg.from_address);
+      add("recipient", msg.to_address);
+      break;
+    case "MsgMultiSend":
+      for (const i of msg.inputs ?? []) add("sender", i.address);
+      for (const o of msg.outputs ?? []) add("recipient", o.address);
+      break;
+    case "MsgDelegate":
+    case "MsgUndelegate":
+    case "MsgCancelUnbondingDelegation":
+    case "MsgWithdrawDelegatorReward":
+      add("delegator", msg.delegator_address);
+      add("validator", msg.validator_address);
+      break;
+    case "MsgBeginRedelegate":
+      add("delegator", msg.delegator_address);
+      add("srcValidator", msg.validator_src_address);
+      add("dstValidator", msg.validator_dst_address);
+      break;
+    case "MsgSetWithdrawAddress":
+      add("delegator", msg.delegator_address);
+      add("recipient", msg.withdraw_address);
+      break;
+    case "MsgWithdrawValidatorCommission":
+    case "MsgEditValidator":
+      add("validator", msg.validator_address);
+      break;
+    case "MsgUnjail":
+      add("validator", msg.validator_addr ?? msg.validator_address);
+      break;
+    case "MsgVote":
+    case "MsgVoteWeighted":
+      add("voter", msg.voter);
+      break;
+    case "MsgDeposit":
+    case "MsgFundCommunityPool":
+      add("depositor", msg.depositor);
+      break;
+    case "MsgSubmitProposal":
+      add("proposer", msg.proposer);
+      break;
+    case "MsgTransfer":
+      add("sender", msg.sender);
+      add("recipient", msg.receiver);
+      break;
+    case "MsgExecuteContract":
+    case "MsgMigrateContract":
+      add("sender", msg.sender);
+      add("contract", msg.contract);
+      break;
+    case "MsgExec":
+      add("grantee", msg.grantee);
+      break;
+    case "MsgGrant":
+    case "MsgRevoke":
+    case "MsgGrantAllowance":
+    case "MsgRevokeAllowance":
+      add("granter", msg.granter);
+      add("grantee", msg.grantee);
+      break;
+    default:
+      add("signer", msg.signer ?? msg.sender);
+  }
+  return out;
+}
+
+export function multiSendIO(msg: RawMessage): MultiSendIO | null {
+  if (!/MsgMultiSend$/.test(msg["@type"])) return null;
+  const io = (list: { address?: string; coins?: Coin[] }[] | undefined) =>
+    (list ?? []).flatMap((x) => (x.address ? [{ address: x.address, coins: x.coins ?? [] }] : []));
+  return { inputs: io(msg.inputs), outputs: io(msg.outputs) };
+}
+
+/** The minimum a message needs for transferForAddress; TxMessage satisfies it. */
+export interface MovementSource {
+  transfer: TxTransfer | null;
+  io?: MultiSendIO | null;
+  inner?: MovementSource[];
+}
+
+export interface AddressMovement {
+  direction: "in" | "out" | "self";
+  /** The other side; null for a multi-send with several, or unknown. */
+  counterparty: string | null;
+  amount: Coin[];
+}
+
+/**
+ * What a transaction moved for one address — for an account's own history.
+ *
+ * Looks through every message (and authz inner messages) for one where the
+ * address is a party, instead of the transaction's first transfer, which can
+ * belong to someone else entirely (another delegator in a batch, the sender of
+ * an airdrop). A multi-send reports only this address's own output or input.
+ */
+export function transferForAddress(
+  messages: MovementSource[],
+  address: string
+): AddressMovement | null {
+  const flat: MovementSource[] = [];
+  const walk = (list: MovementSource[]) => {
+    for (const m of list) {
+      flat.push(m);
+      if (m.inner) walk(m.inner);
+    }
+  };
+  walk(messages);
+
+  let partyOnly: AddressMovement | null = null;
+  for (const m of flat) {
+    if (m.io) {
+      const out = m.io.outputs.filter((o) => o.address === address);
+      const inp = m.io.inputs.filter((i) => i.address === address);
+      if (out.length) {
+        return {
+          direction: inp.length ? "self" : "in",
+          counterparty: m.io.inputs.length === 1 ? m.io.inputs[0].address : null,
+          amount: out.flatMap((o) => o.coins),
+        };
+      }
+      if (inp.length) {
+        return {
+          direction: "out",
+          counterparty: m.io.outputs.length === 1 ? m.io.outputs[0].address : null,
+          amount: inp.flatMap((i) => i.coins),
+        };
+      }
+      continue;
+    }
+    const t = m.transfer;
+    const dir = directionFor(t, address);
+    if (!t || !dir) continue;
+    const movement: AddressMovement = {
+      direction: dir,
+      counterparty: dir === "out" ? t.to : dir === "in" ? t.from : null,
+      amount: t.amount,
+    };
+    if (t.amount.length > 0) return movement;
+    partyOnly ??= movement;
+  }
+  return partyOnly;
 }

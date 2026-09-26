@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { ArrowLeftRight } from "lucide-react";
+import { getChain } from "@/lib/chains";
 import { routeHealth, routeIsLive, type SideHealth } from "@/lib/ibc-routes";
 
 /**
@@ -15,8 +17,8 @@ export async function IbcRoutesTable({ chainId }: { chainId: string }) {
   if (routes.length === 0) {
     return (
       <div className="gata-panel px-5 py-7 text-center">
-        <p className="text-sm text-muted-foreground">
-          No routes are tracked for this chain yet.
+        <p className="font-mono text-sm uppercase tracking-[0.14em] text-[var(--gata-faint)]">
+          N/A
         </p>
       </div>
     );
@@ -35,10 +37,10 @@ export async function IbcRoutesTable({ chainId }: { chainId: string }) {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 text-sm">
                 <Dot accent={route.a.accent} />
-                <span className="font-medium">{route.a.prettyName}</span>
+                <ChainName side={route.a} />
                 <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" />
                 <Dot accent={route.b.accent} />
-                <span className="font-medium">{route.b.prettyName}</span>
+                <ChainName side={route.b} />
               </div>
               <Verdict live={live} route={route} />
             </div>
@@ -87,7 +89,7 @@ function Verdict({
 
   return (
     <span className="text-xs text-muted-foreground">
-      {unreachable ? "could not check" : "not carrying traffic"}
+      {unreachable ? "N/A" : "not carrying traffic"}
     </span>
   );
 }
@@ -97,11 +99,15 @@ function SidePanel({ side }: { side: SideHealth }) {
     <div className="rounded-lg border border-border/60 px-3 py-2.5">
       <div className="flex items-center gap-2">
         <Dot accent={side.accent} />
-        <span className="text-xs text-muted-foreground">{side.prettyName}</span>
+        <span className="text-xs text-muted-foreground">
+          <ChainName side={side} />
+        </span>
       </div>
 
       <dl className="mt-2 space-y-1 text-xs">
+        <Row label="Port" value={side.portId} mono />
         <Row label="Channel" value={side.channelId} mono />
+        <Row label="Connection" value={side.connectionId} mono />
         <Row
           label="Client"
           value={side.clientId}
@@ -160,6 +166,19 @@ function Row({
         ) : null}
       </dd>
     </div>
+  );
+}
+
+/** A route's chain, linked to its own relayers page when we carry it. */
+function ChainName({ side }: { side: SideHealth }) {
+  if (!getChain(side.chainId)) return <span className="font-medium">{side.prettyName}</span>;
+  return (
+    <Link
+      href={`/${side.chainId}/relayers`}
+      className="font-medium text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+    >
+      {side.prettyName}
+    </Link>
   );
 }
 

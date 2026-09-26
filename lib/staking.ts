@@ -2,15 +2,19 @@ import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { cached } from "@/lib/cache";
 import { isBech32ish } from "@/lib/input";
-import { getValidators } from "@/lib/validators";
+import { getValidatorsCached, getInactiveValidators } from "@/lib/validators";
 import { accountFromOperator } from "@/lib/bech32";
 import type { Coin } from "@/lib/accounts";
 
+/** Where a validator stands, for an account's view of its own stake. */
+export type ValidatorState = "active" | "unbonding" | "inactive" | "jailed" | null;
+
 export interface DelegationRow {
   validator: string;
-  /** Null when the validator is not in the current set — see monikerMap. */
+  /** Null when the validator is in neither set we read. */
   moniker: string | null;
   jailed: boolean;
+  state: ValidatorState;
   /** Bonded amount, in the chain's base denom. */
   amount: string;
   /** Outstanding reward in the base denom, or null when the query failed. */
@@ -20,6 +24,7 @@ export interface DelegationRow {
 export interface UnbondingRow {
   validator: string;
   moniker: string | null;
+  state: ValidatorState;
   amount: string;
   /** ISO timestamp the tokens become liquid. */
   completion: string;
@@ -30,6 +35,8 @@ export interface RedelegationRow {
   to: string;
   fromMoniker: string | null;
   toMoniker: string | null;
+  fromState: ValidatorState;
+  toState: ValidatorState;
   amount: string;
   completion: string;
 }
@@ -117,7 +124,7 @@ export async function getAccountStaking(
   // Addresses are interpolated into LCD paths. See lib/input.ts.
   if (!isBech32ish(address)) return empty;
 
-  const [delegations, unbonding, redelegations, rewards, validators] =
+  const [delegations, unbonding, redelegations, rewards, active, inactive] =
     await Promise.allSettled([
       fetchLcd<DelegationsResponse>(
         chain,
@@ -143,15 +150,30 @@ export async function getAccountStaking(
         `/cosmos/distribution/v1beta1/delegators/${address}/rewards`,
         { cache: "no-store", timeoutMs: 12_000 }
       ),
-      getValidators(chain),
+      // Both sets, cached: a delegation to a jailed or inactive validator is
+      // still a delegation to someone with a name, and the bonded set alone
+      // showed it as a truncated address marked "bonded".
+      getValidatorsCached(chain),
+      getInactiveValidators(chain),
     ]);
 
   if (delegations.status === "rejected") return { ...empty, failed: true };
 
-  const monikers = new Map<string, { moniker: string; jailed: boolean }>();
-  if (validators.status === "fulfilled") {
-    for (const v of validators.value) {
-      monikers.set(v.operatorAddress, { moniker: v.moniker, jailed: v.jailed });
+  const monikers = new Map<string, { moniker: string; jailed: boolean; state: ValidatorState }>();
+  for (const set of [active, inactive]) {
+    if (set.status !== "fulfilled") continue;
+    for (const v of set.value) {
+      monikers.set(v.operatorAddress, {
+        moniker: v.moniker,
+        jailed: v.jailed,
+        state: v.jailed
+          ? "jailed"
+          : v.status === "BOND_STATUS_BONDED"
+            ? "active"
+            : v.status === "BOND_STATUS_UNBONDING"
+              ? "unbonding"
+              : "inactive",
+      });
     }
   }
 
@@ -179,6 +201,7 @@ export async function getAccountStaking(
           validator,
           moniker: known?.moniker ?? null,
           jailed: known?.jailed ?? false,
+          state: known?.state ?? null,
           amount,
           reward: rewards.status === "fulfilled"
             ? (rewardByValidator.get(validator) ?? "0")
@@ -199,6 +222,7 @@ export async function getAccountStaking(
                   {
                     validator: u.validator_address,
                     moniker: monikers.get(u.validator_address)?.moniker ?? null,
+                    state: monikers.get(u.validator_address)?.state ?? null,
                     amount: e.balance,
                     completion: e.completion_time,
                   },
@@ -222,6 +246,8 @@ export async function getAccountStaking(
                     to,
                     fromMoniker: monikers.get(from)?.moniker ?? null,
                     toMoniker: monikers.get(to)?.moniker ?? null,
+                    fromState: monikers.get(from)?.state ?? null,
+                    toState: monikers.get(to)?.state ?? null,
                     amount: e.balance,
                     completion: e.redelegation_entry.completion_time,
                   },

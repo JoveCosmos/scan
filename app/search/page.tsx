@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { SearchX } from "lucide-react";
 import { getAllChains, accentFor, type ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
-import { classifyChainless } from "@/lib/search";
-import { decodePrefix } from "@/lib/bech32";
+import { classifySearch, secpKeyToAddress } from "@/lib/search";
+import { consensusIdsFromPubkey } from "@/lib/uptime";
+import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
+import type { ValidatorSummary } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
@@ -16,27 +18,51 @@ interface Candidate {
 }
 
 /** Chains whose bech32 prefix matches — several, since testnets share a prefix. */
-function chainsForAddress(address: string): ChainConfig[] {
-  const prefix = decodePrefix(address);
-  if (!prefix) return [];
+function chainsForPrefix(prefix: string): ChainConfig[] {
   const base = prefix.replace(/(valoper|valcons)$/, "");
   return getAllChains().filter((c) => c.bech32Prefix === base);
 }
 
-/** Ask every cosmos chain whether it holds this hash. Only one ever should. */
-async function chainsWithTx(query: string): Promise<ChainConfig[]> {
-  const candidates = getAllChains();
+/** Resolves or gives up within `ms`, so one slow chain cannot stall search. */
+function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+}
+
+/** Active and inactive validators of each chain, from the shared caches. */
+async function validatorSets(
+  chains: ChainConfig[]
+): Promise<{ chain: ChainConfig; validators: ValidatorSummary[] }[]> {
+  return Promise.all(
+    chains.map(async (chain) => {
+      const adapter = getAdapter(chain);
+      const [active, inactive] = await Promise.all([
+        within(adapter.getValidators(), 8000, [] as ValidatorSummary[]),
+        within(adapter.getInactiveValidators(), 8000, [] as ValidatorSummary[]),
+      ]);
+      return { chain, validators: [...active, ...inactive] };
+    })
+  );
+}
+
+/**
+ * Ask every chain whether it holds this hash. Only one ever should. A gno
+ * chain is asked in its own base64 form, so a hex hash copied from gnoscan
+ * resolves as well.
+ */
+async function chainsWithTx(hash: string): Promise<{ chain: ChainConfig; hash: string }[]> {
   const hits = await Promise.all(
-    candidates.map(async (chain) => {
+    getAllChains().map(async (chain) => {
+      const asked = chain.kind === "gno" ? normalizeGnoHash(hash) : /^[0-9A-F]{64}$/.test(hash) ? hash : null;
+      if (!asked) return null;
       try {
-        const tx = await getAdapter(chain).getTx(query);
-        return tx ? chain : null;
+        const tx = await getAdapter(chain).getTx(asked);
+        return tx ? { chain, hash: asked } : null;
       } catch {
         return null;
       }
-    }),
+    })
   );
-  return hits.filter((c): c is ChainConfig => c !== null);
+  return hits.filter((c): c is { chain: ChainConfig; hash: string } => c !== null);
 }
 
 function Disambiguation({
@@ -65,7 +91,7 @@ function Disambiguation({
 
         <ul className="mt-4 grid min-h-0 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
           {candidates.map((c) => (
-            <li key={c.chain.chainId}>
+            <li key={c.href}>
               <Link
                 href={c.href}
                 className="gata-panel gata-panel-interactive flex items-center justify-between gap-3 px-4 py-2.5"
@@ -108,10 +134,6 @@ function NoResult({ query }: { query: string }) {
             {query}
           </p>
         ) : null}
-        <p className="mt-4 text-sm text-muted-foreground">
-          Try a block height, a transaction hash, or an address from any of the
-          chains listed on the home page.
-        </p>
         <Link
           href="/"
           className="mt-6 inline-block rounded-lg border border-border bg-secondary/60 px-4 py-2 text-sm transition-colors hover:border-[var(--gata-border-hi)]"
@@ -138,79 +160,172 @@ export default async function GlobalSearchPage({
 }) {
   const { q = "", chain: hint } = await searchParams;
   const query = q.trim();
-  if (!query) return <NoResult query="" />;
+  const shape = classifySearch(query);
+  if (shape.kind === "empty") return <NoResult query={query} />;
 
   const all = getAllChains();
-  // Only heights and hashes are classified here; addresses are resolved from
-  // their own prefix a few lines down, against every chain.
-  const guess = classifyChainless(query);
+  const prefer = <T extends { chain: ChainConfig }>(items: T[]): T[] =>
+    hint && items.some((i) => i.chain.chainId === hint)
+      ? items.filter((i) => i.chain.chainId === hint)
+      : items;
+  // One candidate goes straight there; several ask which chain.
+  const settle = (candidates: Candidate[], hintText: string) => {
+    const picked = prefer(candidates);
+    if (picked.length === 1) redirect(picked[0].href);
+    if (picked.length === 0) return <NoResult query={query} />;
+    return <Disambiguation query={query} hint={hintText} candidates={picked} />;
+  };
 
-  const prefer = (chains: ChainConfig[]) =>
-    hint && chains.some((c) => c.chainId === hint)
-      ? chains.filter((c) => c.chainId === hint)
-      : chains;
-
-  if (guess.kind === "height") {
-    const chains = prefer(all);
-    if (chains.length === 1) {
-      redirect(`/${chains[0].chainId}/blocks/${guess.value}`);
-    }
-    return (
-      <Disambiguation
-        query={query}
-        hint="That looks like a block height, which exists on every chain."
-        candidates={chains.map((chain) => ({
+  switch (shape.kind) {
+    case "height":
+      return settle(
+        all.map((chain) => ({
           chain,
-          href: `/${chain.chainId}/blocks/${guess.value}`,
-          note: `block #${Number(guess.value).toLocaleString()}`,
-        }))}
-      />
-    );
-  }
-
-  // An address names its chain family through its prefix.
-  const byPrefix = chainsForAddress(query);
-  if (byPrefix.length > 0) {
-    const isValidator = /valoper/.test(decodePrefix(query) ?? "");
-    const path = (c: ChainConfig) =>
-      isValidator
-        ? `/${c.chainId}/validators/${query}`
-        : `/${c.chainId}/accounts/${query}`;
-
-    const chains = prefer(byPrefix);
-    if (chains.length === 1) redirect(path(chains[0]));
-
-    return (
-      <Disambiguation
-        query={query}
-        hint="That address is valid on more than one of these chains."
-        candidates={chains.map((chain) => ({
-          chain,
-          href: path(chain),
-          note: isValidator ? "validator" : "account",
-        }))}
-      />
-    );
-  }
-
-  if (guess.kind === "tx") {
-    // Nothing in the hash says which chain it belongs to, so ask them all.
-    const found = await chainsWithTx(guess.value);
-    if (found.length === 1) {
-      redirect(`/${found[0].chainId}/txs/${encodeURIComponent(guess.value)}`);
-    }
-    if (found.length > 1) {
-      return (
-        <Disambiguation
-          query={query}
-          hint="That transaction exists on more than one chain."
-          candidates={found.map((chain) => ({
-            chain,
-            href: `/${chain.chainId}/txs/${encodeURIComponent(guess.value)}`,
-            note: "transaction",
-          }))}
-        />
+          href: `/${chain.chainId}/blocks/${shape.value}`,
+          note: `block #${Number(shape.value).toLocaleString()}`,
+        })),
+        "A block height exists on every chain."
       );
+
+    case "gnoPath":
+      redirect(`https://${shape.value}`);
+
+    case "bech32": {
+      const chains = chainsForPrefix(shape.prefix);
+      if (chains.length === 0) break;
+      const address = shape.address;
+
+      if (shape.prefix.endsWith("valcons")) {
+        // A consensus address names a validator through its consensus key.
+        const sets = await validatorSets(chains);
+        return settle(
+          sets.flatMap(({ chain, validators }) =>
+            validators
+              .filter(
+                (v) =>
+                  v.consensusPubkey &&
+                  consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)?.valcons === address
+              )
+              .map((v) => ({
+                chain,
+                href: `/${chain.chainId}/validators/${v.operatorAddress}`,
+                note: v.moniker,
+              }))
+          ),
+          "That consensus address belongs to a validator on more than one chain."
+        );
+      }
+
+      if (shape.prefix.endsWith("valoper")) {
+        return settle(
+          chains.map((chain) => ({
+            chain,
+            href: `/${chain.chainId}/validators/${address}`,
+            note: "validator",
+          })),
+          "That validator address is valid on more than one chain."
+        );
+      }
+
+      // On gno a plain address may be a validator's signing or operator
+      // address; the registry says which.
+      const candidates = await Promise.all(
+        chains.map(async (chain) => {
+          const validator =
+            chain.kind === "gno" ? await within(resolveGnoValidatorAddress(chain, address), 5000, null) : null;
+          return validator
+            ? { chain, href: `/${chain.chainId}/validators/${validator}`, note: "validator" }
+            : { chain, href: `/${chain.chainId}/accounts/${address}`, note: "account" };
+        })
+      );
+      return settle(candidates, "That address is valid on more than one of these chains.");
+    }
+
+    case "txHex":
+    case "base64Key32": {
+      // 32 base64 bytes are either a gno tx hash or an ed25519 consensus key.
+      if (shape.kind === "base64Key32") {
+        const sets = await validatorSets(all);
+        const byKey = sets.flatMap(({ chain, validators }) =>
+          validators
+            .filter((v) => v.consensusPubkey === shape.value)
+            .map((v) => ({
+              chain,
+              href: `/${chain.chainId}/validators/${v.operatorAddress}`,
+              note: v.moniker,
+            }))
+        );
+        if (byKey.length > 0) return settle(byKey, "That key validates on more than one chain.");
+      }
+      const found = await chainsWithTx(shape.value);
+      if (found.length > 0) {
+        return settle(
+          found.map(({ chain, hash }) => ({
+            chain,
+            href: `/${chain.chainId}/txs/${encodeURIComponent(hash)}`,
+            note: "transaction",
+          })),
+          "That transaction exists on more than one chain."
+        );
+      }
+      break;
+    }
+
+    case "secpKey": {
+      // An account key maps to an address on every chain; offer each network.
+      const byPrefix = new Map<string, ChainConfig[]>();
+      for (const chain of all) {
+        if (chain.kind === "gno") continue;
+        byPrefix.set(chain.bech32Prefix, [...(byPrefix.get(chain.bech32Prefix) ?? []), chain]);
+      }
+      const candidates: Candidate[] = [];
+      for (const [prefix, chains] of byPrefix) {
+        const address = secpKeyToAddress(shape.bytes, prefix);
+        for (const chain of chains) {
+          candidates.push({ chain, href: `/${chain.chainId}/accounts/${address}`, note: address });
+        }
+      }
+      return settle(candidates, "That key has an account on every chain.");
+    }
+
+    case "consHex": {
+      const sets = await validatorSets(all.filter((c) => c.kind === "cosmos"));
+      return settle(
+        sets.flatMap(({ chain, validators }) =>
+          validators
+            .filter(
+              (v) =>
+                v.consensusPubkey &&
+                consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)?.hex === shape.value
+            )
+            .map((v) => ({
+              chain,
+              href: `/${chain.chainId}/validators/${v.operatorAddress}`,
+              note: v.moniker,
+            }))
+        ),
+        "That consensus address validates on more than one chain."
+      );
+    }
+
+    case "name": {
+      // A validator by name, on any chain. Exact names first.
+      const needle = shape.value.toLowerCase();
+      const sets = await validatorSets(all);
+      const matches = sets.flatMap(({ chain, validators }) =>
+        validators
+          .filter((v) => v.moniker.toLowerCase().includes(needle))
+          .map((v) => ({
+            chain,
+            href: `/${chain.chainId}/validators/${v.operatorAddress}`,
+            note: v.moniker,
+            exact: v.moniker.toLowerCase() === needle,
+          }))
+      );
+      const exact = matches.filter((m) => m.exact);
+      const list = (exact.length > 0 ? exact : matches).slice(0, 40);
+      if (list.length === 0) break;
+      return settle(list, "Validators matching that name.");
     }
   }
 

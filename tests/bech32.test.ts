@@ -4,7 +4,7 @@ import {
   decodePrefix,
   linkedAddresses,
   accountFromOperator,
-  LINKED_CHAINS,
+  linkedChains,
 } from "@/lib/bech32";
 
 const COSMOS = "cosmos1qypqxpq9qcrsszg2pvxq6rs0zqg3yyc5lzv7xu";
@@ -68,13 +68,20 @@ describe("accountFromOperator", () => {
 describe("linkedAddresses", () => {
   it("returns the account on every linked chain, including its own", () => {
     const links = linkedAddresses(COSMOS);
-    expect(links).toHaveLength(LINKED_CHAINS.length);
-    expect(links.map((l) => l.chainId)).toEqual([
-      "cosmoshub-4",
-      "atomone-1",
-      "akashnet-2",
-      "gnoland-1",
-    ]);
+    expect(links).toHaveLength(linkedChains().length);
+    // Every mainnet we carry, Osmosis, Juno and Passage included.
+    expect(links.map((l) => l.chainId)).toEqual(
+      expect.arrayContaining([
+        "cosmoshub-4",
+        "atomone-1",
+        "akashnet-2",
+        "osmosis-1",
+        "juno-1",
+        "passage-2",
+        "gnoland-1",
+      ])
+    );
+    expect(links.some((l) => l.chainId === "provider")).toBe(false);
     expect(links.find((l) => l.chainId === "cosmoshub-4")!.address).toBe(COSMOS);
   });
 

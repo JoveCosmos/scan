@@ -1,4 +1,4 @@
-import { formatToken } from "@/lib/overview";
+import { exactAmount, shortAmount, shortDenom } from "@/lib/coin";
 import type { TxTransfer } from "@/lib/tx-parties";
 import { directionFor } from "@/lib/tx-parties";
 import { cn } from "@/lib/utils";
@@ -44,8 +44,8 @@ export function TxAmount({
         // denom is shown raw rather than scaled by the wrong power of ten.
         const native = coin.denom === denom;
         const value = native
-          ? `${nativeAmount(coin.amount, exponent)} ${symbol}`
-          : `${Number(coin.amount).toLocaleString()} ${shortDenom(coin.denom)}`;
+          ? `${shortAmount(coin.amount, exponent, 4)} ${symbol}`
+          : `${exactAmount(coin.amount, 0)} ${shortDenom(coin.denom)}`;
 
         return (
           <span
@@ -64,24 +64,4 @@ export function TxAmount({
       })}
     </span>
   );
-}
-
-/**
- * Four decimals, except when that would round a real transfer down to
- * "0.0000" — a dust payment is not nothing, and showing it as zero is a
- * factual error. Those become "<0.0001" instead.
- */
-function nativeAmount(amount: string, exponent: number): string {
-  const formatted = formatToken(amount, exponent, 4);
-  if (/^0.0*$/.test(formatted.replace(/,/g, "")) && BigInt(amount || "0") > BigInt(0)) {
-    return "<0.0001";
-  }
-  return formatted;
-}
-
-/** `ibc/1A2B…` and `factory/osmo1…/foo` are too long for a table cell. */
-function shortDenom(denom: string): string {
-  if (denom.startsWith("ibc/")) return `ibc/${denom.slice(4, 10)}…`;
-  if (denom.startsWith("factory/")) return denom.split("/").pop() ?? denom;
-  return denom.length > 12 ? `${denom.slice(0, 12)}…` : denom;
 }

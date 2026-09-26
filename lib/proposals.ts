@@ -26,11 +26,20 @@ export interface ProposalSummary {
   totalDeposit: Coin[];
   proposer: string | null;
   messageTypes: string[];
+  /** The proposal's messages as the chain sent them, with a readable type. */
+  messages: ProposalMessage[];
   tally: Tally;
   /** True when the tally came from the live endpoint rather than the record. */
   liveTally: boolean;
   expedited: boolean;
   failedReason: string | null;
+}
+
+export interface ProposalMessage {
+  typeUrl: string;
+  /** "Software Upgrade", "Community Pool Spend", "Update Params · staking". */
+  label: string;
+  raw: Record<string, unknown>;
 }
 
 export interface GovParams {
@@ -63,7 +72,35 @@ interface RawProposal {
   expedited?: boolean;
   failed_reason?: string;
   final_tally_result?: RawTally;
-  messages?: { "@type": string; content?: { title?: string; description?: string } }[];
+  messages?: RawMessage[];
+}
+
+interface RawMessage {
+  "@type": string;
+  content?: { "@type"?: string; title?: string; description?: string };
+  [key: string]: unknown;
+}
+
+/** "CommunityPoolSpend" → "Community Pool Spend". */
+function words(name: string): string {
+  return name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+}
+
+/**
+ * A readable name for a proposal message. Legacy proposals wrap their content
+ * in MsgExecLegacyContent, so the content's own type is the one that says what
+ * the proposal does. Params updates name their module, since every module has
+ * a MsgUpdateParams and the bare name says nothing.
+ */
+export function proposalTypeLabel(typeUrl: string, contentType?: string | null): string {
+  const pick = /MsgExecLegacyContent$/.test(typeUrl) && contentType ? contentType : typeUrl;
+  const last = pick.split(".").pop() ?? pick;
+  const base = words(last.replace(/^Msg/, "").replace(/Proposal$/, "")) || last;
+  if (/^Update Params$/.test(base)) {
+    const mod = pick.replace(/^\//, "").split(".")[1];
+    return mod ? `Update Params · ${mod}` : base;
+  }
+  return base;
 }
 
 interface ProposalsResponse {
@@ -119,6 +156,11 @@ function toSummary(raw: RawProposal): ProposalSummary {
     totalDeposit: raw.total_deposit ?? [],
     proposer: raw.proposer ?? null,
     messageTypes: (raw.messages ?? []).map((m) => m["@type"]),
+    messages: (raw.messages ?? []).map((m) => ({
+      typeUrl: m["@type"],
+      label: proposalTypeLabel(m["@type"], m.content?.["@type"] ?? null),
+      raw: m as Record<string, unknown>,
+    })),
     tally: toTally(raw.final_tally_result),
     liveTally: false,
     expedited: raw.expedited ?? false,
@@ -145,6 +187,78 @@ export async function getProposals(
     proposals: (res.proposals ?? []).map(toSummary),
     total: res.pagination?.total ? Number(res.pagination.total) : null,
   };
+}
+
+/** Pages of proposals per request, and a ceiling far above any chain here. */
+const ALL_PAGE = 200;
+const ALL_MAX_PAGES = 10;
+
+/**
+ * Every proposal, newest first. The list page used to stop at 60, which left
+ * most of Cosmos Hub's governance history unreachable from it.
+ */
+export async function getAllProposals(chain: ChainConfig): Promise<ProposalSummary[]> {
+  const out: ProposalSummary[] = [];
+  let key: string | null = null;
+  for (let page = 0; page < ALL_MAX_PAGES; page++) {
+    const res: ProposalsResponse & { pagination?: { next_key?: string | null } } =
+      await fetchLcd(chain, "/cosmos/gov/v1/proposals", {
+        cache: "no-store",
+        timeoutMs: 20_000,
+        searchParams: {
+          "pagination.limit": ALL_PAGE,
+          "pagination.reverse": true,
+          ...(key ? { "pagination.key": key } : {}),
+        },
+      });
+    out.push(...(res.proposals ?? []).map(toSummary));
+    key = res.pagination?.next_key || null;
+    if (!key) break;
+  }
+  return out;
+}
+
+/**
+ * The running tally of a proposal in voting. final_tally_result is all zeros
+ * until the vote closes, which is how a list read "no votes recorded" beside
+ * a proposal with a thousand votes. Null when the endpoint does not answer.
+ */
+export async function getLiveTally(chain: ChainConfig, id: string): Promise<Tally | null> {
+  if (!isNumericId(id)) return null;
+  try {
+    const live = await fetchLcd<{ tally?: RawTally }>(
+      chain,
+      `/cosmos/gov/v1/proposals/${id}/tally`,
+      { cache: "no-store", timeoutMs: 10_000 }
+    );
+    return live.tally ? toTally(live.tally) : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface Deposit {
+  depositor: string;
+  amount: Coin[];
+}
+
+/**
+ * Who deposited. The gov module keeps deposits only until the proposal
+ * finishes (refunded or burned), so this answers for proposals still in their
+ * deposit or voting period; null otherwise, or when the read fails.
+ */
+export async function getDeposits(chain: ChainConfig, id: string): Promise<Deposit[] | null> {
+  if (!isNumericId(id)) return null;
+  try {
+    const res = await fetchLcd<{ deposits?: { depositor: string; amount?: Coin[] }[] }>(
+      chain,
+      `/cosmos/gov/v1/proposals/${id}/deposits`,
+      { cache: "no-store", timeoutMs: 10_000, searchParams: { "pagination.limit": 500 } }
+    );
+    return (res.deposits ?? []).map((d) => ({ depositor: d.depositor, amount: d.amount ?? [] }));
+  } catch {
+    return null;
+  }
 }
 
 export async function getProposal(
@@ -199,6 +313,9 @@ export interface ProposalVote {
   /** Convenience: the heaviest option, which is the whole vote for most voters. */
   primary: string;
   weighted: boolean;
+  /** The transaction that cast the counted vote, where known (history, index). */
+  txHash?: string | null;
+  time?: string | null;
 }
 
 export interface ProposalVotes {
@@ -348,7 +465,7 @@ const TX_CONCURRENCY = 8;
 
 interface VoteTxPage {
   txs?: { body?: { messages?: VoteMessage[] } }[];
-  tx_responses?: { code?: number }[];
+  tx_responses?: { code?: number; txhash?: string; timestamp?: string }[];
   /** Tx search reports its count here, not under pagination. */
   total?: string;
 }
@@ -453,7 +570,11 @@ async function votesFromHistory(
             : [];
         if (rawOptions.length === 0) continue;
 
-        votes.push(toVote(voter, rawOptions));
+        votes.push({
+          ...toVote(voter, rawOptions),
+          txHash: res.tx_responses?.[i]?.txhash ?? null,
+          time: res.tx_responses?.[i]?.timestamp ?? null,
+        });
       }
     });
 
@@ -513,12 +634,11 @@ export async function getProposalVotes(
     if (indexed && indexed.length > 0) {
       const c = await coverage(chain.chainId);
       if (covers(c, window.start, window.end)) {
-        const votes: ProposalVote[] = indexed.map((v) =>
-          toVote(
-            v.voter,
-            v.options ?? [{ option: v.option, weight: "1" }]
-          )
-        );
+        const votes: ProposalVote[] = indexed.map((v) => ({
+          ...toVote(v.voter, v.options ?? [{ option: v.option, weight: "1" }]),
+          txHash: v.txHash,
+          time: v.time,
+        }));
         return {
           votes: votes.slice(0, limit),
           total: votes.length,
@@ -645,4 +765,22 @@ export function tallyShares(tally: Tally): {
     no: Number(tally.no) / total,
     veto: tally.veto ? Number(tally.veto) / total : 0,
   };
+}
+
+/**
+ * Bonded tokens now, the denominator of turnout while a vote is open. Only
+ * meaningful for a proposal in voting: the gov module measures quorum against
+ * the bonded stake at tally time, which for a finished proposal is gone.
+ */
+export async function getBondedTokens(chain: ChainConfig): Promise<string | null> {
+  try {
+    const res = await fetchLcd<{ pool?: { bonded_tokens?: string } }>(
+      chain,
+      "/cosmos/staking/v1beta1/pool",
+      { cache: "no-store", timeoutMs: 8_000 }
+    );
+    return res.pool?.bonded_tokens ?? null;
+  } catch {
+    return null;
+  }
 }

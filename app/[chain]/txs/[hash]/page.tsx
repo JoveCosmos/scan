@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getChain, accentFor, chainDenoms } from "@/lib/chains";
-import { formatCoins } from "@/lib/coin";
-import { getAdapter } from "@/lib/adapter";
+import { getChain, getAllChains, accentFor } from "@/lib/chains";
+import { formatCoinsExact } from "@/lib/coin";
+import { getAdapter, type TxView } from "@/lib/adapter";
 import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
+import { denomsForTxs, ibcCounterparts, type IbcCounterpart } from "@/lib/txs";
+import { routeAddress } from "@/lib/address-route";
 import { PageFrame } from "@/components/page-frame";
-import { BrickBoard, type BrickSpec } from "@/components/brick-board";
-import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { SectionTabs } from "@/components/section-tabs";
+import { CopyButton } from "@/components/copy-button";
+import { AddressLink } from "@/components/address-link";
+import { EventList, MessageCard, RawJson, SummaryRow } from "./tx-view";
 
 export const dynamic = "force-dynamic";
 
@@ -20,230 +24,227 @@ export async function generateMetadata({
   return { title: `Tx ${truncateMiddle(decodeParam(hash), 8, 6)}` };
 }
 
+function utc(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.toISOString().slice(0, 19).replace("T", " ")} UTC`;
+}
+
 /**
- * One transaction: whether it landed, what it moved, and every message in it.
- *
- * The raw log is a brick rather than a section. It is the last thing anyone
- * needs and the longest thing on the page — as a block of text at the bottom it
- * pushed the messages, which are what people actually came for, off the screen.
+ * One transaction, the way an explorer should show it: who signed and paid,
+ * whether it landed and why not, and every message with its parties by role,
+ * each a link. Events and the node's raw response sit in their own tabs; lists
+ * scroll inside the frame, the page never does.
  */
 export default async function TxDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ chain: string; hash: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { chain: chainId, hash: rawHash } = await params;
+  const { tab } = await searchParams;
   const chain = getChain(chainId);
   if (!chain) notFound();
 
   const hash = decodeParam(rawHash);
-  const tx = await getAdapter(chain).getTx(hash);
   const accent = accentFor(chain);
-  const denoms = chainDenoms(chain);
 
+  // Not found and node failure are different answers: "Not found" is the
+  // node's word, "N/A" means we couldn't ask. Either way the hash may live on
+  // another network, so the one way on is a search across all of them.
+  // (Rendered inline: the chain segment streams behind a loading screen, so
+  // a 404 status can't be sent from here anyway.)
+  let tx: TxView | null;
+  let failed = false;
+  try {
+    tx = await getAdapter(chain).getTx(hash);
+  } catch {
+    tx = null;
+    failed = true;
+  }
   if (!tx) {
     return (
-      <PageFrame title="Transaction not found" sub={chain.prettyName} accent={accent}>
-        <p className="text-sm text-muted-foreground">
-          No transaction {truncateMiddle(hash, 10, 6)} on {chain.prettyName}. It may
-          be pending, or dropped from the nodes we query.{" "}
-          <Link href={`/${chainId}/txs`} className="text-primary hover:underline">
-            Back to transactions
+      <PageFrame title="Transaction" sub={`${chain.prettyName} · ${failed ? "N/A" : "Not found"}`} accent={accent}>
+        <div className="flex flex-col gap-2 text-sm">
+          <span className="break-all font-mono text-muted-foreground">{hash}</span>
+          <Link
+            href={`/search?q=${encodeURIComponent(hash)}`}
+            className="text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
+          >
+            Search all chains
           </Link>
-          .
-        </p>
+        </div>
       </PageFrame>
     );
   }
 
+  const all = getAllChains();
+  const prefixes = all.map((c) => ({
+    chainId: c.chainId,
+    bech32Prefix: c.bech32Prefix,
+    network: c.network,
+  }));
+  const [denoms, counterparts] = await Promise.all([
+    chain.kind === "cosmos" ? denomsForTxs(chain, [tx]) : Promise.resolve([]),
+    chain.kind === "cosmos" && tx.rawJson
+      ? ibcCounterparts(chain, { ...tx, rawLog: tx.rawLog ?? "", signers: tx.signers ?? [], timeoutHeight: tx.timeoutHeight ?? null }, all).catch(
+          () => [] as IbcCounterpart[]
+        )
+      : Promise.resolve([] as IbcCounterpart[]),
+  ]);
+  const cpBy = new Map(counterparts.map((c) => [c.index, c]));
+
   const ok = tx.code === 0;
+  const status = tx.code === null ? "unindexed" : ok ? "success" : "failed";
   const gasPct =
     tx.gasUsed && tx.gasWanted && Number(tx.gasWanted) > 0
       ? (Number(tx.gasUsed) / Number(tx.gasWanted)) * 100
       : null;
+  const signers = tx.signers ?? (tx.signer ? [tx.signer] : []);
+  const feePayer = tx.feePayer && !signers.includes(tx.feePayer) ? tx.feePayer : null;
+  const events = tx.events ?? [];
 
-  const bricks: BrickSpec[] = [
-    {
-      key: "status",
-      label: "Status",
-      value: tx.code === null ? "unindexed" : ok ? "success" : "failed",
-      sub: tx.code !== null && !ok ? `code ${tx.code}` : timeAgo(tx.time),
-      tone: tx.code === null ? undefined : ok ? "ok" : "bad",
-      rows: [
-        { label: "Hash", value: tx.hash, mono: true },
-        {
-          label: "Result",
-          value: tx.code === null ? "Unindexed" : ok ? "Success" : `Failed (code ${tx.code})`,
-        },
-        ...(tx.time ? [{ label: "Time", value: tx.time, mono: true }] : []),
-        ...(tx.timeoutHeight && tx.timeoutHeight !== "0"
-          ? [{ label: "Timeout height", value: tx.timeoutHeight, mono: true }]
-          : []),
-      ],
-    },
-    {
-      key: "height",
-      label: "Height",
-      value: Number(tx.height).toLocaleString(),
-      sub: timeAgo(tx.time),
-      lead: true,
-      href: `/${chainId}/blocks/${tx.height}`,
-    },
-    {
-      key: "fee",
-      label: "Fee",
-      value: formatCoins(tx.fee, denoms, 4),
-      sub: gasPct !== null ? `${gasPct.toFixed(1)}% of gas` : undefined,
-      rows: [
-        { label: "Fee", value: formatCoins(tx.fee, denoms), mono: true },
-        ...(tx.gasUsed
-          ? [{ label: "Gas used", value: Number(tx.gasUsed).toLocaleString(), mono: true }]
-          : []),
-        ...(tx.gasWanted
-          ? [
-              {
-                label: "Gas wanted",
-                value: Number(tx.gasWanted).toLocaleString(),
-                mono: true,
-              },
-            ]
-          : []),
-        ...(gasPct !== null
-          ? [{ label: "Used", value: `${gasPct.toFixed(2)}%`, mono: true }]
-          : []),
-      ],
-    },
-    {
-      key: "messages",
-      label: "Messages",
-      value: String(tx.messageCount),
-      sub: tx.messages[0]?.label,
-      ...(tx.signers && tx.signers.length > 0
-        ? {
-            rows: [
-              { label: "Messages", value: String(tx.messageCount), mono: true },
-              {
-                label: tx.signers.length === 1 ? "Signer" : "Signers",
-                value: tx.signers.join(", "),
-                mono: true,
-              },
-            ],
-          }
-        : {}),
-    },
-    ...(tx.memo
+  const messagesPanel = (
+    <div className="h-full overflow-y-auto pr-1">
+      <div className="flex flex-col gap-2.5">
+        {tx.messages.length === 0 ? (
+          <p className="font-mono text-sm text-[var(--gata-faint)]">N/A</p>
+        ) : (
+          tx.messages.map((m, i) => (
+            <MessageCard
+              key={`${i}-${m.typeUrl}`}
+              message={m}
+              index={i}
+              denoms={denoms}
+              counterpart={cpBy.get(i)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const sections = [
+    { key: "messages", label: `Messages · ${tx.messageCount}`, content: messagesPanel },
+    ...(events.length
       ? [
           {
-            key: "memo",
-            label: "Memo",
-            value: tx.memo,
-            text: true,
-            sub: "attached to this transaction",
-            rows: [{ label: "Memo", value: tx.memo }],
+            key: "events",
+            label: `Events · ${events.length}`,
+            content: (
+              <div className="h-full overflow-y-auto pr-1">
+                <EventList
+                  events={events}
+                  isAddress={(v) => routeAddress(v, chainId, prefixes) !== null}
+                />
+              </div>
+            ),
           },
         ]
       : []),
-    ...(tx.rawLog && !ok
-      ? [
-          {
-            key: "log",
-            label: "Error log",
-            value: "raw log",
-            sub: "why it failed",
-            tone: "bad" as const,
-            rows: [{ label: "Log", value: tx.rawLog, mono: true }],
-          },
-        ]
+    ...(tx.rawJson
+      ? [{ key: "raw", label: "Raw JSON", content: <RawJson json={tx.rawJson} /> }]
       : []),
   ];
 
-  const rows: DeckRow[] = tx.messages.map((message, i) => ({
-    key: `${i}-${message.typeUrl}`,
-    cells: [
-      { v: String(i + 1), dim: true, align: "right" },
-      { v: message.label },
-      {
-        v: message.transfer?.from ? truncateMiddle(message.transfer.from, 10, 5) : "—",
-        mono: true,
-        dim: !message.transfer?.from,
-      },
-      {
-        v: message.transfer?.to ? truncateMiddle(message.transfer.to, 10, 5) : "—",
-        mono: true,
-        dim: !message.transfer?.to,
-      },
-      {
-        v:
-          message.transfer && message.transfer.amount.length > 0
-            ? formatCoins(message.transfer.amount, denoms, 2)
-            : "—",
-        mono: true,
-        align: "right",
-      },
-    ],
-    detail: {
-      title: message.label,
-      sub: `Message ${i + 1} of ${tx.messageCount}`,
-      rows: [
-        { label: "Type", value: message.typeUrl, mono: true },
-        ...(message.transfer?.from
-          ? [
-              {
-                label: message.transfer.staking ? "Delegator" : "From",
-                value: message.transfer.from,
-                mono: true,
-                href: `/${chainId}/accounts/${message.transfer.from}`,
-              },
-            ]
-          : []),
-        ...(message.transfer?.to
-          ? [
-              {
-                label: message.transfer.staking ? "Validator" : "To",
-                value: message.transfer.to,
-                mono: true,
-                href: message.transfer.to.includes("valoper")
-                  ? `/${chainId}/validators/${message.transfer.to}`
-                  : `/${chainId}/accounts/${message.transfer.to}`,
-              },
-            ]
-          : []),
-        ...(message.transfer && message.transfer.amount.length > 0
-          ? [
-              {
-                label: "Amount",
-                value: formatCoins(message.transfer.amount, denoms),
-                mono: true,
-              },
-            ]
-          : []),
-      ],
-    },
-  }));
-
   return (
-    <PageFrame
-      title={truncateMiddle(tx.hash, 12, 8)}
-      sub={`${chain.prettyName} · ${tx.code === null ? "unindexed" : ok ? "success" : "failed"}`}
-      accent={accent}
-    >
+    <PageFrame title="Transaction" sub={`${chain.prettyName} · ${status}`} accent={accent}>
       <div className="flex h-full flex-col gap-3">
-        <div className="shrink-0">
-          <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
+        <div className="gata-surface shrink-0 px-4 py-3">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 lg:grid-cols-4">
+            <SummaryRow label="Hash" wide>
+              <span className="inline-flex max-w-full items-center gap-1">
+                <span className="break-all font-mono text-[12.5px]">{tx.hash}</span>
+                <CopyButton value={tx.hash} label="hash" />
+              </span>
+            </SummaryRow>
+            <SummaryRow label="Status">
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                  tx.code === null
+                    ? "bg-[var(--gata-card-hi)] text-muted-foreground"
+                    : ok
+                      ? "bg-[var(--gata-green)]/12 text-[var(--gata-green)]"
+                      : "bg-[var(--destructive)]/12 text-[var(--destructive)]"
+                }`}
+              >
+                {status === "success" ? "Success" : status === "failed" ? "Failed" : "Unindexed"}
+              </span>
+              {!ok && tx.code !== null ? (
+                <span className="ml-2 font-mono text-[12px] text-muted-foreground">
+                  {tx.codespace ? `${tx.codespace} · ` : ""}code {tx.code}
+                </span>
+              ) : null}
+            </SummaryRow>
+            <SummaryRow label="Height">
+              <Link
+                href={`/${chainId}/blocks/${tx.height}`}
+                className="font-mono text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
+              >
+                {Number(tx.height).toLocaleString()}
+              </Link>
+            </SummaryRow>
+            <SummaryRow label="Time">
+              <span className="font-mono text-[12.5px]">{utc(tx.time) ?? "—"}</span>
+              <span className="ml-1.5 text-[12px] text-muted-foreground">{timeAgo(tx.time)}</span>
+            </SummaryRow>
+            <SummaryRow label="Fee">
+              <span className="font-mono">{formatCoinsExact(tx.fee, denoms)}</span>
+            </SummaryRow>
+            {tx.gasUsed || tx.gasWanted ? (
+              <SummaryRow label="Gas used / wanted">
+                <span className="font-mono">
+                  {tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "—"} /{" "}
+                  {tx.gasWanted ? Number(tx.gasWanted).toLocaleString() : "—"}
+                </span>
+                {gasPct !== null ? (
+                  <span className="ml-1.5 text-[12px] text-muted-foreground">{gasPct.toFixed(1)}%</span>
+                ) : null}
+              </SummaryRow>
+            ) : null}
+            {signers.length > 0 ? (
+              <SummaryRow label={signers.length === 1 ? "Signer" : "Signers"}>
+                <span className="flex flex-col">
+                  {signers.map((s) => (
+                    <AddressLink key={s} address={s} head={14} tail={8} />
+                  ))}
+                </span>
+              </SummaryRow>
+            ) : null}
+            {feePayer ? (
+              <SummaryRow label="Fee payer">
+                <AddressLink address={feePayer} head={14} tail={8} />
+              </SummaryRow>
+            ) : null}
+            {tx.feeGranter ? (
+              <SummaryRow label="Fee granter">
+                <AddressLink address={tx.feeGranter} head={14} tail={8} />
+              </SummaryRow>
+            ) : null}
+            {tx.timeoutHeight && tx.timeoutHeight !== "0" ? (
+              <SummaryRow label="Timeout height">
+                <span className="font-mono">{Number(tx.timeoutHeight).toLocaleString()}</span>
+              </SummaryRow>
+            ) : null}
+            {tx.memo ? (
+              <SummaryRow label="Memo" wide>
+                <span className="break-words">{tx.memo}</span>
+              </SummaryRow>
+            ) : null}
+            {!ok && tx.code !== null && tx.rawLog ? (
+              <SummaryRow label="Error" wide>
+                <pre className="max-h-20 overflow-auto whitespace-pre-wrap break-words rounded-md border border-[var(--destructive)]/30 bg-[var(--destructive)]/[0.06] p-2 font-mono text-[11.5px] text-[var(--destructive)]">
+                  {tx.rawLog}
+                </pre>
+              </SummaryRow>
+            ) : null}
+          </dl>
         </div>
         <div className="min-h-0 flex-1">
-          <RowDeck
-            accent={accent}
-            columns={[
-              { label: "#", align: "right", width: "8%" },
-              { label: "Type" },
-              { label: "From", phoneHide: true, width: "20%" },
-              { label: "To", phoneHide: true, width: "20%" },
-              { label: "Amount", align: "right", width: "22%" },
-            ]}
-            rows={rows}
-            empty="No messages decoded."
-          />
+          <SectionTabs sections={sections} initial={tab} param="tab" />
         </div>
       </div>
     </PageFrame>

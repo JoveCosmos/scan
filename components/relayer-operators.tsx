@@ -4,127 +4,121 @@ import { symbolForDenom, accentFor } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { truncateMiddle, timeAgo } from "@/lib/format";
 import { relayerStats } from "@/lib/indexer-db";
+import { relayerPackets } from "@/lib/indexer-validator";
 import { RELAYER_MSG_TYPES } from "@/lib/relayers";
+import { AddressLink } from "@/components/address-link";
+
+/** Messages that each deliver, acknowledge or time out one packet. */
+const PACKET_MSG_TYPES = RELAYER_MSG_TYPES.filter((t) => !t.endsWith("MsgUpdateClient"));
+
+function NotAvailable() {
+  return (
+    <div className="gata-panel px-5 py-7 text-center">
+      <p className="font-mono text-sm uppercase tracking-[0.14em] text-[var(--gata-faint)]">N/A</p>
+    </div>
+  );
+}
 
 /**
- * The operators keeping this chain's channels alive, ranked by work done.
- *
- * Renders an explanation rather than nothing when the chain is not indexed:
- * an empty operator table would read as "nobody relays here", which is the
- * opposite of the truth on any chain with open channels.
+ * The operators keeping this chain's channels alive, ranked by work done:
+ * relay transactions, the packets inside them, fees paid and the last relay.
  */
 export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
-  const stats = await relayerStats(chain.chainId, RELAYER_MSG_TYPES);
+  const [stats, packets] = await Promise.all([
+    relayerStats(chain.chainId, RELAYER_MSG_TYPES),
+    relayerPackets(chain.chainId, PACKET_MSG_TYPES).catch(() => null),
+  ]);
   const accent = accentFor(chain);
 
-  if (!stats) {
-    return (
-      <div className="gata-panel px-5 py-7 text-center">
-        <p className="text-sm text-muted-foreground">
-          Operator statistics need indexed transaction history, which we do not
-          have for {chain.prettyName} yet.
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Relaying leaves no trace in chain state - a delivered packet looks the
-          same whoever delivered it - so this can only be counted from
-          transactions, and nodes forget those beyond their pruning window.
-        </p>
-      </div>
-    );
-  }
-
-  if (stats.operators.length === 0) {
-    return (
-      <div className="gata-panel px-5 py-7 text-center">
-        <p className="text-sm text-muted-foreground">
-          No relay transactions in the indexed range.
-        </p>
-      </div>
-    );
-  }
+  if (!stats || stats.operators.length === 0) return <NotAvailable />;
 
   // Fees are paid in the fee token where a chain has a separate one — AtomOne
   // charges PHOTON, and labelling that ATONE would simply be wrong.
-  const feeDenom = chain.feeDenom ?? chain.denom;
-  const feeSymbol = symbolForDenom(feeDenom);
-  const since = new Date(stats.since).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const feeSymbol = symbolForDenom(chain.feeDenom ?? chain.denom);
+  const since = stats.fromGenesis
+    ? null
+    : new Date(stats.since).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
 
   return (
-    <>
-      <div
-        className="gata-panel overflow-x-auto"
-        style={{ ["--panel-accent" as string]: accent }}
-      >
-        <table className="gata-table w-full text-sm sm:min-w-[620px]">
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+        <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
+          <span className="font-mono font-semibold text-foreground">
+            {stats.totalTxs.toLocaleString()}
+          </span>
+          <span className="text-muted-foreground">relay txs</span>
+        </span>
+        {since ? (
+          <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
+            <span className="text-muted-foreground">since</span>
+            <span className="font-mono font-semibold text-foreground">{since}</span>
+          </span>
+        ) : null}
+      </div>
+
+      <div className="gata-panel overflow-x-auto" style={{ ["--panel-accent" as string]: accent }}>
+        <table className="gata-table w-full text-sm sm:min-w-[680px]">
           <thead>
             <tr className="border-b border-border text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">#</th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Operator
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Relays
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Share
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Fees paid
-              </th>
-              <th className="px-4 py-3 text-right font-medium text-muted-foreground">
-                Last relay
-              </th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">Operator</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Relays</th>
+              {packets ? (
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">Packets</th>
+              ) : null}
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Share</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Fees paid</th>
+              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Last relay</th>
             </tr>
           </thead>
           <tbody>
             {stats.operators.map((op, i) => (
-              <tr
-                key={op.address}
-                className="border-b border-border/50 last:border-0"
-              >
-                <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
+              <tr key={op.address} className="border-b border-border/50 last:border-0">
+                <td data-label="#" className="px-4 py-2.5 text-muted-foreground tabular-nums">
                   {i + 1}
                 </td>
-                <td className="px-4 py-2.5">
-                  <Link
-                    href={`/${chain.chainId}/accounts/${op.address}`}
-                    className="font-mono text-xs transition-colors hover:text-primary"
-                  >
-                    {truncateMiddle(op.address, 14, 8)}
-                  </Link>
+                <td data-label="Operator" data-primary className="px-4 py-2.5">
+                  <AddressLink
+                    address={op.address}
+                    label={truncateMiddle(op.address, 14, 8)}
+                    className="font-mono text-xs"
+                  />
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums">
+                <td data-label="Relays" className="px-4 py-2.5 text-right tabular-nums">
                   {op.txCount.toLocaleString()}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                {packets ? (
+                  <td data-label="Packets" className="px-4 py-2.5 text-right tabular-nums">
+                    {(packets.get(op.address) ?? 0).toLocaleString()}
+                  </td>
+                ) : null}
+                <td data-label="Share" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                   {stats.totalTxs > 0
                     ? `${((op.txCount / stats.totalTxs) * 100).toFixed(1)}%`
-                    : "-"}
+                    : "—"}
                 </td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                <td data-label="Fees paid" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                   {formatToken(op.feesPaid, chain.exponent, 2)}{" "}
                   <span className="text-xs">{feeSymbol}</span>
                 </td>
-                <td className="px-4 py-2.5 text-right text-xs text-muted-foreground whitespace-nowrap">
-                  {timeAgo(op.lastTime)}
+                <td data-label="Last relay" className="px-4 py-2.5 text-right text-xs whitespace-nowrap">
+                  <Link
+                    href={`/${chain.chainId}/blocks/${op.lastHeight}`}
+                    className="text-primary underline decoration-transparent underline-offset-2 transition-colors hover:decoration-current"
+                  >
+                    #{op.lastHeight.toLocaleString()}
+                  </Link>{" "}
+                  <span className="text-muted-foreground">{timeAgo(op.lastTime)}</span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
-      <p className="mt-2 text-xs text-muted-foreground">
-        {stats.totalTxs.toLocaleString()} relay transactions
-        {stats.fromGenesis ? " across the chain's history" : ` since ${since}`},
-        attributed to whoever paid the fee. Packet transfers sent by users are
-        not counted - only the messages a relayer submits to deliver, acknowledge
-        or time out a packet, and the client updates that keep a channel usable.
-      </p>
-    </>
+    </div>
   );
 }

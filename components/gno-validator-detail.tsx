@@ -1,7 +1,11 @@
 import { Suspense } from "react";
 import type { ChainConfig } from "@/lib/chains";
+import type { ValidatorUptime } from "@/lib/uptime";
 import { accentFor } from "@/lib/chains";
-import { gnoValidatorDetail } from "@/lib/gno";
+import { gnoValidatorDetail, gnoUptime } from "@/lib/gno";
+import { gnoPathHref } from "@/lib/address-route";
+import { cached } from "@/lib/cache";
+import { UptimeBars } from "@/components/uptime-bars";
 import { getValoper } from "@/lib/gno-valopers";
 import { truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
@@ -47,14 +51,30 @@ async function ValoperProfileBoard({
       href: `/${chain.chainId}/accounts/${profile.operatorAddress}`,
     },
     ...(profile.signingAddress
-      ? [{ label: "Signing address", value: profile.signingAddress, mono: true }]
+      ? [
+          {
+            label: "Signing address",
+            value: profile.signingAddress,
+            mono: true,
+            href: `/${chain.chainId}/validators/${profile.signingAddress}`,
+          },
+        ]
       : []),
     ...(profile.signingPubKey
       ? [{ label: "Signing pubkey", value: profile.signingPubKey, mono: true }]
       : []),
     ...(profile.serverType ? [{ label: "Server type", value: profile.serverType }] : []),
     ...(profile.profilePath
-      ? [{ label: "Realm profile", value: profile.profilePath, mono: true }]
+      ? [
+          {
+            label: "Realm profile",
+            value: profile.profilePath,
+            mono: true,
+            ...(gnoPathHref(profile.profilePath)
+              ? { href: gnoPathHref(profile.profilePath) as string }
+              : {}),
+          },
+        ]
       : []),
   ];
 
@@ -112,7 +132,16 @@ export async function GnoValidatorDetail({
   address: string;
 }) {
   const accent = accentFor(chain);
-  const consensus = await gnoValidatorDetail(chain, address);
+  const [consensus, uptimes] = await Promise.all([
+    gnoValidatorDetail(chain, address),
+    // Same cache key as the adapter's, so the list and this page share one read.
+    cached(`uptime:${chain.chainId}`, 15_000, () => gnoUptime(chain)).catch(
+      () => new Map<string, ValidatorUptime>()
+    ),
+  ]);
+  // An operator-address URL resolves to the signing address, the page's real id.
+  const signing = consensus?.address ?? address;
+  const uptime = uptimes.get(signing) ?? null;
 
   const active = consensus?.status === "ACTIVE";
 
@@ -141,42 +170,31 @@ export async function GnoValidatorDetail({
       ],
     },
     {
-      key: "first",
-      label: "First committed",
-      value: consensus?.firstCommittedHeight
-        ? `#${consensus.firstCommittedHeight.toLocaleString()}`
-        : "—",
-      sub: consensus?.firstCommittedTime
-        ? new Date(consensus.firstCommittedTime).toLocaleDateString()
-        : "since genesis or unknown",
+      key: "signing",
+      label: "Signing",
+      value: uptime?.ratio != null ? `${(uptime.ratio * 100).toFixed(2)}%` : "N/A",
+      sub:
+        uptime?.window != null
+          ? `${uptime.missed ?? 0} missed of the last ${uptime.window} blocks`
+          : "inactive",
+      tone: uptime?.missed ? "bad" : uptime?.ratio != null ? "ok" : undefined,
       rows: [
         {
-          label: "Height",
-          value: consensus?.firstCommittedHeight
-            ? consensus.firstCommittedHeight.toLocaleString()
-            : "—",
+          label: "Signed",
+          value: uptime?.window != null ? String(uptime.window - (uptime.missed ?? 0)) : "N/A",
           mono: true,
         },
-        {
-          label: "Time",
-          value: consensus?.firstCommittedTime
-            ? new Date(consensus.firstCommittedTime).toLocaleString()
-            : "—",
-        },
+        { label: "Missed", value: uptime?.missed != null ? String(uptime.missed) : "N/A", mono: true },
+        { label: "Window", value: uptime?.window != null ? `last ${uptime.window} blocks` : "N/A" },
       ],
     },
     {
       key: "consensus-address",
       label: "Consensus address",
-      value: truncateMiddle(address, 10, 6),
+      value: truncateMiddle(signing, 10, 6),
       sub: "signing identity",
       rows: [
-        {
-          label: "Address",
-          value: address,
-          mono: true,
-          href: `/${chain.chainId}/accounts/${address}`,
-        },
+        { label: "Address", value: signing, mono: true },
         { label: "Registry", value: REGISTRY, href: `https://${REGISTRY}` },
       ],
     },
@@ -184,12 +202,12 @@ export async function GnoValidatorDetail({
 
   return (
     <PageFrame
-      title={consensus?.moniker ?? truncateMiddle(address, 14, 8)}
+      title={consensus?.moniker ?? truncateMiddle(signing, 14, 8)}
       sub={`${consensus?.rank ? `Rank #${consensus.rank} · ` : ""}${chain.prettyName}`}
       accent={accent}
       actions={
         <>
-          <CopyButton value={address} label="consensus address" />
+          <CopyButton value={signing} label="consensus address" />
           {consensus?.status ? (
             <span
               className={
@@ -208,6 +226,11 @@ export async function GnoValidatorDetail({
         <div className="shrink-0">
           <BrickBoard chainId={chain.chainId} accent={accent} bricks={bricks} />
         </div>
+        {uptime && uptime.bars.length > 0 ? (
+          <div className="shrink-0">
+            <UptimeBars uptime={uptime} slashingWindow={false} />
+          </div>
+        ) : null}
         <div className="min-h-0 flex-1">
           <Suspense fallback={<ProfileSkeleton />}>
             <ValoperProfileBoard chain={chain} address={address} accent={accent} />

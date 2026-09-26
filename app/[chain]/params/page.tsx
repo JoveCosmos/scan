@@ -13,6 +13,8 @@ import { getChainParams, getChainEconomics, humanDuration } from "@/lib/params";
 import { getSupplyOf } from "@/lib/params";
 import { getLatestRelease } from "@/lib/github";
 import { getMarketDataById, formatUsd, formatUsdCompact } from "@/lib/market";
+import { recentJailings } from "@/lib/indexer-validator";
+import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 
@@ -81,7 +83,7 @@ export default async function ChainOverviewPage({
   const feeSymbol = chain.feeDenom ? symbolForDenom(chain.feeDenom) : "";
   const base = `/${chain.chainId}`;
 
-  const [overview, chainParams, release, feeSupply, market, feeMarket] =
+  const [overview, chainParams, release, feeSupply, market, feeMarket, validators, jailings] =
     await Promise.all([
       adapter.getOverview(),
       caps.staking ? getChainParams(chain) : null,
@@ -89,6 +91,9 @@ export default async function ChainOverviewPage({
       chain.feeDenom ? getSupplyOf(chain, chain.feeDenom).catch(() => null) : null,
       getMarketDataById(chain.coingeckoId).catch(() => null),
       getMarketDataById(chain.feeCoingeckoId).catch(() => null),
+      // Cached set, shared with the validators tab: feeds Nakamoto and names.
+      adapter.getValidators().catch(() => []),
+      caps.staking ? recentJailings(chain.chainId).catch(() => null) : null,
     ]);
 
   // Three more LCD reads, and the only ones here that are not either config or
@@ -110,13 +115,9 @@ export default async function ChainOverviewPage({
     sub: "—",
     live: "height",
     lead: true,
-    rows: kept([
-      { label: "Height", value: num(Number(overview.height)), mono: true },
-      { label: "Block time", value: overview.blockTime ?? "—", mono: true },
-      { label: "Txs in block", value: String(overview.txCount ?? "—"), mono: true },
-      { label: "Network ID", value: chain.chainId, mono: true },
-    ]),
-    action: { label: "All blocks", href: `${base}/blocks` },
+    // Follows the live height, so the tile opens the block it is showing.
+    href: overview.height ? `${base}/blocks/${overview.height}` : `${base}/blocks`,
+    liveHref: "block",
   });
 
   bricks.push({
@@ -125,21 +126,66 @@ export default async function ChainOverviewPage({
     value: overview.txCount === null ? "—" : String(overview.txCount),
     sub: "at current height",
     live: "txCount",
+    href: `${base}/txs`,
   });
 
   if (overview.activeValidators !== null) {
+    // Without staking, weight is assigned per validator; its total is the
+    // figure worth stating beside the count.
+    const totalPower = caps.stakeWeighted
+      ? null
+      : validators.reduce((sum, v) => sum + Number(v.tokens || 0), 0);
     bricks.push({
       key: "validators",
-      label: caps.stakeWeighted ? "Validators" : "Voting power",
+      label: "Validators",
       value: num(overview.activeValidators),
-      sub: "in the active set",
+      sub: totalPower ? `${totalPower.toLocaleString()} voting power` : "in the active set",
       href: `${base}/validators`,
+    });
+  }
+
+  // Smallest number of validators that together exceed 1/3 of voting power,
+  // enough to halt the chain.
+  const nakamoto = validators.findIndex((v) => v.cumulativePower > 1 / 3) + 1;
+  if (caps.stakeWeighted && nakamoto > 0) {
+    bricks.push({
+      key: "nakamoto",
+      label: "Nakamoto",
+      value: String(nakamoto),
+      sub: "validators to halt",
+      href: `${base}/validators`,
+    });
+  }
+
+  if (caps.staking) {
+    const names = new Map<string, { moniker: string; operator: string }>();
+    for (const v of validators) {
+      const ids = v.consensusPubkey ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix) : null;
+      if (ids) names.set(ids.valcons, { moniker: v.moniker, operator: v.operatorAddress });
+    }
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const lastWeek = jailings?.filter((j) => Date.parse(j.time) >= weekAgo).length ?? null;
+    bricks.push({
+      key: "jailings",
+      label: "Recent jailings",
+      value: lastWeek === null ? "N/A" : String(lastWeek),
+      sub: lastWeek === null ? "" : "last 7 days",
+      tone: lastWeek ? "bad" : undefined,
+      rows: (jailings ?? []).map((j) => {
+        const who = names.get(j.consAddr);
+        return {
+          label: `#${j.height.toLocaleString()} · ${new Date(j.time).toLocaleDateString()}`,
+          value: `${who?.moniker ?? j.consAddr}${j.kind === "tombstoned" ? " · tombstoned" : ""}`,
+          href: who ? `${base}/validators/${who.operator}` : `${base}/blocks/${j.height}`,
+        };
+      }),
     });
   }
 
   if (overview.bondedRatio !== null) {
     bricks.push({
       key: "bonded",
+      href: `${base}/validators`,
       label: "Bonded",
       value: pct(overview.bondedRatio),
       sub: "of total supply",
@@ -260,6 +306,7 @@ export default async function ChainOverviewPage({
   if (economics?.stakingApr != null) {
     bricks.push({
       key: "apr",
+      href: `${base}/validators`,
       label: "Staking APR",
       value: pct(economics.stakingApr),
       sub: "before commission",
@@ -321,7 +368,12 @@ export default async function ChainOverviewPage({
     { label: "Base denom", value: chain.denom, mono: true },
     { label: "Address prefix", value: chain.bech32Prefix, mono: true },
     { label: "Network", value: chain.network },
-    { label: "Latest release", value: release?.tag ?? "—", mono: true },
+    {
+      label: "Latest release",
+      value: release?.tag ?? "—",
+      mono: true,
+      ...(release?.url ? { href: release.url } : {}),
+    },
     ...(chain.website
       ? [
           {

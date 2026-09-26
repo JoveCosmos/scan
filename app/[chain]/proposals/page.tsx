@@ -3,13 +3,19 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
-import { isVoting } from "@/lib/proposals";
-import { chainDenoms } from "@/lib/chains";
-import { formatCoins } from "@/lib/coin";
-import { timeAgo, truncateMiddle } from "@/lib/format";
+import { cached } from "@/lib/cache";
+import {
+  getAllProposals,
+  getLiveTally,
+  indexValidatorAccounts,
+  isVoting,
+  proposalStatusLabel,
+  tallyShares,
+} from "@/lib/proposals";
+import { formatDate, timeUntil, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { SectionUnavailable } from "@/components/section-unavailable";
-import { ProposalBoard, type ProposalBrick } from "@/components/proposal-board";
+import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 export const revalidate = 60;
 
@@ -23,26 +29,17 @@ export async function generateMetadata({
   return { title: chain ? `Proposals · ${chain.prettyName}` : "Proposals" };
 }
 
-function timeUntil(iso: string | null): string | null {
-  if (!iso) return null;
-  const delta = new Date(iso).getTime() - Date.now();
-  if (!Number.isFinite(delta)) return null;
-  if (delta <= 0) return "ended";
-  const hours = delta / 3_600_000;
-  if (hours < 1) return `${Math.ceil(delta / 60_000)}m left`;
-  if (hours < 48) return `${Math.floor(hours)}h left`;
-  return `${Math.floor(hours / 24)}d left`;
-}
-
-const label = (status: string) =>
-  status.replace("PROPOSAL_STATUS_", "").replaceAll("_", " ").toLowerCase();
-
 function toneOf(status: string): "ok" | "bad" | undefined {
   if (status.includes("PASSED")) return "ok";
   if (status.includes("REJECTED") || status.includes("FAILED")) return "bad";
   return undefined;
 }
 
+/**
+ * Every proposal, as a list: number, title, what it does, where it stands,
+ * and who proposed it. Each row links straight to its proposal, and a
+ * validator's proposal carries the validator's name.
+ */
 export default async function ProposalsPage({
   params,
 }: {
@@ -52,129 +49,125 @@ export default async function ProposalsPage({
   const chain = getChain(chainId);
   if (!chain) notFound();
   const adapter = getAdapter(chain);
-
-  // Two different absences. No gov module is a fact about the chain and is said
-  // plainly; not carrying it is ours to own, and is left at that.
-  if (!adapter.capabilities.governance) {
-    return (
-      <SectionUnavailable
-        title="Proposals"
-        chainId={chain.chainId}
-        chainName={chain.prettyName}
-        accent={accentFor(chain)}
-      />
-    );
-  }
-  if (!policyFor(chain).proposals) {
-    return (
-      <SectionUnavailable
-        title="Proposals"
-        chainId={chain.chainId}
-        chainName={chain.prettyName}
-        accent={accentFor(chain)}
-      />
-    );
-  }
-
   const accent = accentFor(chain);
-  const denoms = chainDenoms(chain);
-  const [{ proposals, total }, govParams] = await Promise.all([
-    adapter.getProposals(60),
+
+  if (!adapter.capabilities.governance || !policyFor(chain).proposals) {
+    return (
+      <SectionUnavailable
+        title="Proposals"
+        chainId={chain.chainId}
+        chainName={chain.prettyName}
+        accent={accent}
+      />
+    );
+  }
+
+  const [proposals, govParams, validators] = await Promise.all([
+    cached(`proposals-all:${chain.chainId}`, 60_000, () => getAllProposals(chain), {
+      staleMs: 10 * 60_000,
+    }).catch(() => null),
     adapter.getGovParams(),
+    adapter.getValidators().catch(() => []),
   ]);
 
-  const bricks: ProposalBrick[] = proposals.map((p) => {
+  if (!proposals) {
+    return (
+      <PageFrame title="Proposals" sub={chain.prettyName} accent={accent}>
+        <div className="flex h-full items-center justify-center">
+          <p className="font-mono text-sm uppercase tracking-[0.14em] text-[var(--gata-faint)]">N/A</p>
+        </div>
+      </PageFrame>
+    );
+  }
+
+  // The recorded tally is all zeros while voting is open; read the live one.
+  const live = new Map(
+    await Promise.all(
+      proposals
+        .filter((p) => isVoting(p.status))
+        .map(async (p) => [p.id, await getLiveTally(chain, p.id)] as const)
+    )
+  );
+  const byAccount = indexValidatorAccounts(validators, chain.bech32Prefix);
+
+  const rows: DeckRow[] = proposals.map((p) => {
     const voting = isVoting(p.status);
-    const tallyTotal = Number(p.tally.total);
-    const share = (v: string | null) =>
-      v !== null && tallyTotal > 0
-        ? `${((Number(v) / tallyTotal) * 100).toFixed(2)}%`
-        : "—";
+    const tally = (voting ? live.get(p.id) : null) ?? p.tally;
+    const s = tallyShares(tally);
+    const decisive = s.yes + s.no + s.veto;
+    const hasVotes = Number(tally.total) > 0;
+    const proposerValidator = p.proposer ? byAccount.get(p.proposer) : undefined;
+    const type = p.messages[0]?.label ?? "Text";
+    const href = `/${chain.chainId}/proposals/${p.id}`;
 
     return {
-      id: p.id,
-      title: p.title || `Proposal ${p.id}`,
-      status: p.status,
-      statusLabel: label(p.status),
-      tone: toneOf(p.status),
-      expedited: p.expedited,
-      sub: voting
-        ? (timeUntil(p.votingEndTime) ?? "voting")
-        : `${label(p.status)} · ${timeAgo(p.submitTime)}`,
-      rows: [
-        { label: "Status", value: label(p.status) },
-        ...(voting && p.votingEndTime
-          ? [{ label: "Voting ends", value: p.votingEndTime, mono: true }]
-          : []),
-        { label: "Submitted", value: p.submitTime ?? "—", mono: true },
-        ...(tallyTotal > 0
-          ? [
-              { label: "Yes", value: share(p.tally.yes), mono: true },
-              { label: "No", value: share(p.tally.no), mono: true },
-              { label: "Abstain", value: share(p.tally.abstain), mono: true },
-              // Absent rather than zero on chains without the option.
-              ...(p.tally.veto !== null
-                ? [{ label: "Veto", value: share(p.tally.veto), mono: true }]
-                : []),
-            ]
-          : [{ label: "Tally", value: "No votes recorded." }]),
+      key: p.id,
+      search: `${p.id} ${p.title} ${type} ${p.proposer ?? ""} ${proposerValidator?.moniker ?? ""}`,
+      cells: [
+        { v: `#${p.id}`, mono: true, tone: "accent", href },
+        { v: p.title || `Proposal ${p.id}` },
         {
-          label: "Deposit",
-          value: formatCoins(p.totalDeposit, denoms, 2),
-          mono: true,
+          v: p.messages.length > 1 ? `${type} +${p.messages.length - 1}` : type,
+          dim: true,
         },
-        ...(p.proposer
-          ? [
-              {
-                label: "Proposer",
-                value: truncateMiddle(p.proposer, 14, 8),
-                mono: true,
-              },
-            ]
-          : []),
-        ...(p.messageTypes.length > 0
-          ? [{ label: "Messages", value: p.messageTypes.join(", "), mono: true }]
-          : []),
-        ...(p.failedReason ? [{ label: "Failed", value: p.failedReason }] : []),
-        ...(p.summary
-          ? [
-              {
-                label: "Summary",
-                // The full text lives on the detail page; this is the opening.
-                value:
-                  p.summary.length > 320 ? `${p.summary.slice(0, 320)}…` : p.summary,
-              },
-            ]
-          : []),
+        { v: proposalStatusLabel(p.status), tone: toneOf(p.status) },
+        {
+          v: voting
+            ? (timeUntil(p.votingEndTime) ?? "voting")
+            : formatDate(p.votingEndTime ?? p.submitTime),
+          mono: true,
+          dim: !voting,
+          align: "right",
+        },
+        {
+          v: hasVotes && decisive > 0 ? `${((s.yes / decisive) * 100).toFixed(1)}%` : voting && !live.get(p.id) ? "N/A" : "—",
+          mono: true,
+          align: "right",
+          dim: !hasVotes,
+        },
+        p.proposer
+          ? {
+              v: proposerValidator?.moniker ?? truncateMiddle(p.proposer, 10, 5),
+              address: proposerValidator ? undefined : p.proposer,
+              href: proposerValidator
+                ? `/${chain.chainId}/validators/${proposerValidator.operatorAddress}`
+                : undefined,
+              mono: !proposerValidator,
+            }
+          : { v: "—", dim: true },
       ],
+      detail: { title: `#${p.id}`, rows: [], action: { label: "Proposal", href } },
     };
   });
 
   const active = proposals.filter((p) => isVoting(p.status)).length;
-  const quorum =
-    govParams?.quorum != null ? `${(govParams.quorum * 100).toFixed(0)}%` : null;
-  const threshold =
-    govParams?.threshold != null ? `${(govParams.threshold * 100).toFixed(0)}%` : null;
+  const pct = (v: number | null | undefined) =>
+    v != null ? `${(v * 100).toFixed(v * 100 < 10 ? 1 : 0)}%` : null;
+  const facts = [
+    `${proposals.length} total`,
+    `${active} in voting`,
+    ...(pct(govParams?.quorum) ? [`quorum ${pct(govParams?.quorum)}`] : []),
+    ...(pct(govParams?.threshold) ? [`threshold ${pct(govParams?.threshold)}`] : []),
+    ...(pct(govParams?.vetoThreshold) ? [`veto ${pct(govParams?.vetoThreshold)}`] : []),
+  ];
 
   return (
-    <PageFrame
-      title="Proposals"
-      sub={`${total ?? proposals.length} total · ${active} in voting${
-        quorum && threshold ? ` · quorum ${quorum} / threshold ${threshold}` : ""
-      }`}
-      accent={accent}
-    >
-      {proposals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No governance proposals found on {chain.prettyName}.
-        </p>
-      ) : (
-        <ProposalBoard
-          chainId={chain.chainId}
-          accent={accent}
-          proposals={bricks}
-        />
-      )}
+    <PageFrame title="Proposals" sub={facts.join(" · ")} accent={accent}>
+      <RowDeck
+        accent={accent}
+        columns={[
+          { label: "#", width: "4.5rem" },
+          { label: "Title" },
+          { label: "Type", width: "16%", phoneHide: true },
+          { label: "Status", width: "7rem" },
+          { label: "Ends", align: "right", width: "8rem", phoneHide: true },
+          { label: "Yes", align: "right", width: "5rem", optional: true },
+          { label: "Proposer", width: "12%", optional: true },
+        ]}
+        rows={rows}
+        filter={{ placeholder: "Filter by number, title, type or proposer…" }}
+        empty="No proposals"
+      />
     </PageFrame>
   );
 }

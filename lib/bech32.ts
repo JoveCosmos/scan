@@ -1,4 +1,5 @@
 import { bech32 } from "bech32";
+import { getAllChains } from "@/lib/chains";
 
 /**
  * The same account key produces a different address on every chain — only the
@@ -10,13 +11,17 @@ import { bech32 } from "bech32";
  * the counterpart may simply never have been used.
  */
 
-/** Chains offered in the address switcher, mainnet only, in display order. */
-export const LINKED_CHAINS = [
-  { chainId: "cosmoshub-4", prefix: "cosmos", label: "Cosmos Hub" },
-  { chainId: "atomone-1", prefix: "atone", label: "AtomOne" },
-  { chainId: "akashnet-2", prefix: "akash", label: "Akash" },
-  { chainId: "gnoland-1", prefix: "g", label: "Gno.land" },
-] as const;
+/**
+ * Chains offered in the address switcher: every mainnet we carry, in config
+ * order. Derived from config rather than listed, so a chain added there is
+ * offered here too — the hand-kept list had four and missed Osmosis, Juno and
+ * Passage.
+ */
+export function linkedChains(): { chainId: string; prefix: string; label: string }[] {
+  return getAllChains()
+    .filter((c) => c.network === "mainnet")
+    .map((c) => ({ chainId: c.chainId, prefix: c.bech32Prefix, label: c.prettyName }));
+}
 
 export interface LinkedAddress {
   chainId: string;
@@ -63,7 +68,7 @@ export function decodePrefix(address: string): string | null {
 }
 
 /**
- * The same account across every chain in LINKED_CHAINS, including the one it
+ * The same account across every chain in linkedChains(), including the one it
  * was given as. Empty when the input is not a decodable account address —
  * validator (`…valoper1…`) addresses are deliberately excluded, since their
  * counterparts are not the same entity.
@@ -74,7 +79,7 @@ export function linkedAddresses(address: string): LinkedAddress[] {
   // Operator/consensus addresses are a different namespace; do not offer them.
   if (/valoper|valcons/.test(prefix)) return [];
 
-  return LINKED_CHAINS.flatMap((chain) => {
+  return linkedChains().flatMap((chain) => {
     const converted = convertAddress(address, chain.prefix);
     return converted ? [{ ...chain, address: converted }] : [];
   });

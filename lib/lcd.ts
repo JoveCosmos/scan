@@ -15,6 +15,12 @@ interface FetchLcdOptions {
   /** Extra request headers — notably x-cosmos-block-height for state at a past
    *  height, which is how the 24h stake delta is measured. */
   headers?: Record<string, string>;
+  /**
+   * Total time budget across every endpoint tried. timeoutMs bounds one
+   * attempt; without this a query every node finds slow costs timeoutMs once
+   * per endpoint, which on a module account's tx search added up to 45 s.
+   */
+  deadlineMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 5000;
@@ -102,7 +108,9 @@ export async function fetchFrom<T>(
   /** Tried only once every primary has failed, and never remembered. */
   fallbacks: string[] = []
 ): Promise<T> {
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, next, cache, searchParams, headers } = opts;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, next, cache, searchParams, headers, deadlineMs } =
+    opts;
+  const deadline = deadlineMs !== undefined ? Date.now() + deadlineMs : Infinity;
 
   let lastError: unknown;
 
@@ -110,9 +118,11 @@ export async function fetchFrom<T>(
   // costs the full timeout on *every* request before the fallback is reached.
   const preferred = endpoints.length > 1 ? lastGood.get(endpoints.join("|")) : undefined;
   for (const endpoint of orderEndpoints(endpoints, fallbacks, preferred)) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
     const url = buildUrl(endpoint, requestPath, searchParams);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), Math.min(timeoutMs, remaining));
 
     try {
       const res = await fetch(url, {
