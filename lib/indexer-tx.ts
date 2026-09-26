@@ -1,5 +1,5 @@
 import { cached } from "@/lib/cache";
-import { poolFor } from "@/lib/indexer-db";
+import { indexerPool, poolFor } from "@/lib/indexer-db";
 import { coverageOf, type CoverageRange } from "@/lib/indexer-coverage";
 
 /**
@@ -761,6 +761,134 @@ export async function txFromIndex(chainId: string, hash: string): Promise<Indexe
       messages,
       movements,
       hasMeta,
+    };
+  }).catch(() => null);
+}
+
+// ── gno.land history and per-address counts (migration 011) ─────────────────
+
+export interface GnoPartyRow {
+  height: number;
+  /** Uppercase hex, as gno_tx stores it. */
+  hash: string;
+  roles: number;
+  time: string | null;
+  success: boolean;
+}
+
+export interface GnoPartyPage {
+  rows: GnoPartyRow[];
+  /** "g4:<height>:<HEX>" for the next (older) page, or null at the end. */
+  next: string | null;
+}
+
+/** Parse a "g4:<height>:<HEX>" cursor. */
+export function parseGnoCursor(cursor: string | null | undefined): { height: number; hash: string } | null {
+  const m = cursor?.match(/^g4:(\d+):([0-9A-F]+)$/i);
+  return m ? { height: Number(m[1]), hash: m[2].toUpperCase() } : null;
+}
+
+/**
+ * One page of a gno address's transactions from gno_tx_party, newest first,
+ * keyset-paged on the primary key (the contract's query). Null when the index
+ * is unavailable or does not cover gno history, so the caller keeps its
+ * GraphQL path.
+ */
+export async function gnoPartyPage(
+  chainId: string,
+  address: string,
+  cursor: string | null | undefined,
+  limit = 50
+): Promise<GnoPartyPage | null> {
+  const cov = await coverageOf(chainId, "gno_tx_party");
+  const pool = indexerPool();
+  if (!cov || !pool) return null;
+  const before = parseGnoCursor(cursor);
+  try {
+    const params: unknown[] = [chainId, address, cov.lo, cov.hi, limit + 1];
+    let keyset = "";
+    if (before) {
+      params.push(before.height, before.hash);
+      keyset = "AND (p.height, p.tx_hash) < ($6, $7)";
+    }
+    const res = await pool.query<{
+      height: string;
+      tx_hash: string;
+      roles: number;
+      time: string | null;
+      success: boolean;
+    }>(
+      `SELECT p.height::text, p.tx_hash, p.roles, t.time::text, t.success
+         FROM gno_tx_party p
+         JOIN gno_tx t ON t.chain_id = p.chain_id AND t.hash = p.tx_hash
+        WHERE p.chain_id = $1 AND p.address = $2
+          AND p.height BETWEEN $3 AND $4
+          ${keyset}
+        ORDER BY p.height DESC, p.tx_hash DESC
+        LIMIT $5`,
+      params
+    );
+    const all = res.rows.map((r) => ({
+      height: Number(r.height),
+      hash: r.tx_hash,
+      roles: r.roles,
+      time: r.time,
+      success: r.success,
+    }));
+    const rows = all.slice(0, limit);
+    const last = rows[rows.length - 1];
+    return {
+      rows,
+      next: all.length > limit && last ? `g4:${last.height}:${last.hash}` : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface AddressTxCount {
+  count: number;
+  /** False while coverage has not reached the chain's first block: "at least". */
+  exact: boolean;
+  /** Where the counted range starts, for "since block …". */
+  since: { height: number; time: string | null };
+  first: { height: number; time: string | null } | null;
+  last: { height: number; time: string | null } | null;
+}
+
+/**
+ * An address's transaction count and first/last activity from
+ * address_tx_count. A lower bound until the capability's coverage starts at
+ * the chain's first block; exact from then on.
+ */
+export async function addressTxCount(
+  chainId: string,
+  address: string,
+  firstBlock = 1
+): Promise<AddressTxCount | null> {
+  const cov = await coverageOf(chainId, "address_tx_count");
+  const pool = indexerPool();
+  if (!cov || !pool) return null;
+  return cached(`idx:count:${chainId}:${address}`, 15_000, async () => {
+    const res = await pool.query<{
+      tx_count: string;
+      first_height: string | null;
+      last_height: string | null;
+      first_time: string | null;
+      last_time: string | null;
+    }>(
+      `SELECT tx_count::text, first_height::text, last_height::text,
+              first_time::text, last_time::text
+         FROM address_tx_count WHERE chain_id = $1 AND address = $2`,
+      [chainId, address]
+    );
+    const r = res.rows[0];
+    return {
+      count: r ? Number(r.tx_count) : 0,
+      exact: cov.lo <= firstBlock,
+      since: { height: cov.lo, time: cov.loTime },
+      first: r?.first_height ? { height: Number(r.first_height), time: r.first_time } : null,
+      last: r?.last_height ? { height: Number(r.last_height), time: r.last_time } : null,
     };
   }).catch(() => null);
 }

@@ -34,6 +34,7 @@ import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
 import { coverageOf, indexerHealth } from "@/lib/indexer-coverage";
 import {
+  addressTxCount,
   packetStatus,
   packetsForAddress,
   stakingHistory,
@@ -737,6 +738,11 @@ export default async function AccountPage({
   const otherRewards = (account.rewards?.length ?? 0) - (nativeRewards ? 1 : 0);
   const tile = kindTile(kind, chainId);
 
+  // Transaction total and first/last activity, from the index's per-address
+  // count: exact once coverage reaches the chain's first block, "at least"
+  // until then.
+  const txCount = await addressTxCount(chain.chainId, address);
+
   const facts: BrickSpec[] = [
     ...(operated
       ? [
@@ -868,6 +874,51 @@ export default async function AccountPage({
       value: String(others.length),
       sub: "denominations",
     },
+    ...(txCount
+      ? [
+          {
+            key: "tx-count",
+            label: "Transactions",
+            value: `${txCount.exact ? "" : "≥ "}${txCount.count.toLocaleString()}`,
+            sub: txCount.exact
+              ? txCount.last?.time
+                ? `last ${timeAgo(txCount.last.time)}`
+                : "none"
+              : `since block ${txCount.since.height.toLocaleString()}`,
+            rows: [
+              {
+                label: "Transactions",
+                value: `${txCount.exact ? "" : "at least "}${txCount.count.toLocaleString()}`,
+                mono: true,
+              },
+              ...(txCount.first
+                ? [
+                    {
+                      label: txCount.exact ? "First" : "First counted",
+                      value: `#${txCount.first.height.toLocaleString()}${
+                        txCount.first.time ? ` · ${formatDateTime(txCount.first.time)}` : ""
+                      }`,
+                      mono: true,
+                      href: `/${chain.chainId}/blocks/${txCount.first.height}`,
+                    },
+                  ]
+                : []),
+              ...(txCount.last
+                ? [
+                    {
+                      label: "Last",
+                      value: `#${txCount.last.height.toLocaleString()}${
+                        txCount.last.time ? ` · ${formatDateTime(txCount.last.time)}` : ""
+                      }`,
+                      mono: true,
+                      href: `/${chain.chainId}/blocks/${txCount.last.height}`,
+                    },
+                  ]
+                : []),
+            ],
+          } satisfies BrickSpec,
+        ]
+      : []),
     {
       key: "account",
       label: "Account",

@@ -1,5 +1,5 @@
 import { cached } from "@/lib/cache";
-import { poolFor } from "@/lib/indexer-db";
+import { indexerPool, poolFor } from "@/lib/indexer-db";
 
 /**
  * What the index can answer, per capability, and whether it is keeping up.
@@ -32,7 +32,10 @@ export type Capability =
   | "gov_deposit"
   | "gov_proposal"
   | "vote_event"
-  | "tombstones_unjails";
+  | "tombstones_unjails"
+  | "gno_tx"
+  | "gno_tx_party"
+  | "address_tx_count";
 
 export interface CoverageRange {
   lo: number;
@@ -46,7 +49,12 @@ export async function coverageOf(
   chainId: string,
   capability: Capability
 ): Promise<CoverageRange | null> {
-  const pool = poolFor(chainId);
+  // gno history and per-address counts are indexed for chains that are not
+  // otherwise "indexed" (that flag turns on Cosmos-only reads), so these
+  // capabilities reach the database regardless.
+  const anyChain =
+    capability === "gno_tx" || capability === "gno_tx_party" || capability === "address_tx_count";
+  const pool = anyChain ? indexerPool() : poolFor(chainId);
   if (!pool) return null;
   return cached(`idx:cov4:${chainId}:${capability}`, 30_000, async () => {
     const res = await pool.query<{

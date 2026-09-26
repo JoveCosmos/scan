@@ -20,7 +20,7 @@ const url = process.env.INDEXER_TEST_DATABASE_URL;
 
 const chains: string[] = [];
 let pool: Pool;
-let coverage: (chainId: string) => Promise<unknown>;
+let coverage: (chainId: string, capability?: "blocks" | "fees" | "votes" | "slashing") => Promise<unknown>;
 let slashHistory: (
   chainId: string,
   consAddr: string
@@ -132,18 +132,21 @@ describe.skipIf(!url)("coverage", () => {
       { height: 203, version: 0 },
     ]);
 
-    expect(await coverage(chain)).toMatchObject({ lowest: 200, highest: 201 });
+    // Asked for a capability those older blocks lack (votes, version 2).
+    expect(await coverage(chain, "votes")).toMatchObject({ lowest: 200, highest: 201 });
   });
 
-  it("refuses everything when the lowest block is stale", async () => {
-    // Nothing sits below the stale floor, so there is no range to vouch for.
+  it("covers only the run that carries the capability, ending at the newest", async () => {
+    // Version 4 contract: indexer_coverage returns the contiguous run, ending
+    // at the newest block that carries the capability, in which every block
+    // carries it. The older block below is outside that run.
     const chain = chainId("stale-bottom");
     await seed(chain, [
       { height: 300, version: 0 },
       { height: 301, version: 2 },
     ]);
 
-    expect(await coverage(chain)).toBeNull();
+    expect(await coverage(chain, "votes")).toMatchObject({ lowest: 301, highest: 301 });
   });
 
   it("returns null for a chain it holds nothing for", async () => {
@@ -232,7 +235,9 @@ describe.skipIf(!url)("proposerStats", () => {
     });
   });
 
-  it("does not count blocks above the extraction ceiling", async () => {
+  it("counts every written block, hollow ones included", async () => {
+    // Proposer stats need only the block row ("blocks", min version 0): a
+    // hollow block (no ABCI results) still has a real proposer.
     const mine = "AABBCCDDEEFF00112233445566778899AABBCCDD";
     const chain = chainId("proposer-stale");
     await seed(chain, [
@@ -241,8 +246,8 @@ describe.skipIf(!url)("proposerStats", () => {
     ]);
 
     expect(await proposerStats(chain, mine)).toMatchObject({
-      proposed: 1,
-      totalBlocks: 1,
+      proposed: 2,
+      totalBlocks: 2,
     });
   });
 });

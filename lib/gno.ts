@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchFrom } from "@/lib/lcd";
+import { gnoPartyPage } from "@/lib/indexer-tx";
 import { cached } from "@/lib/cache";
 import { isNumericId, isBech32ish } from "@/lib/input";
 import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
@@ -1267,6 +1268,71 @@ export async function gnoAccountTxs(
   // gno addresses are bech32 like any other; same gate, same reason.
   if (!isBech32ish(address))
     return { txs: [], total: 0, failed: false, source: "search" as const };
+
+  // Our own index first (gno_tx_party): exact order and paging at any depth.
+  // It lists the page; the details of exactly those transactions come from
+  // one tx-indexer query bounded by the page's heights, and the node covers
+  // any the tx-indexer lacks.
+  if (!cursor || cursor.startsWith("g4:")) {
+    const idx = await gnoPartyPage(chain.chainId, address, cursor, limit);
+    if (idx) {
+      const wanted = new Map(
+        idx.rows.map((r) => [hexToGnoHash(r.hash) ?? r.hash, r] as const)
+      );
+      const recs = new Map<string, GnoTxRecord>();
+      if (idx.rows.length > 0) {
+        const hi = idx.rows[0].height;
+        const lo = idx.rows[idx.rows.length - 1].height;
+        try {
+          const data = await gql<{ getTransactions: IdxTx[] | null }>(
+            chain,
+            `query($a: String!, $lo: Int!, $hi: Int!) {
+              getTransactions(
+                where: { _and: [
+                  { block_height: { gt: $lo, lt: $hi } },
+                  { messages: { value: { _or: [
+                    { BankMsgSend: { _or: [{ from_address: { eq: $a } }, { to_address: { eq: $a } }] } },
+                    { MsgCall: { caller: { eq: $a } } },
+                    { MsgRun: { caller: { eq: $a } } },
+                    { MsgAddPackage: { creator: { eq: $a } } }
+                  ] } } }
+                ] }
+                order: { heightAndIndex: DESC }
+              ) { ${TX_FIELDS} }
+            }`,
+            { a: address, lo: lo - 1, hi: hi + 1 },
+            15_000
+          );
+          for (const tx of data.getTransactions ?? []) {
+            if (wanted.has(tx.hash)) recs.set(tx.hash, fromIndexer(tx));
+          }
+        } catch {
+          // The node below fills whatever this could not.
+        }
+        // Parties the message filter cannot see (a GRC20 Transfer's recipient,
+        // a realm receiving coins) and anything the tx-indexer lost.
+        await Promise.all(
+          [...wanted.keys()]
+            .filter((h) => !recs.has(h))
+            .map(async (h) => {
+              const node = await nodeTx(chain, h).catch(() => null);
+              if (node) recs.set(h, fromNodeTx(node));
+            })
+        );
+      }
+      const ordered = [...wanted.keys()]
+        .map((h) => recs.get(h))
+        .filter((r): r is GnoTxRecord => Boolean(r));
+      return {
+        txs: await withTimes(chain, ordered),
+        total: null,
+        failed: false,
+        source: "indexer" as const,
+        more: idx.next !== null,
+        next: idx.next,
+      };
+    }
+  }
 
   // The tx-indexer has no limit or paging, and a busy account has tens of
   // thousands of transactions: asking for all of them at once times out. So

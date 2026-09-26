@@ -20,7 +20,7 @@ export async function GET(
 
   const url = new URL(req.url);
   const cursor = url.searchParams.get("cursor");
-  if (!cursor || !/^(i4:\d+:[0-9A-Fa-f]+|i:\d+:([0-9A-Fa-f]+|~)|p:\d+)$/.test(cursor)) {
+  if (!cursor || !/^(i4:\d+:[0-9A-Fa-f]+|i:\d+:([0-9A-Fa-f]+|~)|p:\d+|g4:\d+:[0-9A-Fa-f]+)$/.test(cursor)) {
     return NextResponse.json({ error: "bad cursor" }, { status: 400 });
   }
   const kindParam = url.searchParams.get("kind");
