@@ -9,7 +9,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono-family);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-display-family), var(--font-sans);
+  --font-display: var(--font-display-family), var(--font-sans);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -421,39 +422,42 @@
    * accent (--tab-acc): every section belongs to one chain, and the chain is the
    * thing worth colouring.
    */
+  /* Section tabs: pills, the active one tinted in the chain's own accent
+     (--tab-acc), so the header says which chain you are on at a glance. */
   .nav-tab {
     position: relative;
     display: inline-flex;
     align-items: center;
+    align-self: center;
     gap: 6px;
-    height: 100%;
-    padding: 0 10px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-family: var(--font-display-family), var(--font-sans);
     font-size: 13px;
     font-weight: 500;
+    letter-spacing: -0.005em;
     white-space: nowrap;
     color: var(--gata-sub);
-    transition: color 0.16s ease;
+    transition: color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
   }
 
   .nav-tab:hover {
     color: var(--gata-text);
+    background: var(--gata-card-hi);
   }
 
   .nav-tab[aria-current="page"] {
     color: var(--gata-text);
     font-weight: 600;
+    background: color-mix(in srgb, var(--tab-acc, var(--gata-blue)) 16%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--tab-acc, var(--gata-blue)) 38%, transparent),
+      0 6px 18px -10px var(--tab-acc, var(--gata-blue));
   }
 
-  .nav-tab[aria-current="page"]::after {
-    content: "";
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: -1px;
-    height: 2px;
-    border-radius: 2px;
-    background: var(--tab-acc, var(--gata-blue));
-    box-shadow: 0 0 12px var(--tab-acc, var(--gata-blue));
+  .font-display {
+    font-family: var(--font-display-family), var(--font-sans);
   }
 
   /* The white G, inverted on a light ground. */
@@ -464,15 +468,78 @@
   /* The ground a list or table sits on: a card with a soft edge, so a list
      reads as one object rather than lines floating on the page. */
   .gata-surface {
+    position: relative;
     border: 1px solid var(--gata-border);
-    border-radius: var(--radius-lg);
-    background: var(--gata-card);
+    border-radius: 14px;
+    background:
+      linear-gradient(180deg, rgba(var(--hl), 0.035), transparent 120px),
+      var(--gata-card);
     box-shadow:
+      inset 0 1px 0 rgba(var(--hl), 0.05),
       0 1px 2px rgba(var(--shade), calc(var(--shadow-a) * 0.35)),
-      0 14px 30px -24px rgba(var(--shade), var(--shadow-a));
+      0 18px 36px -26px rgba(var(--shade), var(--shadow-a));
   }
   .gata-surface thead {
-    background: var(--gata-bg2);
+    background: color-mix(in srgb, var(--gata-bg2) 88%, transparent);
+    backdrop-filter: blur(6px);
+  }
+  .gata-surface thead th {
+    font-family: var(--font-display-family), var(--font-sans);
+    letter-spacing: 0.08em;
+  }
+
+  /* Tiles: a thin accent line along the top; tiles that open lift and glow. */
+  .gata-brick::before {
+    content: "";
+    position: absolute;
+    inset-inline: 12px;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--brick-acc, var(--gata-blue)), transparent);
+    opacity: 0.55;
+  }
+  .gata-brick-open:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--brick-acc, var(--gata-blue)) 45%, var(--gata-border));
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--brick-acc, var(--gata-blue)) 9%, transparent), transparent 70%),
+      var(--gata-card);
+    box-shadow:
+      inset 0 1px 0 rgba(var(--hl), 0.06),
+      0 18px 34px -22px color-mix(in srgb, var(--brick-acc, var(--gata-blue)) 60%, transparent);
+  }
+
+  /* Headline tiles (the overview): taller, with a large display figure. */
+  .brick-lg .gata-brick {
+    height: 7.25rem;
+    padding: 14px 18px 14px;
+    gap: 4px;
+  }
+  .brick-lg .brick-value {
+    font-size: 30px;
+    letter-spacing: -0.03em;
+  }
+  .brick-lg .gata-brick::before {
+    inset-inline: 18px;
+    opacity: 0.8;
+  }
+
+  /* A clickable row: tinted on hover, with a lit leading edge in the page's
+     accent, so it reads as something you can open. */
+  .deck-row {
+    transition: background-color 0.14s ease;
+  }
+  .deck-row > td:first-child {
+    box-shadow: inset 0 0 0 transparent;
+    transition: box-shadow 0.14s ease;
+  }
+  .deck-row:hover,
+  .deck-row:focus-visible {
+    background: color-mix(in srgb, var(--row-acc, var(--gata-blue)) 7%, var(--gata-card-hi));
+  }
+  .deck-row:hover > td:first-child,
+  .deck-row:focus-visible > td:first-child {
+    box-shadow: inset 3px 0 0 var(--row-acc, var(--gata-blue));
   }
 
   .gata-grid-lines {

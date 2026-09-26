@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Sora } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { AppShell } from "@/components/app-shell";
@@ -10,6 +10,14 @@ import { policyFor } from "@/lib/tiers";
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
+});
+
+// Display face for titles, tabs and headline figures; Inter stays for text.
+const sora = Sora({
+  variable: "--font-display-family",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -56,7 +64,7 @@ export default function RootLayout({
     // this element before React hydrates it.
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${sora.variable}`}
       suppressHydrationWarning
     >
       <head>

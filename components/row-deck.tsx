@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AddressLink } from "@/components/address-link";
+import { ValidatorAvatar } from "@/components/validator-avatar";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Popup, PopupRows } from "@/components/ui/popup";
 import { filterDeckRows } from "@/lib/deck-filter";
@@ -41,6 +42,8 @@ export interface DeckCell {
   href?: string;
   /** An address: routed by lib/address-route, shown as `v`. */
   address?: string;
+  /** A validator's logo shown before the value. */
+  avatar?: { name: string; logos: string[] };
 }
 
 export interface DeckColumn {
@@ -77,10 +80,20 @@ export interface DeckRow {
   };
 }
 
-const ROW_H = 35;
-const HEAD_H = 28;
+const ROW_H = 39;
+const HEAD_H = 32;
 
 function CellValue({ cell, href }: { cell: DeckCell; href?: string }) {
+  if (cell.avatar) {
+    return (
+      <span className="flex min-w-0 items-center gap-2">
+        <ValidatorAvatar name={cell.avatar.name} logos={cell.avatar.logos} size={22} />
+        <span className="min-w-0 truncate">
+          <CellValue cell={{ ...cell, avatar: undefined }} href={href} />
+        </span>
+      </span>
+    );
+  }
   if (cell.address) {
     return <AddressLink address={cell.address} label={cell.v} />;
   }
@@ -229,7 +242,10 @@ export function RowDeck({
         </div>
       ) : null}
 
-      <div className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden"
+        style={{ ["--row-acc" as string]: accent }}
+      >
         <div ref={bodyRef} className="min-h-0 flex-1 overflow-hidden">
           <table className="w-full table-fixed border-collapse">
             <thead>
@@ -239,7 +255,7 @@ export function RowDeck({
                     key={i}
                     scope="col"
                     style={col.width ? { width: col.width } : undefined}
-                    className={`h-7 px-2.5 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
+                    className={`h-8 px-3 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
                       col.align === "right" ? "text-right" : ""
                     } ${col.optional ? "hidden lg:table-cell" : ""} ${
                       col.phoneHide ? "hidden sm:table-cell" : ""
@@ -263,7 +279,7 @@ export function RowDeck({
                       activate(row);
                     }
                   }}
-                  className={`group/row cursor-pointer border-b border-border/40 outline-none last:border-0 hover:bg-[var(--gata-card-hi)] focus-visible:bg-[var(--gata-card-hi)] ${
+                  className={`deck-row group/row cursor-pointer border-b border-border/40 outline-none last:border-0 ${
                     row.fresh ? "gata-flash" : ""
                   } ${cut(index) ? "invisible" : ""}`}
                 >
@@ -272,13 +288,13 @@ export function RowDeck({
                     return (
                       <td
                         key={i}
-                        className={`h-[34px] truncate px-2.5 text-[13px] ${
+                        className={`h-[38px] truncate px-3 text-[13px] ${
                           cell.bar !== undefined ? "relative" : ""
                         } ${
                           // The affordance: the row's first cell is its link, so
                           // it underlines, and a bar lights on the leading edge.
                           i === 0
-                            ? "group-hover/row:underline group-hover/row:decoration-current/40 group-hover/row:underline-offset-2 group-hover/row:shadow-[inset_2px_0_0_var(--gata-blue)] group-focus-visible/row:shadow-[inset_2px_0_0_var(--gata-blue)]"
+                            ? "font-medium group-hover/row:underline group-hover/row:decoration-current/40 group-hover/row:underline-offset-2"
                             : ""
                         } ${
                           cell.align === "right" ? "text-right" : ""

@@ -15,7 +15,7 @@ function splitFact(fact: string): { value: string; label: string; valueFirst: bo
 function Facts({ sub }: { sub: string }) {
   const facts = sub.split(" · ").filter(Boolean);
   return (
-    <ul className="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <ul className="flex flex-wrap items-center gap-1.5">
       {facts.map((fact, i) => {
         const parts = splitFact(fact);
         return (
@@ -61,12 +61,15 @@ export function PageFrame({
   title,
   sub,
   accent,
+  emblem,
   actions,
   children,
 }: {
   title: string;
   sub?: string;
   accent?: string;
+  /** A logo beside the title: the chain's, or the validator's avatar. */
+  emblem?: React.ReactNode;
   /** Filters, paging, anything that belongs beside the heading. */
   actions?: React.ReactNode;
   children: React.ReactNode;
@@ -74,25 +77,37 @@ export function PageFrame({
   return (
     // The same width and gutter as the header, so the page's edges line up
     // with the tabs above it at every screen size.
-    <div className="mx-auto flex h-full max-w-[90rem] flex-col px-4 py-3 sm:py-4">
-      <div className="flex shrink-0 items-start justify-between gap-3 pb-3">
-        <div className="flex min-w-0 items-start gap-3">
-          {accent ? (
+    <div className="relative mx-auto flex h-full max-w-[90rem] flex-col px-4 py-3 sm:py-4">
+      {/* A soft wash of the chain's accent behind the heading. */}
+      {accent ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-24 left-0 -z-10 h-64 w-[36rem] max-w-full opacity-60 blur-3xl"
+          style={{ background: `radial-gradient(closest-side, color-mix(in srgb, ${accent} 22%, transparent), transparent)` }}
+        />
+      ) : null}
+      {/* The title and its figures share one row: the figures follow the
+          title inline and wrap under it only when the row runs out. */}
+      <div className="flex shrink-0 items-center justify-between gap-3 pb-3.5 pt-1">
+        <div className="flex min-w-0 items-center gap-3">
+          {emblem ? (
+            <span className="shrink-0">{emblem}</span>
+          ) : accent ? (
             <span
               aria-hidden="true"
-              className="mt-0.5 h-6 w-1 shrink-0 rounded-full"
+              className="h-7 w-1 shrink-0 self-start rounded-full sm:self-center"
               style={{ background: accent, boxShadow: `0 0 14px ${accent}` }}
             />
           ) : null}
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold leading-tight tracking-tight">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+            <h1 className="font-display truncate text-[22px] font-semibold leading-tight tracking-[-0.02em]">
               {title}
             </h1>
             {sub ? (
               sub.includes(" · ") ? (
                 <Facts sub={sub} />
               ) : (
-                <p className="mt-1 truncate font-mono text-[12px] leading-tight text-muted-foreground">
+                <p className="truncate font-mono text-[12px] leading-tight text-muted-foreground">
                   {sub}
                 </p>
               )

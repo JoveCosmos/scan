@@ -256,6 +256,14 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
 
   return (
     <header className="relative z-30 shrink-0 border-b border-border bg-[color-mix(in_srgb,var(--gata-bg)_82%,transparent)] backdrop-blur-xl">
+      {/* A hairline of the current chain's accent along the header's edge. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 -bottom-px h-px opacity-70"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${chain?.accent ?? "var(--gata-blue)"} 30%, ${chain?.accent ?? "var(--gata-blue)"} 70%, transparent)`,
+        }}
+      />
       {/*
         Nothing in the header scrolls sideways, so it reflows by width:
         - phone: mark, search, switcher on top; all seven tabs, by their short
@@ -268,7 +276,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           href="/"
           title="GATA SCAN"
           aria-label="GATA SCAN home"
-          className="group order-1 flex h-14 shrink-0 items-center"
+          className="group order-1 flex h-16 shrink-0 items-center"
         >
           <Image
             src="/gata_logo_white.png"
@@ -284,7 +292,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           <nav
             aria-label="Sections"
             style={{ ["--tab-acc" as string]: chain.accent }}
-            className="order-5 -mx-1 flex h-10 w-full items-stretch justify-between border-t border-border/60 sm:order-2 sm:mx-0 sm:h-14 sm:w-auto sm:flex-1 sm:justify-start sm:border-0"
+            className="order-5 -mx-1 flex h-11 w-full items-center justify-between border-t border-border/60 sm:order-2 sm:mx-0 sm:h-16 sm:w-auto sm:flex-1 sm:justify-end sm:gap-1 sm:border-0"
           >
             {TABS.map((tab) => {
               const active =
@@ -297,7 +305,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
                   href={`/${chain.chainId}${tab.href}`}
                   title={na ? `${tab.label} · N/A` : tab.label}
                   aria-current={active ? "page" : undefined}
-                  className={`nav-tab px-1.5 sm:px-2.5 ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
+                  className={`nav-tab px-2 sm:px-3 ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
                 >
                   <span className="sm:hidden">{tab.short}</span>
                   <span className="hidden sm:inline">{tab.label}</span>

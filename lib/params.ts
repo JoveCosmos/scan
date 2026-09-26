@@ -324,3 +324,51 @@ export function getChainAprCached(chain: ChainConfig): Promise<{
     { staleMs: 60 * 60_000 }
   );
 }
+
+/**
+ * APR range on chains whose rewards are not purely proportional to stake.
+ *
+ * AtomOne pays a share `e` of the validator reward pool evenly per validator
+ * (its "nakamoto bonus"), so a small validator earns more per token than a
+ * large one. With R the yearly pool after community tax, S bonded tokens, N
+ * active validators and t a validator's stake:
+ *
+ *   APR(t) = R·(1 − e)/S + R·e/(N·t)
+ *
+ * — the same model atomone.gatahub.zone renders. The range runs from the
+ * largest validator (lowest APR) to the smallest (highest). Null where the
+ * chain has no such coefficient: its APR is the single figure above.
+ */
+export async function getAprRange(
+  chain: ChainConfig,
+  communityTax: number | null,
+  stakes: string[]
+): Promise<{ lo: number; hi: number } | null> {
+  if (stakes.length === 0) return null;
+  const [coef, provisions] = await Promise.all([
+    attempt(() =>
+      fetchLcd<{ coefficient?: string }>(
+        chain,
+        "/cosmos/distribution/v1beta1/nakamoto_bonus_coefficient",
+        { timeoutMs: 6000 }
+      )
+    ),
+    attempt(() =>
+      fetchLcd<{ annual_provisions?: string }>(
+        chain,
+        "/cosmos/mint/v1beta1/annual_provisions",
+        { timeoutMs: 6000 }
+      )
+    ),
+  ]);
+  const e = Number(coef?.coefficient ?? NaN);
+  const annual = Number(provisions?.annual_provisions ?? NaN);
+  if (!Number.isFinite(e) || !Number.isFinite(annual)) return null;
+  const R = annual * (1 - (communityTax ?? 0));
+  const t = stakes.map(Number).filter((x) => x > 0);
+  const S = t.reduce((a, b) => a + b, 0);
+  const N = t.length;
+  if (S <= 0 || N === 0) return null;
+  const apr = (x: number) => (R * (1 - e)) / S + (R * e) / (N * x);
+  return { lo: apr(Math.max(...t)), hi: apr(Math.min(...t)) };
+}

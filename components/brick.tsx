@@ -81,17 +81,19 @@ function Body({
           the figure's line uninterrupted.
         */}
         {opens ? (
-          <ArrowUpRight
+          <span
             aria-hidden="true"
-            className="h-3 w-3 shrink-0 text-[var(--gata-faint)] transition-colors group-hover/brick:text-foreground"
-          />
+            className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[var(--gata-border)] text-[var(--gata-faint)] transition-colors group-hover/brick:border-[var(--brick-acc)] group-hover/brick:text-foreground"
+          >
+            <ArrowUpRight className="h-3 w-3" />
+          </span>
         ) : null}
       </span>
       <span
         className={
           brick.text
             ? "mt-auto line-clamp-2 text-[11.5px] font-medium leading-tight"
-            : "mt-auto truncate font-mono text-[16px] font-semibold leading-tight tracking-tight"
+            : "brick-value font-display mt-auto truncate text-[19px] font-semibold leading-tight tracking-[-0.02em] tabular-nums"
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}
       >
@@ -115,12 +117,12 @@ function Body({
 // The figure is still the largest thing in the tile; everything around it gave
 // up the room instead.
 const SHELL =
-  "gata-surface flex h-[4.6rem] flex-col gap-0.5 overflow-hidden px-3 py-2 text-left transition-[border-color,background-color,transform]";
+  "gata-surface gata-brick flex h-[5rem] flex-col gap-0.5 overflow-hidden px-3.5 py-2.5 text-left transition-[border-color,background-color,transform,box-shadow]";
 
 /** Static — a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {
   return (
-    <div className={SHELL}>
+    <div className={SHELL} style={{ ["--brick-acc" as string]: accent }}>
       <Body brick={brick} accent={accent} />
     </div>
   );
@@ -140,7 +142,8 @@ export function BrickButton({
     <button
       type="button"
       onClick={onClick}
-      className={`${SHELL} group/brick cursor-pointer hover:-translate-y-px hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
+      className={`${SHELL} gata-brick-open group/brick cursor-pointer`}
+      style={{ ["--brick-acc" as string]: accent }}
     >
       <Body brick={brick} accent={accent} opens />
     </button>
@@ -160,7 +163,8 @@ export function BrickLink({
   return (
     <Link
       href={href}
-      className={`${SHELL} group/brick hover:border-[var(--gata-border-hi)] hover:bg-[var(--gata-card-hi)]`}
+      className={`${SHELL} gata-brick-open group/brick`}
+      style={{ ["--brick-acc" as string]: accent }}
     >
       <Body brick={brick} accent={accent} opens />
     </Link>

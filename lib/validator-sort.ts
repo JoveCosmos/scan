@@ -15,6 +15,8 @@ export interface ValidatorRow {
   rank: number;
   operatorAddress: string;
   moniker: string;
+  /** Logo candidates, best first; the avatar falls back to a monogram. */
+  logos?: string[];
   votingPower: number;
   /** Share of power held by this validator and everyone ranked above it. */
   cumulativePower: number;

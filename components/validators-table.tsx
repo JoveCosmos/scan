@@ -11,6 +11,7 @@ import {
   type ValidatorRow,
 } from "@/lib/validator-sort";
 import { jailRecord } from "@/lib/format";
+import { ValidatorAvatar } from "@/components/validator-avatar";
 import { ink } from "@/lib/utils";
 
 export type { ValidatorRow, SortKey } from "@/lib/validator-sort";
@@ -157,6 +158,7 @@ export function ValidatorsTable({
   }
 
   // A column is drawn only where at least one row in view has something for it.
+  const maxShare = source.reduce((m, r) => Math.max(m, r.votingPower), 0);
   const hasDelta = source.some((r) => r.delta?.ratio != null);
   const hasSelfBond = source.some((r) => r.selfBond?.share != null);
   const hasJailings = source.some((r) => r.jailings !== null);
@@ -179,12 +181,15 @@ export function ValidatorsTable({
       label: "Validator",
       sort: "moniker",
       cell: (v) => (
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate font-sans text-[13px] font-medium text-foreground transition-colors group-hover/row:text-[var(--gata-blue)]">
-            {v.moniker}
-          </span>
-          <span className="truncate text-[10.5px] text-muted-foreground">
-            {addressTail(v.operatorAddress)}
+        <span className="flex min-w-0 items-center gap-2.5">
+          <ValidatorAvatar name={v.moniker} logos={v.logos} size={28} />
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-sans text-[13px] font-semibold text-foreground transition-colors group-hover/row:text-[var(--gata-blue)]">
+              {v.moniker}
+            </span>
+            <span className="truncate text-[10.5px] text-muted-foreground">
+              {addressTail(v.operatorAddress)}
+            </span>
           </span>
         </span>
       ),
@@ -195,8 +200,23 @@ export function ValidatorsTable({
       title: staking ? `Staked ${symbol}` : "Consensus voting power",
       sort: "tokens",
       align: "right",
-      w: "6.5rem",
-      cell: (v) => <span style={{ color: ink(accent) }}>{v.tokensLabel}</span>,
+      w: "7.5rem",
+      // A bar under the figure: share of the largest validator, so the shape
+      // of the set reads without comparing numbers.
+      cell: (v) => (
+        <span className="flex flex-col items-end gap-1">
+          <span style={{ color: ink(accent) }}>{v.tokensLabel}</span>
+          <span className="h-[3px] w-full max-w-[5.5rem] overflow-hidden rounded-full bg-[var(--gata-border)]">
+            <span
+              className="block h-full rounded-full"
+              style={{
+                width: `${Math.max(2, (v.votingPower / (maxShare || 1)) * 100)}%`,
+                background: accent,
+              }}
+            />
+          </span>
+        </span>
+      ),
     },
     {
       key: "share",
@@ -459,7 +479,10 @@ export function ValidatorsTable({
 
       {/* One card: the scrolling list, then a footer bar, so the list never
           ends abruptly on a row. */}
-      <div className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden"
+        style={{ ["--row-acc" as string]: accent }}
+      >
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <table className="w-full table-fixed border-collapse">
             <thead className="sticky top-0 z-10 bg-[var(--gata-bg2)]">
@@ -509,14 +532,14 @@ export function ValidatorsTable({
                 <tr
                   key={v.operatorAddress}
                   onClick={() => router.push(href(v))}
-                  className={`group/row cursor-pointer border-b border-border/40 transition-colors last:border-0 hover:bg-[var(--gata-card-hi)] ${
+                  className={`deck-row group/row cursor-pointer border-b border-border/40 last:border-0 ${
                     v.jailed ? "bg-[var(--destructive)]/[0.05]" : ""
                   }`}
                 >
                   {columns.map((c) => (
                     <td
                       key={c.key}
-                      className={`h-[42px] overflow-hidden text-ellipsis whitespace-nowrap px-2.5 font-mono text-[12.5px] tabular-nums ${
+                      className={`h-[50px] overflow-hidden text-ellipsis whitespace-nowrap px-3 font-mono text-[12.5px] tabular-nums ${
                         c.align === "right" ? "text-right" : ""
                       } ${c.show ?? ""}`}
                     >

@@ -3,6 +3,7 @@ import { getChain } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { cached } from "@/lib/cache";
 import { nameProposers } from "@/lib/blocks";
+import { withProposerLogos } from "@/lib/validator-logos";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,11 @@ export async function GET(
       adapter.getRecentBlocks(),
       adapter.getValidators().catch(() => []),
     ]);
-    return nameProposers(recent, validators, chain.bech32Prefix);
+    return withProposerLogos(
+      chain,
+      nameProposers(recent, validators, chain.bech32Prefix),
+      validators
+    );
   });
 
   return NextResponse.json({ blocks }, { headers: { "cache-control": "no-store" } });

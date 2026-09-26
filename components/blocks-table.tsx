@@ -104,6 +104,10 @@ export function BlocksTable({
           ? {
               v: block.proposerMoniker,
               href: `/${chainId}/validators/${block.proposerOperator}`,
+              avatar: {
+                name: block.proposerMoniker,
+                logos: (block as { proposerLogos?: string[] }).proposerLogos ?? [],
+              },
             }
           : {
               v: looksLikeAddress ? truncateMiddle(raw, 8, 6) : raw,

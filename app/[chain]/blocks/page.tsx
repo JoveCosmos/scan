@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getChain, accentFor } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { nameProposers, RECENT_BLOCK_COUNT } from "@/lib/blocks";
+import { withProposerLogos } from "@/lib/validator-logos";
 import { PageFrame } from "@/components/page-frame";
 import { BlocksTable } from "@/components/blocks-table";
 
@@ -42,7 +43,11 @@ export default async function BlocksPage({
       : adapter.getRecentBlocks(),
     adapter.getValidators().catch(() => []),
   ]);
-  const named = nameProposers(blocks, validators, chain.bech32Prefix);
+  const named = await withProposerLogos(
+    chain,
+    nameProposers(blocks, validators, chain.bech32Prefix),
+    validators
+  );
 
   const lowest =
     named.length > 0 ? Number(named[named.length - 1].height) : null;

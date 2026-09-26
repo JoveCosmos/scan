@@ -18,7 +18,7 @@ export default function ChainLoading() {
     >
       <div className="flex shrink-0 items-start gap-3 pb-3">
         <Skeleton className="h-7 w-[3px] rounded-full" />
-        <div className="flex min-w-0 flex-col gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <Skeleton className="h-5 w-44" />
           <div className="flex flex-wrap gap-1.5">
             {[5.5, 7, 6, 4.5].map((w, i) => (

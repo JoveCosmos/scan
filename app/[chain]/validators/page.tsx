@@ -14,6 +14,7 @@ import { missedLast30d } from "@/lib/indexer-validator";
 import { getSelfBonds } from "@/lib/staking";
 import { getChainEconomics } from "@/lib/params";
 import { PageFrame } from "@/components/page-frame";
+import { validatorLogoMap } from "@/lib/validator-logos";
 
 export const revalidate = 60;
 
@@ -121,11 +122,15 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     };
   };
 
+  // Logos for both sets: chainlist images now, Keybase pictures once cached.
+  const logos = await validatorLogoMap(chain, [...validators, ...inactive]);
+
   // Flattened for the client table: it sorts and renders, but owns no fetching.
   const rows: ValidatorRow[] = validators.map((v) => ({
     rank: v.rank,
     operatorAddress: v.operatorAddress,
     moniker: v.moniker,
+    logos: logos.get(v.operatorAddress) ?? [],
     votingPower: v.votingPower,
     cumulativePower: v.cumulativePower,
     tokens: v.tokens,
@@ -150,6 +155,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     rank: v.rank,
     operatorAddress: v.operatorAddress,
     moniker: v.moniker,
+    logos: logos.get(v.operatorAddress) ?? [],
     votingPower: 0,
     cumulativePower: 0,
     tokens: v.tokens,

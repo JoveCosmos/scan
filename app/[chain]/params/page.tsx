@@ -6,16 +6,27 @@ import {
   accentFor,
   symbolFor,
   symbolForDenom,
+  logoFor,
 } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { getChainParams, getChainEconomics, humanDuration } from "@/lib/params";
+import { getChainParams, getChainEconomics, getAprRange, humanDuration } from "@/lib/params";
 import { getSupplyOf } from "@/lib/params";
 import { getLatestRelease } from "@/lib/github";
 import { getMarketDataById, formatUsd, formatUsdCompact } from "@/lib/market";
 import { recentJailings } from "@/lib/indexer-validator";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
+import Image from "next/image";
 import { PageFrame } from "@/components/page-frame";
+import {
+  OverviewPanels,
+  type PanelBlock,
+  type PanelTx,
+  type PanelValidator,
+} from "@/components/overview-panels";
+import { nameProposers } from "@/lib/blocks";
+import { validatorLogoMap } from "@/lib/validator-logos";
+import { policyFor } from "@/lib/tiers";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +94,8 @@ export default async function ChainOverviewPage({
   const feeSymbol = chain.feeDenom ? symbolForDenom(chain.feeDenom) : "";
   const base = `/${chain.chainId}`;
 
-  const [overview, chainParams, release, feeSupply, market, feeMarket, validators, jailings] =
+  const policy = policyFor(chain);
+  const [overview, chainParams, release, feeSupply, market, feeMarket, validators, jailings, recentBlocks, recentTxs] =
     await Promise.all([
       adapter.getOverview(),
       caps.staking ? getChainParams(chain) : null,
@@ -94,6 +106,9 @@ export default async function ChainOverviewPage({
       // Cached set, shared with the validators tab: feeds Nakamoto and names.
       adapter.getValidators().catch(() => []),
       caps.staking ? recentJailings(chain.chainId).catch(() => null) : null,
+      // The dashboard cards: both feeds are shared caches with their tabs.
+      adapter.getRecentBlocks(12).catch(() => []),
+      policy.txs ? adapter.getRecentTxs().catch(() => null) : null,
     ]);
 
   // Three more LCD reads, and the only ones here that are not either config or
@@ -105,6 +120,23 @@ export default async function ChainOverviewPage({
         chainParams?.staking?.minCommissionRate ?? null
       ).catch(() => null)
     : null;
+
+  // AtomOne-style APR range (null on chains with plain proportional rewards),
+  // and the active set's average signing uptime.
+  const [aprRange, uptimes] = await Promise.all([
+    caps.staking
+      ? getAprRange(
+          chain,
+          chainParams?.distribution?.communityTax ?? null,
+          validators.map((v) => v.tokens)
+        ).catch(() => null)
+      : null,
+    adapter.getUptime(validators).catch(() => null),
+  ]);
+  const ratios = uptimes
+    ? [...uptimes.values()].map((u) => u.ratio).filter((r): r is number => r !== null)
+    : [];
+  const avgUptime = ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
 
   const bricks: BrickSpec[] = [];
 
@@ -308,9 +340,17 @@ export default async function ChainOverviewPage({
       key: "apr",
       href: `${base}/validators`,
       label: "Staking APR",
-      value: pct(economics.stakingApr),
-      sub: "before commission",
+      value: aprRange
+        ? `${(aprRange.lo * 100).toFixed(0)}–${(aprRange.hi * 100).toFixed(0)}%`
+        : pct(economics.stakingApr),
+      sub: aprRange ? "by validator size" : "before commission",
       rows: kept([
+        ...(aprRange
+          ? [
+              { label: "Largest validator", value: pct(aprRange.lo), mono: true },
+              { label: "Smallest validator", value: pct(aprRange.hi), mono: true },
+            ]
+          : []),
         { label: "Gross APR", value: pct(economics.stakingApr), mono: true },
         {
           label: "After min commission",
@@ -395,7 +435,7 @@ export default async function ChainOverviewPage({
   ]);
   bricks.push({
     key: "network",
-    label: "Network",
+    label: "Version",
     value: release?.tag ?? chain.bech32Prefix,
     sub: release ? "latest release" : "address prefix",
     count: networkRows.length,
@@ -497,14 +537,84 @@ export default async function ChainOverviewPage({
     });
   }
 
+  bricks.push({
+    key: "uptime",
+    href: `${base}/validators`,
+    label: "Network uptime",
+    value: avgUptime !== null ? `${(avgUptime * 100).toFixed(2)}%` : "N/A",
+    sub: `${validators.length} validators`,
+    tone: avgUptime !== null && avgUptime >= 0.99 ? "ok" : undefined,
+  });
+
+  // The overview shows five figures; the rest live on their own tabs.
+  const KEEP = ["network", "supply", "pool", "apr", "uptime"];
+  const shown = KEEP.flatMap((k) => bricks.filter((b) => b.key === k));
+
+  // Dashboard cards under the tiles.
+  const named = nameProposers(recentBlocks, validators, chain.bech32Prefix);
+  const top = validators.slice(0, 12);
+  const logos = await validatorLogoMap(chain, [
+    ...top,
+    ...validators.filter((v) => named.some((b) => b.proposerOperator === v.operatorAddress)),
+  ]);
+  const panelBlocks: PanelBlock[] = named.map((b) => ({
+    height: b.height,
+    time: b.time,
+    txCount: b.txCount,
+    proposer: b.proposerMoniker,
+    proposerOperator: b.proposerOperator,
+    proposerLogos: b.proposerOperator ? logos.get(b.proposerOperator) ?? [] : [],
+  }));
+  const panelTxs: PanelTx[] = (recentTxs?.txs ?? []).slice(0, 12).map((t) => ({
+    hash: t.hash,
+    height: t.height,
+    time: t.time,
+    label: t.primaryLabel ?? t.messages[0]?.label ?? "Transaction",
+    ok: t.code === null ? null : t.code === 0,
+  }));
+  const panelValidators: PanelValidator[] = top.map((v) => ({
+    operator: v.operatorAddress,
+    moniker: v.moniker,
+    share: v.votingPower,
+    logos: logos.get(v.operatorAddress) ?? [],
+  }));
+
   return (
-    <PageFrame title={chain.prettyName} sub={chain.chainId} accent={accent}>
-      <BrickBoard
-        chainId={chain.chainId}
-        accent={accent}
-        bricks={bricks}
-        head={overview}
-      />
+    <PageFrame
+      title={chain.prettyName}
+      sub={chain.chainId}
+      accent={accent}
+      emblem={
+        logoFor(chain) ? (
+          <Image
+            src={logoFor(chain)!}
+            alt=""
+            width={34}
+            height={34}
+            className="h-[34px] w-[34px] rounded-full object-contain"
+          />
+        ) : undefined
+      }
+    >
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="shrink-0">
+          <BrickBoard
+            chainId={chain.chainId}
+            accent={accent}
+            bricks={shown}
+            head={overview}
+            size="lg"
+          />
+        </div>
+        <OverviewPanels
+          chainId={chain.chainId}
+          accent={accent}
+          blocks={panelBlocks}
+          txs={panelTxs}
+          validators={panelValidators}
+          showTxs={policy.txs}
+        />
+      </div>
     </PageFrame>
   );
 }

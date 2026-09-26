@@ -55,6 +55,7 @@ export function BrickBoard({
   bricks,
   head,
   className,
+  size = "sm",
 }: {
   /** Only needed for the live head poll, so a static board can omit it. */
   chainId?: string;
@@ -67,6 +68,8 @@ export function BrickBoard({
    */
   head?: ChainOverview;
   className?: string;
+  /** "lg" is the overview's headline figures: fewer, larger tiles. */
+  size?: "sm" | "lg";
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -102,7 +105,9 @@ export function BrickBoard({
 
   return (
     <>
-      <BrickGrid className={className}>
+      <BrickGrid
+        className={`${size === "lg" ? "brick-lg !grid-cols-2 sm:!grid-cols-3 lg:!grid-cols-5" : ""} ${className ?? ""}`}
+      >
         {bricks.map((brick) => {
           const visual = resolve(brick);
           const href =
