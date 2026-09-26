@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { createPool, commitBatch, readCursor } from "../indexer/src/db";
+import { createPool, commitBatch, readCursor, resolveUnjails, recordGaps, heartbeat } from "../indexer/src/db";
 import { extractBlock, type ExtractedBlock } from "../indexer/src/extract";
 import type { Pool } from "pg";
 
@@ -111,6 +111,8 @@ describe.skipIf(!url)("indexer database", () => {
     b.transfers = [
       {
         txHash: "WIDE",
+        eventSeq: 0,
+        authzMsgIndex: null,
         msgIndex: 0,
         coinIndex: 0,
         height: "9823289",
@@ -150,11 +152,21 @@ describe.skipIf(!url)("vote and slash writes", () => {
         height,
         time: "2026-01-01T00:00:00Z",
         txHash: `HASH${height}`,
+        eventSeq: 0,
       },
     ],
     slashes: [],
-      missed: [],
+    missed: [],
+    txParties: [],
+    txMsgs: [],
+    ibcPackets: [],
+    stakingEvents: [],
+    validatorPower: [],
+    govDeposits: [],
+    govProposals: [],
+    validatorKeys: [],
     abciResultsMissing: false,
+    extractVersion: 4,
   });
 
   beforeAll(async () => {
@@ -223,5 +235,153 @@ describe.skipIf(!url)("vote and slash writes", () => {
       [CH]
     );
     expect(res.rows[0].times).toBe(1);
+  });
+});
+
+describe.skipIf(!url)("extract version 4 writes", () => {
+  let pool: Pool;
+  const CH = "v4-write-test";
+  const TABLES = [
+    "transfer", "tx", "block", "tx_party", "tx_msg", "staking_event", "validator_power",
+    "slash_event", "validator_key", "ibc_packet", "gov_deposit", "gov_proposal", "indexer_cursor",
+    "block_gap",
+  ];
+  const at = (h: number) =>
+    extractBlock(
+      fixture(`atomone-block-${h}.json`),
+      fixture(`atomone-block-results-${h}.json`)
+    )!;
+  const count = async (table: string) =>
+    Number((await pool.query(`SELECT count(*) FROM ${table} WHERE chain_id = $1`, [CH])).rows[0].count);
+
+  beforeAll(async () => {
+    pool = createPool(url!);
+    for (const t of TABLES) await pool.query(`DELETE FROM ${t} WHERE chain_id = $1`, [CH]);
+  });
+
+  afterAll(async () => {
+    for (const t of TABLES) await pool.query(`DELETE FROM ${t} WHERE chain_id = $1`, [CH]);
+    await pool.end();
+  });
+
+  it("keeps all 105 rows of a pre-upgrade authz batch, and rewriting changes nothing", async () => {
+    await commitBatch(pool, CH, [at(9294803)], 9294803);
+    expect(await count("transfer")).toBe(105);
+    expect(await count("tx_msg")).toBe(27);
+    expect(await count("staking_event")).toBe(26);
+    const parties = await count("tx_party");
+
+    await commitBatch(pool, CH, [at(9294803)], 9294803);
+    expect(await count("transfer")).toBe(105);
+    expect(await count("tx_party")).toBe(parties);
+  });
+
+  it("writes the tx metadata columns", async () => {
+    const { rows } = await pool.query(
+      "SELECT memo, signers, fee_coins, codespace FROM tx WHERE chain_id = $1", [CH]
+    );
+    expect(rows[0].signers).toEqual(["atone1vvumkjdmen9fsgu88zqv8eulpn79g4g0lner8s"]);
+    expect(rows[0].fee_coins).toHaveLength(1);
+  });
+
+  it("records head_height alongside the cursor", async () => {
+    const { rows } = await pool.query(
+      "SELECT last_height, head_height FROM indexer_cursor WHERE chain_id = $1", [CH]
+    );
+    expect(rows[0]).toEqual({ last_height: "9294803", head_height: "9294803" });
+  });
+
+  it("merges a packet's send, ack and receive columns without erasing any", async () => {
+    await commitBatch(pool, CH, [at(10524171), at(10524728), at(10524863)]);
+    const { rows } = await pool.query(
+      `SELECT direction, sequence::text, send_height::text, ack_height::text, ack_ok, recv_height::text
+         FROM ibc_packet WHERE chain_id = $1 ORDER BY direction, sequence`, [CH]
+    );
+    expect(rows).toEqual([
+      { direction: "in", sequence: "59069", send_height: null, ack_height: null, ack_ok: null, recv_height: "10524863" },
+      { direction: "out", sequence: "114476", send_height: null, ack_height: "10524171", ack_ok: true, recv_height: null },
+      { direction: "out", sequence: "114477", send_height: "10524728", ack_height: null, ack_ok: null, recv_height: null },
+    ]);
+  });
+
+  it("keeps a proposal's submission when its outcome arrives, in either order", async () => {
+    await commitBatch(pool, CH, [at(9463929)]);
+    await commitBatch(pool, CH, [at(9148971)]);
+    const { rows } = await pool.query(
+      "SELECT submit_height::text, outcome, outcome_height::text, messages FROM gov_proposal WHERE chain_id = $1", [CH]
+    );
+    expect(rows).toEqual([
+      {
+        submit_height: "9148971",
+        outcome: "passed",
+        outcome_height: "9463929",
+        messages: ["/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade"],
+      },
+    ]);
+    expect(await count("gov_deposit")).toBe(1);
+  });
+
+  it("stores the tombstone of a double sign", async () => {
+    await commitBatch(pool, CH, [at(1663342)]);
+    const { rows } = await pool.query(
+      "SELECT kind FROM slash_event WHERE chain_id = $1 AND height = 1663342 ORDER BY kind", [CH]
+    );
+    expect(rows.map((r) => r.kind)).toEqual(["slashed", "tombstoned"]);
+  });
+
+  it("resolves an unjail to the consensus address once the key is known", async () => {
+    await commitBatch(pool, CH, [at(9968835)]);
+    const op = "atonevaloper10nnweapu0gqyj0zzw45w7vg58yc4aagwkmnx7x";
+    const before = await pool.query(
+      "SELECT cons_addr FROM slash_event WHERE chain_id = $1 AND kind = 'unjailed'", [CH]
+    );
+    expect(before.rows).toEqual([{ cons_addr: op }]);
+
+    await pool.query(
+      `INSERT INTO validator_key (chain_id, operator, cons_hex, cons_valcons)
+       VALUES ($1, $2, 'ABCDEF', 'atonevalcons1test')`, [CH, op]
+    );
+    expect(await resolveUnjails(pool, CH)).toBe(1);
+    const after = await pool.query(
+      "SELECT cons_addr, operator FROM slash_event WHERE chain_id = $1 AND kind = 'unjailed'", [CH]
+    );
+    expect(after.rows).toEqual([{ cons_addr: "atonevalcons1test", operator: op }]);
+  });
+
+  it("writes a hollow block at version 0 and never over a good one", async () => {
+    const good = at(9515610);
+    const hollow = extractBlock(fixture("atomone-block-9515610.json"), {
+      result: { height: "9515610", txs_results: null },
+    })!;
+    expect(hollow.extractVersion).toBe(0);
+
+    await commitBatch(pool, CH, [hollow]);
+    const v0 = await pool.query("SELECT extract_version FROM block WHERE chain_id = $1 AND height = 9515610", [CH]);
+    expect(v0.rows[0].extract_version).toBe(0);
+
+    await commitBatch(pool, CH, [good]);
+    await commitBatch(pool, CH, [hollow]);
+    const v4 = await pool.query("SELECT extract_version FROM block WHERE chain_id = $1 AND height = 9515610", [CH]);
+    expect(v4.rows[0].extract_version).toBe(4);
+    const t = await pool.query(
+      "SELECT kind FROM transfer WHERE chain_id = $1 AND height = 9515610 ORDER BY event_seq", [CH]
+    );
+    expect(t.rows.map((r) => r.kind)).toEqual(["fee", "transfer"]);
+  });
+
+  it("records and clears gaps", async () => {
+    await recordGaps(pool, CH, [5, 6, 7, 9], "fetch");
+    const g = await pool.query("SELECT lo::int, hi::int FROM block_gap WHERE chain_id = $1 ORDER BY lo", [CH]);
+    expect(g.rows).toEqual([{ lo: 5, hi: 7 }, { lo: 9, hi: 9 }]);
+  });
+
+  it("heartbeats only a cursor that is at the head", async () => {
+    const before = (await pool.query("SELECT updated_at FROM indexer_cursor WHERE chain_id = $1", [CH])).rows[0].updated_at;
+    await heartbeat(pool, CH, 99_999_999);
+    const same = (await pool.query("SELECT updated_at FROM indexer_cursor WHERE chain_id = $1", [CH])).rows[0].updated_at;
+    expect(same).toEqual(before);
+    await heartbeat(pool, CH, 9294803);
+    const moved = (await pool.query("SELECT updated_at FROM indexer_cursor WHERE chain_id = $1", [CH])).rows[0].updated_at;
+    expect(moved.getTime()).toBeGreaterThan(before.getTime());
   });
 });

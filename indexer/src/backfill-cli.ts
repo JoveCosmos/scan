@@ -1,5 +1,6 @@
-import { createPool, lowestIndexed } from "./db";
+import { createPool, lowestIndexed, resolveUnjails } from "./db";
 import { runBackfill, type BackfillTarget } from "./backfill";
+import { bootstrapKeys } from "./validator-keys";
 
 /**
  * Backfill entry point — a one-off job, not a service.
@@ -18,6 +19,9 @@ import { runBackfill, type BackfillTarget } from "./backfill";
  *                           after the extractor learned to read votes
  *   BACKFILL_CONCURRENCY    default 8
  *   BACKFILL_THROTTLE_MS    pause between batches, default 200
+ *   BACKFILL_LCD            optional staking API: seeds validator_key first (genesis
+ *                           validators never send MsgCreateValidator), so unjails
+ *                           resolve to a consensus address as they are written
  */
 
 function log(msg: string) {
@@ -70,6 +74,11 @@ async function main() {
     );
   }
 
+  if (process.env.BACKFILL_LCD) {
+    const n = await bootstrapKeys(pool, chainId, process.env.BACKFILL_LCD);
+    log(`validator_key: ${n} validators from ${process.env.BACKFILL_LCD}`);
+  }
+
   log(
     target.refill
       ? `refilling ${chainId} from ${target.from} down to ${target.floor} via ${rpcUrl}`
@@ -87,6 +96,10 @@ async function main() {
     },
     controller.signal
   );
+
+  // Unjails written before their validator's key was known, resolved now.
+  const fixed = await resolveUnjails(pool, chainId);
+  if (fixed > 0) log(`resolved ${fixed} unjail row(s) to a consensus address`);
 
   await pool.end();
   log("done");

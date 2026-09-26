@@ -105,10 +105,68 @@ filesystem isolation, `gata-hub` explicitly out of reach, and `Nice=10` /
 
 Secrets go in `/etc/gata/indexer.env` (root:indexer, 0640), not the unit file.
 
+### Upgrading to extract version 4
+
+Migration 009 swaps `transfer`'s key, and a version-3 writer's `ON CONFLICT`
+names the old one, so the follower is stopped for the migration and comes back
+on the new build. Measured on a production-size copy: 008 under a second, 009
+81 s (concurrent index builds), 010 12 s.
+
+```sh
+sudo systemctl stop indexer
+CONTAINER=gata-indexer-db ./migrate.sh           # 001–010, all re-runnable
+# deploy the release to /srv/indexer/current as today, then
+sudo systemctl start indexer
+journalctl -u indexer -f                          # new blocks arrive at extract_version 4
+```
+
+Scan keeps working throughout: it reads `extract_version >= 2`, which version 4
+satisfies.
+
+### Refill
+
+Rewrites history at version 4, descending from the head. The follower keeps
+running; the two write disjoint heights. Run as the `indexer` user in a
+transient unit, never in a shell:
+
+```sh
+# 1. Recent history from our own node (earliest 9,990,001): ~260 blocks/s, ~35 min.
+sudo systemd-run --unit=indexer-refill-local --uid=indexer --gid=indexer \
+  --working-directory=/srv/indexer/current -p EnvironmentFile=/etc/gata/indexer.env \
+  -p Nice=10 -p IOSchedulingClass=idle \
+  -E BACKFILL_CHAIN=atomone-1 -E BACKFILL_RPC=http://127.0.0.1:23957 \
+  -E BACKFILL_REFILL=1 -E BACKFILL_FROM=<head at deploy> -E BACKFILL_FLOOR=9990001 \
+  -E BACKFILL_LCD=https://api.atomone-archive.citizenweb3.com \
+  /usr/bin/npm run indexer:backfill
+
+# 2. Everything older from the public archive: ~70 blocks/s at concurrency 16.
+sudo systemd-run --unit=indexer-refill-archive --uid=indexer --gid=indexer \
+  --working-directory=/srv/indexer/current -p EnvironmentFile=/etc/gata/indexer.env \
+  -p Nice=10 -p IOSchedulingClass=idle \
+  -E BACKFILL_CHAIN=atomone-1 -E BACKFILL_RPC=https://rpc.atomone-archive.citizenweb3.com \
+  -E BACKFILL_REFILL=1 -E BACKFILL_FROM=9990000 -E BACKFILL_FLOOR=1 \
+  -E BACKFILL_CONCURRENCY=16 -E BACKFILL_THROTTLE_MS=100 \
+  /usr/bin/npm run indexer:backfill
+```
+
+`BACKFILL_LCD` seeds `validator_key` from the staking API first, so unjails
+resolve to a consensus address as they are written; the run also resolves any
+left over at the end. A height the archive cannot serve after three attempts is
+recorded in `block_gap` rather than skipped; a batch that fails entirely stops
+the run with an error instead of reporting it complete. Stopping a refill
+(`systemctl stop`) is safe: it finishes the batch and resuming from the lowest
+version-4 height below the follower is just another `BACKFILL_FROM`.
+
+Progress, as Scan sees it:
+
+```sql
+SELECT * FROM indexer_coverage('atomone-1', 'transfers');   -- lo falls as it runs
+```
+
 ## Backups
 
 Everything here is a projection of chain history, so a lost database costs time
-rather than data — but rebuilding means roughly 33 hours of archive requests, so
+rather than data — but rebuilding means roughly 40 hours of archive requests, so
 `backup.sh` dumps it nightly and keeps the newest seven:
 
 ```sh

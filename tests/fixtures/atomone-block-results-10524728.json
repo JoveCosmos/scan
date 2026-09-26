@@ -1,0 +1,368 @@
+{
+ "jsonrpc": "2.0",
+ "id": -1,
+ "result": {
+  "height": "10524728",
+  "txs_results": [
+   {
+    "code": 0,
+    "data": "EjkKMS9pYmMuYXBwbGljYXRpb25zLnRyYW5zZmVyLnYxLk1zZ1RyYW5zZmVyUmVzcG9uc2USBAit/gY=",
+    "log": "",
+    "info": "",
+    "gas_wanted": "138222",
+    "gas_used": "109099",
+    "events": [
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "acc_seq",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3/2109",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "signature",
+        "value": "M6X8JOCaReXkPdfg6xxv2dod5rcxLuIMEjhhyuhhaCJ/uvPOjNoxifk2TR1AJP3R/JNkazEpdXvvww+FScZGiQ==",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "31100uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "31100uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "31100uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "fee",
+        "value": "31100uphoton",
+        "index": true
+       },
+       {
+        "key": "fee_payer",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "action",
+        "value": "/ibc.applications.transfer.v1.MsgTransfer",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "25988507uatone",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone12k2pyuylm9t7ugdvz67h9pg4gmmvhn5v3xe48v",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "25988507uatone",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone12k2pyuylm9t7ugdvz67h9pg4gmmvhn5v3xe48v",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "25988507uatone",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "send_packet",
+      "attributes": [
+       {
+        "key": "packet_data_hex",
+        "value": "7b2264656e6f6d223a227561746f6e65222c22616d6f756e74223a223235393838353037222c2273656e646572223a2261746f6e65317a6e617a6a7561786d6e7163397834386733687776786835736163353071386b363534676a33222c227265636569766572223a226f736d6f317a6e617a6a7561786d6e7163397834386733687776786835736163353071386b7530366c6a6d227d",
+        "index": true
+       },
+       {
+        "key": "packet_timeout_height",
+        "value": "1-71328133",
+        "index": true
+       },
+       {
+        "key": "packet_timeout_timestamp",
+        "value": "0",
+        "index": true
+       },
+       {
+        "key": "packet_sequence",
+        "value": "114477",
+        "index": true
+       },
+       {
+        "key": "packet_src_port",
+        "value": "transfer",
+        "index": true
+       },
+       {
+        "key": "packet_src_channel",
+        "value": "channel-2",
+        "index": true
+       },
+       {
+        "key": "packet_dst_port",
+        "value": "transfer",
+        "index": true
+       },
+       {
+        "key": "packet_dst_channel",
+        "value": "channel-94814",
+        "index": true
+       },
+       {
+        "key": "packet_channel_ordering",
+        "value": "ORDER_UNORDERED",
+        "index": true
+       },
+       {
+        "key": "packet_connection",
+        "value": "connection-2",
+        "index": true
+       },
+       {
+        "key": "connection_id",
+        "value": "connection-2",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "module",
+        "value": "ibc_channel",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "ibc_transfer",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone1znazjuaxmnqc9x48g3hwvxh5sac50q8k654gj3",
+        "index": true
+       },
+       {
+        "key": "receiver",
+        "value": "osmo1znazjuaxmnqc9x48g3hwvxh5sac50q8ku06ljm",
+        "index": true
+       },
+       {
+        "key": "denom",
+        "value": "uatone",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "25988507",
+        "index": true
+       },
+       {
+        "key": "memo",
+        "value": "",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "module",
+        "value": "transfer",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     }
+    ],
+    "codespace": ""
+   }
+  ],
+  "finalize_block_events": [],
+  "validator_updates": null,
+  "consensus_param_updates": {
+   "block": {
+    "max_bytes": "2000000",
+    "max_gas": "100000000"
+   },
+   "evidence": {
+    "max_age_num_blocks": "1000000",
+    "max_age_duration": "172800000000000",
+    "max_bytes": "50000"
+   },
+   "validator": {
+    "pub_key_types": [
+     "ed25519"
+    ]
+   },
+   "version": {
+    "app": "3"
+   }
+  },
+  "app_hash": "NTp7zut/XcccMY8cg8VVwqt1YVfFs/13/D3HFLkk2gg="
+ },
+ "_note": "block-level events trimmed to the types the indexer reads (slash, completions, proposal outcomes)"
+}

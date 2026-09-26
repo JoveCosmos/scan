@@ -1,0 +1,246 @@
+{
+ "jsonrpc": "2.0",
+ "id": -1,
+ "result": {
+  "height": "9148971",
+  "txs_results": [
+   {
+    "code": 0,
+    "data": "Ei8KKS9hdG9tb25lLmdvdi52MS5Nc2dTdWJtaXRQcm9wb3NhbFJlc3BvbnNlEgIIFQ==",
+    "log": "[{\"msg_index\":0,\"events\":[{\"type\":\"message\",\"attributes\":[{\"key\":\"action\",\"value\":\"/atomone.gov.v1.MsgSubmitProposal\"},{\"key\":\"sender\",\"value\":\"atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys\"},{\"key\":\"module\",\"value\":\"gov\"}]},{\"type\":\"submit_proposal\",\"attributes\":[{\"key\":\"proposal_id\",\"value\":\"21\"},{\"key\":\"proposal_messages\",\"value\":\",/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade\"}]},{\"type\":\"coin_spent\",\"attributes\":[{\"key\":\"spender\",\"value\":\"atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys\"},{\"key\":\"amount\",\"value\":\"51200000uatone\"}]},{\"type\":\"coin_received\",\"attributes\":[{\"key\":\"receiver\",\"value\":\"atone10d07y265gmmuvt4z0w9aw880jnsr700j5z0zqt\"},{\"key\":\"amount\",\"value\":\"51200000uatone\"}]},{\"type\":\"transfer\",\"attributes\":[{\"key\":\"recipient\",\"value\":\"atone10d07y265gmmuvt4z0w9aw880jnsr700j5z0zqt\"},{\"key\":\"sender\",\"value\":\"atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys\"},{\"key\":\"amount\",\"value\":\"51200000uatone\"}]},{\"type\":\"message\",\"attributes\":[{\"key\":\"sender\",\"value\":\"atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys\"}]},{\"type\":\"proposal_deposit\",\"attributes\":[{\"key\":\"amount\",\"value\":\"51200000uatone\"},{\"key\":\"proposal_id\",\"value\":\"21\"}]}]}]",
+    "info": "",
+    "gas_wanted": "1558233",
+    "gas_used": "1050568",
+    "events": [
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "38956uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "38956uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "38956uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "fee",
+        "value": "38956uphoton",
+        "index": true
+       },
+       {
+        "key": "fee_payer",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "acc_seq",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys/246",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "signature",
+        "value": "29pxgAR0xIIQXL1Cs11y/+Jex1c9Q5fZ2xw5Zn/ge/pIy0+sv14AEqcczvDeSpMxLWLe1ooH3LRwV6BORHgyNw==",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "action",
+        "value": "/atomone.gov.v1.MsgSubmitProposal",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       },
+       {
+        "key": "module",
+        "value": "gov",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "submit_proposal",
+      "attributes": [
+       {
+        "key": "proposal_id",
+        "value": "21",
+        "index": true
+       },
+       {
+        "key": "proposal_messages",
+        "value": ",/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "51200000uatone",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone10d07y265gmmuvt4z0w9aw880jnsr700j5z0zqt",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "51200000uatone",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone10d07y265gmmuvt4z0w9aw880jnsr700j5z0zqt",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "51200000uatone",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone10jzj3jjd3frna0ay08sh4zu4fpy957s4wx7yys",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "proposal_deposit",
+      "attributes": [
+       {
+        "key": "amount",
+        "value": "51200000uatone",
+        "index": true
+       },
+       {
+        "key": "proposal_id",
+        "value": "21",
+        "index": true
+       }
+      ]
+     }
+    ],
+    "codespace": ""
+   }
+  ],
+  "finalize_block_events": [],
+  "validator_updates": null,
+  "consensus_param_updates": {
+   "block": {
+    "max_bytes": "2000000",
+    "max_gas": "100000000"
+   },
+   "evidence": {
+    "max_age_num_blocks": "1000000",
+    "max_age_duration": "172800000000000",
+    "max_bytes": "50000"
+   },
+   "validator": {
+    "pub_key_types": [
+     "ed25519"
+    ]
+   },
+   "version": {}
+  },
+  "app_hash": null
+ },
+ "_note": "block-level events trimmed to the types the indexer reads (slash, completions, proposal outcomes)"
+}

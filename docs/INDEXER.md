@@ -5,19 +5,23 @@ history in Postgres, so Scan can answer questions no node can: jail and
 slash history, uptime beyond the signing window, fast vote and delegator
 queries, and trends over time.
 
-Status: **phase 1 built** (`indexer/`) — blocks, transactions and transfers,
-following the head. Nothing in Scan reads Postgres yet; that is phase 2.
-Later phases below are still plan.
+Status: **extract version 4** (`indexer/`, 2026-09-26). The current contract
+with Scan — every table, its key, which version carries it and how to read it —
+is [Contract with Scan](#contract-with-scan-extract-version-4) below; the
+original design sections after it are kept as history and are superseded
+wherever the two differ.
 
-Two things phase 1 settled that the plan had left open:
+Things phase 1 settled that the plan had left open:
 
 - **No transaction index needed.** A tx hash is `sha256(raw bytes)`, derived
   locally from the block and verified against the chain, so `tx_index: off` is
   fine.
-- **No protobuf decoding needed.** The ABCI events carry *more* than the
-  messages: a reward withdrawal's amount exists only in the event, and
-  authz-wrapped transfers appear without unwrapping. So the schema's `transfer`
-  table is populated from events, and the worker's only dependency is `pg`.
+- **Events first, bytes where events are silent.** The ABCI events carry *more*
+  than the messages: a reward withdrawal's amount exists only in the event. But
+  a failed transaction emits no message events, the memo and fee granter are
+  never in an event, and an authz batch names its inner messages only through
+  their side effects — so version 4 also reads the transaction's own bytes
+  (`indexer/src/proto.ts`, four wire types, no dependency).
 
 ## Decisions (settled)
 
@@ -117,7 +121,242 @@ buffer, not history:
 - State pruning can be as aggressive as we like — the indexer never reads
   historical *state* by height once snapshots are in Postgres.
 
+## Contract with Scan (extract version 4)
+
+Written 2026-09-26 by the indexer session. This is what the indexer promises;
+Scan reads nothing that is not listed here. Changes to this section are
+announced to the Scan session before they ship.
+
+### Why version 4
+
+Measured on a copy of production (snapshot 2026-09-26 00:41 UTC) and against
+the chain:
+
+1. **Pre-upgrade transfers were stored as fees and overwrote each other.**
+   Before AtomOne's SDK upgrade at ~9,550,000 no event carries `msg_index`; the
+   extractor read "no index" as "the fee". Below that height 2,137,161 rows were
+   kind `fee` and not one was `transfer`, and under the old key
+   `(tx_hash, msg_index, coin_index, kind)` they collapsed to one row per coin:
+   in sampling, MultiSend lost 100% of its movements (28,012 events → 12 rows),
+   MsgExec 97%, RecvPacket 50%, MsgSend 48%, reward withdrawals 41%. Scan's
+   account history (which excludes fees) therefore showed **no incoming
+   transfers at all** before 9,550,000.
+2. **Post-upgrade, same-kind events inside one message still collided:** an
+   authz MsgExec's inner messages share the outer `msg_index`, so batches lost
+   86% of their movements, MultiSend 44%.
+3. Missed blocks — already fixed in production by `missed_signature`
+   (version 3).
+4. `updated_at` froze whenever a chain paused, so a reader could not tell
+   "caught up" from "stuck".
+5. A node that dropped its ABCI responses produced hollow rows that looked
+   complete (latent — none found in production).
+6. A backfill batch that failed outright ended the run as "complete", and a
+   single unfetchable height became an invisible hole.
+7. A double sign's jailing arrives in a second `slash` event with no address and
+   was dropped (height 1,663,342: slashed, never tombstoned); the 76 unjails on
+   AtomOne were never recorded.
+8. Only the first fee coin was kept; signers, fee granter and memo not at all.
+9. The stale band (`extract_version < 2`) is gone: 0 rows.
+
+### Keys and versions
+
+`block.extract_version` is the extractor that last wrote the block's rows. A
+reader does not compare versions itself — it asks for a **capability**:
+
+```sql
+SELECT lo, hi, lo_time, hi_time FROM indexer_coverage($chain, $capability);
+```
+
+returns the contiguous run of blocks ending at the newest one in which every
+block carries the capability: no recorded gap (`block_gap`) and no block written
+by an older extractor. No row means "not covered — use the live path". ~5 ms on
+the production-size copy; Scan's 30 s cache is plenty. A refill descends from
+the head, so a version-4 capability's `lo` moves down as it runs; a capability
+an older version already served (`votes`, `fees`, `slashing`) stays fully
+covered throughout.
+
+| capability | min version | rows |
+|---|---|---|
+| blocks | 0 | `block` |
+| fees | 1 | `tx` fee, gas, signer, msg_types |
+| votes | 2 | `vote` (final vote per voter) |
+| slashing | 2 | `slash_event` slashed / jailed |
+| missed_signatures | 3 | `missed_signature` |
+| transfers | 4 | `transfer` with correct kinds in both eras |
+| tx_meta | 4 | `tx.memo`, `signers`, `fee_granter`, `codespace`, `fee_coins` |
+| tx_party | 4 | `tx_party` |
+| tx_msg | 4 | `tx_msg` |
+| ibc_packet | 4 | `ibc_packet` |
+| staking_event | 4 | `staking_event` |
+| validator_power | 4 | `validator_power` |
+| gov_deposit | 4 | `gov_deposit` |
+| gov_proposal | 4 | `gov_proposal` |
+| vote_event | 4 | `vote_event` |
+| tombstones_unjails | 4 | `slash_event` kinds `tombstoned`, `unjailed` |
+
+The list lives in `extract_capability` (migration 008) and in `CAPABILITIES` in
+`indexer/src/extract.ts`; they must agree.
+
+Version 0 marks a **hollow** block: the node returned no ABCI results for a
+block that has transactions. Its `block` row is written (so the height is not a
+gap) and nothing derived from results is; it never overwrites a good block.
+
+### Tables
+
+Heights `bigint`, amounts `numeric(78,0)` (come back as strings), times
+`timestamptz`, addresses bech32 unless noted. Every table has `chain_id`.
+
+**`tx`** — PK `(chain_id, hash)`. Existing columns unchanged. New in v4:
+`memo`, `signers text[]` (every signer in order, from `acc_seq`),
+`fee_granter`, `codespace` (with `code`, the failure reason), `fee_coins jsonb`
+`[{"denom","amount"}]` (every fee coin; `fee_denom`/`fee_amount` keep the
+first). `signer` stays the first signer / fee payer. `msg_types` now comes from
+the transaction bytes when events are silent, so **failed transactions have
+their types**. GIN index on `msg_types`: `WHERE msg_types @> ARRAY[$type]`.
+
+**`transfer`** — one row per coin moved. **Key is now
+`(chain_id, tx_hash, event_seq, coin_index)`** (`event_seq`: ordinal of the
+event within the transaction); the old primary key is dropped. `msg_index` is
+the top-level message (−1 for the fee, charged before any message runs), new
+`authz_msg_index` is the position inside a MsgExec (null otherwise). `kind`:
+`fee`, `transfer`, `reward`, `commission` — unchanged meanings, now correct
+before the upgrade too. Zero-amount rows (the SDK's `0stake` empty reward) are
+no longer written. A transaction's rows are replaced as a set, so a reader never
+sees a half-rewritten transaction. Order a transaction's rows by `event_seq`.
+Rows below the `transfers` coverage floor are version 3 and have
+`event_seq IS NULL`.
+
+**`tx_party`** — who a transaction touched. PK
+`(chain_id, address, height, tx_hash)`, `roles int` bitmask: 1 signer,
+2 fee_payer, 4 fee_granter, 8 sender, 16 recipient, 32 delegator, 64 validator,
+128 voter, 256 depositor, 512 proposer, 1024 granter (authz), 2048 grantee,
+4096 relayer, 8192 other. Every bech32 account or operator address in the
+transaction's events and messages, plus signers and fee payer/granter.
+**Module accounts are excluded** (fee collector, distribution, bonded and
+not-bonded pools, gov, mint, IBC transfer escrows): they are party to nearly
+everything. Addresses of other chains that appear in IBC packets
+(`osmo1…`) are included — they are parties too.
+
+**`tx_msg`** — PK `(chain_id, tx_hash, msg_index, inner_index)`, from the
+transaction's bytes: `type_url`, `sender` (the message's signer field; a
+MultiSend's first input), `height`. `inner_index` −1 is the top-level message;
+0.. are the messages inside a MsgExec at that `msg_index`. Failed transactions
+included. Index `(chain_id, type_url, height DESC)`.
+
+**`ibc_packet`** — one row per packet per direction, PK
+`(chain_id, direction, src_port, src_channel, sequence)`. `direction` `out`
+(sent here: `send_*`, then `ack_*` or `timeout_*` here) or `in` (received here:
+`recv_*`, and the ack this chain wrote). `src_*` is always the packet's
+**source** side, so an inbound packet's `src_channel` is the counterparty's.
+Also `dst_port`, `dst_channel`, `connection_id`, `sender`, `receiver`, `denom`,
+`amount`, `memo` (ICS-20 data), `timeout_height` (`rev-height`),
+`timeout_timestamp`, `ack_ok`, `ack_error`, `recv_relayer`, `ack_relayer`,
+`timeout_at_height`, `timeout_tx`. Columns fill in as the packet's events
+arrive; a later event never erases an earlier column. Indexes on sender,
+receiver, send_tx, recv_tx, ack_tx.
+
+**`staking_event`** — PK `(chain_id, height, tx_hash, event_seq)`. `kind`:
+`delegate`, `undelegate`, `redelegate`, `cancel_unbonding`, `create_validator`,
+`edit_validator` (from transactions) and `complete_unbonding`,
+`complete_redelegation` (end-block, `tx_hash = ''`, `event_seq` = ordinal in the
+block's events). `validator` (source for redelegate), `validator_dst`,
+`delegator`, `amount`, `denom`, `completion_time`, `creation_height`,
+`msg_index`, `authz_msg_index`, `time`. Indexes by validator, validator_dst,
+delegator (each with `height DESC`).
+
+**`validator_power`** — PK `(chain_id, height, cons_addr)`; every
+`validator_update`. `cons_addr` is uppercase hex like `block.proposer_cons` and
+`missed_signature`; `power` 0 means the validator left the active set.
+
+**`validator_key`** — PK `(chain_id, operator)`: `cons_hex` (uppercase hex),
+`cons_valcons` (bech32, as `slash_event.cons_addr`). From MsgCreateValidator and
+the staking API. The join between operator and consensus identities.
+
+**`slash_event`** — unchanged shape. v4 adds kinds `tombstoned` (double sign)
+and `unjailed`, and fills `operator` where `validator_key` knows it. An unjail
+names only the operator on chain; its `cons_addr` is the valcons once the key is
+known (always, after a refill seeded from the staking API).
+
+**`gov_proposal`** — PK `(chain_id, proposal_id)`: `submit_height`,
+`submit_tx`, `submit_time`, `proposer`, `messages text[]`, `outcome`
+(`passed` / `rejected` / `failed` / `dropped`), `outcome_height`,
+`outcome_time`. Columns fill in independently.
+
+**`gov_deposit`** — PK `(chain_id, tx_hash, event_seq)`: `proposal_id`,
+`depositor`, `coins jsonb`, `height`, `time`. The initial deposit of a
+submission is a row too.
+
+**`vote_event`** — PK `(chain_id, tx_hash, event_seq)`: every vote as cast,
+re-votes included, same columns as `vote`. `vote` keeps the final vote per
+voter and gains nothing.
+
+**`block_gap`** — PK `(chain_id, lo)`, `hi`, `reason` (`fetch`: the archive
+could not serve it; `scan`: found by migration 010). osmosis-1 holds one
+recorded gap, 69,638,977–69,768,594, below its contiguous range: deliberate
+islands for the GATA reconcile — never delete them.
+
+**`indexer_cursor`** — `last_height` (everything up to here is committed),
+`updated_at`, new `head_height`.
+
+### Freshness: `indexer_cursor.updated_at`
+
+`updated_at` moves on **every committed follower batch**, and on a
+**heartbeat** each poll where the follower is at the node's head with nothing
+new (`last_height >= head`). So:
+
+- `now() - updated_at` is **staleness**: > 2 min means the follower is stuck
+  or its node is — fall back to the live path.
+- `head_height - last_height` is **lag**: the follower is alive but behind.
+- A backfill never moves the cursor.
+
+### What Scan reads, and how
+
+Queries, not helpers: nothing is added to `lib/indexer-db.ts` by the indexer
+session; Scan owns that file. Each read gates on its capability.
+
+- **Transaction detail** (`tx`): `code`, `codespace`, `gas_used`,
+  `gas_wanted`, `signers`, `memo`, `fee_coins`, `fee_granter`, `msg_types`;
+  messages from `tx_msg ORDER BY msg_index, inner_index`; movements from
+  `transfer ORDER BY event_seq, coin_index`.
+- **Votes**: `vote` (final) with `tx_hash`, `height`, `time`; the full history
+  of a voter's recasts from `vote_event`.
+- **Account history** — replaces the `tx.signer ∪ transfer` union:
+
+  ```sql
+  SELECT p.height, p.tx_hash, p.roles, t.time, t.code, t.msg_types, t.fee_coins
+    FROM tx_party p
+    JOIN tx t ON t.chain_id = p.chain_id AND t.hash = p.tx_hash
+   WHERE p.chain_id = $1 AND p.address = $2
+     AND p.height BETWEEN $lo AND $hi            -- indexer_coverage(.., 'tx_party')
+     AND (p.height, p.tx_hash) < ($before_height, $before_hash)   -- keyset; omit on page 1
+   ORDER BY p.height DESC, p.tx_hash DESC
+   LIMIT $n;
+  ```
+
+  Walks the primary key; no sort, no union. The amount for the list row is the
+  account's `transfer` rows for that transaction (`kind <> 'fee'`). Until
+  `tx_party` coverage reaches genesis, the old union still serves the range
+  below it, and — after the refill — returns pre-upgrade incoming transfers it
+  never had.
+- **Staking history**: `staking_event` by `delegator` or `validator`
+  (`height DESC`).
+- **Missed blocks**: `missed_signature` by hex consensus address; join
+  `validator_key.cons_hex` to go from an operator.
+- **Slashing**: `slash_event`, now with `tombstoned` and `unjailed`.
+- **IBC**: `ibc_packet` by `send_tx` / `recv_tx` / `ack_tx` for a transaction's
+  packet, by `sender` / `receiver` for an account, by channel for a channel page.
+
+**Other readers** — `app_ro`, `monitor` and `atomone_app_ro` read `block`,
+`tx`, `transfer`, `missed_signature`, `slash_event`, `vote`. GATA Hub's
+reconcile reads `transfer (tx_hash, time, to_addr, denom, amount, from_addr)`
+with `kind = 'transfer'`: those columns and that meaning are unchanged, and
+before 9,550,000 it now finds transfers that were stored as fees.
+`app_ro`, `monitor` and `scan_ro` see new tables through default privileges;
+`atomone_app_ro` has explicit grants only and gets none of them.
+
 ## Schema
+
+> The original design. Superseded where it differs from the contract above.
 
 Types are Postgres. `chain_id` is on every table so one database serves all
 chains. All heights are `bigint`, all token amounts are `numeric(78,0)` (base

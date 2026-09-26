@@ -16,11 +16,10 @@
 ALTER TABLE block
   ADD COLUMN IF NOT EXISTS extract_version smallint NOT NULL DEFAULT 0;
 
--- Finding the stale ceiling is a min() over a filtered scan on every coverage
--- check; a partial index keeps it to the rows that can actually be stale.
-CREATE INDEX IF NOT EXISTS block_stale_extract_idx
-  ON block (chain_id, height)
-  WHERE extract_version < 2;
+-- (The partial index this file used to create, block_stale_extract_idx on
+-- `extract_version < 2`, was replaced in 007 and dropped there. Creating it here
+-- on every migrate run rebuilt it over the whole block table only for 007 to
+-- drop it again, so it is no longer created at all.)
 
 -- AtomOne holds one stale band, closed at both ends: heights 9,204,236 through
 -- 9,832,411, written by a follower running a build with no vote extraction. The

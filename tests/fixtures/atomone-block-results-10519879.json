@@ -1,0 +1,138 @@
+{
+ "jsonrpc": "2.0",
+ "id": -1,
+ "result": {
+  "height": "10519879",
+  "txs_results": [
+   {
+    "code": 11,
+    "data": null,
+    "log": "out of gas in location: ReadFlat; gasWanted: 199437, gasUsed: 199582: out of gas",
+    "info": "",
+    "gas_wanted": "199437",
+    "gas_used": "199582",
+    "events": [
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "acc_seq",
+        "value": "atone108gvrsya3g5pknyz9deqm0xstrf9n4s2uu5clu/4581",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "signature",
+        "value": "QNEtlT8Bo39mwDd9bVjZcI+tSEWXKnjItP6YukBKapp6YQ/dNqoti6GO3w4wMoyIpMRmjoiOEu+H9lKka1IhhA==",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone108gvrsya3g5pknyz9deqm0xstrf9n4s2uu5clu",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "44874uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "44874uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone108gvrsya3g5pknyz9deqm0xstrf9n4s2uu5clu",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "44874uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone108gvrsya3g5pknyz9deqm0xstrf9n4s2uu5clu",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "fee",
+        "value": "44874uphoton",
+        "index": true
+       },
+       {
+        "key": "fee_payer",
+        "value": "atone108gvrsya3g5pknyz9deqm0xstrf9n4s2uu5clu",
+        "index": true
+       }
+      ]
+     }
+    ],
+    "codespace": "sdk"
+   }
+  ],
+  "finalize_block_events": [],
+  "validator_updates": null,
+  "consensus_param_updates": {
+   "block": {
+    "max_bytes": "2000000",
+    "max_gas": "100000000"
+   },
+   "evidence": {
+    "max_age_num_blocks": "1000000",
+    "max_age_duration": "172800000000000",
+    "max_bytes": "50000"
+   },
+   "validator": {
+    "pub_key_types": [
+     "ed25519"
+    ]
+   },
+   "version": {
+    "app": "3"
+   }
+  },
+  "app_hash": "rCn5S7UXkZFvrzr7tsTpLs84UnmOz1U48Rf9JMQgpvE="
+ },
+ "_note": "block-level events trimmed to the types the indexer reads (slash, completions, proposal outcomes)"
+}

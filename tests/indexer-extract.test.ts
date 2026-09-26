@@ -114,9 +114,9 @@ describe("extractBlock", () => {
   });
 
   it("gives every transfer a unique key", () => {
-    // Matches the table's primary key; a collision would silently drop a row.
+    // Matches the table's key; a collision would silently drop a row.
     const keys = out.transfers.map(
-      (t) => `${t.txHash}|${t.msgIndex}|${t.coinIndex}|${t.kind}`
+      (t) => `${t.txHash}|${t.eventSeq}|${t.coinIndex}`
     );
     expect(new Set(keys).size).toBe(keys.length);
   });
@@ -185,10 +185,13 @@ describe("abciResultsMissing", () => {
     };
     const out = extractBlock(block, dropped)!;
     expect(out.abciResultsMissing).toBe(true);
-    // The rows exist but are hollow — no fee, no signer, no transfers.
+    // The rows exist but are hollow: what the tx bytes carry (fee, sender)
+    // is there, what only the results carry (gas used, transfers) is not.
+    expect(out.extractVersion).toBe(0);
     expect(out.txs).toHaveLength(1);
-    expect(out.txs[0].feeAmount).toBeNull();
-    expect(out.txs[0].signer).toBeNull();
+    expect(out.txs[0].feeAmount).toBe("220335");
+    expect(out.txs[0].signer).toBe("atone1w6dpa2l2fc3v2rc9dpuhqg4lt6ykvlqgw02que");
+    expect(out.txs[0].gasUsed).toBeNull();
     expect(out.transfers).toEqual([]);
   });
 

@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import { Rpc } from "./rpc";
 import { extractBlock, type ExtractedBlock } from "./extract";
 import { missedIn } from "./commit-set";
-import { commitBlocks, lowestIndexed } from "./db";
+import { clearGaps, commitBlocks, lowestIndexed, recordGaps } from "./db";
 
 /**
  * Fills history below what the head-follower has reached.
@@ -97,54 +97,99 @@ export async function nextRange(
   return { from: start, to };
 }
 
+/** What one batch did. */
+export type BatchResult =
+  /** The floor is reached; nothing left to do. */
+  | { status: "done" }
+  /** The range was written; `failed` are heights the archive would not serve. */
+  | { status: "wrote"; from: number; to: number; written: number; failed: number[] };
+
+/** Fetch one height, retrying a transient failure; null when it still fails. */
+async function fetchWithRetry(
+  rpc: Rpc,
+  chainId: string,
+  height: number,
+  attempts: number
+): Promise<{ block: ExtractedBlock | null; error: string | null }> {
+  let error: string | null = null;
+  for (let a = 0; a < attempts; a++) {
+    try {
+      const b = await fetchHeight(rpc, chainId, height);
+      if (b) return { block: b, error: null };
+      error = "responses disagree or the block is missing";
+    } catch (err) {
+      error = (err as Error).message;
+    }
+    await new Promise((r) => setTimeout(r, 500 * (a + 1)));
+  }
+  return { block: null, error };
+}
+
 /**
  * One batch, written oldest-first within the batch.
  *
- * Returns how many heights were committed; 0 means the floor is reached or the
- * archive could not serve the range.
+ * A height the archive will not serve is retried, then RECORDED in block_gap
+ * and passed over - never silently skipped. Coverage stops at a recorded gap,
+ * and a later refill can target exactly those heights.
  */
 export async function backfillOnce(
   pool: Pool,
   target: BackfillTarget,
   options: BackfillOptions = {},
   position?: number
-): Promise<number> {
+): Promise<BatchResult> {
   const { batchSize, concurrency } = { ...DEFAULTS, ...options };
   const log = options.log ?? (() => {});
   const rpc = new Rpc(target.rpcUrl);
 
   const range = await nextRange(pool, target, batchSize, position);
-  if (!range) return 0;
+  if (!range) return { status: "done" };
 
   // Ascending within the batch so the rows land in a natural order.
   const heights: number[] = [];
   for (let h = range.to; h <= range.from; h++) heights.push(h);
 
   const blocks: ExtractedBlock[] = [];
+  const failed: number[] = [];
+  let lastError: string | null = null;
   for (let i = 0; i < heights.length; i += concurrency) {
     const slice = heights.slice(i, i + concurrency);
-    const fetched = await Promise.all(slice.map((h) => fetchHeight(rpc, target.chainId, h)));
-    for (const b of fetched) if (b) blocks.push(b);
+    const fetched = await Promise.all(slice.map((h) => fetchWithRetry(rpc, target.chainId, h, 3)));
+    fetched.forEach((f, k) => {
+      if (f.block) blocks.push(f.block);
+      else {
+        failed.push(slice[k]);
+        lastError = f.error;
+      }
+    });
   }
 
+  // A whole batch failing is an outage, not a hole: throw, so the caller backs
+  // off and retries the same range instead of recording thousands of "gaps" or
+  // (as this used to) mistaking an empty batch for the floor and stopping.
   if (blocks.length === 0) {
-    log(`${target.chainId}: archive served nothing for ${range.to}-${range.from}`);
-    return 0;
+    throw new Error(`archive served nothing for ${range.to}-${range.from}: ${lastError ?? "unknown"}`);
   }
 
   // Deliberately not commitBatch: the cursor belongs to the head-follower.
   await commitBlocks(pool, target.chainId, blocks);
+
+  if (failed.length > 0) {
+    await recordGaps(pool, target.chainId, failed, `backfill: ${lastError ?? "unavailable"}`.slice(0, 200));
+    log(`${target.chainId}: ${failed.length} height(s) in ${range.to}-${range.from} unavailable, recorded as gaps`);
+  }
+  if (target.refill) await clearGaps(pool, target.chainId, range.to, range.from);
 
   const hollow = blocks.filter((b) => b.abciResultsMissing);
   if (hollow.length > 0) {
     log(
       `${target.chainId}: WARNING ${hollow.length}/${blocks.length} block(s) in ` +
         `${range.to}-${range.from} had transactions but no ABCI results — this ` +
-        `archive discards them, so those rows carry no fees or transfers`
+        `archive discards them. Stamped extract_version 0, outside coverage`
     );
   }
 
-  return blocks.length;
+  return { status: "wrote", from: range.from, to: range.to, written: blocks.length, failed };
 }
 
 /** Run batches until the floor is reached or the signal aborts. */
@@ -159,21 +204,25 @@ export async function runBackfill(
 
   const started = Date.now();
   let done = 0;
+  let backoff = 0;
   // Refill walks its own cursor; resume mode re-reads min(height) each pass.
   let position: number | undefined = target.refill ? target.from : undefined;
 
   while (!signal.aborted) {
-    let written: number;
+    let r: BatchResult;
     try {
-      written = await backfillOnce(pool, target, options, position);
+      r = await backfillOnce(pool, target, options, position);
+      backoff = 0;
     } catch (err) {
-      // Nothing was committed, so the next pass retries the same range.
-      log(`${target.chainId}: ${(err as Error).message}`);
-      await sleep(Math.max(throttleMs, 2000), signal);
+      // Nothing was committed, so the next pass retries the same range - with a
+      // growing pause, since an outage rarely clears in two seconds.
+      backoff = Math.min(backoff + 1, 6);
+      log(`${target.chainId}: ${(err as Error).message} (retrying in ${2 ** backoff}s)`);
+      await sleep(Math.max(throttleMs, 1000 * 2 ** backoff), signal);
       continue;
     }
 
-    if (written === 0) {
+    if (r.status === "done") {
       if (target.refill) {
         log(`${target.chainId}: refill complete down to ${target.floor}`);
       } else {
@@ -185,8 +234,10 @@ export async function runBackfill(
       return;
     }
 
-    done += written;
-    if (target.refill && position !== undefined) position -= written;
+    done += r.written;
+    // Past the whole range, including any recorded gaps - never re-reading part of
+    // it because a few heights failed.
+    if (target.refill) position = r.to - 1;
     const low = target.refill
       ? position
       : await lowestIndexed(pool, target.chainId);

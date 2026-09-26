@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import { Rpc } from "./rpc";
 import { extractBlock, type ExtractedBlock } from "./extract";
 import { missedIn } from "./commit-set";
-import { commitBatch, readCursor } from "./db";
+import { commitBatch, heartbeat, readCursor } from "./db";
 import {
   fetchBondedSet,
   writeSnapshot,
@@ -87,7 +87,12 @@ export async function indexOnce(
   // First run: start where asked, or at the head so a fresh install does not
   // silently try to replay the entire chain.
   const from = cursor === null ? (target.startHeight ?? head) : cursor + 1;
-  if (from > head) return 0;
+  if (from > head) {
+    // At the head with nothing new: say so, or `updated_at` freezes whenever the
+    // chain pauses and a reader cannot tell "caught up" from "stuck".
+    if (cursor !== null) await heartbeat(pool, target.chainId, head);
+    return 0;
+  }
 
   const to = Math.min(head, from + batchSize - 1);
   const heights: number[] = [];
@@ -114,7 +119,7 @@ export async function indexOnce(
 
   if (blocks.length === 0) return 0;
 
-  await commitBatch(pool, target.chainId, blocks);
+  await commitBatch(pool, target.chainId, blocks, head);
   const last = blocks[blocks.length - 1].block.height;
   const txs = blocks.reduce((n, b) => n + b.txs.length, 0);
   log(
@@ -129,7 +134,8 @@ export async function indexOnce(
   if (hollow.length > 0) {
     log(
       `${target.chainId}: WARNING ${hollow.length} block(s) had transactions but no ABCI results ` +
-        `(${hollow[0].block.height}…): this node discards them, so those rows have no fees or transfers`
+        `(${hollow[0].block.height}…): this node discards them. Stamped extract_version 0 - ` +
+        `present but incomplete, outside every capability's coverage - until refilled from an archive`
     );
   }
 

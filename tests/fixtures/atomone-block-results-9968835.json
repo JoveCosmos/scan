@@ -1,0 +1,185 @@
+{
+ "jsonrpc": "2.0",
+ "id": -1,
+ "result": {
+  "height": "9968835",
+  "txs_results": [
+   {
+    "code": 0,
+    "data": "EiwKKi9jb3Ntb3Muc2xhc2hpbmcudjFiZXRhMS5Nc2dVbmphaWxSZXNwb25zZQ==",
+    "log": "",
+    "info": "",
+    "gas_wanted": "200000",
+    "gas_used": "85322",
+    "events": [
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "acc_seq",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057/102",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "signature",
+        "value": "kl9Dsr/Ha5uEJbsRhLV1zWgliU4YctQ1WjdjSjSeX5AfBLMxdNYCD/8Xoe5KuTLfdz4BE5DHdAJdJB9jOF0cWw==",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_spent",
+      "attributes": [
+       {
+        "key": "spender",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "60000uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "coin_received",
+      "attributes": [
+       {
+        "key": "receiver",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "60000uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "transfer",
+      "attributes": [
+       {
+        "key": "recipient",
+        "value": "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057",
+        "index": true
+       },
+       {
+        "key": "amount",
+        "value": "60000uphoton",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "sender",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "tx",
+      "attributes": [
+       {
+        "key": "fee",
+        "value": "60000uphoton",
+        "index": true
+       },
+       {
+        "key": "fee_payer",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057",
+        "index": true
+       }
+      ]
+     },
+     {
+      "type": "message",
+      "attributes": [
+       {
+        "key": "action",
+        "value": "/cosmos.slashing.v1beta1.MsgUnjail",
+        "index": true
+       },
+       {
+        "key": "sender",
+        "value": "atone10nnweapu0gqyj0zzw45w7vg58yc4aagw5xc057",
+        "index": true
+       },
+       {
+        "key": "module",
+        "value": "slashing",
+        "index": true
+       },
+       {
+        "key": "msg_index",
+        "value": "0",
+        "index": true
+       }
+      ]
+     }
+    ],
+    "codespace": ""
+   }
+  ],
+  "finalize_block_events": [],
+  "validator_updates": [
+   {
+    "pub_key": {
+     "Sum": {
+      "type": "tendermint.crypto.PublicKey_Ed25519",
+      "value": {
+       "ed25519": "QnFQZBCu3njtMF16swb1YlQ+wycX75iRihvyrZ5vYNo="
+      }
+     }
+    },
+    "power": "145967"
+   },
+   {
+    "pub_key": {
+     "Sum": {
+      "type": "tendermint.crypto.PublicKey_Ed25519",
+      "value": {
+       "ed25519": "2sOdvkcwuilBmBuzc5T1cQyrslwAmuKN+7ieugrJ0+U="
+      }
+     }
+    }
+   }
+  ],
+  "consensus_param_updates": {
+   "block": {
+    "max_bytes": "2000000",
+    "max_gas": "100000000"
+   },
+   "evidence": {
+    "max_age_num_blocks": "1000000",
+    "max_age_duration": "172800000000000",
+    "max_bytes": "50000"
+   },
+   "validator": {
+    "pub_key_types": [
+     "ed25519"
+    ]
+   },
+   "version": {
+    "app": "3"
+   }
+  },
+  "app_hash": "7fK18ttzGncmcg7KmKP9BEqIjlx9092AzfTvDFyi1/w="
+ },
+ "_note": "block-level events trimmed to the types the indexer reads (slash, completions, proposal outcomes)"
+}
