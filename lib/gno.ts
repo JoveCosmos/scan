@@ -1261,39 +1261,73 @@ export async function gnoAccount(
 export async function gnoAccountTxs(
   chain: ChainConfig,
   address: string,
-  limit = 50
+  limit = 50,
+  cursor?: string | null
 ): Promise<AccountTxs> {
   // gno addresses are bech32 like any other; same gate, same reason.
   if (!isBech32ish(address))
     return { txs: [], total: 0, failed: false, source: "search" as const };
 
+  // The tx-indexer has no limit or paging, and a busy account has tens of
+  // thousands of transactions: asking for all of them at once times out. So
+  // walk back from the head (or the cursor's height) in height windows, newest
+  // first, widening while pages come back thin, and stop at a full page.
   try {
-    const data = await gql<{ getTransactions: IdxTx[] | null }>(
-      chain,
-      `query($a: String!) {
-        getTransactions(
-          where: { messages: { value: { _or: [
-            { BankMsgSend: { _or: [{ from_address: { eq: $a } }, { to_address: { eq: $a } }] } },
-            { MsgCall: { caller: { eq: $a } } },
-            { MsgRun: { caller: { eq: $a } } },
-            { MsgAddPackage: { creator: { eq: $a } } }
-          ] } } }
-          order: { heightAndIndex: DESC }
-        ) { ${TX_FIELDS} }
-      }`,
-      { a: address },
-      20_000
-    );
-    const all = data.getTransactions ?? [];
+    const below = cursor?.startsWith("p:") && Number(cursor.slice(2)) > 0
+      ? Number(cursor.slice(2))
+      : (await gql<{ latestBlockHeight: number }>(chain, `{ latestBlockHeight }`, {}, 8_000))
+          .latestBlockHeight + 1;
+
+    const found: IdxTx[] = [];
+    let hi = below; // exclusive
+    let span = 2_000;
+    while (hi > 1 && found.length < limit) {
+      const lo = Math.max(0, hi - span); // exclusive
+      const data = await gql<{ getTransactions: IdxTx[] | null }>(
+        chain,
+        `query($a: String!, $lo: Int!, $hi: Int!) {
+          getTransactions(
+            where: { _and: [
+              { block_height: { gt: $lo, lt: $hi } },
+              { messages: { value: { _or: [
+                { BankMsgSend: { _or: [{ from_address: { eq: $a } }, { to_address: { eq: $a } }] } },
+                { MsgCall: { caller: { eq: $a } } },
+                { MsgRun: { caller: { eq: $a } } },
+                { MsgAddPackage: { creator: { eq: $a } } }
+              ] } } }
+            ] }
+            order: { heightAndIndex: DESC }
+          ) { ${TX_FIELDS} }
+        }`,
+        { a: address, lo, hi },
+        15_000
+      );
+      found.push(...(data.getTransactions ?? []));
+      hi = lo + 1;
+      if (lo === 0) break;
+      // Thin pages widen the window; a full one keeps it.
+      if (found.length < limit) span = Math.min(span * 2, 200_000);
+    }
+
+    // Keep whole heights: never split a block's transactions across pages.
+    let page = found.slice(0, limit);
+    if (found.length > limit) {
+      const edge = Number(page[page.length - 1].block_height);
+      page = found.filter((t, k) => k < limit || Number(t.block_height) === edge);
+    }
+    const lowest = page.length > 0 ? Number(page[page.length - 1].block_height) : 0;
+    const more = found.length > page.length || hi > 1;
+
     // Times come from per-height lookups (an `_or` across 50 heights timed out
     // and left every row without a time).
-    const txs = await withTimes(chain, all.slice(0, limit).map(fromIndexer));
-    // The indexer caps a result at 10,000 rows, so a full page is a floor.
+    const txs = await withTimes(chain, page.map(fromIndexer));
     return {
       txs,
-      total: all.length < 10_000 ? all.length : null,
+      total: null,
       failed: false,
       source: "search" as const,
+      more,
+      next: more && lowest > 1 ? `p:${lowest}` : null,
     };
   } catch {
     return { txs: [], total: null, failed: true, source: "search" as const };

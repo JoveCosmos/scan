@@ -88,11 +88,54 @@ const READS_EXTRACT_VERSION = 2;
  * Staleness like that accumulates at the top, so cutting at the lowest stale
  * height leaves a range that is genuinely complete rather than merely present.
  */
-export async function coverage(chainId: string): Promise<Coverage | null> {
+/** Capabilities the old per-version coverage can stand in for. */
+export type CoverageCapability =
+  | "blocks"
+  | "fees"
+  | "votes"
+  | "slashing"
+  | "missed_signatures"
+  | "transfers"
+  | "tx_meta"
+  | "tx_party"
+  | "tx_msg"
+  | "ibc_packet"
+  | "staking_event"
+  | "validator_power"
+  | "gov_deposit"
+  | "gov_proposal"
+  | "vote_event"
+  | "tombstones_unjails";
+
+export async function coverage(
+  chainId: string,
+  capability: CoverageCapability = "blocks"
+): Promise<Coverage | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  return cached(`idx:coverage:${chainId}`, 30_000, async () => {
+  return cached(`idx:coverage:${chainId}:${capability}`, 30_000, async () => {
+    // The indexer's contract (docs/INDEXER.md, extract version 4): ask for the
+    // contiguous covered run of the capability this read depends on.
+    try {
+      const res = await pool.query<{
+        lo: string | null;
+        hi: string | null;
+        lo_time: string | null;
+        hi_time: string | null;
+      }>(
+        `SELECT lo::text, hi::text, lo_time::text, hi_time::text
+           FROM indexer_coverage($1, $2)`,
+        [chainId, capability]
+      );
+      const r = res.rows[0];
+      if (!r?.lo || !r.hi || !r.lo_time || !r.hi_time) return null;
+      return { lowest: Number(r.lo), highest: Number(r.hi), from: r.lo_time, to: r.hi_time };
+    } catch {
+      // A database without indexer_coverage (before version 4): only the
+      // capabilities version 2 already carried can be answered, the old way.
+      if (!["blocks", "fees", "votes", "slashing"].includes(capability)) return null;
+    }
     const res = await pool.query<{
       lowest: string | null;
       highest: string | null;
@@ -197,7 +240,7 @@ export async function slashHistory(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "slashing");
   if (!c) return null;
 
   try {
@@ -260,7 +303,7 @@ export async function jailCounts(chainId: string): Promise<JailCounts | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "slashing");
   if (!c) return null;
 
   return cached(`idx:jailcounts:${chainId}`, 60_000, async () => {
@@ -326,7 +369,7 @@ export async function proposerStats(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "blocks");
   if (!c) return null;
 
   try {
@@ -429,7 +472,7 @@ export async function relayerStats(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "fees");
   if (!c) return null;
 
   return cached(`idx:relayers:${chainId}`, 300_000, async () => {
@@ -538,7 +581,7 @@ export async function accountTxsFromIndexer(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "fees");
   if (!c) return null;
 
   try {
@@ -641,7 +684,7 @@ export async function recentTxsFromIndexer(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "fees");
   if (!c) return null;
 
   return cached(`idx:recenttx:${chainId}`, 5_000, async () => {

@@ -227,7 +227,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getStakeDeltas: async () => new Map(),
       getRegisteredCount: () => gnoRegisteredCount(chain),
       getAccount: (address) => gnoAccount(chain, address),
-      getAccountTxs: (address) => gnoAccountTxs(chain, address),
+      getAccountTxs: (address, options) =>
+        gnoAccountTxs(chain, address, options?.limit ?? 50, options?.cursor),
       getProposals: async () => ({ proposals: [], total: null }),
       getProposal: async () => null,
       getProposalVotes: async () => ({

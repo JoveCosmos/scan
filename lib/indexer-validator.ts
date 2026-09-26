@@ -47,7 +47,7 @@ export async function proposedBlocks(
 ): Promise<ProposedBlocks | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "blocks");
   if (!c) return null;
 
   try {
@@ -310,7 +310,7 @@ export async function validatorVotes(
 ): Promise<ValidatorVotes | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "votes");
   if (!c) return null;
   const from = since && Date.parse(since) > Date.parse(c.from) ? since : c.from;
 
@@ -429,7 +429,7 @@ export async function relayerPackets(
 ): Promise<Map<string, number> | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
-  const c = await coverage(chainId);
+  const c = await coverage(chainId, "fees");
   if (!c) return null;
 
   try {

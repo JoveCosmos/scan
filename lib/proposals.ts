@@ -632,7 +632,7 @@ export async function getProposalVotes(
   if (window) {
     const indexed = await votesFromIndexer(chain.chainId, id).catch(() => null);
     if (indexed && indexed.length > 0) {
-      const c = await coverage(chain.chainId);
+      const c = await coverage(chain.chainId, "votes");
       if (covers(c, window.start, window.end)) {
         const votes: ProposalVote[] = indexed.map((v) => ({
           ...toVote(v.voter, v.options ?? [{ option: v.option, weight: "1" }]),
