@@ -198,19 +198,6 @@ export function ValidatorsTable({
       show: "hidden sm:table-cell",
       cell: (v) => pct(v.votingPower),
     },
-    {
-      key: "cumulative",
-      label: "Cumul.",
-      title: "Share held by this validator and everyone ranked above it",
-      align: "right",
-      w: "5.5rem",
-      show: "hidden xl:table-cell",
-      cell: (v) => (
-        <span className={v.cumulativePower > 1 / 3 ? "text-muted-foreground" : undefined}>
-          {pct(v.cumulativePower, 1)}
-        </span>
-      ),
-    },
     ...(hasDelta
       ? [
           {
