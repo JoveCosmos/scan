@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AddressLink } from "@/components/address-link";
@@ -66,7 +66,13 @@ export interface DeckRow {
   detail: {
     title: string;
     sub?: string;
-    rows: { label: string; value: string; mono?: boolean; href?: string; address?: string }[];
+    rows: {
+      label: string;
+      value: string;
+      mono?: boolean;
+      href?: string;
+      address?: string;
+    }[];
     action?: { label: string; href: string };
   };
 }
@@ -105,6 +111,7 @@ export function RowDeck({
   empty = "Nothing to show.",
   filter,
   fit = false,
+  footer,
 }: {
   columns: DeckColumn[];
   rows: DeckRow[];
@@ -124,23 +131,46 @@ export function RowDeck({
    * stale by the time you reach it.
    */
   fit?: boolean;
+  /** Extra controls on the right of the card's footer, e.g. an "Older" link. */
+  footer?: React.ReactNode;
 }) {
   const router = useRouter();
-  const bodyRef = useRef<HTMLDivElement>(null);
   const [perPage, setPerPage] = useState(12);
   const [page, setPage] = useState(0);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
-    const el = bodyRef.current;
+  // A callback ref rather than an effect: the list box can be replaced (a
+  // parent switching branches as data arrives), and an observer fixed on the
+  // first box would keep measuring a detached element at its first height.
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const measureRef = useRef<(() => void) | null>(null);
+  const [fitCount, setFitCount] = useState<number | null>(null);
+  const bodyRef = useCallback((el: HTMLDivElement | null) => {
+    observerRef.current?.disconnect();
+    observerRef.current = null;
     if (!el) return;
-    const observer = new ResizeObserver(() => {
-      const usable = el.clientHeight - HEAD_H - 2;
-      setPerPage(Math.max(3, Math.floor(usable / ROW_H)));
-    });
+    // Head and row heights are read from the rendered table in layout pixels,
+    // the same units as clientHeight, so the count holds under the page zoom.
+    const measure = () => {
+      const head = el.querySelector("thead") as HTMLElement | null;
+      const row = el.querySelector("tbody tr") as HTMLElement | null;
+      const headH = head?.offsetHeight || HEAD_H;
+      const rowH = row && row.offsetHeight > 8 ? row.offsetHeight : ROW_H;
+      setPerPage(Math.max(3, Math.floor((el.clientHeight - headH) / rowH)));
+      // Feeds count the rows that end inside the box, both edges read in the
+      // same on-screen coordinates, so the page zoom cancels out.
+      const bottom = el.getBoundingClientRect().bottom + 0.5;
+      let whole = 0;
+      el.querySelectorAll("tbody tr").forEach((r) => {
+        if (r.getBoundingClientRect().bottom <= bottom) whole += 1;
+      });
+      setFitCount(whole);
+    };
+    measureRef.current = measure;
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
-    return () => observer.disconnect();
+    observerRef.current = observer;
   }, []);
 
   const matched = useMemo(() => filterDeckRows(rows, query), [rows, query]);
@@ -150,15 +180,23 @@ export function RowDeck({
   const current = Math.min(page, pages - 1);
   const shown = useMemo(
     () =>
-      // Every row of a feed is drawn and the box clips whatever does not fit,
-      // so the list fills the frame exactly at any height with no scrolling
-      // and no measuring.
+      // A feed draws every row; those past the last whole one are hidden
+      // (see measure), so the list never ends on a cut-off row.
       fit
         ? matched
         : matched.slice(current * perPage, current * perPage + perPage),
     [matched, current, perPage, fit],
   );
   const open = rows.find((r) => r.key === openKey) ?? null;
+
+  // A feed row past the last one that fits whole is hidden, not removed, so
+  // the box can grow back into it on the next resize.
+  const cut = (index: number) => fit && fitCount !== null && index >= fitCount;
+
+  // New rows arrive with every poll: recount which of them fit.
+  useLayoutEffect(() => {
+    if (fit) measureRef.current?.();
+  }, [fit, shown]);
 
   // A row with a page of its own goes there directly; only rows without one
   // open the summary popup.
@@ -188,139 +226,152 @@ export function RowDeck({
         </div>
       ) : null}
 
-      <div
-        ref={bodyRef}
-        className="gata-surface min-h-0 flex-1 overflow-hidden"
-      >
-        <table className="w-full table-fixed border-collapse">
-          <thead>
-            <tr className="border-b border-border">
-              {columns.map((col, i) => (
-                <th
-                  key={i}
-                  scope="col"
-                  style={col.width ? { width: col.width } : undefined}
-                  className={`h-7 px-2.5 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
-                    col.align === "right" ? "text-right" : ""
-                  } ${col.optional ? "hidden lg:table-cell" : ""} ${
-                    col.phoneHide ? "hidden sm:table-cell" : ""
-                  }`}
+      <div className="gata-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div ref={bodyRef} className="min-h-0 flex-1 overflow-hidden">
+          <table className="w-full table-fixed border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                {columns.map((col, i) => (
+                  <th
+                    key={i}
+                    scope="col"
+                    style={col.width ? { width: col.width } : undefined}
+                    className={`h-7 px-2.5 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
+                      col.align === "right" ? "text-right" : ""
+                    } ${col.optional ? "hidden lg:table-cell" : ""} ${
+                      col.phoneHide ? "hidden sm:table-cell" : ""
+                    }`}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.map((row, index) => (
+                <tr
+                  key={row.key}
+                  aria-hidden={cut(index) ? true : undefined}
+                  onClick={() => activate(row)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      activate(row);
+                    }
+                  }}
+                  className={`group/row cursor-pointer border-b border-border/40 outline-none last:border-0 hover:bg-[var(--gata-card-hi)] focus-visible:bg-[var(--gata-card-hi)] ${
+                    row.fresh ? "gata-flash" : ""
+                  } ${cut(index) ? "invisible" : ""}`}
                 >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((row) => (
-              <tr
-                key={row.key}
-                onClick={() => activate(row)}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    activate(row);
-                  }
-                }}
-                className={`group/row cursor-pointer border-b border-border/40 outline-none last:border-0 hover:bg-[var(--gata-card-hi)] focus-visible:bg-[var(--gata-card-hi)] ${
-                  row.fresh ? "gata-flash" : ""
-                }`}
-              >
-                {row.cells.map((cell, i) => {
-                  const col = columns[i];
-                  return (
-                    <td
-                      key={i}
-                      className={`h-[34px] truncate px-2.5 text-[13px] ${
-                        cell.bar !== undefined ? "relative" : ""
-                      } ${
-                        // The affordance: the row's first cell is its link, so
-                        // it underlines, and a bar lights on the leading edge.
-                        i === 0
-                          ? "group-hover/row:underline group-hover/row:decoration-current/40 group-hover/row:underline-offset-2 group-hover/row:shadow-[inset_2px_0_0_var(--gata-blue)] group-focus-visible/row:shadow-[inset_2px_0_0_var(--gata-blue)]"
-                          : ""
-                      } ${
-                        cell.align === "right" ? "text-right" : ""
-                      } ${cell.mono ? "font-mono" : ""} ${
-                        cell.dim && !cell.tone ? "text-muted-foreground" : ""
-                      } ${col?.optional ? "hidden lg:table-cell" : ""} ${
-                        col?.phoneHide ? "hidden sm:table-cell" : ""
-                      }`}
-                      style={{ color: cellColor(cell, accent) }}
-                    >
-                      {cell.bar !== undefined ? (
-                        <span
-                          aria-hidden="true"
-                          className="absolute inset-y-[6px] left-0 -z-10 rounded-r-sm opacity-20"
-                          style={{
-                            width: `${Math.max(0, Math.min(1, cell.bar)) * 100}%`,
-                            background: accent,
-                          }}
+                  {row.cells.map((cell, i) => {
+                    const col = columns[i];
+                    return (
+                      <td
+                        key={i}
+                        className={`h-[34px] truncate px-2.5 text-[13px] ${
+                          cell.bar !== undefined ? "relative" : ""
+                        } ${
+                          // The affordance: the row's first cell is its link, so
+                          // it underlines, and a bar lights on the leading edge.
+                          i === 0
+                            ? "group-hover/row:underline group-hover/row:decoration-current/40 group-hover/row:underline-offset-2 group-hover/row:shadow-[inset_2px_0_0_var(--gata-blue)] group-focus-visible/row:shadow-[inset_2px_0_0_var(--gata-blue)]"
+                            : ""
+                        } ${
+                          cell.align === "right" ? "text-right" : ""
+                        } ${cell.mono ? "font-mono" : ""} ${
+                          cell.dim && !cell.tone ? "text-muted-foreground" : ""
+                        } ${col?.optional ? "hidden lg:table-cell" : ""} ${
+                          col?.phoneHide ? "hidden sm:table-cell" : ""
+                        }`}
+                        style={{ color: cellColor(cell, accent) }}
+                      >
+                        {cell.bar !== undefined ? (
+                          <span
+                            aria-hidden="true"
+                            className="absolute inset-y-[6px] left-0 -z-10 rounded-r-sm opacity-20"
+                            style={{
+                              width: `${Math.max(0, Math.min(1, cell.bar)) * 100}%`,
+                              background: accent,
+                            }}
+                          />
+                        ) : null}
+                        <CellValue
+                          cell={cell}
+                          // The row's own page, as a real link on its first cell,
+                          // so it opens in a new tab like any link does.
+                          href={
+                            cell.href ??
+                            (i === 0 ? row.detail.action?.href : undefined)
+                          }
                         />
-                      ) : null}
-                      <CellValue
-                        cell={cell}
-                        // The row's own page, as a real link on its first cell,
-                        // so it opens in a new tab like any link does.
-                        href={cell.href ?? (i === 0 ? row.detail.action?.href : undefined)}
-                      />
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {shown.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={columns.length}
-                  className="h-24 px-2.5 text-center text-[13px] text-muted-foreground"
-                >
-                  {query ? `Nothing matches "${query}".` : empty}
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-
-      {/* A feed has no pages to count, so it gives the row back to the list. */}
-      {fit ? null : (
-        <div className="flex h-[34px] shrink-0 items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground">
-          <span>
-            {matched.length === 0
-              ? query
-                ? `no match of ${rows.length}`
-                : "0"
-              : `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`}
-          </span>
-          {pages > 1 ? (
-            <span className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPage(Math.max(0, current - 1))}
-                disabled={current === 0}
-                aria-label="Previous page"
-                className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <span className="tabular-nums">
-                {current + 1}/{pages}
-              </span>
-              <button
-                type="button"
-                onClick={() => setPage(Math.min(pages - 1, current + 1))}
-                disabled={current >= pages - 1}
-                aria-label="Next page"
-                className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </span>
-          ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {shown.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="h-24 px-2.5 text-center text-[13px] text-muted-foreground"
+                  >
+                    {query ? `Nothing matches "${query}".` : empty}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {/* The card's footer: where the list stands, and the way on. */}
+        <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-border bg-[var(--gata-bg2)] px-3 font-mono text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-2">
+            {fit ? (
+              <>
+                <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
+                <span>Live · latest {fitCount ?? shown.length}</span>
+              </>
+            ) : matched.length === 0 ? (
+              query ? (
+                `no match of ${rows.length}`
+              ) : (
+                "0"
+              )
+            ) : (
+              `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`
+            )}
+          </span>
+          <span className="flex items-center gap-2">
+            {footer}
+            {!fit && pages > 1 ? (
+              <span className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.max(0, current - 1))}
+                  disabled={current === 0}
+                  aria-label="Previous page"
+                  className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <span className="tabular-nums">
+                  {current + 1}/{pages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(Math.min(pages - 1, current + 1))}
+                  disabled={current >= pages - 1}
+                  aria-label="Next page"
+                  className="rounded-md border border-border p-1 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground disabled:opacity-35 disabled:hover:border-border"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ) : null}
+          </span>
+        </div>
+      </div>
 
       <Popup
         open={open !== null}
