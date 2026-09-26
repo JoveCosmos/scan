@@ -1,0 +1,65 @@
+{
+ "blocks": [
+  {
+   "hash": "XaFfwguOoc9YXdnq5tAUi4ZlyYj7GEjKE9yHtaL+DRs=",
+   "height": 160940,
+   "time": "2026-09-19T09:28:00.029292122Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "CQ29R/SheqVamAj2HTk37BdqnBsctqzAMGZLph2vDPE=",
+   "success": true,
+   "block_height": 160940,
+   "gas_wanted": 50000000,
+   "gas_used": 28730071,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "run",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgRun",
+      "caller": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "send": ""
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "ProposalCreated",
+      "pkg_path": "gno.land/r/gov/dao",
+      "attrs": [
+       {
+        "key": "id",
+        "value": "6"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,2805 @@
+{
+ "blocks": [
+  {
+   "hash": "sDS2vuZMKn4CKDfa5r7sRK+NQYOLG3RixAU39TnInU8=",
+   "height": 337213,
+   "time": "2026-09-26T03:24:42.55991841Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "9GHqwl9cSzkLPfqRjqJu4F5IMsXvJbLbFvHxaGR3xIo=",
+   "success": true,
+   "block_height": 337213,
+   "gas_wanted": 465213670,
+   "gas_used": 422937684,
+   "memo": "Executed through gnoswap.io",
+   "gas_fee": {
+    "amount": 465214,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": ""
+       },
+       {
+        "key": "to",
+        "value": "g177jkk4xx79uledh9xedqkq4ht4ef9t6amxwjeq"
+       },
+       {
+        "key": "value",
+        "value": "10031392418"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "MintGNS",
+      "pkg_path": "gno.land/r/gnoswap/gns",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g177jkk4xx79uledh9xedqkq4ht4ef9t6amxwjeq"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/emission"
+       },
+       {
+        "key": "mintedBlockTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "mintedGNSAmount",
+        "value": "10031392418"
+       },
+       {
+        "key": "accumMintedGNSAmount",
+        "value": "5909553204949"
+       },
+       {
+        "key": "accumLeftMintGNSAmount",
+        "value": "894090446795051"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g177jkk4xx79uledh9xedqkq4ht4ef9t6amxwjeq"
+       },
+       {
+        "key": "to",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "value",
+        "value": "7523544314"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g177jkk4xx79uledh9xedqkq4ht4ef9t6amxwjeq"
+       },
+       {
+        "key": "to",
+        "value": "g1kg87wr06tmw7uvlyk4yrj3r2pzmt2j83d47nu7"
+       },
+       {
+        "key": "value",
+        "value": "2006278483"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g177jkk4xx79uledh9xedqkq4ht4ef9t6amxwjeq"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "501569620"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "MintAndDistributeGns",
+      "pkg_path": "gno.land/r/gnoswap/emission",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1y3uyaa63sjxvah2cx3c2usavwvx97kl8m2v7ye"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/position"
+       },
+       {
+        "key": "lastTimestamp",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentTimestamp",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "mintedAmount",
+        "value": "10031392418"
+       },
+       {
+        "key": "prevLeftAmount",
+        "value": "1"
+       },
+       {
+        "key": "distributedAmount",
+        "value": "10031392417"
+       },
+       {
+        "key": "currentLeftAmount",
+        "value": "2"
+       },
+       {
+        "key": "gnsTotalSupply",
+        "value": "105909553204949"
+       },
+       {
+        "key": "stakerRewardPerSecond",
+        "value": "5351027"
+       },
+       {
+        "key": "govStakerRewardPerSecond",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "411"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "411"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "amount",
+        "value": "411"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "2091"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "2091"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "2091"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "40693"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "207063"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectSwapFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpPositionId",
+        "value": "368"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "40693"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "207063"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "poolTier",
+        "value": "1"
+       },
+       {
+        "key": "feeGrowthInside0LastX128",
+        "value": "4840583817088854758388789975634993"
+       },
+       {
+        "key": "feeGrowthInside1LastX128",
+        "value": "3920454818367002096707892540346467"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "WithdrawalFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpTokenId",
+        "value": "368"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "411"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "2091"
+       },
+       {
+        "key": "amount0WithoutFee",
+        "value": "40693"
+       },
+       {
+        "key": "amount1WithoutFee",
+        "value": "207063"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "265"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "265"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "amount",
+        "value": "265"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1351"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1351"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "1351"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "26304"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "133841"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectSwapFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpPositionId",
+        "value": "369"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "26304"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "133841"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "poolTier",
+        "value": "1"
+       },
+       {
+        "key": "feeGrowthInside0LastX128",
+        "value": "6696638481656097940495095411366405"
+       },
+       {
+        "key": "feeGrowthInside1LastX128",
+        "value": "4995839549998693722027339811210436"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "WithdrawalFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpTokenId",
+        "value": "369"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "265"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "1351"
+       },
+       {
+        "key": "amount0WithoutFee",
+        "value": "26304"
+       },
+       {
+        "key": "amount1WithoutFee",
+        "value": "133841"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "206"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "206"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "amount",
+        "value": "206"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1052"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1052"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "1052"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "20483"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "104220"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectSwapFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpPositionId",
+        "value": "371"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "20483"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "104220"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "poolTier",
+        "value": "1"
+       },
+       {
+        "key": "feeGrowthInside0LastX128",
+        "value": "5120681439076226247050185023146563"
+       },
+       {
+        "key": "feeGrowthInside1LastX128",
+        "value": "3970341234807044028991865826259904"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "WithdrawalFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpTokenId",
+        "value": "371"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "206"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "1052"
+       },
+       {
+        "key": "amount0WithoutFee",
+        "value": "20483"
+       },
+       {
+        "key": "amount1WithoutFee",
+        "value": "104220"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "474"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "474"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "amount",
+        "value": "474"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "2412"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "2412"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "2412"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "46945"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "238870"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectSwapFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpPositionId",
+        "value": "432"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "46945"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "238870"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "poolTier",
+        "value": "1"
+       },
+       {
+        "key": "feeGrowthInside0LastX128",
+        "value": "4562941111045451745215055282301822"
+       },
+       {
+        "key": "feeGrowthInside1LastX128",
+        "value": "3478852426527236300798090880162793"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "WithdrawalFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpTokenId",
+        "value": "432"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "474"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "2412"
+       },
+       {
+        "key": "amount0WithoutFee",
+        "value": "46945"
+       },
+       {
+        "key": "amount1WithoutFee",
+        "value": "238870"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "25"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "25"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "amount",
+        "value": "25"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "133"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "133"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/pool"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "133"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "2538"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "13236"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectSwapFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpPositionId",
+        "value": "575"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "2538"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "13236"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "poolTier",
+        "value": "1"
+       },
+       {
+        "key": "feeGrowthInside0LastX128",
+        "value": "117726835764863912336883480747793"
+       },
+       {
+        "key": "feeGrowthInside1LastX128",
+        "value": "613957314135764658625711385557829"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "WithdrawalFee",
+      "pkg_path": "gno.land/r/gnoswap/position/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "lpTokenId",
+        "value": "575"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeAmount0",
+        "value": "25"
+       },
+       {
+        "key": "feeAmount1",
+        "value": "133"
+       },
+       {
+        "key": "amount0WithoutFee",
+        "value": "2538"
+       },
+       {
+        "key": "amount1WithoutFee",
+        "value": "13236"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1109064"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1109064"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/staker"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "1109064"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ProtocolFeeInternalReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "fromPositionId",
+        "value": "368"
+       },
+       {
+        "key": "fromPoolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeTokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "feeAmount",
+        "value": "1109064"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "109797423"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "258781806"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "positionId",
+        "value": "368"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "recipient",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "rewardToken",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "rewardAmount",
+        "value": "110906487"
+       },
+       {
+        "key": "rewardToUser",
+        "value": "109797423"
+       },
+       {
+        "key": "rewardToFee",
+        "value": "1109064"
+       },
+       {
+        "key": "rewardPenalty",
+        "value": "258781806"
+       },
+       {
+        "key": "rewardUnClaimableAmount",
+        "value": "0"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "stakedLiquidity",
+        "value": "236315259343640"
+       },
+       {
+        "key": "globalRewardRatioAccX128",
+        "value": "5957655048959891107152701173529"
+       },
+       {
+        "key": "lowerTickOutsideAccX128",
+        "value": "5067062094225251257575762302061"
+       },
+       {
+        "key": "upperTickOutsideAccX128",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "716876"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "716876"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/staker"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "716876"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ProtocolFeeInternalReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "fromPositionId",
+        "value": "369"
+       },
+       {
+        "key": "fromPoolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeTokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "feeAmount",
+        "value": "716876"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "70970740"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "167271107"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "positionId",
+        "value": "369"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "recipient",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "rewardToken",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "rewardAmount",
+        "value": "71687616"
+       },
+       {
+        "key": "rewardToUser",
+        "value": "70970740"
+       },
+       {
+        "key": "rewardToFee",
+        "value": "716876"
+       },
+       {
+        "key": "rewardPenalty",
+        "value": "167271107"
+       },
+       {
+        "key": "rewardUnClaimableAmount",
+        "value": "0"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "stakedLiquidity",
+        "value": "236315259343640"
+       },
+       {
+        "key": "globalRewardRatioAccX128",
+        "value": "5957655048959891107152701173529"
+       },
+       {
+        "key": "lowerTickOutsideAccX128",
+        "value": "4910341114966724309842189273037"
+       },
+       {
+        "key": "upperTickOutsideAccX128",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "558220"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "558220"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/staker"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "558220"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ProtocolFeeInternalReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "fromPositionId",
+        "value": "371"
+       },
+       {
+        "key": "fromPoolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeTokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "feeAmount",
+        "value": "558220"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "55263838"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "130251470"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "positionId",
+        "value": "371"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "recipient",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "rewardToken",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "rewardAmount",
+        "value": "55822058"
+       },
+       {
+        "key": "rewardToUser",
+        "value": "55263838"
+       },
+       {
+        "key": "rewardToFee",
+        "value": "558220"
+       },
+       {
+        "key": "rewardPenalty",
+        "value": "130251470"
+       },
+       {
+        "key": "rewardUnClaimableAmount",
+        "value": "0"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "stakedLiquidity",
+        "value": "236315259343640"
+       },
+       {
+        "key": "globalRewardRatioAccX128",
+        "value": "5957655048959891107152701173529"
+       },
+       {
+        "key": "lowerTickOutsideAccX128",
+        "value": "5015323654658517683530803698588"
+       },
+       {
+        "key": "upperTickOutsideAccX128",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1279428"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "1279428"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/staker"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "1279428"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ProtocolFeeInternalReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "fromPositionId",
+        "value": "432"
+       },
+       {
+        "key": "fromPoolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeTokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "feeAmount",
+        "value": "1279428"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "126663384"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "298533229"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "positionId",
+        "value": "432"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "recipient",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "rewardToken",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "rewardAmount",
+        "value": "127942812"
+       },
+       {
+        "key": "rewardToUser",
+        "value": "126663384"
+       },
+       {
+        "key": "rewardToFee",
+        "value": "1279428"
+       },
+       {
+        "key": "rewardPenalty",
+        "value": "298533229"
+       },
+       {
+        "key": "rewardUnClaimableAmount",
+        "value": "0"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "stakedLiquidity",
+        "value": "236315259343640"
+       },
+       {
+        "key": "globalRewardRatioAccX128",
+        "value": "5957655048959891107152701173529"
+       },
+       {
+        "key": "lowerTickOutsideAccX128",
+        "value": "5150989777381723008507767686939"
+       },
+       {
+        "key": "upperTickOutsideAccX128",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Approval",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "owner",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "spender",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "70374"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1r340tuven27z8wq50u8d20eqrsj470082682tp"
+       },
+       {
+        "key": "value",
+        "value": "70374"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "AddToProtocolFee",
+      "pkg_path": "gno.land/r/gnoswap/protocol_fee/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "prevRealm",
+        "value": "gno.land/r/gnoswap/staker"
+       },
+       {
+        "key": "tokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "amount",
+        "value": "70374"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ProtocolFeeInternalReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "fromPositionId",
+        "value": "575"
+       },
+       {
+        "key": "fromPoolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "feeTokenPath",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "feeAmount",
+        "value": "70374"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "value",
+        "value": "6967060"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1q6d4ns7zkr492rgl0pcgf5ajaf2dlz0nnptky3"
+       },
+       {
+        "key": "to",
+        "value": "g1uv80ae4csts8k6w78prvy8kp7aqe3rtl66k2dq"
+       },
+       {
+        "key": "value",
+        "value": "16420682"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "CollectReward",
+      "pkg_path": "gno.land/r/gnoswap/staker/v1",
+      "attrs": [
+       {
+        "key": "prevAddr",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "prevRealm",
+        "value": ""
+       },
+       {
+        "key": "positionId",
+        "value": "575"
+       },
+       {
+        "key": "poolPath",
+        "value": "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000"
+       },
+       {
+        "key": "recipient",
+        "value": "g1eth25yr535x29p32wllelj09u5kaqw8d50vdst"
+       },
+       {
+        "key": "rewardToken",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "rewardAmount",
+        "value": "7037434"
+       },
+       {
+        "key": "rewardToUser",
+        "value": "6967060"
+       },
+       {
+        "key": "rewardToFee",
+        "value": "70374"
+       },
+       {
+        "key": "rewardPenalty",
+        "value": "16420682"
+       },
+       {
+        "key": "rewardUnClaimableAmount",
+        "value": "0"
+       },
+       {
+        "key": "currentTime",
+        "value": "1790393082"
+       },
+       {
+        "key": "currentHeight",
+        "value": "337213"
+       },
+       {
+        "key": "stakedLiquidity",
+        "value": "236315259343640"
+       },
+       {
+        "key": "globalRewardRatioAccX128",
+        "value": "5957655048959891107152701173529"
+       },
+       {
+        "key": "lowerTickOutsideAccX128",
+        "value": "5756345159737199282150850144401"
+       },
+       {
+        "key": "upperTickOutsideAccX128",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

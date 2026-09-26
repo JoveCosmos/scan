@@ -201,12 +201,13 @@ async function maybeSnapshot(
   }
 }
 
+/* The abort listener goes when the timer fires: a follower sleeps between polls
+   for days, and a listener left behind by every sleep is a slow leak. */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    }, { once: true });
+    if (signal.aborted) return resolve();
+    const onAbort = () => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", onAbort); resolve(); }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }

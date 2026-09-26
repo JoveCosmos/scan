@@ -1,0 +1,54 @@
+{
+ "blocks": [
+  {
+   "hash": "pJO0/rLIa6+jQFhvZwLaz35znXS9xDYqTrxmt8QSMQY=",
+   "height": 330527,
+   "time": "2026-09-25T21:16:48.912964993Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "Q6z04UE3ricDFlNHO3CPF/uY8kXnlqVOPV+tzC6mr7s=",
+   "success": false,
+   "block_height": 330527,
+   "gas_wanted": 169440146,
+   "gas_used": 169444742,
+   "memo": "Executed through gnoswap.io",
+   "gas_fee": {
+    "amount": 169441,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g13959x7zm49jaeyrfeltjkwz8adu8p0r0uhffag",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/position",
+      "func": "CollectFee"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g13959x7zm49jaeyrfeltjkwz8adu8p0r0uhffag",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/staker",
+      "func": "CollectReward"
+     }
+    }
+   ],
+   "response": {
+    "error": "out of gas error",
+    "events": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,43 @@
+{
+ "blocks": [
+  {
+   "hash": "mZil+szPPndnC4xV9wHVzL+RCeKVb+Kd0i2wDc6JM5M=",
+   "height": 336668,
+   "time": "2026-09-26T02:54:42.738596394Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "fGSIPsrteizmJA+DazY4G01NhK3sUcOLoXHq47M+LY0=",
+   "success": true,
+   "block_height": 336668,
+   "gas_wanted": 250000000,
+   "gas_used": 75859960,
+   "memo": "",
+   "gas_fee": {
+    "amount": 250000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1qp5pt8cdq2f6kfdamn3yuxwg6quqnfpyewzz39",
+      "package": {
+       "path": "gno.land/r/g1qp5pt8cdq2f6kfdamn3yuxwg6quqnfpyewzz39/timelock_guardian"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": []
+   }
+  }
+ ]
+}

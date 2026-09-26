@@ -1,0 +1,80 @@
+{
+ "blocks": [
+  {
+   "hash": "92tQ1dUx7UMeuCMbdv37lY9MhynlOM5PH4gjgKL1olo=",
+   "height": 597854,
+   "time": "2026-09-21T13:12:45.744521615Z",
+   "num_txs": 1,
+   "chain_id": "pearl-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "QBEUIQXyacbXUqpBFrr3Y5EKhtsQ519VH0qfuzB3D4s=",
+   "success": true,
+   "block_height": 597854,
+   "gas_wanted": 500000000,
+   "gas_used": 39999246,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "run",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgRun",
+      "caller": "g1aeddlftlfk27ret5rf750d7w5dume3kcsm8r8m",
+      "send": ""
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "ProposalCreated",
+      "pkg_path": "gno.land/r/gov/dao",
+      "attrs": [
+       {
+        "key": "id",
+        "value": "41"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "ValidatorRemoved",
+      "pkg_path": "gno.land/r/sys/validators/v3",
+      "attrs": [
+       {
+        "key": "op",
+        "value": "g1n9y62agq998jt8w59az60xcqlftjknjg2grhn4"
+       },
+       {
+        "key": "signingAddr",
+        "value": "g1a0h6w0nwe2h9gktjz7el5neua064329q3eap4u"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

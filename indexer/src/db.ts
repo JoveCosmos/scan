@@ -705,16 +705,35 @@ export async function recordGaps(
   );
 }
 
-/** A refill filled a recorded hole: the ranges it wrote are no longer gaps. */
-export async function clearGaps(pool: Pool, chainId: string, lo: number, hi: number): Promise<void> {
+/**
+ * A refill filled a recorded hole: the ranges it wrote are no longer gaps.
+ *
+ * "Filled" means written at the current version, not merely present. A refill
+ * re-reads heights that already hold older rows; when the archive refuses one,
+ * the old row is still there, and counting that as filled deleted the gap the
+ * same batch had just recorded (51 AtomOne heights, 2026-09-26). Coverage still
+ * stopped at them (they are old rows), but nothing said to fetch them again.
+ */
+export async function clearGaps(pool: Pool, chainId: string, lo: number, hi: number, version: number): Promise<void> {
   await pool.query(
     `DELETE FROM block_gap b
       WHERE b.chain_id = $1 AND b.lo >= $2 AND b.hi <= $3
         AND NOT EXISTS (
           SELECT 1 FROM generate_series(b.lo, b.hi) h
-           WHERE NOT EXISTS (SELECT 1 FROM block k WHERE k.chain_id = $1 AND k.height = h))`,
-    [chainId, lo, hi]
+           WHERE NOT EXISTS (SELECT 1 FROM block k WHERE k.chain_id = $1 AND k.height = h AND k.extract_version >= $4))`,
+    [chainId, lo, hi, version]
   );
+}
+
+/** Heights in [lo, hi] with no block, or one written by an older extractor. */
+export async function staleHeights(pool: Pool, chainId: string, lo: number, hi: number, version: number): Promise<number[]> {
+  const res = await pool.query<{ h: string }>(
+    `SELECT h::text FROM generate_series($2::bigint, $3::bigint) h
+      WHERE NOT EXISTS (SELECT 1 FROM block k WHERE k.chain_id = $1 AND k.height = h AND k.extract_version >= $4)
+      ORDER BY h`,
+    [chainId, lo, hi, version]
+  );
+  return res.rows.map((r) => Number(r.h));
 }
 
 /** Resolve unjail rows written before their validator's key was known. */

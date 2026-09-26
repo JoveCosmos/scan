@@ -123,6 +123,15 @@ journalctl -u indexer -f                          # new blocks arrive at extract
 Scan keeps working throughout: it reads `extract_version >= 2`, which version 4
 satisfies.
 
+### gno.land
+
+`INDEXER_GNO=gnoland-1=http://127.0.0.1:8547|http://127.0.0.1:21457,pearl-1=http://127.0.0.1:8546|http://127.0.0.1:21857`
+in `/etc/gata/indexer.env` adds a gno follower per chain to `indexer.service`:
+the tx-indexer's GraphQL, then a non-validating node's RPC for the real head.
+Both are checked to serve that chain id before anything is written. A fresh
+cursor starts at genesis; on the production-size copy the whole history took
+41 s (gnoland-1, 338k blocks) and 5 min (pearl-1, 722k blocks).
+
 ### Refill
 
 Rewrites history at version 4, descending from the head. The follower keeps
@@ -148,6 +157,13 @@ sudo systemd-run --unit=indexer-refill-archive --uid=indexer --gid=indexer \
   -E BACKFILL_CONCURRENCY=16 -E BACKFILL_THROTTLE_MS=100 \
   /usr/bin/npm run indexer:backfill
 ```
+
+**Stale pass.** A height the archive refuses twice (it gets a second round
+after a 5 s pause) keeps its older row and is recorded as a gap; coverage stops
+at it. `BACKFILL_STALE=1` with `BACKFILL_FROM`/`BACKFILL_FLOOR` walks a range
+2,000 heights per query and fetches only heights with no block or one below the
+current version - the 51 AtomOne heights of 2026-09-26 took 11 s. Run one over
+the whole refilled range when a refill ends.
 
 `BACKFILL_LCD` seeds `validator_key` from the staking API first, so unjails
 resolve to a consensus address as they are written; the run also resolves any

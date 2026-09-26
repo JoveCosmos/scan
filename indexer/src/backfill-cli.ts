@@ -15,6 +15,10 @@ import { bootstrapKeys } from "./validator-keys";
  *   BACKFILL_RPC            https://rpc.atomone-archive.citizenweb3.com
  *   BACKFILL_FLOOR          lowest height to reach (default 1, genesis)
  *   BACKFILL_FROM           anchor; required with BACKFILL_REFILL
+ *   BACKFILL_STALE          1 to re-read only what a range lacks: heights with no
+ *                           block or one below the current extract version (the
+ *                           heights an archive refused during a refill). Needs
+ *                           BACKFILL_FROM; walks 2,000 heights per query
  *   BACKFILL_REFILL         1 to re-read a range that is already stored, e.g.
  *                           after the extractor learned to read votes
  *   BACKFILL_CONCURRENCY    default 8
@@ -52,9 +56,10 @@ async function main() {
     floor: num("BACKFILL_FLOOR", 1),
     from: process.env.BACKFILL_FROM ? num("BACKFILL_FROM", 0) : undefined,
     refill: process.env.BACKFILL_REFILL === "1",
+    stale: process.env.BACKFILL_STALE === "1",
   };
 
-  if (target.refill && target.from === undefined) {
+  if ((target.refill || target.stale) && target.from === undefined) {
     throw new Error("BACKFILL_REFILL=1 needs BACKFILL_FROM to say where to start");
   }
 
@@ -68,7 +73,7 @@ async function main() {
   }
 
   const low = await lowestIndexed(pool, chainId);
-  if (!target.refill && low === null && target.from === undefined) {
+  if (!target.refill && !target.stale && low === null && target.from === undefined) {
     throw new Error(
       `nothing indexed for ${chainId} yet — set BACKFILL_FROM to a height to start below`
     );
@@ -80,7 +85,9 @@ async function main() {
   }
 
   log(
-    target.refill
+    target.stale
+      ? `re-reading stale heights of ${chainId} from ${target.from} down to ${target.floor} via ${rpcUrl}`
+      : target.refill
       ? `refilling ${chainId} from ${target.from} down to ${target.floor} via ${rpcUrl}`
       : `backfilling ${chainId} from ${low ?? target.from} down to ${target.floor} via ${rpcUrl}`
   );
@@ -91,7 +98,7 @@ async function main() {
     {
       concurrency: num("BACKFILL_CONCURRENCY", 8),
       throttleMs: num("BACKFILL_THROTTLE_MS", 200),
-      batchSize: num("BACKFILL_BATCH", 100),
+      batchSize: num("BACKFILL_BATCH", target.stale ? 2000 : 100),
       log,
     },
     controller.signal

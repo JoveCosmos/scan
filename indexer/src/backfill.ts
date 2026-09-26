@@ -1,8 +1,8 @@
 import type { Pool } from "pg";
 import { Rpc } from "./rpc";
-import { extractBlock, type ExtractedBlock } from "./extract";
+import { extractBlock, EXTRACT_VERSION, type ExtractedBlock } from "./extract";
 import { missedIn } from "./commit-set";
-import { clearGaps, commitBlocks, lowestIndexed, recordGaps } from "./db";
+import { clearGaps, commitBlocks, lowestIndexed, recordGaps, staleHeights } from "./db";
 
 /**
  * Fills history below what the head-follower has reached.
@@ -39,6 +39,13 @@ export interface BackfillTarget {
    * columns without duplicating anything.
    */
   refill?: boolean;
+  /**
+   * A refill that fetches only what needs it: heights in the range with no block,
+   * or with one written by an older extractor. For heights an archive refused
+   * during a refill (they keep their old rows, and coverage stops at them), and
+   * for mending a range cheaply. Implies refill's range walk.
+   */
+  stale?: boolean;
 }
 
 export interface BackfillOptions {
@@ -79,7 +86,7 @@ export async function nextRange(
 ): Promise<{ from: number; to: number } | null> {
   let start: number | null;
 
-  if (target.refill) {
+  if (target.refill || target.stale) {
     // Explicit range: ignore what is stored and walk it top-down.
     start = position ?? target.from ?? null;
   } else {
@@ -146,8 +153,10 @@ export async function backfillOnce(
   if (!range) return { status: "done" };
 
   // Ascending within the batch so the rows land in a natural order.
-  const heights: number[] = [];
-  for (let h = range.to; h <= range.from; h++) heights.push(h);
+  let heights: number[] = [];
+  if (target.stale) heights = await staleHeights(pool, target.chainId, range.to, range.from, EXTRACT_VERSION);
+  else for (let h = range.to; h <= range.from; h++) heights.push(h);
+  if (heights.length === 0) return { status: "wrote", from: range.from, to: range.to, written: 0, failed: [] };
 
   const blocks: ExtractedBlock[] = [];
   const failed: number[] = [];
@@ -164,6 +173,19 @@ export async function backfillOnce(
     });
   }
 
+  // Refusals come in bursts (a public archive rate-limiting): the heights that
+  // failed get one more round after a pause before they are recorded as gaps -
+  // every gap left behind stops coverage until a stale pass re-reads it.
+  if (failed.length > 0 && blocks.length > 0) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const again = await Promise.all(failed.map((h) => fetchWithRetry(rpc, target.chainId, h, 3)));
+    const still: number[] = [];
+    again.forEach((f, k) => { if (f.block) blocks.push(f.block); else still.push(failed[k]); });
+    failed.length = 0;
+    failed.push(...still);
+    blocks.sort((x, y) => Number(x.block.height) - Number(y.block.height));
+  }
+
   // A whole batch failing is an outage, not a hole: throw, so the caller backs
   // off and retries the same range instead of recording thousands of "gaps" or
   // (as this used to) mistaking an empty batch for the floor and stopping.
@@ -178,7 +200,7 @@ export async function backfillOnce(
     await recordGaps(pool, target.chainId, failed, `backfill: ${lastError ?? "unavailable"}`.slice(0, 200));
     log(`${target.chainId}: ${failed.length} height(s) in ${range.to}-${range.from} unavailable, recorded as gaps`);
   }
-  if (target.refill) await clearGaps(pool, target.chainId, range.to, range.from);
+  if (target.refill || target.stale) await clearGaps(pool, target.chainId, range.to, range.from, EXTRACT_VERSION);
 
   const hollow = blocks.filter((b) => b.abciResultsMissing);
   if (hollow.length > 0) {
@@ -206,7 +228,7 @@ export async function runBackfill(
   let done = 0;
   let backoff = 0;
   // Refill walks its own cursor; resume mode re-reads min(height) each pass.
-  let position: number | undefined = target.refill ? target.from : undefined;
+  let position: number | undefined = target.refill || target.stale ? target.from : undefined;
 
   while (!signal.aborted) {
     let r: BatchResult;
@@ -223,8 +245,8 @@ export async function runBackfill(
     }
 
     if (r.status === "done") {
-      if (target.refill) {
-        log(`${target.chainId}: refill complete down to ${target.floor}`);
+      if (target.refill || target.stale) {
+        log(`${target.chainId}: ${target.stale ? "stale pass" : "refill"} complete down to ${target.floor}`);
       } else {
         const low = await lowestIndexed(pool, target.chainId);
         log(
@@ -237,8 +259,8 @@ export async function runBackfill(
     done += r.written;
     // Past the whole range, including any recorded gaps - never re-reading part of
     // it because a few heights failed.
-    if (target.refill) position = r.to - 1;
-    const low = target.refill
+    if (target.refill || target.stale) position = r.to - 1;
+    const low = target.refill || target.stale
       ? position
       : await lowestIndexed(pool, target.chainId);
     // Clamped: the final batch overshoots the floor by design, and a negative
@@ -264,12 +286,13 @@ function formatDuration(seconds: number): string {
   return `${m}m`;
 }
 
+/* The abort listener goes when the timer fires: a follower sleeps between polls
+   for days, and a listener left behind by every sleep is a slow leak. */
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    }, { once: true });
+    if (signal.aborted) return resolve();
+    const onAbort = () => { clearTimeout(timer); resolve(); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", onAbort); resolve(); }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
 }

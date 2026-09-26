@@ -1,0 +1,177 @@
+{
+ "blocks": [
+  {
+   "hash": "taLDHWC2xlOND5c01TsxFeAxVakyz19BcVJf1zL62l4=",
+   "height": 334925,
+   "time": "2026-09-26T01:18:50.508194494Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "rlzX39kthkd55HgAVDXxIinRsF0EoepNeJADeEBLoGI=",
+   "success": true,
+   "block_height": 334925,
+   "gas_wanted": 46110598,
+   "gas_used": 41919416,
+   "memo": "Gnomi.fun",
+   "gas_fee": {
+    "amount": 46111,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug",
+      "send": "10000000ugnot",
+      "pkg_path": "gno.land/r/gnoland/wugnot",
+      "func": "Deposit"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoland/wugnot",
+      "func": "Transfer"
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug",
+      "send": "",
+      "pkg_path": "gno.land/r/g1n4pl5uc4yt5r96m9w6fmdznx3x0jyg8l6arhmt/gnomi/padv3",
+      "func": "Buy"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug",
+      "to": "g15vj5q08amlvyd0nx6zjgcvwq2d0gt9fcchrvum",
+      "coins": "10000000ugnot"
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": ""
+       },
+       {
+        "key": "to",
+        "value": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug"
+       },
+       {
+        "key": "value",
+        "value": "10000000"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug"
+       },
+       {
+        "key": "to",
+        "value": "g1ukml3j2pp5wmn2u6m7rzeamtp58r0r7f7d9eym"
+       },
+       {
+        "key": "value",
+        "value": "10000000"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageUnlockEvent"
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/g1n4pl5uc4yt5r96m9w6fmdznx3x0jyg8l6arhmt/gnomi/padv3.GNOMI.0000001"
+       },
+       {
+        "key": "from",
+        "value": ""
+       },
+       {
+        "key": "to",
+        "value": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug"
+       },
+       {
+        "key": "value",
+        "value": "38781"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Buy",
+      "pkg_path": "gno.land/r/g1n4pl5uc4yt5r96m9w6fmdznx3x0jyg8l6arhmt/gnomi/padv3",
+      "attrs": [
+       {
+        "key": "id",
+        "value": "0000001"
+       },
+       {
+        "key": "buyer",
+        "value": "g16vsca65y205enmn3t3hvcvccdalvkgxqnmnuug"
+       },
+       {
+        "key": "ugnot",
+        "value": "10000000"
+       },
+       {
+        "key": "wugnot",
+        "value": "10000000"
+       },
+       {
+        "key": "tokens",
+        "value": "38781"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

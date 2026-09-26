@@ -167,10 +167,17 @@ reader does not compare versions itself — it asks for a **capability**:
 SELECT lo, hi, lo_time, hi_time FROM indexer_coverage($chain, $capability);
 ```
 
-returns the contiguous run of blocks ending at the newest one in which every
-block carries the capability: no recorded gap (`block_gap`) and no block written
-by an older extractor. No row means "not covered — use the live path". ~5 ms on
-the production-size copy; Scan's 30 s cache is plenty. A refill descends from
+returns the contiguous run of blocks, ending at the newest block that carries
+the capability, in which every block carries it: no recorded gap (`block_gap`)
+and no block written by an older extractor. No row means "not covered — use the
+live path". 5–17 ms on the production-size copy; Scan's 30 s cache is plenty.
+
+(Since migration 011 the run ends at the newest block that *carries* the
+capability, not the newest block of any version: `gno-signatures` writes
+gnoland-1 blocks at version 3 as they are produced, usually ahead of the gno
+follower, and one such block at the top used to empty every gnoland-1
+capability. A block above `hi` is simply not processed yet; freshness says how
+far behind that is.) A refill descends from
 the head, so a version-4 capability's `lo` moves down as it runs; a capability
 an older version already served (`votes`, `fees`, `slashing`) stays fully
 covered throughout.
@@ -193,6 +200,9 @@ covered throughout.
 | gov_proposal | 4 | `gov_proposal` |
 | vote_event | 4 | `vote_event` |
 | tombstones_unjails | 4 | `slash_event` kinds `tombstoned`, `unjailed` |
+| gno_tx | 4 | `gno_tx` (gno chains) |
+| gno_tx_party | 4 | `gno_tx_party` (gno chains) |
+| address_tx_count | 4 | `address_tx_count` — see its section for what "covered" means |
 
 The list lives in `extract_capability` (migration 008) and in `CAPABILITIES` in
 `indexer/src/extract.ts`; they must agree.
@@ -308,6 +318,11 @@ new (`last_height >= head`). So:
   or its node is — fall back to the live path.
 - `head_height - last_height` is **lag**: the follower is alive but behind.
 - A backfill never moves the cursor.
+- **gno chains** (`gnoland-1`, `pearl-1`) have cursor rows too, written by the
+  gno follower. `head_height` is the node's head (from a non-validating node);
+  the heartbeat fires only while the tx-indexer the follower reads is within
+  10 blocks of that head, so a stalled tx-indexer shows up as a stale cursor,
+  not as a fresh one with nothing new.
 
 ### What Scan reads, and how
 
@@ -345,6 +360,94 @@ session; Scan owns that file. Each read gates on its capability.
 - **Slashing**: `slash_event`, now with `tombstoned` and `unjailed`.
 - **IBC**: `ibc_packet` by `send_tx` / `recv_tx` / `ack_tx` for a transaction's
   packet, by `sender` / `receiver` for an account, by channel for a channel page.
+
+### gno.land in our own database (migration 011)
+
+Read from each chain's own tx-indexer (GraphQL: gnoland-1 on 127.0.0.1:8547,
+pearl-1 on 8546) by height range, from genesis, by the same `indexer.service`
+(`INDEXER_GNO`). Blocks are written into `block` at version 4. A block whose
+transaction count (`num_txs`) differs from what the tx-indexer returns for it is
+written **hollow** (version 0): present, never covered.
+
+**`gno_tx`** — PK `(chain_id, hash)`. `hash` is **uppercase hex** (the
+tx-indexer's base64, decoded; `gnoHashToHex` gives the same), `height`,
+`tx_index`, `time` (the block's), `success`, `gas_wanted`, `gas_used`,
+`fee_amount` numeric, `fee_denom`, `msg_types text[]` (the tx-indexer's type
+names: `BankMsgSend`, `MsgCall`, `MsgRun`, `MsgAddPackage`, `MsgEnablePackage`,
+`MsgRejectPackage`), `memo`, `error` (the chain's text for a failed
+transaction). Index `(chain_id, height DESC, tx_index)` for a block's or the
+chain's latest transactions.
+
+**`gno_tx_party`** — PK `(chain_id, address, height, tx_hash)`, `roles int`,
+the same design as `tx_party` and the same bits where they mean the same:
+
+| bit | role | from |
+|---|---|---|
+| 1 | signer | a message's signer: `BankMsgSend.from_address`, `MsgCall`/`MsgRun.caller`, `MsgAddPackage.creator`, `MsgEnablePackage.approver`, `MsgRejectPackage.sender` |
+| 8 | sender | coins out: a bank send's from, a call or run that `send`s coins, a Transfer event's `from` |
+| 16 | recipient | a bank send's to, a Transfer event's `to` |
+| 16384 | creator | the deployer of a package |
+
+Transfer events are GRC20 `GnoEvent`s of type `Transfer` (attrs `from`/`to`; a
+mint's empty `from` is skipped) and the bank's `TransferEvent` (coins a realm
+moved). A **failed** transaction keeps its signer only: its events describe
+nothing that happened. Addresses are `g1…` (40 characters); realm addresses that
+receive tokens are parties too.
+
+### `address_tx_count` (migration 011)
+
+PK `(chain_id, address)`: `tx_count bigint`, `first_height`, `last_height`,
+`first_time`, `last_time`. One row per address that is party to at least one
+transaction, for every chain: counted from `tx_party` (Cosmos) and
+`gno_tx_party` (gno).
+
+- **Maintained on write, by the database.** Statement-level triggers on both
+  party tables add each *newly inserted* (address, transaction) row in the same
+  transaction as the write. A refill re-writing rows counts nothing twice
+  (`ON CONFLICT` updates are not inserts); a delete recounts the addresses it
+  touched from scratch. Verified on the production-size copy: every address's
+  count equals `count(*)` of its party rows (17,902 AtomOne/Cosmos addresses,
+  1,889 gnoland-1, 7,415 pearl-1).
+- **What it counts:** the address's transactions among the heights written at
+  version 4. Every counted transaction is real, so it is always a **lower
+  bound**, and it is **exact** when `indexer_coverage(chain, 'address_tx_count')`
+  starts at the chain's first block. While a refill is still descending
+  (AtomOne until the archive refill reaches genesis), say **"at least N"** and
+  show the coverage `lo` as "since block lo / lo_time". Transactions at heights
+  below `lo` that a refill already wrote are counted (they are real), so the
+  count may include a little more than `lo..hi`, never less.
+- `first_height`/`first_time` is the earliest counted transaction, not
+  necessarily the account's first on chain until coverage reaches genesis.
+
+### What Scan reads, and how (gno and counts)
+
+Gate on coverage exactly as for `tx_party`:
+
+```sql
+-- the window the indexer vouches for
+SELECT lo, hi, lo_time, hi_time FROM indexer_coverage($chain, 'gno_tx_party');
+
+-- an account's history, newest first, keyset-paged (omit the tuple on page 1)
+SELECT p.height, p.tx_hash, p.roles,
+       t.time, t.success, t.msg_types, t.fee_amount, t.fee_denom, t.memo, t.error
+  FROM gno_tx_party p
+  JOIN gno_tx t ON t.chain_id = p.chain_id AND t.hash = p.tx_hash
+ WHERE p.chain_id = $1 AND p.address = $2
+   AND p.height BETWEEN $lo AND $hi
+   AND (p.height, p.tx_hash) < ($before_height, $before_hash)
+ ORDER BY p.height DESC, p.tx_hash DESC
+ LIMIT $n;
+
+-- "N transactions", first and last activity
+SELECT tx_count, first_height, last_height, first_time, last_time
+  FROM address_tx_count WHERE chain_id = $1 AND address = $2;
+```
+
+Measured on the production-size copy with g1juss2tuc97sr77rn6vprhh9lr7d9e07uu68x59
+(32,003 transactions): first page 1.7 ms, a page 30,000 rows deep 1.7 ms (a
+backward walk of the primary key, no sort), the count 0.13 ms. Below `lo` keep
+the GraphQL windows. For Cosmos chains the count row is read the same way; its
+capability is `address_tx_count` and its history stays `tx_party`.
 
 **Other readers** — `app_ro`, `monitor` and `atomone_app_ro` read `block`,
 `tx`, `transfer`, `missed_signature`, `slash_event`, `vote`. GATA Hub's

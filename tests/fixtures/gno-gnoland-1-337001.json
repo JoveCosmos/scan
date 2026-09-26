@@ -1,0 +1,49 @@
+{
+ "blocks": [
+  {
+   "hash": "nIlobf+rfHq5cwNgNieff/Yll6q4XDju3O8hyRQ2UHw=",
+   "height": 337001,
+   "time": "2026-09-26T03:13:02.63714962Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "xSXOCt6fhOx3GcR5p5Q42DEA0nbikdsrMknKhukMuEM=",
+   "success": true,
+   "block_height": 337001,
+   "gas_wanted": 983235,
+   "gas_used": 936478,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1027,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "send",
+     "route": "bank",
+     "value": {
+      "__typename": "BankMsgSend",
+      "from_address": "g1juss2tuc97sr77rn6vprhh9lr7d9e07uu68x59",
+      "to_address": "g19ulvh44r54nc44pekne4cy6e7lptheq7a0wavt",
+      "amount": "11940ugnot"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g1juss2tuc97sr77rn6vprhh9lr7d9e07uu68x59",
+      "to": "g19ulvh44r54nc44pekne4cy6e7lptheq7a0wavt",
+      "coins": "11940ugnot"
+     }
+    ]
+   }
+  }
+ ]
+}

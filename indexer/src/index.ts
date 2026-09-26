@@ -1,5 +1,6 @@
 import { createPool } from "./db";
 import { runChain, type ChainTarget } from "./worker";
+import { runGno, type GnoTarget } from "./gno-worker";
 
 /**
  * Indexer entry point.
@@ -20,6 +21,11 @@ import { runChain, type ChainTarget } from "./worker";
  *
  * The suffix is optional; without it a chain is indexed exactly as before and
  * simply has no snapshots.
+ *
+ * gno.land chains are read from their tx-indexer's GraphQL, with a node's RPC
+ * (a non-validating one) for the chain's real head:
+ *
+ *   INDEXER_GNO     gnoland-1=http://127.0.0.1:8547|http://127.0.0.1:21457,pearl-1=…
  */
 
 function parseTargets(raw: string | undefined): ChainTarget[] {
@@ -48,6 +54,16 @@ function parseTargets(raw: string | undefined): ChainTarget[] {
     });
 }
 
+function parseGno(raw: string | undefined): GnoTarget[] {
+  if (!raw) return [];
+  return raw.split(",").map((e) => e.trim()).filter(Boolean).map((entry) => {
+    const at = entry.indexOf("=");
+    if (at === -1) throw new Error(`INDEXER_GNO entry needs chainId=graphql[|rpc]: "${entry}"`);
+    const [graphqlUrl, rpcUrl] = entry.slice(at + 1).split("|").map((u) => u.trim());
+    return { chainId: entry.slice(0, at).trim(), graphqlUrl, rpcUrl: rpcUrl || undefined };
+  });
+}
+
 function log(msg: string) {
   // Plain stdout: systemd captures it into the journal, same as the app.
   console.log(`[${new Date().toISOString()}] ${msg}`);
@@ -58,7 +74,8 @@ async function main() {
   if (!url) throw new Error("DATABASE_URL is required");
 
   const targets = parseTargets(process.env.INDEXER_CHAINS);
-  if (targets.length === 0) throw new Error("INDEXER_CHAINS is required");
+  const gno = parseGno(process.env.INDEXER_GNO);
+  if (targets.length === 0 && gno.length === 0) throw new Error("INDEXER_CHAINS or INDEXER_GNO is required");
 
   const pool = createPool(url);
   const controller = new AbortController();
@@ -72,11 +89,13 @@ async function main() {
     });
   }
 
-  log(`indexing ${targets.map((t) => t.chainId).join(", ")}`);
+  log(`indexing ${[...targets, ...gno].map((t) => t.chainId).join(", ")}`);
 
-  await Promise.all(
-    targets.map((t) => runChain(pool, t, { log }, controller.signal))
-  );
+  await Promise.all([
+    ...targets.map((t) => runChain(pool, t, { log }, controller.signal)),
+    // a gno chain that cannot start (wrong service on a port) stops itself, not the others
+    ...gno.map((t) => runGno(pool, t, { log }, controller.signal).catch((e) => log(`${t.chainId}: stopped - ${e instanceof Error ? e.message : e}`))),
+  ]);
 
   await pool.end();
   log("stopped");
