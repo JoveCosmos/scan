@@ -330,21 +330,6 @@
     animation: gataFlash 0.9s ease-out both;
   }
 
-  /* Landing-page strip of network marks (components/home-marquee.tsx). The
-     track holds the list twice and slides by exactly one copy per loop, so the
-     wrap is invisible; the edges fade so marks arrive rather than appear. */
-  .gata-marquee {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
-  }
-  .gata-marquee-track {
-    animation: gataMarquee 40s linear infinite;
-  }
-  .gata-marquee:hover .gata-marquee-track,
-  .gata-marquee:focus-within .gata-marquee-track {
-    animation-play-state: paused;
-  }
-
   /*
    * Responsive data tables.
    *
@@ -524,6 +509,12 @@
     opacity: 0.8;
   }
 
+  /* The home orbit pauses while the pointer is over it, so a logo can be
+     caught and clicked. */
+  .gata-orbit:hover .gata-orbit-ring {
+    animation-play-state: paused;
+  }
+
   /* A clickable row: tinted on hover, with a lit leading edge in the page's
      accent, so it reads as something you can open. */
   .deck-row {
@@ -595,9 +586,15 @@
   }
 }
 
-@keyframes gataMarquee {
+@keyframes gataSpin {
   to {
-    transform: translateX(-50%);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gataSpinRev {
+  to {
+    transform: rotate(-360deg);
   }
 }
 
