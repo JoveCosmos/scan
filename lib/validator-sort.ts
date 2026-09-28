@@ -17,6 +17,12 @@ export interface ValidatorRow {
   moniker: string;
   /** Logo candidates, best first; the avatar falls back to a monogram. */
   logos?: string[];
+  /**
+   * Gross APR for this validator's stake, before commission, where the chain
+   * pays some rewards evenly per validator; absent where one chain-wide
+   * figure applies to everyone.
+   */
+  apr?: number | null;
   votingPower: number;
   /** Share of power held by this validator and everyone ranked above it. */
   cumulativePower: number;

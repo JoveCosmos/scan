@@ -191,8 +191,6 @@ interface Tab {
 // then what we run for it. The route is still /params.
 const TABS: Tab[] = [
   { href: "/params", label: "Overview", short: "Home" },
-  { href: "/blocks", label: "Blocks", short: "Blocks" },
-  { href: "/txs", label: "Transactions", short: "Txs", section: "txs" },
   { href: "/validators", label: "Validators", short: "Vals" },
   {
     href: "/proposals",
@@ -295,9 +293,13 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
             className="order-5 -mx-1 flex h-11 w-full items-center justify-between border-t border-border/60 sm:order-2 sm:mx-0 sm:h-16 sm:w-auto sm:flex-1 sm:justify-end sm:gap-1 sm:border-0"
           >
             {TABS.map((tab) => {
+              // Blocks and transactions are browsed from the overview, so
+              // their pages keep it lit.
               const active =
                 routeChain !== null &&
-                pathname.startsWith(`/${chain.chainId}${tab.href}`);
+                (pathname.startsWith(`/${chain.chainId}${tab.href}`) ||
+                  (tab.href === "/params" &&
+                    /^\/[^/]+\/(blocks|txs)(\/|$)/.test(pathname)));
               const na = unavailable(tab);
               return (
                 <Link

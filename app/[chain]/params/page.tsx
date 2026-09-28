@@ -7,6 +7,7 @@ import {
   symbolFor,
   symbolForDenom,
   logoFor,
+  chainDenoms,
 } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
@@ -18,14 +19,13 @@ import { recentJailings } from "@/lib/indexer-validator";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import Image from "next/image";
 import { PageFrame } from "@/components/page-frame";
-import {
-  OverviewPanels,
-  type PanelBlock,
-  type PanelTx,
-  type PanelValidator,
-} from "@/components/overview-panels";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { BlocksTable } from "@/components/blocks-table";
+import { TxsTable } from "@/components/txs-table";
+import { denomsForTxs } from "@/lib/txs";
 import { nameProposers } from "@/lib/blocks";
-import { validatorLogoMap } from "@/lib/validator-logos";
+import { withProposerLogos } from "@/lib/validator-logos";
 import { policyFor } from "@/lib/tiers";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 
@@ -107,7 +107,7 @@ export default async function ChainOverviewPage({
       adapter.getValidators().catch(() => []),
       caps.staking ? recentJailings(chain.chainId).catch(() => null) : null,
       // The dashboard cards: both feeds are shared caches with their tabs.
-      adapter.getRecentBlocks(12).catch(() => []),
+      adapter.getRecentBlocks().catch(() => []),
       policy.txs ? adapter.getRecentTxs().catch(() => null) : null,
     ]);
 
@@ -550,34 +550,20 @@ export default async function ChainOverviewPage({
   const KEEP = ["network", "supply", "pool", "apr", "uptime"];
   const shown = KEEP.flatMap((k) => bricks.filter((b) => b.key === k));
 
-  // Dashboard cards under the tiles.
-  const named = nameProposers(recentBlocks, validators, chain.bech32Prefix);
-  const top = validators.slice(0, 12);
-  const logos = await validatorLogoMap(chain, [
-    ...top,
-    ...validators.filter((v) => named.some((b) => b.proposerOperator === v.operatorAddress)),
-  ]);
-  const panelBlocks: PanelBlock[] = named.map((b) => ({
-    height: b.height,
-    time: b.time,
-    txCount: b.txCount,
-    proposer: b.proposerMoniker,
-    proposerOperator: b.proposerOperator,
-    proposerLogos: b.proposerOperator ? logos.get(b.proposerOperator) ?? [] : [],
-  }));
-  const panelTxs: PanelTx[] = (recentTxs?.txs ?? []).slice(0, 12).map((t) => ({
-    hash: t.hash,
-    height: t.height,
-    time: t.time,
-    label: t.primaryLabel ?? t.messages[0]?.label ?? "Transaction",
-    ok: t.code === null ? null : t.code === 0,
-  }));
-  const panelValidators: PanelValidator[] = top.map((v) => ({
-    operator: v.operatorAddress,
-    moniker: v.moniker,
-    share: v.votingPower,
-    logos: logos.get(v.operatorAddress) ?? [],
-  }));
+  // The live lists under the tiles: this is where blocks and transactions
+  // are browsed now, with every column their own tabs had.
+  const named = await withProposerLogos(
+    chain,
+    nameProposers(recentBlocks, validators, chain.bech32Prefix),
+    validators
+  );
+  const lowest = named.length > 0 ? Number(named[named.length - 1].height) : null;
+  const txInitial = recentTxs
+    ? {
+        ...recentTxs,
+        denoms: chain.kind === "cosmos" ? await denomsForTxs(chain, recentTxs.txs) : [],
+      }
+    : null;
 
   return (
     <PageFrame
@@ -606,14 +592,52 @@ export default async function ChainOverviewPage({
             size="lg"
           />
         </div>
-        <OverviewPanels
-          chainId={chain.chainId}
-          accent={accent}
-          blocks={panelBlocks}
-          txs={panelTxs}
-          validators={panelValidators}
-          showTxs={policy.txs}
-        />
+        {/* Side by side, filling the screen, from tablet width up. On a phone
+            each list gets a usable height and this area scrolls instead. */}
+        <div
+          className={`flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-1 lg:grid lg:gap-3 lg:overflow-hidden lg:pb-0 ${
+            txInitial ? "lg:grid-cols-2" : ""
+          }`}
+        >
+          <section className="flex h-[30rem] shrink-0 flex-col gap-2 lg:h-auto lg:min-h-0">
+            <h2 className="font-display shrink-0 text-[15px] font-semibold tracking-[-0.01em]">
+              Blocks
+            </h2>
+            <div className="min-h-0 flex-1">
+              <BlocksTable
+                chainId={chain.chainId}
+                accent={accent}
+                initialBlocks={named}
+                footer={
+                  lowest && lowest > 1 ? (
+                    <Link
+                      href={`/${chain.chainId}/blocks?before=${lowest}`}
+                      aria-label="Older blocks"
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground"
+                    >
+                      Older <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  ) : null
+                }
+              />
+            </div>
+          </section>
+          {txInitial ? (
+            <section className="flex h-[30rem] shrink-0 flex-col gap-2 lg:h-auto lg:min-h-0">
+              <h2 className="font-display shrink-0 text-[15px] font-semibold tracking-[-0.01em]">
+                Transactions
+              </h2>
+              <div className="min-h-0 flex-1">
+                <TxsTable
+                  chainId={chain.chainId}
+                  accent={accent}
+                  denoms={chainDenoms(chain)}
+                  initial={txInitial}
+                />
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
     </PageFrame>
   );

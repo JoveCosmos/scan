@@ -287,7 +287,7 @@ export function ValidatorsTable({
           },
         ]
       : []),
-    ...(staking && chainApr !== null
+    ...(staking && (chainApr !== null || source.some((r) => r.apr != null))
       ? [
           {
             key: "apr",
@@ -296,7 +296,12 @@ export function ValidatorsTable({
             align: "right" as const,
             w: "5rem",
             show: "hidden lg:table-cell",
-            cell: (v: ValidatorRow) => pct(chainApr * (1 - v.commissionRate)),
+            // The validator's own figure where rewards depend on its stake,
+            // the chain's otherwise; less its commission either way.
+            cell: (v: ValidatorRow) => {
+              const gross = v.apr ?? chainApr;
+              return gross == null ? "—" : pct(gross * (1 - v.commissionRate));
+            },
           },
         ]
       : []),

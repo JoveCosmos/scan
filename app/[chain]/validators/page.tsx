@@ -12,7 +12,7 @@ import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
 import { missedLast30d } from "@/lib/indexer-validator";
 import { getSelfBonds } from "@/lib/staking";
-import { getChainEconomics } from "@/lib/params";
+import { getChainEconomics, getAprModel } from "@/lib/params";
 import { PageFrame } from "@/components/page-frame";
 import { validatorLogoMap } from "@/lib/validator-logos";
 
@@ -111,6 +111,17 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       : Promise.resolve(null),
   ]);
 
+  // Where rewards are not purely proportional to stake (AtomOne's nakamoto
+  // bonus), each validator's APR depends on its own stake: the heading shows
+  // the range and each row its own figure.
+  const aprModel = adapter.capabilities.staking
+    ? await getAprModel(
+        chain,
+        chainParams?.distribution?.communityTax ?? null,
+        validators.map((v) => v.tokens)
+      ).catch(() => null)
+    : null;
+
   /** Slashing events carry the consensus address, so rows are matched on that. */
   const jailingsFor = (consensusPubkey: string | null) => {
     if (!jailings || !consensusPubkey) return null;
@@ -131,6 +142,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     operatorAddress: v.operatorAddress,
     moniker: v.moniker,
     logos: logos.get(v.operatorAddress) ?? [],
+    apr: aprModel?.at(v.tokens) ?? null,
     votingPower: v.votingPower,
     cumulativePower: v.cumulativePower,
     tokens: v.tokens,
@@ -210,9 +222,11 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
           ...(minCommission !== null
             ? [`min commission ${(minCommission * 100).toFixed(1)}%`]
             : []),
-          ...(economics?.stakingApr != null
-            ? [`APR ${(economics.stakingApr * 100).toFixed(1)}%`]
-            : []),
+          ...(aprModel
+            ? [`APR ${(aprModel.lo * 100).toFixed(0)}–${(aprModel.hi * 100).toFixed(0)}%`]
+            : economics?.stakingApr != null
+              ? [`APR ${(economics.stakingApr * 100).toFixed(1)}%`]
+              : []),
         ]
       : [
           `${totalBonded.toLocaleString()} voting power`,

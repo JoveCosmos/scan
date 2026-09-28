@@ -339,11 +339,19 @@ export function getChainAprCached(chain: ChainConfig): Promise<{
  * largest validator (lowest APR) to the smallest (highest). Null where the
  * chain has no such coefficient: its APR is the single figure above.
  */
-export async function getAprRange(
+export interface AprModel {
+  lo: number;
+  hi: number;
+  /** Gross APR for a validator with this stake (base units), before commission. */
+  at: (stake: string | number) => number | null;
+}
+
+/** The reward model behind the range, reusable per validator. */
+export async function getAprModel(
   chain: ChainConfig,
   communityTax: number | null,
   stakes: string[]
-): Promise<{ lo: number; hi: number } | null> {
+): Promise<AprModel | null> {
   if (stakes.length === 0) return null;
   const [coef, provisions] = await Promise.all([
     attempt(() =>
@@ -370,5 +378,21 @@ export async function getAprRange(
   const N = t.length;
   if (S <= 0 || N === 0) return null;
   const apr = (x: number) => (R * (1 - e)) / S + (R * e) / (N * x);
-  return { lo: apr(Math.max(...t)), hi: apr(Math.min(...t)) };
+  return {
+    lo: apr(Math.max(...t)),
+    hi: apr(Math.min(...t)),
+    at: (stake) => {
+      const x = Number(stake);
+      return x > 0 ? apr(x) : null;
+    },
+  };
+}
+
+export async function getAprRange(
+  chain: ChainConfig,
+  communityTax: number | null,
+  stakes: string[]
+): Promise<{ lo: number; hi: number } | null> {
+  const model = await getAprModel(chain, communityTax, stakes);
+  return model ? { lo: model.lo, hi: model.hi } : null;
 }
