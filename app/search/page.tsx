@@ -25,12 +25,15 @@ function chainsForPrefix(prefix: string): ChainConfig[] {
 
 /** Resolves or gives up within `ms`, so one slow chain cannot stall search. */
 function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([p.catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), ms))]);
+  return Promise.race([
+    p.catch(() => fallback),
+    new Promise<T>((r) => setTimeout(() => r(fallback), ms)),
+  ]);
 }
 
 /** Active and inactive validators of each chain, from the shared caches. */
 async function validatorSets(
-  chains: ChainConfig[]
+  chains: ChainConfig[],
 ): Promise<{ chain: ChainConfig; validators: ValidatorSummary[] }[]> {
   return Promise.all(
     chains.map(async (chain) => {
@@ -40,7 +43,7 @@ async function validatorSets(
         within(adapter.getInactiveValidators(), 8000, [] as ValidatorSummary[]),
       ]);
       return { chain, validators: [...active, ...inactive] };
-    })
+    }),
   );
 }
 
@@ -49,10 +52,17 @@ async function validatorSets(
  * chain is asked in its own base64 form, so a hex hash copied from gnoscan
  * resolves as well.
  */
-async function chainsWithTx(hash: string): Promise<{ chain: ChainConfig; hash: string }[]> {
+async function chainsWithTx(
+  hash: string,
+): Promise<{ chain: ChainConfig; hash: string }[]> {
   const hits = await Promise.all(
     getAllChains().map(async (chain) => {
-      const asked = chain.kind === "gno" ? normalizeGnoHash(hash) : /^[0-9A-F]{64}$/.test(hash) ? hash : null;
+      const asked =
+        chain.kind === "gno"
+          ? normalizeGnoHash(hash)
+          : /^[0-9A-F]{64}$/.test(hash)
+            ? hash
+            : null;
       if (!asked) return null;
       try {
         const tx = await getAdapter(chain).getTx(asked);
@@ -60,19 +70,19 @@ async function chainsWithTx(hash: string): Promise<{ chain: ChainConfig; hash: s
       } catch {
         return null;
       }
-    })
+    }),
   );
-  return hits.filter((c): c is { chain: ChainConfig; hash: string } => c !== null);
+  return hits.filter(
+    (c): c is { chain: ChainConfig; hash: string } => c !== null,
+  );
 }
 
 function Disambiguation({
   query,
   candidates,
-  hint,
 }: {
   query: string;
   candidates: Candidate[];
-  hint: string;
 }) {
   return (
     // The page never scrolls; the list does. `my-auto` on the panel rather than
@@ -81,13 +91,14 @@ function Disambiguation({
     // and their last rows.
     <main className="mx-auto flex h-full max-w-2xl flex-col px-4 py-4 sm:py-6">
       <div className="my-auto flex max-h-full min-h-0 flex-col">
-        <h1 className="shrink-0 text-lg font-semibold tracking-tight">
-          Which chain?
+        {/* Just the question: each option names what was found ("block #1",
+            "account"), so the query needs no line of its own. */}
+        <h1
+          className="font-display shrink-0 text-xl font-semibold tracking-tight"
+          title={query}
+        >
+          Chain?
         </h1>
-        <p className="mt-1 shrink-0 text-sm text-muted-foreground">{hint}</p>
-        <p className="mt-1 shrink-0 break-all font-mono text-xs text-muted-foreground">
-          {query}
-        </p>
 
         <ul className="mt-4 grid min-h-0 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
           {candidates.map((c) => (
@@ -169,11 +180,11 @@ export default async function GlobalSearchPage({
       ? items.filter((i) => i.chain.chainId === hint)
       : items;
   // One candidate goes straight there; several ask which chain.
-  const settle = (candidates: Candidate[], hintText: string) => {
+  const settle = (candidates: Candidate[]) => {
     const picked = prefer(candidates);
     if (picked.length === 1) redirect(picked[0].href);
     if (picked.length === 0) return <NoResult query={query} />;
-    return <Disambiguation query={query} hint={hintText} candidates={picked} />;
+    return <Disambiguation query={query} candidates={picked} />;
   };
 
   switch (shape.kind) {
@@ -184,7 +195,6 @@ export default async function GlobalSearchPage({
           href: `/${chain.chainId}/blocks/${shape.value}`,
           note: `block #${Number(shape.value).toLocaleString()}`,
         })),
-        "A block height exists on every chain."
       );
 
     case "gnoPath":
@@ -204,15 +214,15 @@ export default async function GlobalSearchPage({
               .filter(
                 (v) =>
                   v.consensusPubkey &&
-                  consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)?.valcons === address
+                  consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)
+                    ?.valcons === address,
               )
               .map((v) => ({
                 chain,
                 href: `/${chain.chainId}/validators/${v.operatorAddress}`,
                 note: v.moniker,
-              }))
+              })),
           ),
-          "That consensus address belongs to a validator on more than one chain."
         );
       }
 
@@ -223,7 +233,6 @@ export default async function GlobalSearchPage({
             href: `/${chain.chainId}/validators/${address}`,
             note: "validator",
           })),
-          "That validator address is valid on more than one chain."
         );
       }
 
@@ -232,13 +241,27 @@ export default async function GlobalSearchPage({
       const candidates = await Promise.all(
         chains.map(async (chain) => {
           const validator =
-            chain.kind === "gno" ? await within(resolveGnoValidatorAddress(chain, address), 5000, null) : null;
+            chain.kind === "gno"
+              ? await within(
+                  resolveGnoValidatorAddress(chain, address),
+                  5000,
+                  null,
+                )
+              : null;
           return validator
-            ? { chain, href: `/${chain.chainId}/validators/${validator}`, note: "validator" }
-            : { chain, href: `/${chain.chainId}/accounts/${address}`, note: "account" };
-        })
+            ? {
+                chain,
+                href: `/${chain.chainId}/validators/${validator}`,
+                note: "validator",
+              }
+            : {
+                chain,
+                href: `/${chain.chainId}/accounts/${address}`,
+                note: "account",
+              };
+        }),
       );
-      return settle(candidates, "That address is valid on more than one of these chains.");
+      return settle(candidates);
     }
 
     case "txHex":
@@ -253,9 +276,9 @@ export default async function GlobalSearchPage({
               chain,
               href: `/${chain.chainId}/validators/${v.operatorAddress}`,
               note: v.moniker,
-            }))
+            })),
         );
-        if (byKey.length > 0) return settle(byKey, "That key validates on more than one chain.");
+        if (byKey.length > 0) return settle(byKey);
       }
       const found = await chainsWithTx(shape.value);
       if (found.length > 0) {
@@ -265,7 +288,6 @@ export default async function GlobalSearchPage({
             href: `/${chain.chainId}/txs/${encodeURIComponent(hash)}`,
             note: "transaction",
           })),
-          "That transaction exists on more than one chain."
         );
       }
       break;
@@ -276,16 +298,23 @@ export default async function GlobalSearchPage({
       const byPrefix = new Map<string, ChainConfig[]>();
       for (const chain of all) {
         if (chain.kind === "gno") continue;
-        byPrefix.set(chain.bech32Prefix, [...(byPrefix.get(chain.bech32Prefix) ?? []), chain]);
+        byPrefix.set(chain.bech32Prefix, [
+          ...(byPrefix.get(chain.bech32Prefix) ?? []),
+          chain,
+        ]);
       }
       const candidates: Candidate[] = [];
       for (const [prefix, chains] of byPrefix) {
         const address = secpKeyToAddress(shape.bytes, prefix);
         for (const chain of chains) {
-          candidates.push({ chain, href: `/${chain.chainId}/accounts/${address}`, note: address });
+          candidates.push({
+            chain,
+            href: `/${chain.chainId}/accounts/${address}`,
+            note: address,
+          });
         }
       }
-      return settle(candidates, "That key has an account on every chain.");
+      return settle(candidates);
     }
 
     case "consHex": {
@@ -296,15 +325,15 @@ export default async function GlobalSearchPage({
             .filter(
               (v) =>
                 v.consensusPubkey &&
-                consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)?.hex === shape.value
+                consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix)
+                  ?.hex === shape.value,
             )
             .map((v) => ({
               chain,
               href: `/${chain.chainId}/validators/${v.operatorAddress}`,
               note: v.moniker,
-            }))
+            })),
         ),
-        "That consensus address validates on more than one chain."
       );
     }
 
@@ -320,12 +349,12 @@ export default async function GlobalSearchPage({
             href: `/${chain.chainId}/validators/${v.operatorAddress}`,
             note: v.moniker,
             exact: v.moniker.toLowerCase() === needle,
-          }))
+          })),
       );
       const exact = matches.filter((m) => m.exact);
       const list = (exact.length > 0 ? exact : matches).slice(0, 40);
       if (list.length === 0) break;
-      return settle(list, "Validators matching that name.");
+      return settle(list);
     }
   }
 
