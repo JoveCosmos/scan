@@ -274,7 +274,10 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
           href="/"
           title="GATA SCAN"
           aria-label="GATA SCAN home"
-          className="group order-1 flex h-16 shrink-0 items-center"
+          // Inset to the page's text column (titles and table text sit about
+          // this far inside the card edges), so the G lines up with what is
+          // read below it rather than with borders.
+          className="group order-1 flex h-16 shrink-0 items-center pl-3.5"
         >
           <Image
             src="/gata_logo_white.png"
