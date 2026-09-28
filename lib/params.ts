@@ -347,31 +347,57 @@ export interface AprModel {
 }
 
 /** The reward model behind the range, reusable per validator. */
+/**
+ * The chain-wide inputs of the model, cached: five minutes when the chain has
+ * a nakamoto-bonus coefficient, an hour when it does not. Every chain but
+ * AtomOne answers "no such endpoint", and asking again on every page load
+ * (through each fallback endpoint) is what made the validators tab slow.
+ */
+async function aprInputs(chain: ChainConfig): Promise<{ e: number; annual: number } | null> {
+  const has = await cached(`apr-coef:${chain.chainId}`, 60 * 60_000, async () => {
+    const coef = await attempt(() =>
+      fetchLcd<{ coefficient?: string }>(
+        chain,
+        "/cosmos/distribution/v1beta1/nakamoto_bonus_coefficient",
+        { timeoutMs: 4000 }
+      )
+    );
+    const e = Number(coef?.coefficient ?? NaN);
+    return Number.isFinite(e) ? e : null;
+  });
+  if (has === null) return null;
+  return cached(`apr-inputs:${chain.chainId}`, 5 * 60_000, async () => {
+    const [coef, provisions] = await Promise.all([
+      attempt(() =>
+        fetchLcd<{ coefficient?: string }>(
+          chain,
+          "/cosmos/distribution/v1beta1/nakamoto_bonus_coefficient",
+          { timeoutMs: 4000 }
+        )
+      ),
+      attempt(() =>
+        fetchLcd<{ annual_provisions?: string }>(
+          chain,
+          "/cosmos/mint/v1beta1/annual_provisions",
+          { timeoutMs: 4000 }
+        )
+      ),
+    ]);
+    const e = Number(coef?.coefficient ?? NaN);
+    const annual = Number(provisions?.annual_provisions ?? NaN);
+    return Number.isFinite(e) && Number.isFinite(annual) ? { e, annual } : null;
+  });
+}
+
 export async function getAprModel(
   chain: ChainConfig,
   communityTax: number | null,
   stakes: string[]
 ): Promise<AprModel | null> {
   if (stakes.length === 0) return null;
-  const [coef, provisions] = await Promise.all([
-    attempt(() =>
-      fetchLcd<{ coefficient?: string }>(
-        chain,
-        "/cosmos/distribution/v1beta1/nakamoto_bonus_coefficient",
-        { timeoutMs: 6000 }
-      )
-    ),
-    attempt(() =>
-      fetchLcd<{ annual_provisions?: string }>(
-        chain,
-        "/cosmos/mint/v1beta1/annual_provisions",
-        { timeoutMs: 6000 }
-      )
-    ),
-  ]);
-  const e = Number(coef?.coefficient ?? NaN);
-  const annual = Number(provisions?.annual_provisions ?? NaN);
-  if (!Number.isFinite(e) || !Number.isFinite(annual)) return null;
+  const inputs = await aprInputs(chain);
+  if (!inputs) return null;
+  const { e, annual } = inputs;
   const R = annual * (1 - (communityTax ?? 0));
   const t = stakes.map(Number).filter((x) => x > 0);
   const S = t.reduce((a, b) => a + b, 0);

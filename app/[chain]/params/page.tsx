@@ -19,6 +19,7 @@ import { recentJailings } from "@/lib/indexer-validator";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import Image from "next/image";
 import { PageFrame } from "@/components/page-frame";
+import { withinBudget } from "@/lib/cache";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { BlocksTable } from "@/components/blocks-table";
@@ -123,15 +124,20 @@ export default async function ChainOverviewPage({
 
   // AtomOne-style APR range (null on chains with plain proportional rewards),
   // and the active set's average signing uptime.
+  // Both optional and budgeted, so a cold cache never holds the page up.
   const [aprRange, uptimes] = await Promise.all([
     caps.staking
-      ? getAprRange(
-          chain,
-          chainParams?.distribution?.communityTax ?? null,
-          validators.map((v) => v.tokens)
-        ).catch(() => null)
+      ? withinBudget(
+          getAprRange(
+            chain,
+            chainParams?.distribution?.communityTax ?? null,
+            validators.map((v) => v.tokens)
+          ),
+          1500,
+          null
+        )
       : null,
-    adapter.getUptime(validators).catch(() => null),
+    withinBudget(adapter.getUptime(validators), 1500, null),
   ]);
   const ratios = uptimes
     ? [...uptimes.values()].map((u) => u.ratio).filter((r): r is number => r !== null)

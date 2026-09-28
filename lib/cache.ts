@@ -107,3 +107,19 @@ export async function cached<T>(
 export function clearCache(): void {
   cache.clear();
 }
+
+/**
+ * Wait for a read at most `ms`, then carry on without it. The read keeps
+ * running, so a cached loader still fills its cache for the next view: a page
+ * never waits on a slow, optional figure, and the figure appears once warm.
+ */
+export function withinBudget<T, F>(promise: Promise<T>, ms: number, fallback: F): Promise<T | F> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<F>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([
+    promise.catch(() => fallback).finally(() => clearTimeout(timer)),
+    late,
+  ]);
+}

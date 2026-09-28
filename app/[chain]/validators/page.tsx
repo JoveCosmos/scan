@@ -14,9 +14,13 @@ import { missedLast30d } from "@/lib/indexer-validator";
 import { getSelfBonds } from "@/lib/staking";
 import { getChainEconomics, getAprModel } from "@/lib/params";
 import { PageFrame } from "@/components/page-frame";
+import { withinBudget } from "@/lib/cache";
 import { validatorLogoMap } from "@/lib/validator-logos";
 
 export const revalidate = 60;
+
+/** How long an optional read may hold up the page before it is left out. */
+const BUDGET = 1500;
 
 /**
  * Shaped like the deck it stands in for — a filter bar over a full-height
@@ -64,21 +68,21 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     adapter.getValidators(),
     // Outside the active set. Its own cache, so it never holds up the list once
     // warm; a failed read just leaves the Inactive view empty.
-    adapter.getInactiveValidators().catch(() => []),
+    withinBudget(adapter.getInactiveValidators(), BUDGET, []),
     adapter.getRegisteredCount(),
     // Head height is what anchors the 24h window.
-    adapter.getOverview().catch(() => null),
+    withinBudget(adapter.getOverview(), BUDGET, null),
     // The commission floor is a consensus parameter, not something derived
     // from the set.
     adapter.capabilities.staking
-      ? getChainParams(chain).catch(() => null)
+      ? withinBudget(getChainParams(chain), BUDGET, null)
       : Promise.resolve(null),
     // Null whenever the indexer cannot answer, which hides the column entirely
     // rather than showing every validator a confident zero. Needs nothing from
     // the set, so it runs alongside it rather than after.
-    metrics ? jailCounts(chainId).catch(() => null) : Promise.resolve(null),
+    metrics ? withinBudget(jailCounts(chainId), BUDGET, null) : Promise.resolve(null),
     // Missed blocks over 30 days from the index; null hides the column.
-    missedLast30d(chainId).catch(() => null),
+    withinBudget(missedLast30d(chainId), BUDGET, null),
   ]);
   const minCommission = chainParams?.staking?.minCommissionRate ?? null;
   // Below the top tier these are skipped rather than fetched and discarded:
@@ -86,41 +90,49 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   // stake delta needs a second height. The table hides each column when its
   // data is absent, so the page degrades to the set itself.
   // These need the validator set first: they are keyed by the same identifier.
-  const [uptime, deltas, selfBonds, economics] = await Promise.all([
+  // Every figure below is optional and budgeted: a cold cache (the first view
+  // after a deploy) renders the set at once without the slow columns, and the
+  // reads finish in the background so the next view has them.
+  const [uptime, deltas, selfBonds, economics, aprModel] = await Promise.all([
     metrics
-      ? adapter.getUptime(validators).catch(() => new Map())
+      ? withinBudget(adapter.getUptime(validators), BUDGET, new Map())
       : Promise.resolve(new Map()),
     metrics
-      ? adapter
-          .getStakeDeltas(validators, overview?.height ?? null)
-          .catch(() => new Map())
+      ? withinBudget(
+          adapter.getStakeDeltas(validators, overview?.height ?? null),
+          BUDGET,
+          new Map()
+        )
       : Promise.resolve(new Map()),
     // One request per validator, so it is cached for ten minutes and only
     // gathered where the chain has staking at all — see getSelfBonds.
     adapter.capabilities.staking
-      ? getSelfBonds(chain, validators).catch(() => new Map())
+      ? withinBudget(getSelfBonds(chain, validators), BUDGET, new Map())
       : Promise.resolve(new Map()),
     // One chain-wide figure. What a delegator actually earns is this less the
     // validator's commission, which is the only part that varies by row.
     adapter.capabilities.staking
-      ? getChainEconomics(
-          chain,
-          chainParams?.distribution?.communityTax ?? null,
+      ? withinBudget(
+          getChainEconomics(chain, chainParams?.distribution?.communityTax ?? null, null),
+          BUDGET,
           null
-        ).catch(() => null)
+        )
+      : Promise.resolve(null),
+    // Where rewards are not purely proportional to stake (AtomOne's nakamoto
+    // bonus), each validator's APR depends on its own stake: the heading shows
+    // the range and each row its own figure.
+    adapter.capabilities.staking
+      ? withinBudget(
+          getAprModel(
+            chain,
+            chainParams?.distribution?.communityTax ?? null,
+            validators.map((v) => v.tokens)
+          ),
+          BUDGET,
+          null
+        )
       : Promise.resolve(null),
   ]);
-
-  // Where rewards are not purely proportional to stake (AtomOne's nakamoto
-  // bonus), each validator's APR depends on its own stake: the heading shows
-  // the range and each row its own figure.
-  const aprModel = adapter.capabilities.staking
-    ? await getAprModel(
-        chain,
-        chainParams?.distribution?.communityTax ?? null,
-        validators.map((v) => v.tokens)
-      ).catch(() => null)
-    : null;
 
   /** Slashing events carry the consensus address, so rows are matched on that. */
   const jailingsFor = (consensusPubkey: string | null) => {
