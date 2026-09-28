@@ -1,7 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import {
-  blockFacts,
   recentFacts,
   toSummary,
   type BlockResponse,
@@ -204,19 +203,3 @@ export async function getRecentBlocks(
   return (await recentFacts(chain, count)).map((f) => f.summary);
 }
 
-/**
- * The `count` blocks below `before`, newest first — the "Older" pages of the
- * blocks list. Committed blocks never change, so these come from the shared
- * block cache. A pruned height is dropped rather than failing the page.
- */
-export async function getBlocksBefore(
-  chain: ChainConfig,
-  before: number,
-  count = RECENT_BLOCK_COUNT
-): Promise<BlockSummary[]> {
-  const heights = Array.from({ length: count }, (_, i) => before - 1 - i).filter((h) => h > 0);
-  const settled = await Promise.allSettled(heights.map((h) => blockFacts(chain, h)));
-  return settled
-    .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof blockFacts>>> => r.status === "fulfilled")
-    .map((r) => r.value.summary);
-}

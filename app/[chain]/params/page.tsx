@@ -11,17 +11,13 @@ import {
 } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
-import { getChainParams, getChainEconomics, getAprRange, humanDuration } from "@/lib/params";
+import { getChainParams, getChainEconomics, getAprRange } from "@/lib/params";
 import { getSupplyOf } from "@/lib/params";
 import { getLatestRelease } from "@/lib/github";
-import { getMarketDataById, formatUsd, formatUsdCompact } from "@/lib/market";
-import { recentJailings } from "@/lib/indexer-validator";
-import { consensusIdsFromPubkey } from "@/lib/uptime";
+import { getMarketDataById, formatUsdCompact } from "@/lib/market";
 import Image from "next/image";
 import { PageFrame } from "@/components/page-frame";
 import { withinBudget } from "@/lib/cache";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { BlocksTable } from "@/components/blocks-table";
 import { TxsTable } from "@/components/txs-table";
 import { denomsForTxs } from "@/lib/txs";
@@ -49,35 +45,17 @@ export async function generateMetadata({
 const pct = (value: number | null | undefined, decimals = 2) =>
   value === null || value === undefined ? "—" : `${(value * 100).toFixed(decimals)}%`;
 
-const num = (value: number | null | undefined) =>
-  value === null || value === undefined ? "—" : value.toLocaleString();
-
-/** Inverts "min signed per window" into the miss budget it actually implies. */
-function missableBlocks(window: number | null, minSigned: number | null): string {
-  if (window === null || minSigned === null) return "—";
-  return `${Math.floor(window * (1 - minSigned)).toLocaleString()} of ${window.toLocaleString()}`;
-}
-
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
 const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
 
 /**
- * The overview, laid out in bricks.
- *
- * It used to be eight stacked sections of label/value rows — around forty of
- * them, most of which nobody reads on any given visit, and all of which had to
- * be scrolled past to reach the next heading. The same forty facts are here.
- * What changed is that a section is now one brick showing the figure worth
- * knowing, with the rest a click away, which is what lets the page end at the
- * bottom of the screen.
- *
- * Everything is resolved here and handed over as data. Bricks carry no chain
- * knowledge, so the same board renders this page and the Infra tab.
+ * A chain's overview: five headline figures (version, supply, community pool,
+ * staking APR, network uptime), each opening its detail, and under them the
+ * live Blocks and Transactions lists side by side. This is where blocks and
+ * transactions are browsed; there are no separate list pages.
  *
  * The holder count is deliberately absent: it is a full scan of every account
- * with a balance and takes ~25s on AtomOne. It was streamed in behind Suspense
- * before, which is invisible on a scrolling page and impossible on a board that
- * has to be laid out at once. A fast page is worth more than that one number.
+ * with a balance and takes ~25s on AtomOne.
  */
 export default async function ChainOverviewPage({
   params,
@@ -96,18 +74,16 @@ export default async function ChainOverviewPage({
   const base = `/${chain.chainId}`;
 
   const policy = policyFor(chain);
-  const [overview, chainParams, release, feeSupply, market, feeMarket, validators, jailings, recentBlocks, recentTxs] =
+  const [overview, chainParams, release, feeSupply, market, validators, recentBlocks, recentTxs] =
     await Promise.all([
       adapter.getOverview(),
       caps.staking ? getChainParams(chain) : null,
       getLatestRelease(chain.repo).catch(() => null),
       chain.feeDenom ? getSupplyOf(chain, chain.feeDenom).catch(() => null) : null,
       getMarketDataById(chain.coingeckoId).catch(() => null),
-      getMarketDataById(chain.feeCoingeckoId).catch(() => null),
       // Cached set, shared with the validators tab: feeds Nakamoto and names.
       adapter.getValidators().catch(() => []),
-      caps.staking ? recentJailings(chain.chainId).catch(() => null) : null,
-      // The dashboard cards: both feeds are shared caches with their tabs.
+      // The live lists: shared caches with their polling endpoints.
       adapter.getRecentBlocks().catch(() => []),
       policy.txs ? adapter.getRecentTxs().catch(() => null) : null,
     ]);
@@ -145,167 +121,6 @@ export default async function ChainOverviewPage({
   const avgUptime = ratios.length > 0 ? ratios.reduce((a, b) => a + b, 0) / ratios.length : null;
 
   const bricks: BrickSpec[] = [];
-
-  bricks.push({
-    key: "height",
-    label: "Latest block",
-    value: overview.height ? Number(overview.height).toLocaleString() : "—",
-    sub: "—",
-    live: "height",
-    lead: true,
-    // Follows the live height, so the tile opens the block it is showing.
-    href: overview.height ? `${base}/blocks/${overview.height}` : `${base}/blocks`,
-    liveHref: "block",
-  });
-
-  bricks.push({
-    key: "txs",
-    label: "Txs in block",
-    value: overview.txCount === null ? "—" : String(overview.txCount),
-    sub: "at current height",
-    live: "txCount",
-    href: `${base}/txs`,
-  });
-
-  if (overview.activeValidators !== null) {
-    // Without staking, weight is assigned per validator; its total is the
-    // figure worth stating beside the count.
-    const totalPower = caps.stakeWeighted
-      ? null
-      : validators.reduce((sum, v) => sum + Number(v.tokens || 0), 0);
-    bricks.push({
-      key: "validators",
-      label: "Validators",
-      value: num(overview.activeValidators),
-      sub: totalPower ? `${totalPower.toLocaleString()} voting power` : "in the active set",
-      href: `${base}/validators`,
-    });
-  }
-
-  // Smallest number of validators that together exceed 1/3 of voting power,
-  // enough to halt the chain.
-  const nakamoto = validators.findIndex((v) => v.cumulativePower > 1 / 3) + 1;
-  if (caps.stakeWeighted && nakamoto > 0) {
-    bricks.push({
-      key: "nakamoto",
-      label: "Nakamoto",
-      value: String(nakamoto),
-      sub: "validators to halt",
-      href: `${base}/validators`,
-    });
-  }
-
-  if (caps.staking) {
-    const names = new Map<string, { moniker: string; operator: string }>();
-    for (const v of validators) {
-      const ids = v.consensusPubkey ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix) : null;
-      if (ids) names.set(ids.valcons, { moniker: v.moniker, operator: v.operatorAddress });
-    }
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const lastWeek = jailings?.filter((j) => Date.parse(j.time) >= weekAgo).length ?? null;
-    bricks.push({
-      key: "jailings",
-      label: "Recent jailings",
-      value: lastWeek === null ? "N/A" : String(lastWeek),
-      sub: lastWeek === null ? "" : "last 7 days",
-      tone: lastWeek ? "bad" : undefined,
-      rows: (jailings ?? []).map((j) => {
-        const who = names.get(j.consAddr);
-        return {
-          label: `#${j.height.toLocaleString()} · ${new Date(j.time).toLocaleDateString()}`,
-          value: `${who?.moniker ?? j.consAddr}${j.kind === "tombstoned" ? " · tombstoned" : ""}`,
-          href: who ? `${base}/validators/${who.operator}` : `${base}/blocks/${j.height}`,
-        };
-      }),
-    });
-  }
-
-  if (overview.bondedRatio !== null) {
-    bricks.push({
-      key: "bonded",
-      href: `${base}/validators`,
-      label: "Bonded",
-      value: pct(overview.bondedRatio),
-      sub: "of total supply",
-      rows: kept([
-        {
-          label: "Bonded",
-          value: overview.bondedTokens
-            ? `${formatToken(overview.bondedTokens, chain.exponent)} ${symbol}`
-            : "—",
-          mono: true,
-        },
-        {
-          label: "Total supply",
-          value: overview.supply
-            ? `${formatToken(overview.supply, chain.exponent)} ${symbol}`
-            : "—",
-          mono: true,
-        },
-        { label: "Ratio", value: pct(overview.bondedRatio), mono: true },
-        {
-          label: "Measured against",
-          value: "Total supply, not the staking pool alone.",
-        },
-      ]),
-    });
-  }
-
-  if (market) {
-    bricks.push({
-      key: "price",
-      label: symbol,
-      value: formatUsd(market.usd),
-      sub:
-        market.change24h !== null
-          ? `${market.change24h >= 0 ? "+" : ""}${market.change24h.toFixed(2)}% 24h`
-          : undefined,
-      tone:
-        market.change24h === null ? undefined : market.change24h >= 0 ? "ok" : "bad",
-      rows: kept([
-        { label: "Price", value: formatUsd(market.usd), mono: true },
-        {
-          label: "Market cap",
-          value: market.marketCapUsd ? formatUsdCompact(market.marketCapUsd) : "—",
-          mono: true,
-        },
-        {
-          label: "24h change",
-          value: market.change24h !== null ? `${market.change24h.toFixed(2)}%` : "—",
-          mono: true,
-        },
-        { label: "Denom", value: chain.denom, mono: true },
-      ]),
-    });
-  }
-
-  if (chain.feeDenom && feeMarket) {
-    bricks.push({
-      key: "fee-price",
-      label: feeSymbol,
-      value: formatUsd(feeMarket.usd),
-      sub:
-        feeMarket.change24h !== null
-          ? `${feeMarket.change24h >= 0 ? "+" : ""}${feeMarket.change24h.toFixed(2)}% 24h`
-          : "fee token",
-      tone:
-        feeMarket.change24h === null
-          ? undefined
-          : feeMarket.change24h >= 0
-            ? "ok"
-            : "bad",
-      rows: kept([
-        { label: "Price", value: formatUsd(feeMarket.usd), mono: true },
-        {
-          label: "Market cap",
-          value: feeMarket.marketCapUsd ? formatUsdCompact(feeMarket.marketCapUsd) : "—",
-          mono: true,
-        },
-        { label: "Denom", value: chain.feeDenom, mono: true },
-        { label: "Pays", value: "Transaction fees" },
-      ]),
-    });
-  }
 
   if (overview.supply) {
     bricks.push({
@@ -448,101 +263,6 @@ export default async function ChainOverviewPage({
     rows: networkRows,
   });
 
-  if (chainParams?.staking) {
-    const s = chainParams.staking;
-    const rows = kept([
-      { label: "Unbonding period", value: humanDuration(s.unbondingTime), mono: true },
-      { label: "Max validators", value: num(s.maxValidators), mono: true },
-      { label: "Min commission", value: pct(s.minCommissionRate), mono: true },
-      { label: "Bond denom", value: s.bondDenom ?? "—", mono: true },
-      { label: "Max unbonding entries", value: num(s.maxEntries), mono: true },
-      { label: "Historical entries", value: num(s.historicalEntries), mono: true },
-    ]);
-    bricks.push({
-      key: "staking",
-      label: "Staking",
-      value: humanDuration(s.unbondingTime),
-      sub: "unbonding period",
-      count: rows.length,
-      rows,
-    });
-  }
-
-  if (chainParams?.slashing) {
-    const s = chainParams.slashing;
-    const rows = kept([
-      {
-        label: "Jailed after missing",
-        value: missableBlocks(s.signedBlocksWindow, s.minSignedPerWindow),
-        mono: true,
-      },
-      { label: "Measured over", value: `${num(s.signedBlocksWindow)} blocks`, mono: true },
-      {
-        label: "Jailed for at least",
-        value: `${humanDuration(s.downtimeJailDuration)}, then may unjail`,
-      },
-      { label: "Slash: downtime", value: pct(s.slashFractionDowntime, 4), mono: true },
-      { label: "Slash: double sign", value: pct(s.slashFractionDoubleSign), mono: true },
-    ]);
-    bricks.push({
-      key: "slashing",
-      label: "Slashing",
-      value: pct(s.slashFractionDoubleSign),
-      sub: "double sign penalty",
-      count: rows.length,
-      rows,
-    });
-  }
-
-  if (chainParams?.mint) {
-    const m = chainParams.mint;
-    const rows = kept([
-      { label: "Current inflation", value: pct(m.inflation), mono: true },
-      {
-        label: "Range",
-        value:
-          m.inflationMin !== null && m.inflationMax !== null
-            ? `${pct(m.inflationMin)} – ${pct(m.inflationMax)}`
-            : "—",
-        mono: true,
-      },
-      { label: "Goal bonded", value: pct(m.goalBonded), mono: true },
-      { label: "Blocks per year", value: num(m.blocksPerYear), mono: true },
-    ]);
-    bricks.push({
-      key: "inflation",
-      label: "Inflation",
-      value: pct(m.inflation),
-      sub: "annual, current",
-      count: rows.length,
-      rows,
-    });
-  }
-
-  if (chainParams?.distribution) {
-    const d = chainParams.distribution;
-    const rows = kept([
-      { label: "Community tax", value: pct(d.communityTax), mono: true },
-      {
-        label: "Separate withdraw address",
-        value:
-          d.withdrawAddrEnabled === null
-            ? "—"
-            : d.withdrawAddrEnabled
-              ? "Allowed"
-              : "Disabled",
-      },
-    ]);
-    bricks.push({
-      key: "distribution",
-      label: "Distribution",
-      value: pct(d.communityTax),
-      sub: "community tax",
-      count: rows.length,
-      rows,
-    });
-  }
-
   bricks.push({
     key: "uptime",
     href: `${base}/validators`,
@@ -563,7 +283,6 @@ export default async function ChainOverviewPage({
     nameProposers(recentBlocks, validators, chain.bech32Prefix),
     validators
   );
-  const lowest = named.length > 0 ? Number(named[named.length - 1].height) : null;
   const txInitial = recentTxs
     ? {
         ...recentTxs,
@@ -614,17 +333,6 @@ export default async function ChainOverviewPage({
                 chainId={chain.chainId}
                 accent={accent}
                 initialBlocks={named}
-                footer={
-                  lowest && lowest > 1 ? (
-                    <Link
-                      href={`/${chain.chainId}/blocks?before=${lowest}`}
-                      aria-label="Older blocks"
-                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 transition-colors hover:border-[var(--gata-border-hi)] hover:text-foreground"
-                    >
-                      Older <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
-                  ) : null
-                }
               />
             </div>
           </section>

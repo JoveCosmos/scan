@@ -252,36 +252,6 @@ export async function getChainEconomics(
   };
 }
 
-/**
- * How many addresses hold the native denom.
- *
- * Its own function because it is a full scan of every account holding the
- * denom — 2.7s on Cosmos Hub, 25s on AtomOne, whose airdrop left it with over
- * three million holders. Split out so it cannot hold up the rest of the
- * economics, and cached for an hour: a holder count moves slowly, and nothing
- * about it needs to be fresh to the second.
- */
-export async function getHolderCount(chain: ChainConfig): Promise<number | null> {
-  try {
-    return await cached(`holders:${chain.chainId}`, 3_600_000, async () => {
-      const res = await fetchLcd<{ pagination?: { total?: string } }>(
-        chain,
-        `/cosmos/bank/v1beta1/denom_owners/${encodeURIComponent(chain.denom)}`,
-        {
-          timeoutMs: 30_000,
-          searchParams: { "pagination.limit": 1, "pagination.count_total": true },
-        }
-      );
-      const total = Number(res.pagination?.total);
-      // Thrown rather than returned so a failure is not cached for an hour.
-      if (!Number.isFinite(total)) throw new Error("no holder total");
-      return total;
-    });
-  } catch {
-    return null;
-  }
-}
-
 /** Total supply of one denom, whole tokens (base units). Null on failure. */
 export async function getSupplyOf(
   chain: ChainConfig,

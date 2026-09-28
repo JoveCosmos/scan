@@ -2,7 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import type { ChainOverview } from "@/lib/overview";
 import { getChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
-import { getRecentBlocks, getBlockDetail, getBlocksBefore, type AbsentValidator } from "@/lib/blocks";
+import { getRecentBlocks, getBlockDetail, type AbsentValidator } from "@/lib/blocks";
 import { txsAtHeight } from "@/lib/txs";
 import type { TxSummary, TxDetail } from "@/lib/txs";
 import { getRecentTxs, getTx } from "@/lib/txs";
@@ -132,7 +132,6 @@ export interface ChainAdapter {
   /** Transactions contained in one block. */
   getBlockTxs(block: BlockView): Promise<TxSummary[]>;
   /** The `count` blocks below `before`, newest first: the blocks list's older pages. */
-  getBlocksBefore(before: number, count?: number): Promise<BlockSummary[]>;
   getRecentTxs(): Promise<RecentTxs>;
   getTx(hash: string): Promise<TxView | null>;
   getValidators(): Promise<ValidatorSummary[]>;
@@ -199,15 +198,6 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
       getBlockDetail: (height) => gnoBlockDetail(chain, height),
       getBlockTxs: (block) => gnoBlockTxs(chain, block.height),
-      getBlocksBefore: async (before, count = 30) => {
-        const heights = Array.from({ length: count }, (_, i) => before - 1 - i).filter(
-          (h) => h > 0
-        );
-        const blocks = await Promise.all(
-          heights.map((h) => gnoBlockDetail(chain, h).catch(() => null))
-        );
-        return blocks.filter((b): b is NonNullable<typeof b> => b !== null);
-      },
       getRecentTxs: () => gnoRecentTxs(chain),
       getTx: (hash) => gnoTx(chain, hash),
       getValidators: () => gnoValidators(chain),
@@ -256,7 +246,6 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
     getBlockDetail: (height) => getBlockDetail(chain, height),
-    getBlocksBefore: (before, count) => getBlocksBefore(chain, before, count),
     getBlockTxs: (block) =>
       txsAtHeight(chain, block.height, block.rawTxs ?? [], block.time),
     getRecentTxs: () => getRecentTxs(chain),

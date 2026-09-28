@@ -11,8 +11,7 @@ import { RowDeck, type DeckRow } from "@/components/row-deck";
  *
  * A deck rather than a table that grows: the page has a fixed height, so this
  * shows as many blocks as fit. The height is a real link to the block and the
- * proposer a real link to its validator. Live, it polls the head; on an
- * "Older" page (`live` false) it shows a fixed window and never polls.
+ * proposer a real link to its validator. It polls the head.
  *
  * The ticker is separate from the poll on purpose. Blocks arrive every few
  * seconds but "12s ago" is wrong the moment it is painted, so the ages re-render
@@ -30,21 +29,13 @@ export function BlocksTable({
   chainId,
   accent,
   initialBlocks,
-  live = true,
-  footer,
 }: {
   chainId: string;
   accent: string;
   initialBlocks: NamedBlock[];
-  /** Poll the head. Off on the older pages, which are fixed windows. */
-  live?: boolean;
-  /** Paging controls, shown in the list card's footer bar. */
-  footer?: React.ReactNode;
 }) {
   const { data, isError } = useQuery<{ blocks: NamedBlock[] }>({
-    // An older page is its own entry: sharing the live key would hand it the
-    // live feed from the cache.
-    queryKey: ["blocks", chainId, live ? "live" : initialBlocks[0]?.height],
+    queryKey: ["blocks", chainId],
     queryFn: async () => {
       const res = await fetch(`/api/chains/${chainId}/blocks`, {
         cache: "no-store",
@@ -53,8 +44,7 @@ export function BlocksTable({
       return res.json();
     },
     initialData: { blocks: initialBlocks },
-    refetchInterval: live ? 3000 : false,
-    enabled: live,
+    refetchInterval: 3000,
     refetchIntervalInBackground: false,
   });
 
@@ -135,8 +125,6 @@ export function BlocksTable({
       ]}
       rows={rows}
       fit
-      live={live}
-      footer={footer}
       empty={isError ? "Connection lost — retrying." : "No blocks yet."}
     />
   );

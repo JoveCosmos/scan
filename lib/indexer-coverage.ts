@@ -78,11 +78,6 @@ export async function coverageOf(
   }).catch(() => null);
 }
 
-/** Whether a height falls inside a capability's covered range. */
-export function inRange(range: CoverageRange | null, height: number): boolean {
-  return range !== null && height >= range.lo && height <= range.hi;
-}
-
 export interface IndexerHealth {
   /** No committed batch or heartbeat for longer than the contract's 2 minutes. */
   stale: boolean;

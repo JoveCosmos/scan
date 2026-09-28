@@ -6,7 +6,7 @@ import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Deliberately thin: it only routes to /[chain]/search, which resolves the term
+ * Deliberately thin: it only routes to /search, which resolves the term
  * against the chain. Keeping it a real <form> means it also works before
  * hydration and gets native mobile "Go" behaviour.
  */
