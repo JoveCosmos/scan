@@ -83,16 +83,16 @@ function Body({
         {opens ? (
           <span
             aria-hidden="true"
-            className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[var(--gata-border)] text-[var(--gata-faint)] transition-colors group-hover/brick:border-[var(--brick-acc)] group-hover/brick:text-foreground"
+            className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-[var(--gata-border)] text-[var(--gata-faint)] transition-colors group-hover/brick:border-[var(--brick-acc)] group-hover/brick:text-foreground"
           >
-            <ArrowUpRight className="h-3 w-3" />
+            <ArrowUpRight className="h-2.5 w-2.5" />
           </span>
         ) : null}
       </span>
       <span
         className={
           brick.text
-            ? "mt-auto line-clamp-2 text-[11.5px] font-medium leading-tight"
+            ? "mt-auto line-clamp-2 text-[11.5px] font-medium leading-[1.2]"
             : "brick-value font-display mt-auto truncate text-[19px] font-semibold leading-tight tracking-[-0.02em] tabular-nums"
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}

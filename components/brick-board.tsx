@@ -7,6 +7,7 @@ import type { ChainOverview } from "@/lib/overview";
 import { timeAgo } from "@/lib/format";
 import { Brick, BrickButton, BrickGrid, BrickLink, type BrickVisual } from "@/components/brick";
 import { Popup, PopupRows } from "@/components/ui/popup";
+import { Prose } from "@/components/prose";
 
 /**
  * A page laid out in bricks, with the detail in popups.
@@ -139,7 +140,9 @@ export function BrickBoard({
         accent={accent}
       >
         {open?.body ? (
-          <p className="mb-3 whitespace-pre-line text-sm leading-relaxed">{open.body}</p>
+          <div className="mb-3">
+            <Prose text={open.body} />
+          </div>
         ) : null}
         {open?.rows ? (
           <PopupRows rows={open.rows} />

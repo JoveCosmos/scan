@@ -45,7 +45,15 @@ export async function generateMetadata({
 
 /** The opening of the summary, which is what the brick shows before it is opened. */
 function summaryPreview(summary: string): string {
-  const flat = summary.replace(/\s+/g, " ").trim();
+  // Plain text for a one-line preview: Markdown marks and link targets out.
+  const flat = summary
+    .replace(/\\n/g, "\n")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|`)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   return flat.length > 110 ? `${flat.slice(0, 110)}…` : flat;
 }
 

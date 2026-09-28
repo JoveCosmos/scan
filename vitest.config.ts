@@ -7,6 +7,9 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
   },
+  // Components compile with the automatic JSX runtime, as Next builds them,
+  // so a server-rendered component can be tested without importing React.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: { "@": path.resolve(__dirname) },
   },
