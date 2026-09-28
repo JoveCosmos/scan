@@ -325,14 +325,19 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
         ) : null}
         {/* On a phone the tabs leave the top row, so something must push the
             switcher right when there is no search to do it. */}
-        {isHome || !chain ? <div className="order-2 flex-1 sm:hidden" /> : null}
+        {!chain ? <div className="order-2 flex-1 sm:hidden" /> : null}
 
         {/* Search is global; the active chain is only a tie-breaker hint. */}
-        {isHome ? null : (
-          <div className="order-2 min-w-0 flex-1 sm:order-6 sm:w-full sm:flex-none sm:pb-2.5 lg:order-3 lg:w-72 lg:pb-0">
+        {/* The slot is always there so the header never reflows between the
+            home page and the rest: on home it holds an empty box of the same
+            size, since the page's own search field is the one to use. */}
+        <div className="order-2 min-w-0 flex-1 sm:order-6 sm:w-full sm:flex-none sm:pb-2.5 lg:order-3 lg:w-72 lg:pb-0">
+          {isHome ? (
+            <div aria-hidden="true" className="h-9" />
+          ) : (
             <SearchBar chainId={routeChain?.chainId} />
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="order-3 flex shrink-0 items-center gap-2 sm:order-4">
           <ChainSwitcher
