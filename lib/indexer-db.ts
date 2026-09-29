@@ -256,7 +256,7 @@ export async function slashHistory(
         WHERE chain_id = $1
           AND (cons_addr = $2 OR ($5::text IS NOT NULL AND operator = $5))
           AND height BETWEEN $3 AND $4
-        ORDER BY height DESC
+        ORDER BY slash_event.height DESC
         LIMIT 200`,
       [chainId, consAddr, c.lowest, c.highest, operator]
     );
@@ -995,7 +995,7 @@ export async function stakeHistory(
        SELECT DISTINCT ON (bucket)
               time::text, tokens::text, jailed
        FROM windowed
-       ORDER BY bucket, time DESC`,
+       ORDER BY bucket, windowed.time DESC`,
       [chainId, operator, days, points]
     );
     return rows.length >= 2 ? rows : [];

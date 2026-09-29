@@ -57,7 +57,7 @@ export async function proposedBlocks(
            FROM block
           WHERE chain_id = $1 AND proposer_cons = $2
             AND height BETWEEN $3 AND $4
-          ORDER BY height DESC
+          ORDER BY block.height DESC
           LIMIT $5`,
         [chainId, proposerHex, c.lowest, c.highest, limit]
       );
@@ -150,8 +150,8 @@ export async function proposerFairness(
                 sum(tokens) FILTER (WHERE operator = $2)::text AS mine
            FROM validator_stake
           WHERE chain_id = $1
-          GROUP BY height
-          ORDER BY height`,
+          GROUP BY validator_stake.height
+          ORDER BY validator_stake.height`,
         [chainId, operator]
       );
       const window = expectedProposals(
@@ -327,7 +327,7 @@ export async function validatorVotes(
         }>(
           `SELECT proposal_id::text, option, weighted, height::text, time::text, tx_hash
              FROM vote WHERE chain_id = $1 AND voter = $2
-            ORDER BY proposal_id DESC`,
+            ORDER BY vote.proposal_id DESC`,
           [chainId, account]
         ),
         pool.query<{ proposal_id: string }>(
@@ -399,7 +399,7 @@ export async function recentJailings(
         `SELECT height::text, time::text, cons_addr, kind, reason
            FROM slash_event
           WHERE chain_id = $1 AND kind IN ('jailed', 'tombstoned')
-          ORDER BY height DESC
+          ORDER BY slash_event.height DESC
           LIMIT $2`,
         [chainId, limit]
       );
@@ -503,9 +503,9 @@ export const SQL = {
     ), r AS (
       SELECT min(height) AS lo, max(height) AS hi, count(*)::int AS n FROM g GROUP BY grp
     )
-    (SELECT lo::text, hi::text, n, 'recent' AS tag FROM r ORDER BY hi DESC LIMIT 20)
+    (SELECT lo::text, hi::text, n, 'recent' AS tag FROM r ORDER BY r.hi DESC LIMIT 20)
     UNION ALL
-    (SELECT lo::text, hi::text, n, 'longest' AS tag FROM r ORDER BY n DESC, hi DESC LIMIT 1)`,
+    (SELECT lo::text, hi::text, n, 'longest' AS tag FROM r ORDER BY n DESC, r.hi DESC LIMIT 1)`,
   missedBySet: `
     SELECT cons_addr, count(*)::int AS n
       FROM missed_signature
@@ -519,7 +519,7 @@ export const SQL = {
      WHERE chain_id = $1 AND (validator = $2 OR validator_dst = $2)
        AND height BETWEEN $3 AND $4
        AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
-     ORDER BY height DESC, event_seq DESC
+     ORDER BY staking_event.height DESC, event_seq DESC
      LIMIT $5`,
   stakingFlowRows: `
     SELECT kind, validator, validator_dst, amount::text, time::text
@@ -545,15 +545,15 @@ export const SQL = {
   govDeposits: `
     SELECT depositor, coins, height::text, time::text, tx_hash
       FROM gov_deposit WHERE chain_id = $1 AND proposal_id = $2
-     ORDER BY height ASC, event_seq ASC`,
+     ORDER BY gov_deposit.height ASC, event_seq ASC`,
   voteEventsForProposal: `
     SELECT voter, option, height::text, time::text, tx_hash
       FROM vote_event WHERE chain_id = $1 AND proposal_id = $2
-     ORDER BY height ASC, event_seq ASC`,
+     ORDER BY vote_event.height ASC, event_seq ASC`,
   voteEventsForVoter: `
     SELECT proposal_id::text, option, height::text, time::text, tx_hash
       FROM vote_event WHERE chain_id = $1 AND voter = $2
-     ORDER BY height ASC, event_seq ASC`,
+     ORDER BY vote_event.height ASC, event_seq ASC`,
 };
 
 /**

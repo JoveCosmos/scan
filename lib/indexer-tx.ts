@@ -333,7 +333,7 @@ export async function stakingHistory(
               delegator, amount::text, denom, completion_time::text
          FROM staking_event
         WHERE chain_id = $1 AND delegator = $2 AND height BETWEEN $3 AND $4
-        ORDER BY height DESC, event_seq DESC
+        ORDER BY staking_event.height DESC, event_seq DESC
         LIMIT $5`,
       [chainId, delegator, range.lo, range.hi, limit]
     );
@@ -476,7 +476,7 @@ export async function packetsForTx(chainId: string, txHash: string): Promise<Pac
       `SELECT ${PACKET_COLUMNS} FROM ibc_packet
         WHERE chain_id = $1
           AND (send_tx = $2 OR recv_tx = $2 OR ack_tx = $2 OR timeout_tx = $2)
-        ORDER BY sequence`,
+        ORDER BY ibc_packet.sequence`,
       [chainId, hash]
     );
     return res.rows.map(toPacket);
