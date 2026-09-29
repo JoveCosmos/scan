@@ -610,7 +610,7 @@ export default async function ProposalDetailPage({
   return (
     <PageFrame
       title={proposal.title || `Proposal #${proposal.id}`}
-      sub={`#${proposal.id} · ${proposalStatusLabel(proposal.status)}`}
+      sub={`#${proposal.id}`}
       accent={accent}
       actions={
         <>
@@ -623,7 +623,9 @@ export default async function ProposalDetailPage({
         </>
       }
     >
-      <div className="flex h-full flex-col gap-3">
+      {/* Phones scroll the page body and give the list a fixed height; from
+          lg the list takes the rest of the frame and only it scrolls. */}
+      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
         <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
 
         {hasVotes ? (
@@ -632,7 +634,7 @@ export default async function ProposalDetailPage({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1">
+        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
           <Suspense fallback={<LoadingPanel label="Loading votes…" rows={4} />}>
             <VotesDeck
               chain={chain}

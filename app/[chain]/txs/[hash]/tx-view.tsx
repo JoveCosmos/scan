@@ -45,7 +45,7 @@ function FieldValue({ field, denoms }: { field: DecodedField; denoms: DenomInfo[
       return <span className="font-mono">{formatCoinsExact(v.coins, denoms)}</span>;
     case "json":
       return (
-        <pre className="max-h-64 overflow-auto rounded-md border border-border bg-[var(--gata-bg2)] p-2 font-mono text-[11.5px] leading-relaxed">
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] rounded-md border border-border bg-[var(--gata-bg2)] p-2 font-mono text-[11.5px] leading-relaxed">
           {v.json}
         </pre>
       );

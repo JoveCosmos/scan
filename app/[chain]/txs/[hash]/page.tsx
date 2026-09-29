@@ -256,7 +256,9 @@ export default async function TxDetailPage({
       ].join(" · ")}
       accent={accent}
     >
-      <div className="flex h-full flex-col gap-3">
+      {/* Phones scroll the page body and give the list a fixed height; from
+          lg the list takes the rest of the frame and only it scrolls. */}
+      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
         <div className="gata-surface shrink-0 px-4 py-3">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 lg:grid-cols-4">
             <SummaryRow label="Hash" wide>
@@ -292,20 +294,33 @@ export default async function TxDetailPage({
               </Link>
             </SummaryRow>
             <SummaryRow label="Time">
-              <span className="font-mono text-[12.5px]">{utc(tx.time) ?? "—"}</span>
-              <span className="ml-1.5 text-[12px] text-muted-foreground">{timeAgo(tx.time)}</span>
+              {/* Date and clock each stay whole; on a phone they stack, and the
+                  age takes its own line rather than running into the clock. */}
+              <span className="font-mono text-[12.5px]">
+                {(utc(tx.time) ?? "—").split(/ (.*)/).filter(Boolean).map((part, i) => (
+                  <span key={i} className="whitespace-nowrap">
+                    {i > 0 ? " " : ""}
+                    {part}
+                  </span>
+                ))}
+              </span>
+              <span className="block text-[12px] text-muted-foreground sm:ml-1.5 sm:inline">
+                {timeAgo(tx.time)}
+              </span>
             </SummaryRow>
             <SummaryRow label="Fee">
               <span className="font-mono">{formatCoinsExact(tx.fee, denoms)}</span>
             </SummaryRow>
             {tx.gasUsed || tx.gasWanted ? (
               <SummaryRow label="Gas used / wanted">
-                <span className="font-mono">
+                <span className="whitespace-nowrap font-mono">
                   {tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "—"} /{" "}
                   {tx.gasWanted ? Number(tx.gasWanted).toLocaleString() : "—"}
                 </span>
                 {gasPct !== null ? (
-                  <span className="ml-1.5 text-[12px] text-muted-foreground">{gasPct.toFixed(1)}%</span>
+                  <span className="block text-[12px] text-muted-foreground sm:ml-1.5 sm:inline">
+                    {gasPct.toFixed(1)}%
+                  </span>
                 ) : null}
               </SummaryRow>
             ) : null}
@@ -347,7 +362,7 @@ export default async function TxDetailPage({
             ) : null}
           </dl>
         </div>
-        <div className="min-h-0 flex-1">
+        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
           <SectionTabs sections={sections} initial={tab} param="tab" />
         </div>
       </div>

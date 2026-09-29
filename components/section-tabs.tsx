@@ -46,7 +46,7 @@ export function SectionTabs({
       <div
         role="tablist"
         aria-label="Sections"
-        className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border pb-2 [scrollbar-width:none]"
+        className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border pb-2 sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none]"
       >
         {sections.map((section) => {
           const on = section.key === active;

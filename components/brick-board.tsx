@@ -96,7 +96,7 @@ export function BrickBoard({
     if (brick.live === "height") {
       return {
         ...brick,
-        value: data.height ? Number(data.height).toLocaleString() : "—",
+        value: data.height ? Number(data.height).toLocaleString("en-US") : "—",
         sub: timeAgo(data.blockTime),
       };
     }

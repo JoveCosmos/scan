@@ -278,6 +278,7 @@ export default async function ChainOverviewPage({
 
   // The live lists under the tiles: this is where blocks and transactions
   // are browsed now, with every column their own tabs had.
+  const renderedAt = Date.now();
   const named = await withProposerLogos(
     chain,
     nameProposers(recentBlocks, validators, chain.bech32Prefix),
@@ -333,6 +334,7 @@ export default async function ChainOverviewPage({
                 chainId={chain.chainId}
                 accent={accent}
                 initialBlocks={named}
+                renderedAt={renderedAt}
               />
             </div>
           </section>
@@ -347,6 +349,7 @@ export default async function ChainOverviewPage({
                   accent={accent}
                   denoms={chainDenoms(chain)}
                   initial={txInitial}
+                  renderedAt={renderedAt}
                 />
               </div>
             </section>

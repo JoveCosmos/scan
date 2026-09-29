@@ -26,7 +26,9 @@ export function BrickGrid({
     // auto-fill rather than a fixed column count: the tiles are small enough
     // that a wide screen should get more of them, not wider ones.
     <div
-      className={`grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2 ${className}`}
+      // On a two-column phone an odd last tile takes the whole row rather than
+      // sitting alone beside a hole.
+      className={`grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 ${className}`}
     >
       {children}
     </div>

@@ -11,7 +11,7 @@ import { truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { CopyButton } from "@/components/copy-button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BrickLoading } from "@/components/brick-loading";
 
 const REGISTRY = "gno.land/r/gnops/valopers";
 
@@ -34,11 +34,7 @@ async function ValoperProfileBoard({
   const profile = await getValoper(chain, address);
 
   if (!profile) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        N/A
-      </p>
-    );
+    return <BrickBoard accent={accent} bricks={[{ key: "operator", label: "Operator", value: "N/A" }]} bare />;
   }
 
   const keyRows = [
@@ -103,16 +99,7 @@ async function ValoperProfileBoard({
       : []),
   ];
 
-  return <BrickBoard chainId={chain.chainId} accent={accent} bricks={bricks} />;
-}
-
-function ProfileSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-      <Skeleton className="h-[5.5rem] rounded-none sm:h-24" />
-      <Skeleton className="h-[5.5rem] rounded-none sm:h-24" />
-    </div>
-  );
+  return <BrickBoard accent={accent} bricks={bricks} bare />;
 }
 
 /**
@@ -223,19 +210,19 @@ export async function GnoValidatorDetail({
       }
     >
       <div className="flex h-full flex-col gap-3">
-        <div className="shrink-0">
-          <BrickBoard chainId={chain.chainId} accent={accent} bricks={bricks} />
-        </div>
-        {uptime && uptime.bars.length > 0 ? (
-          <div className="shrink-0">
-            <UptimeBars uptime={uptime} slashingWindow={false} />
-          </div>
-        ) : null}
-        <div className="min-h-0 flex-1">
-          <Suspense fallback={<ProfileSkeleton />}>
+        {/* One grid for the consensus figures and the registered profile, so the
+            profile's tiles continue the row rather than start a new one. */}
+        <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
+          <BrickBoard accent={accent} bricks={bricks} bare />
+          <Suspense fallback={<BrickLoading count={2} />}>
             <ValoperProfileBoard chain={chain} address={address} accent={accent} />
           </Suspense>
         </div>
+        {uptime && uptime.bars.length > 0 ? (
+          <div className="gata-surface shrink-0 px-4 py-3">
+            <UptimeBars uptime={uptime} slashingWindow={false} />
+          </div>
+        ) : null}
       </div>
     </PageFrame>
   );

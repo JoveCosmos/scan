@@ -223,11 +223,13 @@ export default async function BlockDetailPage({
         </>
       }
     >
-      <div className="flex h-full flex-col gap-3">
+      {/* Phones scroll the page body and give the list a fixed height; from
+          lg the list takes the rest of the frame and only it scrolls. */}
+      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
         <div className="shrink-0">
           <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
         </div>
-        <div className="min-h-0 flex-1">
+        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
           <RowDeck
             accent={accent}
             columns={[

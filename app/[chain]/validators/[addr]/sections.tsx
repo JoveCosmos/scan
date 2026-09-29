@@ -40,6 +40,7 @@ import { voteOptionLabel } from "@/lib/proposals";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 import { Skeleton } from "@/components/ui/skeleton";
+export { BrickLoading } from "@/components/brick-loading";
 import { UptimeBars } from "@/components/uptime-bars";
 import { ValidatorSigningHistory } from "@/components/validator-signing-history";
 import { ValidatorPowerHistory } from "@/components/validator-power-history";
@@ -187,25 +188,6 @@ export function TabLoading() {
         <Skeleton key={i} className="h-4" style={{ width: `${[92, 80, 86, 74][i % 4]}%` }} />
       ))}
     </div>
-  );
-}
-
-/** Stands in for a figure tile at the same size, so nothing moves when it lands. */
-export function BrickLoading({ count }: { count: number }) {
-  return (
-    <>
-      {Array.from({ length: count }, (_, i) => (
-        <div
-          key={i}
-          className="gata-surface gata-brick flex h-[5rem] flex-col justify-between px-3.5 py-2.5"
-          aria-hidden="true"
-        >
-          <Skeleton className="h-2.5 w-20" />
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-2 w-16" />
-        </div>
-      ))}
-    </>
   );
 }
 

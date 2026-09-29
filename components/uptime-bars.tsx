@@ -70,15 +70,15 @@ export function UptimeBars({
       {bars.length > 0 ? (
         <span
           className={cn(
-            "flex gap-[2px]",
-            expand ? "min-h-0 flex-1 items-stretch" : "items-end"
+            // Expanded, a phone must fit a hundred bars: the gap narrows there.
+            expand ? "flex min-h-0 flex-1 items-stretch gap-px sm:gap-[2px]" : "flex items-end gap-[2px]"
           )}
           aria-hidden={linked ? undefined : "true"}
         >
           {bars.map((signed, i) => {
             const cls = cn(
               "rounded-[1px]",
-              expand ? "min-w-[2px] flex-1" : "h-3 w-[3px]",
+              expand ? "min-w-px flex-1" : "h-3 w-[3px]",
               signed ? "bg-[var(--gata-green)]/70" : "bg-[var(--gata-burn)]",
               linked && "transition-opacity hover:opacity-60"
             );

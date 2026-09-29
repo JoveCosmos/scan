@@ -1,7 +1,7 @@
 /** Compact relative age, e.g. "6s ago". Safe against null/invalid timestamps. */
-export function timeAgo(iso: string | null): string {
+export function timeAgo(iso: string | null, now: number = Date.now()): string {
   if (!iso) return "—";
-  const delta = (Date.now() - new Date(iso).getTime()) / 1000;
+  const delta = (now - new Date(iso).getTime()) / 1000;
   if (!Number.isFinite(delta)) return "—";
   if (delta < 1) return "just now";
   if (delta < 60) return `${Math.floor(delta)}s ago`;

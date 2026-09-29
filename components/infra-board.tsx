@@ -104,7 +104,7 @@ function HealthMark({
       {health.catchingUp ? "catching up" : "up"}
       <span className="text-muted-foreground">
         {health.height
-          ? ` · ${snapshot ? "latest " : ""}#${health.height.toLocaleString()}`
+          ? ` · ${snapshot ? "latest " : ""}#${health.height.toLocaleString("en-US")}`
           : ""}
         {snapshot && health.takenAt ? ` · ${timeAgo(health.takenAt)}` : ""}
         {health.latencyMs !== null ? ` · ${health.latencyMs}ms` : ""}

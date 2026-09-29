@@ -188,6 +188,13 @@ export function ValidatorsTable({
               {v.moniker}
             </span>
             <span className="truncate text-[10.5px] text-muted-foreground">
+              {/* Phones drop the status column; a status that is not the set's
+                  own ("Active" in the active set) moves here instead. */}
+              {v.jailed ? (
+                <span className="text-[var(--destructive)] sm:hidden">Jailed · </span>
+              ) : set !== "active" ? (
+                <span className="sm:hidden">{statusLabel(v.status)} · </span>
+              ) : null}
               {addressTail(v.operatorAddress)}
             </span>
           </span>
@@ -200,7 +207,7 @@ export function ValidatorsTable({
       title: staking ? `Staked ${symbol}` : "Consensus voting power",
       sort: "tokens",
       align: "right",
-      w: "7.5rem",
+      w: "6.5rem",
       // A bar under the figure: share of the largest validator, so the shape
       // of the set reads without comparing numbers.
       cell: (v) => (
@@ -355,7 +362,7 @@ export function ValidatorsTable({
             w: "4.5rem",
             show: "hidden xl:table-cell",
             cell: (v: ValidatorRow) =>
-              v.uptime.missed === null ? "—" : v.uptime.missed.toLocaleString(),
+              v.uptime.missed === null ? "—" : v.uptime.missed.toLocaleString("en-US"),
           },
         ]
       : []),
@@ -373,7 +380,7 @@ export function ValidatorsTable({
               if (n === undefined) return <span className="text-muted-foreground">—</span>;
               return (
                 <span className={n > 0 ? "text-[var(--gata-amber)]" : "text-muted-foreground"}>
-                  {n.toLocaleString()}
+                  {n.toLocaleString("en-US")}
                 </span>
               );
             },
@@ -412,6 +419,7 @@ export function ValidatorsTable({
       label: "Status",
       align: "right",
       w: "5.75rem",
+      show: "hidden sm:table-cell",
       cell: (v) =>
         v.jailed ? (
           <span className="inline-flex rounded-full bg-[var(--destructive)]/12 px-2 py-0.5 font-sans text-[11px] font-medium text-[var(--destructive)]">
@@ -569,22 +577,19 @@ export function ValidatorsTable({
                   </td>
                 </tr>
               ))}
-              {visible.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns.length + 1}
-                    className="h-24 text-center text-[13px] text-muted-foreground"
-                  >
-                    {query
-                      ? `No validator matches "${query}".`
-                      : set === "inactive"
-                        ? "No inactive validators"
-                        : "No validators"}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {/* Outside the table, so a cell spanning columns a phone hides cannot
+              widen it (see RowDeck). */}
+          {visible.length === 0 ? (
+            <p className="grid h-24 place-items-center text-center text-[13px] text-muted-foreground">
+              {query
+                ? `No validator matches "${query}".`
+                : set === "inactive"
+                  ? "No inactive validators"
+                  : "No validators"}
+            </p>
+          ) : null}
         </div>
         <div className="flex h-9 shrink-0 items-center justify-between gap-3 border-t border-border bg-[var(--gata-bg2)] px-3 font-mono text-[11px] tabular-nums text-muted-foreground">
           <span>

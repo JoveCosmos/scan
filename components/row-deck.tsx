@@ -54,6 +54,8 @@ export interface DeckColumn {
   /** Hidden below sm even when `optional` peers survive. */
   phoneHide?: boolean;
   width?: string;
+  /** Width below sm, where hidden columns leave the rest more room. */
+  phoneWidth?: string;
 }
 
 export interface DeckRow {
@@ -257,8 +259,14 @@ export function RowDeck({
                   <th
                     key={i}
                     scope="col"
-                    style={col.width ? { width: col.width } : undefined}
-                    className={`h-8 px-3 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
+                    style={
+                      col.phoneWidth
+                        ? ({ "--w": col.width ?? "auto", "--pw": col.phoneWidth } as React.CSSProperties)
+                        : col.width
+                          ? { width: col.width }
+                          : undefined
+                    }
+                    className={`${col.phoneWidth ? "w-[var(--pw)] sm:w-[var(--w)]" : ""} h-8 px-3 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
                       col.align === "right" ? "text-right" : ""
                     } ${col.optional ? "hidden lg:table-cell" : ""} ${
                       col.phoneHide ? "hidden sm:table-cell" : ""
@@ -332,18 +340,15 @@ export function RowDeck({
                   })}
                 </tr>
               ))}
-              {shown.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="h-24 px-2.5 text-center text-[13px] text-muted-foreground"
-                  >
-                    {query ? `Nothing matches "${query}".` : empty}
-                  </td>
-                </tr>
-              ) : null}
             </tbody>
           </table>
+          {/* Outside the table: a cell spanning every column counts the ones a
+              phone hides, and the header then stops short of the right edge. */}
+          {shown.length === 0 ? (
+            <p className="grid h-24 place-items-center px-2.5 text-center text-[13px] text-muted-foreground">
+              {query ? `Nothing matches "${query}".` : empty}
+            </p>
+          ) : null}
         </div>
 
         {/* The card's footer: where the list stands, and the way on. */}

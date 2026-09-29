@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { formatCoinsShort, type DenomInfo } from "@/lib/coin";
 import type { RecentTxs } from "@/lib/adapter";
+import { useNow } from "@/lib/use-now";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 /**
@@ -14,13 +14,6 @@ import { RowDeck, type DeckRow } from "@/components/row-deck";
  * it), counts the rest as "+N", and shows the amount that message moved. The
  * hash is a real link to the transaction.
  */
-function useSecondsTicker() {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-}
 
 type Feed = RecentTxs & { denoms?: DenomInfo[] };
 
@@ -29,12 +22,15 @@ export function TxsTable({
   accent,
   denoms,
   initial,
+  renderedAt,
 }: {
   chainId: string;
   accent: string;
   /** Known denoms, including resolved IBC tokens — a fee may be in another token. */
   denoms: DenomInfo[];
   initial: Feed;
+  /** Server clock at render, so the first ages match the server's HTML. */
+  renderedAt: number;
 }) {
   const { data, isError } = useQuery<Feed>({
     queryKey: ["txs", chainId],
@@ -48,7 +44,7 @@ export function TxsTable({
     refetchIntervalInBackground: false,
   });
 
-  useSecondsTicker();
+  const now = useNow(renderedAt);
   const known = [...denoms, ...(data.denoms ?? [])];
 
   const rows: DeckRow[] = data.txs.map((tx) => {
@@ -80,13 +76,13 @@ export function TxsTable({
           tone: tx.code === null ? undefined : ok ? "ok" : "bad",
         },
         {
-          v: Number(tx.height).toLocaleString(),
+          v: Number(tx.height).toLocaleString("en-US"),
           mono: true,
           dim: true,
           align: "right",
           href: `/${chainId}/blocks/${tx.height}`,
         },
-        { v: timeAgo(tx.time), dim: true, align: "right" },
+        { v: timeAgo(tx.time, now), dim: true, align: "right" },
       ],
       detail: {
         title: truncateMiddle(tx.hash, 12, 8),

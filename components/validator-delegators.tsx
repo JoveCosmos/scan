@@ -116,9 +116,9 @@ export async function ValidatorDelegators({
     <RowDeck
       accent={accent}
       columns={[
-        { label: "#", align: "right", width: "10%" },
+        { label: "#", align: "right", width: "10%", phoneWidth: "13%" },
         { label: "Delegator" },
-        { label: "Amount", align: "right", width: "28%" },
+        { label: "Amount", align: "right", width: "28%", phoneWidth: "40%" },
         { label: "Share", align: "right", width: "18%", phoneHide: true },
       ]}
       rows={rows}

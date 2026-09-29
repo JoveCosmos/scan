@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { base64ToHex, timeAgo, truncateMiddle } from "@/lib/format";
 import type { NamedBlock } from "@/lib/blocks";
+import { useNow } from "@/lib/use-now";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 /**
@@ -17,22 +18,18 @@ import { RowDeck, type DeckRow } from "@/components/row-deck";
  * seconds but "12s ago" is wrong the moment it is painted, so the ages re-render
  * once a second without touching the network.
  */
-function useSecondsTicker() {
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-}
 
 export function BlocksTable({
   chainId,
   accent,
   initialBlocks,
+  renderedAt,
 }: {
   chainId: string;
   accent: string;
   initialBlocks: NamedBlock[];
+  /** Server clock at render, so the first ages match the server's HTML. */
+  renderedAt: number;
 }) {
   const { data, isError } = useQuery<{ blocks: NamedBlock[] }>({
     queryKey: ["blocks", chainId],
@@ -48,7 +45,7 @@ export function BlocksTable({
     refetchIntervalInBackground: false,
   });
 
-  useSecondsTicker();
+  const now = useNow(renderedAt);
 
   const blocks = data.blocks;
   const topHeight = blocks[0]?.height;
@@ -77,13 +74,13 @@ export function BlocksTable({
       fresh: block.height === freshHeight,
       cells: [
         {
-          v: Number(block.height).toLocaleString(),
+          v: Number(block.height).toLocaleString("en-US"),
           mono: true,
           tone: "accent",
           align: "right",
           href,
         },
-        { v: timeAgo(block.time), dim: true, align: "right" },
+        { v: timeAgo(block.time, now), dim: true, align: "right" },
         {
           v: String(block.txCount),
           mono: true,
@@ -106,7 +103,7 @@ export function BlocksTable({
         { v: hash ? truncateMiddle(hash, 10, 6) : "—", mono: true, dim: true },
       ],
       detail: {
-        title: `Block ${Number(block.height).toLocaleString()}`,
+        title: `Block ${Number(block.height).toLocaleString("en-US")}`,
         rows: [],
         action: { label: "Block", href },
       },
@@ -117,10 +114,10 @@ export function BlocksTable({
     <RowDeck
       accent={accent}
       columns={[
-        { label: "Height", align: "right", width: "22%" },
-        { label: "Age", align: "right", width: "16%" },
-        { label: "Txs", align: "right", width: "12%" },
-        { label: "Proposer", phoneHide: true },
+        { label: "Height", align: "right", width: "22%", phoneWidth: "33%" },
+        { label: "Age", align: "right", width: "16%", phoneWidth: "22%" },
+        { label: "Txs", align: "right", width: "12%", phoneWidth: "13%" },
+        { label: "Proposer" },
         { label: "Hash", optional: true, width: "22%" },
       ]}
       rows={rows}
