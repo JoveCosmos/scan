@@ -114,12 +114,12 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --gata-bg: #f4f6fa;
-  --gata-bg2: #edf1f7;
-  --gata-card: #ffffff;
-  --gata-card-hi: #eef3fa;
-  --gata-border: #dce3ed;
-  --gata-border-hi: #c2cedd;
+  --gata-bg: #e7ebf1;
+  --gata-bg2: #dfe5ed;
+  --gata-card: #f2f5f9;
+  --gata-card-hi: #e8edf4;
+  --gata-border: #d0d8e3;
+  --gata-border-hi: #b7c3d3;
   --gata-blue: #1a73d9;
   --gata-cyan: #0786ad;
   --gata-green: #0c8f63;
@@ -132,15 +132,15 @@
   --gata-glow: rgba(26, 115, 217, 0.28);
 
   --primary-foreground: #ffffff;
-  --muted: #edf1f7;
-  --accent: #e7edf6;
+  --muted: #e4e9f0;
+  --accent: #dfe6ef;
   --destructive: #d23a31;
 
-  --hl: 255, 255, 255;
+  --hl: 242, 245, 249;
   --shade: 22, 38, 64;
   --shadow-a: 0.16;
-  --panel-fill-a: 0.9;
-  --panel-fill-b: 0.72;
+  --panel-fill-a: 0.7;
+  --panel-fill-b: 0.5;
   --grid-line: rgba(14, 24, 40, 0.045);
   --bloom-a: rgba(26, 115, 217, 0.1);
   --bloom-b: rgba(7, 134, 173, 0.07);
@@ -153,12 +153,12 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --gata-bg: #f4f6fa;
-    --gata-bg2: #edf1f7;
-    --gata-card: #ffffff;
-    --gata-card-hi: #eef3fa;
-    --gata-border: #dce3ed;
-    --gata-border-hi: #c2cedd;
+    --gata-bg: #e7ebf1;
+    --gata-bg2: #dfe5ed;
+    --gata-card: #f2f5f9;
+    --gata-card-hi: #e8edf4;
+    --gata-border: #d0d8e3;
+    --gata-border-hi: #b7c3d3;
     --gata-blue: #1a73d9;
     --gata-cyan: #0786ad;
     --gata-green: #0c8f63;
@@ -171,15 +171,15 @@
     --gata-glow: rgba(26, 115, 217, 0.28);
 
     --primary-foreground: #ffffff;
-    --muted: #edf1f7;
-    --accent: #e7edf6;
+    --muted: #e4e9f0;
+    --accent: #dfe6ef;
     --destructive: #d23a31;
 
-    --hl: 255, 255, 255;
+    --hl: 242, 245, 249;
     --shade: 22, 38, 64;
     --shadow-a: 0.16;
-    --panel-fill-a: 0.9;
-    --panel-fill-b: 0.72;
+    --panel-fill-a: 0.7;
+    --panel-fill-b: 0.5;
     --grid-line: rgba(14, 24, 40, 0.045);
     --bloom-a: rgba(26, 115, 217, 0.1);
     --bloom-b: rgba(7, 134, 173, 0.07);

@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Download } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
+import { timeAgo } from "@/lib/format";
 
 /**
  * The Infra tab: what we run for a chain, rather than what the chain is.
@@ -33,13 +34,6 @@ export interface InfraSpec {
     rows: Row[];
     snippet: string;
   } | null;
-  snapshot: {
-    live: boolean;
-    /** Absent until we have actually published for this chain. */
-    url?: string;
-    rows: Row[];
-  } | null;
-  indexer: { indexed: boolean; rows: Row[] };
 }
 
 interface Health {
@@ -49,6 +43,8 @@ interface Health {
   height: number | null;
   catchingUp: boolean | null;
   checkable: boolean;
+  /** Snapshots folder only: when its newest archive was written. */
+  takenAt?: string | null;
 }
 
 /** Where the hub lists every network's endpoints and snapshots together. */
@@ -107,7 +103,14 @@ function Code({ text, label }: { text: string; label: string }) {
   );
 }
 
-function HealthMark({ health }: { health: Health | undefined }) {
+function HealthMark({
+  health,
+  snapshot = false,
+}: {
+  health: Health | undefined;
+  /** The snapshots folder: its height is the newest archive's, with its age. */
+  snapshot?: boolean;
+}) {
   if (!health) return <span className="text-muted-foreground">checking…</span>;
   if (!health.checkable) return <span className="text-muted-foreground">not checked</span>;
   if (!health.ok) return <span className="text-[var(--gata-burn)]">down</span>;
@@ -115,7 +118,10 @@ function HealthMark({ health }: { health: Health | undefined }) {
     <span className="text-[var(--gata-green)]">
       {health.catchingUp ? "catching up" : "up"}
       <span className="text-muted-foreground">
-        {health.height ? ` · #${health.height.toLocaleString()}` : ""}
+        {health.height
+          ? ` · ${snapshot ? "latest " : ""}#${health.height.toLocaleString()}`
+          : ""}
+        {snapshot && health.takenAt ? ` · ${timeAgo(health.takenAt)}` : ""}
         {health.latencyMs !== null ? ` · ${health.latencyMs}ms` : ""}
       </span>
     </span>
@@ -139,13 +145,17 @@ export function InfraBoard({
     },
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
-    enabled: spec.endpoints.length > 0,
+    enabled: spec.endpoints.length > 0 || spec.snapshotsDir !== null,
   });
   const health = new Map((data?.endpoints ?? []).map((h) => [h.url, h]));
 
   return (
     <div className="h-full overflow-y-auto pr-1">
-      <div className="gap-3 lg:columns-2 [&>section]:mb-3 [&>section]:break-inside-avoid">
+      <div
+        className={`gap-3 [&>section]:mb-3 [&>section]:break-inside-avoid ${
+          spec.stateSync ? "lg:columns-2" : ""
+        }`}
+      >
         <Panel
           title="Endpoints"
           action={
@@ -191,7 +201,12 @@ export function InfraBoard({
               ))}
               {spec.snapshotsDir ? (
                 <li className="py-2">
-                  <div className="text-[13px] font-medium">Snapshots</div>
+                  <div className="flex items-center justify-between gap-3 text-[13px]">
+                    <span className="font-medium">Snapshots</span>
+                    <span className="text-[11px]">
+                      <HealthMark health={health.get(spec.snapshotsDir)} snapshot />
+                    </span>
+                  </div>
                   <div className="mt-0.5 flex items-center gap-1">
                     <a
                       href={spec.snapshotsDir}
@@ -209,30 +224,6 @@ export function InfraBoard({
           )}
         </Panel>
 
-        <Panel
-          title="Snapshot"
-          action={
-            spec.snapshot?.live && spec.snapshot.url ? (
-              <a
-                href={spec.snapshot.url}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] transition-colors hover:border-[var(--gata-border-hi)]"
-              >
-                <Download className="h-3 w-3" /> Download
-              </a>
-            ) : null
-          }
-        >
-          {spec.snapshot ? (
-            <>
-              <Rows rows={spec.snapshot.rows} />
-            </>
-          ) : (
-            <p className="py-1.5 text-[13px] text-muted-foreground">
-              N/A
-            </p>
-          )}
-        </Panel>
-
         {spec.stateSync ? (
           <Panel title="State sync">
             <Rows rows={spec.stateSync.rows} />
@@ -240,9 +231,6 @@ export function InfraBoard({
           </Panel>
         ) : null}
 
-        <Panel title="Indexer">
-          <Rows rows={spec.indexer.rows} />
-        </Panel>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { servicesFor } from "@/lib/services";
+
 /**
  * Live snapshot index.
  *
@@ -77,4 +79,28 @@ export async function getSnapshotIndex(): Promise<SnapshotIndex> {
 
   cache = { at: now, index };
   return index;
+}
+
+/**
+ * Where a chain's snapshots are served: the newest archive's folder from the
+ * published manifest, else /snapshots on our RPC host. Null when we publish
+ * none for the chain.
+ */
+export async function snapshotsDirFor(chainId: string): Promise<{
+  dir: string;
+  height: number | null;
+  takenAt: string | null;
+} | null> {
+  const services = servicesFor(chainId);
+  if (!services?.snapshotKey) return null;
+  const newest = (await getSnapshotIndex()).get(services.snapshotKey);
+  if (newest?.url) {
+    return {
+      dir: newest.url.slice(0, newest.url.lastIndexOf("/") + 1),
+      height: Number(newest.height) || null,
+      takenAt: newest.modified ?? null,
+    };
+  }
+  const rpc = services.endpoints.find((e) => e.kind === "rpc");
+  return rpc ? { dir: `${rpc.url.replace(/\/$/, "")}/snapshots/`, height: null, takenAt: null } : null;
 }

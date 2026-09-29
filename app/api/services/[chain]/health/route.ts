@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { servicesFor } from "@/lib/services";
 import { cached } from "@/lib/cache";
+import { snapshotsDirFor } from "@/lib/snapshots";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,16 @@ export interface EndpointHealth {
   catchingUp: boolean | null;
   /** gRPC cannot be probed over HTTP, so it is reported rather than failed. */
   checkable: boolean;
+  /** For the snapshots folder: when its newest archive was written. */
+  takenAt?: string | null;
+}
+
+/** The folder answers: the nginx listing is served, so downloads are too. */
+async function probeSnapshots(dir: string): Promise<Partial<EndpointHealth>> {
+  const res = await fetch(dir, { signal: AbortSignal.timeout(6000), cache: "no-store" });
+  if (!res.ok) throw new Error(String(res.status));
+  await res.body?.cancel();
+  return { ok: true, catchingUp: null };
 }
 
 async function probeRpc(url: string): Promise<Partial<EndpointHealth>> {
@@ -83,6 +94,7 @@ export async function GET(
   }
 
   const services = servicesFor(chainId);
+  const snapshots = await snapshotsDirFor(chainId).catch(() => null);
   if (!services) {
     return NextResponse.json(
       { endpoints: [] },
@@ -93,8 +105,8 @@ export async function GET(
   // Coalesced across viewers: many people on this page must not become many
   // probes against our own nodes.
   const endpoints = await cached(`svc-health:${chainId}`, 15_000, async () =>
-    Promise.all(
-      services.endpoints.map(async (e): Promise<EndpointHealth> => {
+    Promise.all([
+      ...services.endpoints.map(async (e): Promise<EndpointHealth> => {
         const base: EndpointHealth = {
           url: e.url,
           ok: false,
@@ -114,8 +126,32 @@ export async function GET(
           // Down is a normal answer here, not an exception worth surfacing.
           return { ...base, latencyMs: Date.now() - started };
         }
-      })
-    )
+      }),
+      // The snapshots folder, probed like any endpoint; its "height" is the
+      // newest archive's.
+      ...(snapshots
+        ? [
+            (async (): Promise<EndpointHealth> => {
+              const base: EndpointHealth = {
+                url: snapshots.dir,
+                ok: false,
+                latencyMs: null,
+                height: snapshots.height,
+                catchingUp: null,
+                checkable: true,
+                takenAt: snapshots.takenAt,
+              };
+              const started = Date.now();
+              try {
+                const probed = await probeSnapshots(snapshots.dir);
+                return { ...base, ...probed, latencyMs: Date.now() - started };
+              } catch {
+                return { ...base, latencyMs: Date.now() - started };
+              }
+            })(),
+          ]
+        : []),
+    ])
   );
 
   return NextResponse.json(
