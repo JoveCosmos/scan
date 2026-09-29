@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { timeAgo } from "@/lib/format";
 
@@ -47,26 +46,12 @@ interface Health {
   takenAt?: string | null;
 }
 
-/** Where the hub lists every network's endpoints and snapshots together. */
-const HUB_INFRA = "https://gatahub.zone/#infrastructure";
-
-function Panel({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="gata-panel min-w-0 px-4 py-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          {title}
-        </h2>
-        {action}
-      </div>
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        {title}
+      </h2>
       {children}
     </section>
   );
@@ -156,19 +141,7 @@ export function InfraBoard({
           spec.stateSync ? "lg:columns-2" : ""
         }`}
       >
-        <Panel
-          title="Endpoints"
-          action={
-            <a
-              href={HUB_INFRA}
-              target="_blank"
-              rel="noopener"
-              className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              All networks on GATA HUB <ArrowUpRight className="h-3 w-3" />
-            </a>
-          }
-        >
+        <Panel title="Endpoints">
           {spec.endpoints.length === 0 && !spec.snapshotsDir ? (
             <p className="py-1.5 text-[13px] text-muted-foreground">
               N/A
