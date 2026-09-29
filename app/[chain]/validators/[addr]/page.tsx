@@ -3,68 +3,52 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
-import {
-  findValidator,
-  getValidator,
-  keybaseUsername,
-  statusLabel,
-} from "@/lib/validators";
+import { findValidator, getValidator, keybaseUsername, statusLabel } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { shortDenom } from "@/lib/coin";
-import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
+import { decodeParam, truncateMiddle } from "@/lib/format";
 import { accountFromOperator, convertAddress, decodePrefix, linkedAddresses } from "@/lib/bech32";
-import { getAdapter } from "@/lib/adapter";
 import { resolveGnoValidatorAddress } from "@/lib/gno";
-import {
-  emptyUptime,
-  consensusIdsFromPubkey,
-  DETAIL_BAR_COUNT,
-  jailedNow,
-  longestMissStreak,
-  missBudget,
-} from "@/lib/uptime";
-import {
-  commissionEarned,
-  proposerStats,
-  slashHistory,
-  stakeHistory,
-  type SlashKind,
-} from "@/lib/indexer-db";
-import {
-  consHexOf,
-  indexBehind,
-  powerEvents,
-  powerHistory,
-  proposedBlocks,
-  proposerFairness,
-  signingHistory,
-  validatorEvents,
-  validatorVotes,
-  voterRecasts,
-  type ValidatorEventKind,
-} from "@/lib/indexer-validator";
-import { formatDuration, jailSpells } from "@/lib/signing-stats";
-import { ValidatorSigningHistory } from "@/components/validator-signing-history";
-import { ValidatorPowerHistory } from "@/components/validator-power-history";
+import { emptyUptime, consensusIdsFromPubkey, jailedNow, longestMissStreak, missBudget } from "@/lib/uptime";
+import { indexBehind } from "@/lib/indexer-validator";
 import { getSelfBond } from "@/lib/staking";
 import { getChainAprCached } from "@/lib/params";
-import { voteOptionLabel } from "@/lib/proposals";
+import { withinBudget } from "@/lib/cache";
+import { validatorLogoMap } from "@/lib/validator-logos";
 import { PageFrame } from "@/components/page-frame";
-import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
-import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { CopyButton } from "@/components/copy-button";
 import { AddressLink } from "@/components/address-link";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
 import { LinkedAddresses } from "@/components/linked-addresses";
 import { LoadingPanel } from "@/components/loading-panel";
-import { UptimeBars } from "@/components/uptime-bars";
+import { ValidatorAvatar } from "@/components/validator-avatar";
 import { ValidatorDelegators } from "@/components/validator-delegators";
 import { ValidatorElsewhere } from "@/components/validator-elsewhere";
-import { ValidatorStakeChart } from "@/components/validator-stake-history";
 import { ValidatorStatus } from "@/components/validator-status";
+import {
+  BrickLoading,
+  EventsTab,
+  getAprModelCached,
+  IndexedBricks,
+  JailingsTab,
+  kept,
+  loadUptime,
+  pct,
+  PowerEventsTab,
+  PowerTab,
+  ProposedTab,
+  SigningTab,
+  TabLoading,
+  VotesTab,
+  type ValidatorKeys,
+} from "./sections";
 
 export const dynamic = "force-dynamic";
+
+/** How long the page waits on any one figure from the chain before drawing without it. */
+const BUDGET = 1500;
 
 export async function generateMetadata({
   params,
@@ -83,58 +67,14 @@ export async function generateMetadata({
   return { title: validator ? validator.moniker : "Validator" };
 }
 
-const pct = (value: number | null, decimals = 2) =>
-  value === null ? "—" : `${(value * 100).toFixed(decimals)}%`;
-
-/** Drops rows whose value is a dash, so a popup never lists absent facts. */
-const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
-
-/** Blocks proposed against blocks owed by stake. */
-function verdict(ratio: number): string {
-  if (ratio >= 0.95) return "in line";
-  if (ratio >= 0.85) return "slightly under";
-  return "under";
-}
-
-const SLASH_LABEL: Record<SlashKind, string> = {
-  jailed: "Jailed",
-  unjailed: "Unjailed",
-  slashed: "Slashed",
-  tombstoned: "Tombstoned",
-};
-
-const EVENT_LABEL: Record<ValidatorEventKind, string> = {
-  create: "Created",
-  edit: "Edited",
-  unjail: "Unjailed",
-  commission: "Commission withdrawn",
-};
-
-function reasonLabel(reason: string | null): string {
-  if (reason === "downtime") return "Missed blocks";
-  if (reason === "double_sign") return "Double signing";
-  return "—";
-}
-
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-const TABS = ["delegators", "signing", "proposed", "votes", "events", "power", "stake", "jailings"];
+const TABS = ["delegators", "signing", "proposed", "votes", "power", "stake", "events", "jailings"];
 
 /**
- * One validator: what it is worth, how it behaves, and who backs it.
+ * One validator: who it is on the left, its figures and records on the right.
  *
- * The header carries identity (operator, account, consensus address, Keybase,
- * the same operator on other networks); the bricks carry the figures; the tabs
- * carry the lists — delegators, signing, proposed blocks, votes, events, stake
- * and jailings — each addressable by `?tab=`.
- *
- * Indexed sections stay absent rather than zero when the index cannot answer:
- * nobody can tell "never jailed" from "no data" once a zero has been printed.
+ * Only the chain's own figures are awaited, each within a budget. Everything
+ * read from the index streams in behind a placeholder of the same size (see
+ * ./sections), so the page draws at once however slow the index is.
  */
 export default async function ValidatorDetailPage({
   params,
@@ -196,77 +136,27 @@ export default async function ValidatorDetailPage({
     );
   }
 
-  const selfDelegation = accountFromOperator(addr, chain.bech32Prefix);
+  const account = accountFromOperator(addr, chain.bech32Prefix);
   // Derived from the self-delegation account, never from the operator address:
   // re-encoding a …valoper1… under another prefix is a different entity.
-  const links = selfDelegation ? linkedAddresses(selfDelegation) : [];
+  const links = account ? linkedAddresses(account) : [];
   // Slashing and block production are recorded against the consensus address.
   const ids = validator.consensusPubkey
     ? consensusIdsFromPubkey(validator.consensusPubkey, chain.bech32Prefix)
     : null;
-  const adapter = getAdapter(chain);
+  const keys: ValidatorKeys = { chain, accent, addr, account, ids };
 
-  const [
-    uptime,
-    earned,
-    proposer,
-    fairness,
-    proposedList,
-    slashes,
-    stake,
-    events,
-    selfBond,
-    apr,
-    keybase,
-    signingHist,
-    powerEv,
-    powerHist,
-    behind,
-  ] = await Promise.all([
-    adapter
-      .getUptime([validator], DETAIL_BAR_COUNT)
-      .then((m) => m.get(addr) ?? emptyUptime())
-      .catch(() => emptyUptime()),
-    // Keyed on the account: commission is attributed through the signer.
-    selfDelegation ? commissionEarned(chain.chainId, selfDelegation).catch(() => null) : null,
-    ids ? proposerStats(chain.chainId, ids.hex).catch(() => null) : null,
-    ids ? proposerFairness(chain.chainId, addr, ids.hex).catch(() => null) : null,
-    ids ? proposedBlocks(chain.chainId, ids.hex).catch(() => null) : null,
-    ids ? slashHistory(chain.chainId, ids.valcons, addr).catch(() => null) : null,
-    stakeHistory(chain.chainId, addr).catch((err) => {
-      console.error(`stakeHistory failed for ${addr}:`, err);
-      return null;
-    }),
-    selfDelegation ? validatorEvents(chain.chainId, selfDelegation).catch(() => null) : null,
-    getSelfBond(chain, addr, validator.tokens).catch(() => null),
-    getChainAprCached(chain).catch(() => null),
-    validator.identity ? keybaseUsername(validator.identity) : null,
-    // Signing record from the index: the key the index files it under, or the
-    // one derived from the validator's consensus pubkey.
-    (async () => {
-      const hex = ids?.hex ?? (await consHexOf(chain.chainId, addr));
-      return hex ? signingHistory(chain.chainId, hex) : null;
-    })().catch(() => null),
-    powerEvents(chain.chainId, addr).catch(() => null),
-    (async () => {
-      const hex = ids?.hex ?? (await consHexOf(chain.chainId, addr));
-      return hex ? powerHistory(chain.chainId, hex) : null;
-    })().catch(() => null),
-    indexBehind(chain.chainId).catch(() => false),
+  const [uptime, selfBond, chainApr, aprModel, keybase, logos] = await Promise.all([
+    withinBudget(loadUptime(chainId, addr), BUDGET, emptyUptime()),
+    withinBudget(getSelfBond(chain, addr, validator.tokens).catch(() => null), BUDGET, null),
+    withinBudget(getChainAprCached(chain).catch(() => null), BUDGET, null),
+    withinBudget(getAprModelCached(chain).catch(() => null), BUDGET, null),
+    validator.identity
+      ? withinBudget(keybaseUsername(validator.identity).catch(() => null), BUDGET, null)
+      : null,
+    withinBudget(validatorLogoMap(chain, [validator]), BUDGET, new Map<string, string[]>()),
   ]);
 
-  // The validator's own creation, where the index holds it, bounds what it can
-  // be counted absent from in governance.
-  const created = events?.filter((e) => e.kind === "create").at(-1)?.time ?? null;
-  const [votes, recasts] = selfDelegation
-    ? await Promise.all([
-        validatorVotes(chain.chainId, selfDelegation, created).catch(() => null),
-        voterRecasts(chain.chainId, selfDelegation).catch(() => null),
-      ])
-    : [null, null];
-
-  // The chain's own denoms carry a symbol and an exponent; anything else (an
-  // IBC hash) is shown as-is rather than scaled by a guess.
   const known = new Map(chainDenoms(chain).map((d) => [d.denom, d]));
   const coin = (c: { denom: string; amount: string }, frac = 2) => {
     const info = known.get(c.denom);
@@ -280,491 +170,146 @@ export default async function ValidatorDetailPage({
     uptime.window !== null && uptime.missed !== null ? uptime.window - uptime.missed : null;
   const budget = missBudget(uptime.window, uptime.minSigned, uptime.missed);
   const streak = uptime.bars.length > 0 ? longestMissStreak(uptime.bars) : null;
-  const website = validator.website.replace(/^https?:\/\//, "");
+  const website = validator.website.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  // Operators often write a bare domain; linked as-is it would resolve on this site.
+  const websiteHref = /^https?:\/\//i.test(validator.website)
+    ? validator.website
+    : website && !/\s/.test(website)
+      ? `https://${website}`
+      : null;
   const status = validator.jailed ? "Jailed" : statusLabel(validator.status);
-  const expectedApr =
-    apr?.stakingApr != null ? apr.stakingApr * (1 - validator.commissionRate) : null;
+  // Its own stake decides its APR where the chain pays a per-validator bonus.
+  const grossApr = aprModel?.at(validator.tokens) ?? chainApr?.stakingApr ?? null;
+  const netApr = grossApr !== null ? grossApr * (1 - validator.commissionRate) : null;
 
-  const bricks: BrickSpec[] = [];
-
-  bricks.push({
-    key: "stake",
-    label: "Bonded",
-    value: formatToken(validator.tokens, chain.exponent),
-    sub: validator.votingPower !== null ? `${pct(validator.votingPower)} of the set` : symbol,
-    lead: true,
-    rows: kept([
-      {
-        label: "Bonded",
-        value: `${formatToken(validator.tokens, chain.exponent, 4)} ${symbol}`,
-        mono: true,
-      },
-      { label: "Voting power", value: pct(validator.votingPower), mono: true },
-      { label: "Rank", value: validator.rank ? `#${validator.rank}` : "—", mono: true },
-      { label: "Status", value: status },
-      {
-        label: "Min self delegation",
-        value: `${formatToken(validator.minSelfDelegation, chain.exponent, 6)} ${symbol}`,
-        mono: true,
-      },
-      // Only while it is actually unbonding: the field keeps the height of the
-      // last unbonding forever, and on a bonded validator it read as a status.
-      ...(validator.status === "BOND_STATUS_UNBONDING" && validator.unbondingHeight
-        ? [
-            {
-              label: "Unbonding since",
-              value: `#${Number(validator.unbondingHeight).toLocaleString()}`,
-              mono: true,
-              href: `/${chainId}/blocks/${validator.unbondingHeight}`,
-            },
-          ]
-        : []),
-    ]),
-  });
-
-  bricks.push({
-    key: "selfbond",
-    label: "Self bond",
-    value: selfBond ? formatToken(selfBond.amount, chain.exponent) : "N/A",
-    sub: selfBond?.share != null ? `${pct(selfBond.share)} of its stake` : symbol,
-  });
-
-  if (uptime.window !== null || uptime.bars.length > 0) {
-    bricks.push({
-      key: "signing",
-      label: "Signing",
-      // Jailed, the window is reset and stops counting; its percentage would be
-      // a clean record the validator did not earn.
-      value: jailed ? "N/A" : pct(uptime.ratio),
-      sub: jailed
-        ? "jailed"
-        : uptime.missed !== null && uptime.window !== null
-          ? `${uptime.missed.toLocaleString()} missed of ${uptime.window.toLocaleString()}`
-          : "slashing window",
-      tone: jailed
-        ? "bad"
-        : uptime.ratio === null
-          ? undefined
-          : uptime.ratio >= 0.99
-            ? "ok"
-            : uptime.ratio < 0.95
-              ? "bad"
-              : undefined,
+  const bricks: BrickSpec[] = [
+    {
+      key: "stake",
+      label: "Bonded",
+      value: formatToken(validator.tokens, chain.exponent),
+      sub: validator.votingPower !== null ? `${pct(validator.votingPower)} of the set` : symbol,
+      lead: true,
       rows: kept([
         {
-          label: "Signed",
-          value: !jailed && signed !== null ? signed.toLocaleString() : "—",
+          label: "Bonded",
+          value: `${formatToken(validator.tokens, chain.exponent, 4)} ${symbol}`,
           mono: true,
         },
-        {
-          label: "Missed",
-          value: !jailed && uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
-          mono: true,
-        },
-        {
-          label: "Window",
-          value: uptime.window !== null ? `${uptime.window.toLocaleString()} blocks` : "—",
-          mono: true,
-        },
-        {
-          label: "Miss budget",
-          value: !jailed && budget !== null ? `${budget.toLocaleString()} blocks` : "—",
-          mono: true,
-        },
-        {
-          label: `Longest miss streak · last ${uptime.bars.length}`,
-          value: streak !== null ? String(streak) : "—",
-          mono: true,
-        },
-        {
-          label: "Jailed until",
-          value: uptime.jailedUntil ? new Date(uptime.jailedUntil).toLocaleString() : "Never",
-        },
-        { label: "Tombstoned", value: uptime.tombstoned ? "Yes" : "No" },
-      ]),
-    });
-  }
-
-  bricks.push({
-    key: "commission",
-    label: "Commission",
-    value: pct(validator.commissionRate),
-    sub: `max ${pct(validator.maxRate, 0)}`,
-    rows: kept([
-      { label: "Current rate", value: pct(validator.commissionRate), mono: true },
-      { label: "Max rate", value: pct(validator.maxRate, 0), mono: true },
-      { label: "Max change", value: `${pct(validator.maxChangeRate)}/day`, mono: true },
-      {
-        label: "Updated",
-        value: validator.commissionUpdatedAt
-          ? new Date(validator.commissionUpdatedAt).toLocaleString()
-          : "—",
-      },
-      {
-        label: "Outstanding",
-        value:
-          validator.outstandingCommission.length > 0
-            ? validator.outstandingCommission.map((c) => coin(c, 4)).join(", ")
-            : "—",
-        mono: true,
-      },
-    ]),
-  });
-
-  bricks.push({
-    key: "apr",
-    label: "Expected APR",
-    value: expectedApr !== null ? pct(expectedApr) : "N/A",
-    sub: "after commission",
-    rows: kept([
-      { label: "Chain APR", value: pct(apr?.stakingApr ?? null), mono: true },
-      { label: "Commission", value: pct(validator.commissionRate), mono: true },
-      { label: "Expected APR", value: pct(expectedApr), mono: true },
-    ]),
-  });
-
-  if (earned) {
-    bricks.push({
-      key: "earned",
-      label: "Commission taken",
-      value: coin(earned.byDenom[0]),
-      sub: `${earned.withdrawals.toLocaleString()} withdrawals`,
-      rows: kept([
-        ...earned.byDenom.map((d) => ({
-          label: known.get(d.denom)?.symbol ?? shortDenom(d.denom),
-          value: coin(d, 4),
-          mono: true,
-        })),
-        { label: "Withdrawals", value: earned.withdrawals.toLocaleString(), mono: true },
-        { label: "First", value: earned.first ? day(earned.first) : "—" },
-        { label: "Last", value: earned.last ? timeAgo(earned.last) : "—" },
-      ]),
-    });
-  }
-
-  if (proposer && proposer.totalBlocks > 0) {
-    const share = proposer.proposed / proposer.totalBlocks;
-    bricks.push({
-      key: "proposed",
-      label: "Blocks proposed",
-      value: proposer.proposed.toLocaleString(),
-      sub: fairness
-        ? `${fairness.ratio.toFixed(2)}× expected · ${verdict(fairness.ratio)}`
-        : `${pct(share)} of the chain's`,
-      tone: fairness ? (fairness.ratio >= 0.95 ? "ok" : fairness.ratio < 0.85 ? "bad" : undefined) : undefined,
-      rows: kept([
-        { label: "Proposed", value: proposer.proposed.toLocaleString(), mono: true },
-        { label: "Share of blocks", value: pct(share), mono: true },
-        ...(fairness
+        { label: "Voting power", value: pct(validator.votingPower), mono: true },
+        { label: "Rank", value: validator.rank ? `#${validator.rank}` : "—", mono: true },
+        { label: "Status", value: status },
+        // Only while it is actually unbonding: the field keeps the height of the
+        // last unbonding forever, and on a bonded validator it read as a status.
+        ...(validator.status === "BOND_STATUS_UNBONDING" && validator.unbondingHeight
           ? [
               {
-                label: "Expected from stake",
-                value: Math.round(fairness.expected).toLocaleString(),
+                label: "Unbonding since",
+                value: `#${Number(validator.unbondingHeight).toLocaleString()}`,
                 mono: true,
-              },
-              {
-                label: "Proposed in that window",
-                value: fairness.proposed.toLocaleString(),
-                mono: true,
-              },
-              {
-                label: "Versus stake",
-                value: `${fairness.ratio.toFixed(2)}× · ${verdict(fairness.ratio)}`,
-              },
-              {
-                label: "Window",
-                value: `#${fairness.fromHeight.toLocaleString()} – #${fairness.toHeight.toLocaleString()}`,
-                mono: true,
+                href: `/${chainId}/blocks/${validator.unbondingHeight}`,
               },
             ]
           : []),
-        {
-          label: "Last proposed",
-          value: proposer.lastHeight
-            ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? ` · ${timeAgo(proposer.lastTime)}` : ""}`
-            : "Never",
-          mono: true,
-          ...(proposer.lastHeight ? { href: `/${chainId}/blocks/${proposer.lastHeight}` } : {}),
-        },
-        {
-          label: "Measured over",
-          value: proposer.fromGenesis
-            ? `${proposer.totalBlocks.toLocaleString()} blocks`
-            : `${proposer.totalBlocks.toLocaleString()} blocks since ${day(proposer.since)}`,
-        },
       ]),
-    });
-  }
-
-  if (votes && votes.total > 0) {
-    const byOption = new Map<string, number>();
-    for (const v of votes.votes) byOption.set(v.option, (byOption.get(v.option) ?? 0) + 1);
-    bricks.push({
-      key: "governance",
-      label: "Governance",
-      value: pct(votes.voted / votes.total, 0),
-      sub: `voted on ${votes.voted} of ${votes.total}`,
-      rows: kept([
-        { label: "Participation", value: `${votes.voted} of ${votes.total} proposals`, mono: true },
-        { label: "Skipped", value: String(votes.skipped.length), mono: true },
-        ...[...byOption.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .map(([option, n]) => ({ label: voteOptionLabel(option), value: String(n), mono: true })),
-        { label: "Counted since", value: day(votes.since) },
-        {
-          label: "Last voted",
-          value: votes.votes[0] ? timeAgo(votes.votes.reduce((m, v) => (v.time > m ? v.time : m), votes.votes[0].time)) : "—",
-        },
-      ]),
-    });
-  }
-
-  if (validator.details) {
-    bricks.push({
-      key: "identity",
-      label: "About",
-      value: validator.details,
-      text: true,
-      sub: website || validator.moniker,
-      body: validator.details,
-      rows: kept([
-        ...(validator.website ? [{ label: "Website", value: website, href: validator.website }] : []),
-        { label: "Security contact", value: validator.securityContact },
-      ]),
-    });
-  }
-
-  // ── Lists ────────────────────────────────────────────────────────────────
-
-  const unjails = (events ?? []).filter((e) => e.kind === "unjail");
-  type JailRow = { height: number; time: string; label: string; reason: string; burned: string | null; tx: string | null; bad: boolean };
-  const jailRows: JailRow[] = [
-    ...(slashes?.events ?? []).map((e) => ({
-      height: e.height,
-      time: e.time,
-      label: SLASH_LABEL[e.kind],
-      reason: reasonLabel(e.reason),
-      burned: e.burned,
-      tx: null,
-      bad: e.kind !== "unjailed",
-    })),
-    // Before extract version 4 the index kept no unjail; the MsgUnjail
-    // transaction stands in, unless the index already has that unjail.
-    ...unjails
-      .filter(
-        (u) =>
-          !(slashes?.events ?? []).some((e) => e.kind === "unjailed" && e.height === u.height)
-      )
-      .map((e) => ({
-      height: e.height,
-      time: e.time,
-      label: "Unjailed",
-      reason: "—",
-      burned: null,
-      tx: e.txHash,
-      bad: false,
-    })),
-  ].sort((a, b) => b.height - a.height);
-
-  // Each jailing paired with the unjail that ended it: how long it was down.
-  const downtimeAt = new Map(
-    jailSpells(
-      jailRows
-        .filter((r) => r.label === "Jailed" || r.label === "Unjailed")
-        .map((r) => ({ kind: r.label === "Jailed" ? "jailed" : "unjailed", height: r.height, time: r.time }))
-    ).map((spell) => [spell.jailedAt.height, spell])
-  );
-
-  const jailDeck: DeckRow[] = jailRows.map((e) => ({
-    key: `${e.height}-${e.label}`,
-    cells: [
-      { v: e.label, tone: e.bad ? "bad" : "ok" },
-      { v: e.reason, dim: true },
-      (() => {
-        const spell = e.label === "Jailed" ? downtimeAt.get(e.height) : undefined;
-        if (!spell) return { v: "—", dim: true, align: "right" as const };
-        return spell.unjailedAt
-          ? { v: formatDuration(spell.downtimeMs), mono: true, align: "right" as const }
-          : // Open only while the chain still says jailed; otherwise the unjail
-            // predates what the index holds.
-            validator.jailed
-            ? { v: "ongoing", tone: "bad" as const, align: "right" as const }
-            : { v: "—", dim: true, align: "right" as const };
-      })(),
-      {
-        v: e.burned ? coin({ denom: chain.denom, amount: e.burned }) : "—",
-        mono: true,
-        align: "right",
-        dim: !e.burned,
-      },
-      {
-        v: `#${e.height.toLocaleString()}`,
-        mono: true,
-        align: "right",
-        href: `/${chainId}/blocks/${e.height}`,
-      },
-      { v: day(e.time), dim: true, align: "right" },
-    ],
-    detail: {
-      title: e.label,
-      sub: day(e.time),
-      rows: [],
-      action: e.tx
-        ? { label: "Transaction", href: `/${chainId}/txs/${e.tx}` }
-        : { label: "Block", href: `/${chainId}/blocks/${e.height}` },
     },
-  }));
-
-  const jailings = slashes?.events.filter((e) => e.kind === "jailed").length ?? 0;
-
-  const proposedDeck: DeckRow[] = (proposedList?.blocks ?? []).map((b) => ({
-    key: String(b.height),
-    cells: [
-      { v: `#${b.height.toLocaleString()}`, mono: true, tone: "accent" },
-      { v: timeAgo(b.time), dim: true, align: "right" },
-      { v: String(b.txCount), mono: true, align: "right" },
-    ],
-    detail: { title: `Block ${b.height}`, rows: [], action: { label: "Block", href: `/${chainId}/blocks/${b.height}` } },
-  }));
-
-  const skipped = new Set(votes?.skipped ?? []);
-  const voteDeck: DeckRow[] = votes
-    ? [
-        ...votes.votes.map((v) => ({
-          id: v.proposalId,
-          row: {
-            key: `v-${v.proposalId}`,
-            cells: [
-              { v: `#${v.proposalId}`, mono: true, tone: "accent" as const },
-              {
-                v: `${voteOptionLabel(v.option)}${v.weighted ? " · split" : ""}${
-                  recasts?.get(v.proposalId)
-                    ? ` · was ${recasts.get(v.proposalId)!.map(voteOptionLabel).join(", ")}`
-                    : ""
-                }`,
-              },
-              {
-                v: truncateMiddle(v.txHash, 6, 4),
-                mono: true,
-                dim: true,
-                href: `/${chainId}/txs/${v.txHash}`,
-              },
-              { v: day(v.time), dim: true, align: "right" as const },
-            ],
-            detail: {
-              title: `Proposal #${v.proposalId}`,
-              rows: [],
-              action: { label: "Proposal", href: `/${chainId}/proposals/${v.proposalId}` },
-            },
-          } satisfies DeckRow,
-        })),
-        ...[...skipped].map((id) => ({
-          id,
-          row: {
-            key: `s-${id}`,
-            cells: [
-              { v: `#${id}`, mono: true, tone: "accent" as const },
-              { v: "Did not vote", tone: "bad" as const },
-              { v: "—", dim: true },
-              { v: "—", dim: true, align: "right" as const },
-            ],
-            detail: {
-              title: `Proposal #${id}`,
-              rows: [],
-              action: { label: "Proposal", href: `/${chainId}/proposals/${id}` },
-            },
-          } satisfies DeckRow,
-        })),
-      ]
-        .sort((a, b) => b.id - a.id)
-        .map((x) => x.row)
-    : [];
-
-  const eventDeck: DeckRow[] = (events ?? []).map((e) => ({
-    key: e.txHash,
-    cells: [
-      { v: EVENT_LABEL[e.kind], tone: e.ok ? undefined : "bad" },
-      {
-        v: e.amounts.length > 0 ? e.amounts.map((a) => coin(a)).join(", ") : "—",
-        mono: true,
-        align: "right",
-        dim: e.amounts.length === 0,
-      },
-      {
-        v: `#${e.height.toLocaleString()}`,
-        mono: true,
-        align: "right",
-        href: `/${chainId}/blocks/${e.height}`,
-      },
-      { v: day(e.time), dim: true, align: "right" },
-    ],
-    detail: {
-      title: EVENT_LABEL[e.kind],
-      rows: [],
-      action: { label: "Transaction", href: `/${chainId}/txs/${e.txHash}` },
+    {
+      key: "selfbond",
+      label: "Self bond",
+      value: selfBond ? formatToken(selfBond.amount, chain.exponent) : "N/A",
+      sub: selfBond?.share != null ? `${pct(selfBond.share)} of its stake` : symbol,
     },
-  }));
-
-  // Power events: stake moving in and out, signed from this validator's side.
-  const powerKind = (e: { kind: string; validator: string | null; validatorDst: string | null }) => {
-    switch (e.kind) {
-      case "delegate":
-        return { label: "Delegate", sign: 1 };
-      case "undelegate":
-        return { label: "Undelegate", sign: -1 };
-      case "redelegate":
-        return e.validatorDst === addr
-          ? { label: "Redelegate in", sign: 1 }
-          : { label: "Redelegate out", sign: -1 };
-      case "cancel_unbonding":
-        return { label: "Cancel unbonding", sign: 1 };
-      case "create_validator":
-        return { label: "Create", sign: 1 };
-      case "edit_validator":
-        return { label: "Edit", sign: 0 };
-      default:
-        return { label: e.kind, sign: 0 };
-    }
-  };
-  const signedAmount = (amount: string | null, sign: number) => {
-    if (!amount || sign === 0) return "—";
-    return `${sign > 0 ? "+" : "−"}${coin({ denom: chain.denom, amount })}`;
-  };
-  const flow = (net: string | null) => {
-    if (net === null) return null;
-    const neg = net.startsWith("-");
-    const abs = neg ? net.slice(1) : net;
-    return `${neg ? "−" : abs === "0" ? "" : "+"}${coin({ denom: chain.denom, amount: abs })}`;
-  };
-  const powerDeck: DeckRow[] = (powerEv?.events ?? []).map((e) => {
-    const k = powerKind(e);
-    return {
-      key: `${e.txHash}-${e.height}-${e.kind}-${e.delegator ?? ""}`,
-      cells: [
-        { v: k.label, tone: k.sign > 0 ? "ok" : k.sign < 0 ? "bad" : undefined },
-        e.delegator
-          ? { v: truncateMiddle(e.delegator, 10, 6), address: e.delegator, mono: true }
-          : { v: "—", dim: true },
-        { v: signedAmount(e.amount, k.sign), mono: true, align: "right", dim: k.sign === 0 },
+    uptime.window !== null || uptime.bars.length > 0
+      ? {
+          key: "signing",
+          label: "Signing",
+          // Jailed, the window is reset and stops counting; its percentage would
+          // be a clean record the validator did not earn.
+          value: jailed ? "N/A" : pct(uptime.ratio),
+          sub: jailed
+            ? "jailed"
+            : uptime.missed !== null && uptime.window !== null
+              ? `${uptime.missed.toLocaleString()} missed of ${uptime.window.toLocaleString()}`
+              : "slashing window",
+          tone: jailed
+            ? "bad"
+            : uptime.ratio === null
+              ? undefined
+              : uptime.ratio >= 0.99
+                ? "ok"
+                : uptime.ratio < 0.95
+                  ? "bad"
+                  : undefined,
+          rows: kept([
+            {
+              label: "Signed",
+              value: !jailed && signed !== null ? signed.toLocaleString() : "—",
+              mono: true,
+            },
+            {
+              label: "Missed",
+              value: !jailed && uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
+              mono: true,
+            },
+            {
+              label: "Window",
+              value: uptime.window !== null ? `${uptime.window.toLocaleString()} blocks` : "—",
+              mono: true,
+            },
+            {
+              label: "Miss budget",
+              value: !jailed && budget !== null ? `${budget.toLocaleString()} blocks` : "—",
+              mono: true,
+            },
+            {
+              label: `Longest miss streak · last ${uptime.bars.length}`,
+              value: streak !== null ? String(streak) : "—",
+              mono: true,
+            },
+            {
+              label: "Jailed until",
+              value: uptime.jailedUntil ? new Date(uptime.jailedUntil).toLocaleString() : "Never",
+            },
+            { label: "Tombstoned", value: uptime.tombstoned ? "Yes" : "No" },
+          ]),
+        }
+      : { key: "signing", label: "Signing", value: "N/A" },
+    {
+      key: "commission",
+      label: "Commission",
+      value: pct(validator.commissionRate),
+      sub: `max ${pct(validator.maxRate, 0)}`,
+      rows: kept([
+        { label: "Current rate", value: pct(validator.commissionRate), mono: true },
+        { label: "Max rate", value: pct(validator.maxRate, 0), mono: true },
+        { label: "Max change", value: `${pct(validator.maxChangeRate)}/day`, mono: true },
         {
-          v: `#${e.height.toLocaleString()}`,
-          mono: true,
-          align: "right",
-          href: `/${chainId}/blocks/${e.height}`,
+          label: "Updated",
+          value: validator.commissionUpdatedAt
+            ? new Date(validator.commissionUpdatedAt).toLocaleString()
+            : "—",
         },
-        { v: day(e.time), dim: true, align: "right" },
-      ],
-      detail: {
-        title: k.label,
-        rows: [],
-        action: e.txHash
-          ? { label: "Transaction", href: `/${chainId}/txs/${e.txHash}` }
-          : { label: "Block", href: `/${chainId}/blocks/${e.height}` },
-      },
-    };
-  });
-  const flow7 = flow(powerEv?.flow7 ?? null);
-  const flow30 = flow(powerEv?.flow30 ?? null);
+        {
+          label: "Outstanding",
+          value:
+            validator.outstandingCommission.length > 0
+              ? validator.outstandingCommission.map((c) => coin(c, 4)).join(", ")
+              : "—",
+          mono: true,
+        },
+      ]),
+    },
+    {
+      key: "apr",
+      label: "Delegator APR",
+      value: netApr !== null ? pct(netApr) : "N/A",
+      sub: "after commission",
+      rows: kept([
+        { label: "Before commission", value: pct(grossApr), mono: true },
+        { label: "Commission", value: pct(validator.commissionRate), mono: true },
+        { label: "After commission", value: pct(netApr), mono: true },
+      ]),
+    },
+  ];
 
   const sections = [
     {
@@ -780,185 +325,69 @@ export default async function ValidatorDetailPage({
         </Suspense>
       ),
     },
-    ...(uptime.bars.length > 0 || signingHist
-      ? [
-          {
-            key: "signing",
-            label: "Signing",
-            content: (
-              <div className="gata-surface flex h-full flex-col gap-2 overflow-y-auto px-4 py-3">
-                {uptime.bars.length > 0 ? (
-                <>
-                <div className="flex shrink-0 flex-wrap items-center gap-1.5 text-[11.5px]">
-                  <Fact label={`last ${uptime.bars.length} blocks`} />
-                  <Fact
-                    value={String(uptime.bars.filter((b) => !b).length)}
-                    label="missed"
-                  />
-                  {streak !== null ? <Fact label="longest streak" value={String(streak)} /> : null}
-                  {!jailed && budget !== null ? (
-                    <Fact label="miss budget" value={budget.toLocaleString()} />
-                  ) : null}
-                  {jailed ? <Fact label="jailed" /> : null}
-                </div>
-                <UptimeBars
-                  // Jailed, the window is reset: show the strip, not its percentage.
-                  uptime={jailed ? { ...uptime, ratio: null, missed: null } : uptime}
-                  slashingWindow
-                  expand
-                  chainId={chainId}
-                />
-                </>
-                ) : null}
-                {signingHist ? (
-                  <div className={uptime.bars.length > 0 ? "mt-2 border-t border-border/60 pt-3" : undefined}>
-                    <ValidatorSigningHistory history={signingHist} chainId={chainId} />
-                  </div>
-                ) : null}
-              </div>
-            ),
-          },
-        ]
-      : []),
-    ...(proposedList
-      ? [
-          {
-            key: "proposed",
-            label: "Proposed",
-            content: (
-              <RowDeck
-                accent={accent}
-                columns={[
-                  { label: "Block" },
-                  { label: "Age", align: "right", width: "30%" },
-                  { label: "Txs", align: "right", width: "18%" },
-                ]}
-                rows={proposedDeck}
-                empty="None"
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(votes
-      ? [
-          {
-            key: "votes",
-            label: skipped.size > 0 ? `Votes · ${skipped.size} skipped` : "Votes",
-            content: (
-              <RowDeck
-                accent={accent}
-                columns={[
-                  { label: "Proposal", width: "16%" },
-                  { label: "Vote" },
-                  { label: "Tx", width: "22%", phoneHide: true },
-                  { label: "Date", align: "right", width: "22%" },
-                ]}
-                rows={voteDeck}
-                empty="None"
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(events
-      ? [
-          {
-            key: "events",
-            label: "Events",
-            content: (
-              <RowDeck
-                accent={accent}
-                columns={[
-                  { label: "Event" },
-                  { label: "Amount", align: "right", width: "26%", phoneHide: true },
-                  { label: "Block", align: "right", width: "20%" },
-                  { label: "Date", align: "right", width: "20%" },
-                ]}
-                rows={eventDeck}
-                empty="None"
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(powerEv
-      ? [
-          {
-            key: "power",
-            label: "Power events",
-            content: (
-              <RowDeck
-                accent={accent}
-                columns={[
-                  { label: "Event", width: "18%" },
-                  { label: "Delegator", phoneHide: true },
-                  { label: "Amount", align: "right", width: "22%" },
-                  { label: "Block", align: "right", width: "15%", optional: true },
-                  { label: "Date", align: "right", width: "16%" },
-                ]}
-                rows={powerDeck}
-                toolbar={
-                  flow7 || flow30 ? (
-                    <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
-                      {flow7 ? <Fact label="net 7d" value={flow7} /> : null}
-                      {flow30 ? <Fact label="net 30d" value={flow30} /> : null}
-                    </div>
-                  ) : undefined
-                }
-                empty="None"
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(powerHist && powerHist.length >= 1
-      ? [
-          {
-            key: "stake",
-            label: "Power",
-            content: <ValidatorPowerHistory points={powerHist} accent={accent} />,
-          },
-        ]
-      : stake && stake.length >= 2
-      ? [
-          {
-            key: "stake",
-            label: "Stake",
-            content: (
-              <ValidatorStakeChart
-                points={stake}
-                exponent={chain.exponent}
-                symbol={symbol}
-                accent={accent}
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(slashes
-      ? [
-          {
-            key: "jailings",
-            label: jailings > 0 ? `Jailings · ${jailings}` : "Jailings",
-            content: (
-              <RowDeck
-                accent={accent}
-                columns={[
-                  { label: "Event", width: "16%" },
-                  { label: "Reason" },
-                  { label: "Down", align: "right", width: "13%" },
-                  { label: "Burned", align: "right", width: "17%", phoneHide: true },
-                  { label: "Block", align: "right", width: "18%", optional: true },
-                  { label: "Date", align: "right", width: "22%" },
-                ]}
-                rows={jailDeck}
-                empty="Never"
-              />
-            ),
-          },
-        ]
-      : []),
+    {
+      key: "signing",
+      label: "Signing",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <SigningTab {...keys} jailedOnChain={validator.jailed} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "proposed",
+      label: "Proposed",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <ProposedTab {...keys} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "votes",
+      label: "Votes",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <VotesTab {...keys} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "power",
+      label: "Power events",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <PowerEventsTab {...keys} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "stake",
+      label: "Power",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <PowerTab {...keys} symbol={symbol} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "events",
+      label: "Events",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <EventsTab {...keys} />
+        </Suspense>
+      ),
+    },
+    {
+      key: "jailings",
+      label: "Jailings",
+      content: (
+        <Suspense fallback={<TabLoading />}>
+          <JailingsTab {...keys} jailedOnChain={validator.jailed} />
+        </Suspense>
+      ),
+    },
   ];
 
   const initialTab = tab && TABS.includes(tab) ? tab : undefined;
@@ -966,15 +395,20 @@ export default async function ValidatorDetailPage({
   return (
     <PageFrame
       title={validator.moniker}
+      emblem={
+        <ValidatorAvatar
+          name={validator.moniker}
+          logos={logos.get(validator.operatorAddress) ?? []}
+          size={30}
+        />
+      }
       sub={`${validator.rank ? `Rank #${validator.rank}` : "Unranked"} · ${chain.prettyName}`}
       accent={accent}
       actions={
         <>
-          {behind ? (
-            <span className="rounded-full bg-[var(--gata-amber)]/12 px-2 py-0.5 text-[11px] font-medium text-[var(--gata-amber)]">
-              Index behind
-            </span>
-          ) : null}
+          <Suspense fallback={null}>
+            <IndexBehind chainId={chainId} />
+          </Suspense>
           {links.length > 0 ? <LinkedAddresses links={links} currentChainId={chainId} /> : null}
           <ValidatorStatus
             jailed={validator.jailed}
@@ -984,101 +418,150 @@ export default async function ValidatorDetailPage({
         </>
       }
     >
-      <div className="flex h-full flex-col gap-3">
-        {/* Identity: every address this validator goes by, each linked or copyable. */}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px]">
-          <IdentityItem label="Operator" copy={validator.operatorAddress}>
-            <span className="font-mono">{truncateMiddle(validator.operatorAddress, 14, 6)}</span>
-          </IdentityItem>
-          {selfDelegation ? (
-            <IdentityItem label="Account" copy={selfDelegation}>
-              <AddressLink address={selfDelegation} head={10} tail={6} />
-            </IdentityItem>
+      {/* Phones stack and scroll inside the frame; from lg the profile takes a
+          column of its own and only the lists scroll. */}
+      <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto lg:grid lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:overflow-hidden">
+        <aside className="gata-surface order-last flex shrink-0 flex-col gap-4 px-4 py-3.5 lg:order-none lg:min-h-0 lg:overflow-y-auto">
+          {validator.details ? (
+            <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-foreground/85">
+              {validator.details}
+            </p>
           ) : null}
-          {ids ? (
-            <>
-              <IdentityItem label="Consensus" copy={ids.valcons}>
-                <span className="font-mono">{truncateMiddle(ids.valcons, 14, 6)}</span>
-              </IdentityItem>
-              <IdentityItem label="Hex" copy={ids.hex}>
-                <span className="font-mono">{truncateMiddle(ids.hex, 8, 6)}</span>
-              </IdentityItem>
-            </>
-          ) : null}
-          {validator.identity ? (
-            <IdentityItem label="Keybase">
+
+          {website || keybase || validator.identity ? (
+            <div className="flex flex-wrap gap-1.5 text-[12px]">
+              {websiteHref ? (
+                <ExternalChip href={websiteHref} label={website} />
+              ) : website ? (
+                <span className="rounded-md border border-border px-2 py-0.5 text-muted-foreground">
+                  {website}
+                </span>
+              ) : null}
               {keybase ? (
-                <a
-                  href={`https://keybase.io/${keybase}`}
-                  target="_blank"
-                  rel="noopener noreferrer nofollow"
-                  className="text-primary hover:underline"
-                >
-                  {keybase}
-                </a>
-              ) : (
-                <span className="font-mono">{validator.identity}</span>
-              )}
-            </IdentityItem>
+                <ExternalChip href={`https://keybase.io/${keybase}`} label={`keybase · ${keybase}`} />
+              ) : validator.identity ? (
+                <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+                  {validator.identity}
+                </span>
+              ) : null}
+            </div>
           ) : null}
-          {validator.website ? (
-            <IdentityItem label="Website">
-              <a
-                href={validator.website}
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                className="text-primary hover:underline"
-              >
-                {website}
-              </a>
-            </IdentityItem>
-          ) : null}
-          <Suspense fallback={null}>
-            <ValidatorElsewhere
-              chain={chain}
-              account={selfDelegation}
-              identity={validator.identity}
+
+          <Group label="Addresses">
+            <AddressRow label="Operator" copy={validator.operatorAddress}>
+              <span className="font-mono">{truncateMiddle(validator.operatorAddress, 16, 8)}</span>
+            </AddressRow>
+            {account ? (
+              <AddressRow label="Account" copy={account}>
+                <AddressLink address={account} head={12} tail={8} />
+              </AddressRow>
+            ) : null}
+            {ids ? (
+              <>
+                <AddressRow label="Consensus" copy={ids.valcons}>
+                  <span className="font-mono">{truncateMiddle(ids.valcons, 16, 8)}</span>
+                </AddressRow>
+                <AddressRow label="Hex" copy={ids.hex}>
+                  <span className="font-mono">{truncateMiddle(ids.hex, 12, 8)}</span>
+                </AddressRow>
+              </>
+            ) : null}
+          </Group>
+
+          <Group label="Terms">
+            <TermRow label="Max commission" value={pct(validator.maxRate, 0)} />
+            <TermRow label="Max change" value={`${pct(validator.maxChangeRate)}/day`} />
+            <TermRow
+              label="Min self delegation"
+              value={`${formatToken(validator.minSelfDelegation, chain.exponent, 6)} ${symbol}`}
             />
+            {validator.securityContact ? (
+              <TermRow label="Security" value={validator.securityContact} />
+            ) : null}
+          </Group>
+
+          <Suspense fallback={null}>
+            <ValidatorElsewhere chain={chain} account={account} identity={validator.identity} />
           </Suspense>
-        </div>
-        <div className="shrink-0">
-          <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
-        </div>
-        <div className="min-h-0 flex-1">
-          <SectionTabs sections={sections} initial={initialTab} param="tab" />
+        </aside>
+
+        <div className="flex shrink-0 flex-col gap-3 lg:min-h-0 lg:shrink">
+          <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+            <BrickBoard accent={accent} bricks={bricks} bare />
+            <Suspense fallback={<BrickLoading count={3} />}>
+              <IndexedBricks {...keys} />
+            </Suspense>
+          </div>
+          <div className="h-[34rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+            <SectionTabs sections={sections} initial={initialTab} param="tab" />
+          </div>
         </div>
       </div>
     </PageFrame>
   );
 }
 
-function IdentityItem({
+async function IndexBehind({ chainId }: { chainId: string }) {
+  const behind = await indexBehind(chainId).catch(() => false);
+  if (!behind) return null;
+  return (
+    <span className="rounded-full bg-[var(--gata-amber)]/12 px-2 py-0.5 text-[11px] font-medium text-[var(--gata-amber)]">
+      Index behind
+    </span>
+  );
+}
+
+function Group({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1.5">
+      <h2 className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </h2>
+      <div className="flex flex-col divide-y divide-border/50">{children}</div>
+    </section>
+  );
+}
+
+function AddressRow({
   label,
   copy,
   children,
 }: {
   label: string;
-  copy?: string;
+  copy: string;
   children: React.ReactNode;
 }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
-        {label}
+    <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="flex min-w-0 items-center gap-1">
+        <span className="truncate">{children}</span>
+        <CopyButton value={copy} label={label.toLowerCase()} />
       </span>
-      {children}
-      {copy ? <CopyButton value={copy} label={label.toLowerCase()} /> : null}
-    </span>
+    </div>
   );
 }
 
-function Fact({ label, value }: { label: string; value?: string }) {
+function TermRow({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex items-baseline gap-1 rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5">
-      {value !== undefined ? (
-        <span className="font-mono font-semibold text-foreground">{value}</span>
-      ) : null}
-      <span className="text-muted-foreground">{label}</span>
-    </span>
+    <div className="flex min-w-0 items-baseline justify-between gap-3 py-1.5 text-[12px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="truncate text-right font-mono" title={value}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ExternalChip({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      className="max-w-full truncate rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5 text-primary transition-colors hover:border-[var(--gata-border-hi)]"
+    >
+      {label} ↗
+    </a>
   );
 }

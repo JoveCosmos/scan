@@ -46,7 +46,7 @@ export function SectionTabs({
       <div
         role="tablist"
         aria-label="Sections"
-        className="flex shrink-0 items-center gap-1 border-b border-border pb-2"
+        className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border pb-2 [scrollbar-width:none]"
       >
         {sections.map((section) => {
           const on = section.key === active;
@@ -57,7 +57,7 @@ export function SectionTabs({
               role="tab"
               aria-selected={on}
               onClick={() => setActive(section.key)}
-              className={`relative rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+              className={`relative shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors ${
                 on
                   ? "bg-[var(--gata-card-hi)] text-foreground"
                   : "text-muted-foreground hover:text-foreground"

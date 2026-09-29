@@ -51,17 +51,21 @@ export async function ValidatorElsewhere({
   if (hits.length === 0) return null;
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
-      <span className="text-muted-foreground">Also validates</span>
-      {hits.map((h) => (
-        <Link
-          key={h.chain.chainId}
-          href={`/${h.chain.chainId}/validators/${h.operator}`}
-          className="rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5 text-primary transition-colors hover:border-[var(--gata-border-hi)]"
-        >
-          {h.chain.prettyName}
-        </Link>
-      ))}
-    </span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+        Also validates
+      </span>
+      <div className="flex flex-wrap gap-1.5 text-[12px]">
+        {hits.map((h) => (
+          <Link
+            key={h.chain.chainId}
+            href={`/${h.chain.chainId}/validators/${h.operator}`}
+            className="rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5 text-primary transition-colors hover:border-[var(--gata-border-hi)]"
+          >
+            {h.chain.prettyName}
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }

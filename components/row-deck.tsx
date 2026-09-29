@@ -166,14 +166,15 @@ export function RowDeck({
     observerRef.current?.disconnect();
     observerRef.current = null;
     if (!el) return;
-    // Head and row heights are read from the rendered table in layout pixels,
-    // the same units as clientHeight, so the count holds under the page zoom.
     const measure = () => {
       const head = el.querySelector("thead") as HTMLElement | null;
       const row = el.querySelector("tbody tr") as HTMLElement | null;
-      const headH = head?.offsetHeight || HEAD_H;
-      const rowH = row && row.offsetHeight > 8 ? row.offsetHeight : ROW_H;
-      setPerPage(Math.max(3, Math.floor((el.clientHeight - headH) / rowH)));
+      // All three read as on-screen rects, so the page zoom cancels out.
+      const zoomed = el.getBoundingClientRect().height / (el.offsetHeight || 1) || 1;
+      const headH = head ? head.getBoundingClientRect().height : HEAD_H * zoomed;
+      const rowRect = row?.getBoundingClientRect().height ?? 0;
+      const rowH = rowRect > 8 ? rowRect : ROW_H * zoomed;
+      setPerPage(Math.max(3, Math.floor((el.getBoundingClientRect().height - headH) / rowH)));
       // Feeds count the rows that end inside the box, both edges read in the
       // same on-screen coordinates, so the page zoom cancels out.
       const bottom = el.getBoundingClientRect().bottom + 0.5;
@@ -210,9 +211,11 @@ export function RowDeck({
   const cut = (index: number) => fit && fitCount !== null && index >= fitCount;
 
   // New rows arrive with every poll: recount which of them fit.
+  // Measured again once rows are drawn: the first measure can run before any
+  // row exists and size the page from a guessed row height, leaving a gap.
   useLayoutEffect(() => {
-    if (fit) measureRef.current?.();
-  }, [fit, shown]);
+    measureRef.current?.();
+  }, [shown]);
 
   // A row with a page of its own goes there directly; only rows without one
   // open the summary popup.

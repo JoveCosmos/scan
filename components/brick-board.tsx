@@ -57,6 +57,7 @@ export function BrickBoard({
   head,
   className,
   size = "sm",
+  bare = false,
 }: {
   /** Only needed for the live head poll, so a static board can omit it. */
   chainId?: string;
@@ -71,6 +72,9 @@ export function BrickBoard({
   className?: string;
   /** "lg" is the overview's headline figures: fewer, larger tiles. */
   size?: "sm" | "lg";
+  /** Tiles only, no grid of their own: the parent's grid places them, so two
+   *  boards (one streamed in later) can share one row of tiles. */
+  bare?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -104,33 +108,39 @@ export function BrickBoard({
 
   const open = bricks.find((b) => b.key === openKey) ?? null;
 
+  const tiles = bricks.map((brick) => {
+    const visual = resolve(brick);
+    const href =
+      brick.liveHref === "block" && data?.height && chainId
+        ? `/${chainId}/blocks/${data.height}`
+        : brick.href;
+    if (href) {
+      return <BrickLink key={brick.key} brick={visual} accent={accent} href={href} />;
+    }
+    if ((brick.rows && brick.rows.length > 0) || brick.body) {
+      return (
+        <BrickButton
+          key={brick.key}
+          brick={visual}
+          accent={accent}
+          onClick={() => setOpenKey(brick.key)}
+        />
+      );
+    }
+    return <Brick key={brick.key} brick={visual} accent={accent} />;
+  });
+
   return (
     <>
-      <BrickGrid
-        className={`${size === "lg" ? "brick-lg !grid-cols-2 sm:!grid-cols-3 lg:!grid-cols-5" : ""} ${className ?? ""}`}
-      >
-        {bricks.map((brick) => {
-          const visual = resolve(brick);
-          const href =
-            brick.liveHref === "block" && data?.height && chainId
-              ? `/${chainId}/blocks/${data.height}`
-              : brick.href;
-          if (href) {
-            return <BrickLink key={brick.key} brick={visual} accent={accent} href={href} />;
-          }
-          if ((brick.rows && brick.rows.length > 0) || brick.body) {
-            return (
-              <BrickButton
-                key={brick.key}
-                brick={visual}
-                accent={accent}
-                onClick={() => setOpenKey(brick.key)}
-              />
-            );
-          }
-          return <Brick key={brick.key} brick={visual} accent={accent} />;
-        })}
-      </BrickGrid>
+      {bare ? (
+        tiles
+      ) : (
+        <BrickGrid
+          className={`${size === "lg" ? "brick-lg !grid-cols-2 sm:!grid-cols-3 lg:!grid-cols-5" : ""} ${className ?? ""}`}
+        >
+          {tiles}
+        </BrickGrid>
+      )}
 
       <Popup
         open={open !== null}
