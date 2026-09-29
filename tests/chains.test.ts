@@ -9,7 +9,7 @@ describe("chain order", () => {
   it("lists chains in the configured order", () => {
     expect(getAllChains().map((c) => c.chainId)).toEqual([
       "gnoland-1",
-      "pearl-1",
+      "onyx-1",
       "atomone-1",
       "atomone-testnet-1",
       "cosmoshub-4",

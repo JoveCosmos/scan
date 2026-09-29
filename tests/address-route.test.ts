@@ -6,7 +6,7 @@ const chains = [
   { chainId: "provider", bech32Prefix: "cosmos", network: "testnet" as const },
   { chainId: "osmosis-1", bech32Prefix: "osmo", network: "mainnet" as const },
   { chainId: "gnoland-1", bech32Prefix: "g", network: "mainnet" as const },
-  { chainId: "pearl-1", bech32Prefix: "g", network: "testnet" as const },
+  { chainId: "onyx-1", bech32Prefix: "g", network: "testnet" as const },
 ];
 
 describe("routeAddress", () => {

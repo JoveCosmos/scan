@@ -22,7 +22,7 @@ const CHAINLIST_DIR: Record<string, string> = {
   "passage-2": "passage",
   provider: "ics-testnet-provider",
   "gnoland-1": "gno",
-  "pearl-1": "gno-testnet",
+  "onyx-1": "gno-testnet",
 };
 
 export function chainlistLogo(chainId: string, operator: string): string | null {

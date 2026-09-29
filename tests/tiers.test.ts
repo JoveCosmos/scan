@@ -8,7 +8,7 @@ describe("tiers", () => {
     for (const chain of getAllChains()) byTier[chain.tier].push(chain.chainId);
 
     expect(byTier).toEqual({
-      high: ["gnoland-1", "pearl-1", "atomone-1", "atomone-testnet-1"],
+      high: ["gnoland-1", "onyx-1", "atomone-1", "atomone-testnet-1"],
       medium: ["cosmoshub-4", "provider", "akashnet-2"],
       limited: ["osmosis-1", "passage-2", "juno-1"],
     });

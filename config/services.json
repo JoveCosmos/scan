@@ -155,7 +155,7 @@
       "snapshotKey": "gnoland"
     },
     {
-      "chainId": "pearl-1",
+      "chainId": "onyx-1",
       "endpoints": [
         {
           "label": "RPC",
@@ -166,7 +166,7 @@
       "snapshot": {
         "pruning": "unpruned (gno has no pruning), no tx index"
       },
-      "snapshotKey": "pearl"
+      "snapshotKey": "onyx"
     }
   ]
 }

@@ -23,7 +23,7 @@ import {
  * JSON-RPC, while blocks and transactions come from our own tx-indexer
  * (gnolang/tx-indexer), which runs beside the node on this box and answers
  * GraphQL. It replaced Onbloc's REST API, which did not follow the network onto
- * gnoland-1 or pearl-1.
+ * gnoland-1 or onyx-1.
  */
 
 interface RpcEnvelope<T> {
