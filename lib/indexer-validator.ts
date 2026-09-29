@@ -475,7 +475,10 @@ export const SQL = {
             ) + 1)::text AS lo,
            (SELECT max(height) FROM block WHERE chain_id = $1)::text AS hi`,
   blockTimes: `SELECT height::text, time::text FROM block WHERE chain_id = $1 AND height = ANY($2::bigint[])`,
-  firstHeightSince: `SELECT min(height)::text AS h FROM block WHERE chain_id = $1 AND time >= $2`,
+  // First block by time rather than min(height) over the range: the time index
+  // answers this in one row, where min(height) read every block since then
+  // (1.3 million for 90 days on AtomOne) and held the Signing tab ~35 s.
+  firstHeightSince: `SELECT height::text AS h FROM block WHERE chain_id = $1 AND time >= $2 ORDER BY time ASC LIMIT 1`,
   consHexByOperator: `SELECT cons_hex FROM validator_key WHERE chain_id = $1 AND operator = $2`,
   operatorsByHex: `SELECT cons_hex, operator FROM validator_key WHERE chain_id = $1 AND cons_hex = ANY($2::text[])`,
   missedCounts: `
@@ -600,12 +603,21 @@ export async function consHexOf(chainId: string, operator: string): Promise<stri
   }
 }
 
-async function heightSince(chainId: string, sinceIso: string): Promise<number | null> {
+/**
+ * The first block of the last `days` days. The same for every validator on the
+ * chain, so cached per chain; the cutoff is rounded to the hour so the key holds
+ * still for that long.
+ */
+function heightDaysAgo(chainId: string, days: number): Promise<number | null> {
   const pool = poolFor(chainId);
-  if (!pool) return null;
-  const { rows } = await pool.query<{ h: string | null }>(SQL.firstHeightSince, [chainId, sinceIso]);
-  const h = Number(rows[0]?.h);
-  return rows[0]?.h && Number.isFinite(h) ? h : null;
+  if (!pool) return Promise.resolve(null);
+  const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+  const since = new Date(hour - days * DAY_MS).toISOString();
+  return cached(`idx:heightsince:${chainId}:${days}:${hour}`, 60 * 60_000, async () => {
+    const { rows } = await pool.query<{ h: string | null }>(SQL.firstHeightSince, [chainId, since]);
+    const h = Number(rows[0]?.h);
+    return rows[0]?.h && Number.isFinite(h) ? h : null;
+  });
 }
 
 export interface SigningWindow {
@@ -653,8 +665,8 @@ export async function signingHistory(
       async () => {
         const now = Date.now();
         const [h30, h90] = await Promise.all([
-          heightSince(chainId, new Date(now - 30 * DAY_MS).toISOString()),
-          heightSince(chainId, new Date(now - 90 * DAY_MS).toISOString()),
+          heightDaysAgo(chainId, 30),
+          heightDaysAgo(chainId, 90),
         ]);
         const from30 = h30 !== null && h30 >= cov.lo ? h30 : null;
         const from90 = h90 !== null && h90 >= cov.lo ? h90 : null;
@@ -741,7 +753,7 @@ export async function missedLast30d(chainId: string): Promise<Map<string, number
       `idx:missed30:${chainId}`,
       300_000,
       async () => {
-        const from = await heightSince(chainId, new Date(Date.now() - 30 * DAY_MS).toISOString());
+        const from = await heightDaysAgo(chainId, 30);
         if (from === null || from < cov.lo) return null;
         const { rows } = await pool.query<{ cons_addr: string; n: number }>(SQL.missedBySet, [
           chainId,
