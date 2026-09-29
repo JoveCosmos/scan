@@ -38,11 +38,13 @@ services:
       timeout: 5s
       retries: 5
     # The indexer is a background service; it must never crowd out the node or
-    # Scan on a shared box.
+    # Scan on a shared box. 4g, not 1g: at 1g the archive refill (backfill at
+    # concurrency 16, the follower, Scan's reads and autoanalyze) was
+    # OOM-killed twice, 2026-09-26 and 09-27. The box has 125 GB.
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 4g
 
 volumes:
   # Managed by Docker under its data root. `docker volume inspect

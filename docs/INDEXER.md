@@ -318,7 +318,7 @@ new (`last_height >= head`). So:
   or its node is — fall back to the live path.
 - `head_height - last_height` is **lag**: the follower is alive but behind.
 - A backfill never moves the cursor.
-- **gno chains** (`gnoland-1`, `pearl-1`) have cursor rows too, written by the
+- **gno chains** (`gnoland-1`, `onyx-1`) have cursor rows too, written by the
   gno follower. `head_height` is the node's head (from a non-validating node);
   the heartbeat fires only while the tx-indexer the follower reads is within
   10 blocks of that head, so a stalled tx-indexer shows up as a stale cursor,
@@ -364,7 +364,7 @@ session; Scan owns that file. Each read gates on its capability.
 ### gno.land in our own database (migration 011)
 
 Read from each chain's own tx-indexer (GraphQL: gnoland-1 on 127.0.0.1:8547,
-pearl-1 on 8546) by height range, from genesis, by the same `indexer.service`
+onyx-1 on 8546; pearl-1, retired 2026-09-28, keeps its rows) by height range, from genesis, by the same `indexer.service`
 (`INDEXER_GNO`). Blocks are written into `block` at version 4. A block whose
 transaction count (`num_txs`) differs from what the tx-indexer returns for it is
 written **hollow** (version 0): present, never covered.
