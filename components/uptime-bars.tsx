@@ -89,7 +89,7 @@ export function UptimeBars({
                 key={i}
                 href={`/${chainId}/blocks/${h}`}
                 prefetch={false}
-                title={`#${h.toLocaleString()} · ${signed ? "signed" : "missed"}`}
+                title={`#${h.toLocaleString()} ${signed ? "signed" : "missed"}`}
                 aria-label={`Block ${h}, ${signed ? "signed" : "missed"}`}
                 className={cls}
               />

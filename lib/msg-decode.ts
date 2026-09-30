@@ -160,7 +160,7 @@ function text(label: string, v: unknown, mono = false): DecodedField[] {
 function addressList(label: string, v: unknown): DecodedField[] {
   const list = Array.isArray(v) ? v.map(str).filter((a): a is string => a !== null) : [];
   return list.map((address, i) => ({
-    label: i === 0 ? (list.length > 1 ? `${label} · ${list.length}` : label) : "",
+    label: i === 0 ? (list.length > 1 ? `${list.length} ${label.toLowerCase()}` : label) : "",
     value: { kind: "address", address },
   }));
 }
@@ -491,7 +491,7 @@ function decodeFields(chainId: string, name: string, m: Raw, ctx?: DecodeContext
         ...addr("Grantee", m.grantee),
         // A Stake Authorization is one type for three powers; without the kind
         // a delegate-only grant (Restake) reads the same as a redelegate one.
-        ...text("Authorization", type ? (kind ? `${type} · ${kind}` : type) : null),
+        ...text("Authorization", type ? (kind ? `${type}, ${kind}` : type) : null),
         ...text("Message", auth.msg, true),
         ...coinsField("Max tokens", coinList(auth.max_tokens)),
         ...coinsField("Spend limit", coinList(auth.spend_limit)),

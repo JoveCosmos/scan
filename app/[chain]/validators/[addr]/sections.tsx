@@ -252,7 +252,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
       label: "Blocks proposed",
       value: proposer.proposed.toLocaleString(),
       sub: fairness
-        ? `${fairness.ratio.toFixed(2)}× expected · ${verdict(fairness.ratio)}`
+        ? `${fairness.ratio.toFixed(2)}× expected, ${verdict(fairness.ratio)}`
         : `${pct(share)} of the chain's`,
       tone: fairness
         ? fairness.ratio >= 0.95
@@ -278,7 +278,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
               },
               {
                 label: "Versus stake",
-                value: `${fairness.ratio.toFixed(2)}× · ${verdict(fairness.ratio)}`,
+                value: `${fairness.ratio.toFixed(2)}×, ${verdict(fairness.ratio)}`,
               },
               {
                 label: "Window",
@@ -290,7 +290,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
         {
           label: "Last proposed",
           value: proposer.lastHeight
-            ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? ` · ${timeAgo(proposer.lastTime)}` : ""}`
+            ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? `, ${timeAgo(proposer.lastTime)}` : ""}`
             : "Never",
           mono: true,
           ...(proposer.lastHeight ? { href: `/${chainId}/blocks/${proposer.lastHeight}` } : {}),
@@ -421,9 +421,9 @@ export async function VotesTab({ chain, accent, account }: ValidatorKeys) {
       cells: [
         { v: `#${v.proposalId}`, mono: true, tone: "accent" as const },
         {
-          v: `${voteOptionLabel(v.option)}${v.weighted ? " · split" : ""}${
+          v: `${voteOptionLabel(v.option)}${v.weighted ? ", split" : ""}${
             recasts?.get(v.proposalId)
-              ? ` · was ${recasts.get(v.proposalId)!.map(voteOptionLabel).join(", ")}`
+              ? `, was ${recasts.get(v.proposalId)!.map(voteOptionLabel).join(", ")}`
               : ""
           }`,
         },

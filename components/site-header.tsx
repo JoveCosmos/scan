@@ -308,7 +308,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
                 <Link
                   key={tab.href}
                   href={`/${chain.chainId}${tab.href}`}
-                  title={na ? `${tab.label} · N/A` : tab.label}
+                  title={na ? `${tab.label}, N/A` : tab.label}
                   aria-current={active ? "page" : undefined}
                   className={`nav-tab px-2 sm:px-3 ${na && !active ? "opacity-45 hover:opacity-100" : ""}`}
                 >

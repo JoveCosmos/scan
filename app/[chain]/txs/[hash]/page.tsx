@@ -197,12 +197,12 @@ export default async function TxDetailPage({
   );
 
   const sections = [
-    { key: "messages", label: `Messages · ${tx.messageCount}`, content: messagesPanel },
+    { key: "messages", label: `Messages (${tx.messageCount})`, content: messagesPanel },
     ...(events.length
       ? [
           {
             key: "events",
-            label: `Events · ${events.length}`,
+            label: `Events (${events.length})`,
             content: (
               <div className="h-full overflow-y-auto pr-1">
                 <EventList
@@ -218,7 +218,7 @@ export default async function TxDetailPage({
       ? [
           {
             key: "ibc",
-            label: `IBC · ${traces.length}`,
+            label: `IBC (${traces.length})`,
             content: (
               <div className="h-full overflow-y-auto pr-1">
                 <IbcTraceList traces={traces} chainId={chainId} />
@@ -231,7 +231,7 @@ export default async function TxDetailPage({
       ? [
           {
             key: "movements",
-            label: `Movements · ${movements.length}`,
+            label: `Movements (${movements.length})`,
             content: (
               <div className="h-full overflow-y-auto pr-1">
                 <MovementList movements={movements} denoms={denoms} />
@@ -281,7 +281,7 @@ export default async function TxDetailPage({
               </span>
               {!ok && tx.code !== null ? (
                 <span className="ml-2 font-mono text-[12px] text-muted-foreground">
-                  {tx.codespace ? `${tx.codespace} · ` : ""}code {tx.code}
+                  {tx.codespace ? `${tx.codespace}, ` : ""}code {tx.code}
                 </span>
               ) : null}
             </SummaryRow>

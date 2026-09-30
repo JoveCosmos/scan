@@ -191,9 +191,9 @@ export function ValidatorsTable({
               {/* Phones drop the status column; a status that is not the set's
                   own ("Active" in the active set) moves here instead. */}
               {v.jailed ? (
-                <span className="text-[var(--destructive)] sm:hidden">Jailed · </span>
+                <span className="text-[var(--destructive)] sm:hidden">Jailed, </span>
               ) : set !== "active" ? (
-                <span className="sm:hidden">{statusLabel(v.status)} · </span>
+                <span className="sm:hidden">{statusLabel(v.status)}, </span>
               ) : null}
               {addressTail(v.operatorAddress)}
             </span>

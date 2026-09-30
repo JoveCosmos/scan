@@ -98,7 +98,7 @@ export function proposalTypeLabel(typeUrl: string, contentType?: string | null):
   const base = words(last.replace(/^Msg/, "").replace(/Proposal$/, "")) || last;
   if (/^Update Params$/.test(base)) {
     const mod = pick.replace(/^\//, "").split(".")[1];
-    return mod ? `Update Params · ${mod}` : base;
+    return mod ? `Update Params, ${mod}` : base;
   }
   return base;
 }

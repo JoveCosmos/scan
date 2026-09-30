@@ -76,7 +76,7 @@ const STATE_LABEL: Record<Exclude<ValidatorState, null>, string> = {
 /** "12 Oct 2026 · in 11d 4h" for a completion time. */
 function completes(iso: string): string {
   const until = timeUntil(iso);
-  return until && until !== "ended" ? `${formatDate(iso)} · ${until}` : formatDate(iso);
+  return until && until !== "ended" ? `${formatDate(iso)}, ${until}` : formatDate(iso);
 }
 
 /**
@@ -369,7 +369,7 @@ async function IbcDeck({
           tone: p.direction === "out" ? ("bad" as const) : ("ok" as const),
         },
         other
-          ? { v: `${cp?.prettyName ?? cpId ?? "—"} · ${truncateMiddle(other, 10, 6)}`, address: other }
+          ? { v: `${cp?.prettyName ?? cpId ?? "—"}, ${truncateMiddle(other, 10, 6)}`, address: other }
           : { v: cp?.prettyName ?? cpId ?? "—", dim: !cp },
         {
           v: p.amount && p.denom ? formatCoin({ denom: p.denom, amount: p.amount }, denoms, 4) : "—",
@@ -896,7 +896,7 @@ export default async function AccountPage({
                     {
                       label: txCount.exact ? "First" : "First counted",
                       value: `#${txCount.first.height.toLocaleString()}${
-                        txCount.first.time ? ` · ${formatDateTime(txCount.first.time)}` : ""
+                        txCount.first.time ? `, ${formatDateTime(txCount.first.time)}` : ""
                       }`,
                       mono: true,
                       href: `/${chain.chainId}/blocks/${txCount.first.height}`,
@@ -908,7 +908,7 @@ export default async function AccountPage({
                     {
                       label: "Last",
                       value: `#${txCount.last.height.toLocaleString()}${
-                        txCount.last.time ? ` · ${formatDateTime(txCount.last.time)}` : ""
+                        txCount.last.time ? `, ${formatDateTime(txCount.last.time)}` : ""
                       }`,
                       mono: true,
                       href: `/${chain.chainId}/blocks/${txCount.last.height}`,

@@ -261,7 +261,7 @@ export default async function ValidatorDetailPage({
               mono: true,
             },
             {
-              label: `Longest miss streak · last ${uptime.bars.length}`,
+              label: `Longest miss streak, last ${uptime.bars.length} blocks`,
               value: streak !== null ? String(streak) : "—",
               mono: true,
             },
@@ -438,7 +438,7 @@ export default async function ValidatorDetailPage({
                 </span>
               ) : null}
               {keybase ? (
-                <ExternalChip href={`https://keybase.io/${keybase}`} label={`keybase · ${keybase}`} />
+                <ExternalChip href={`https://keybase.io/${keybase}`} label={`Keybase ${keybase}`} />
               ) : validator.identity ? (
                 <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
                   {validator.identity}

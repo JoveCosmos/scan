@@ -360,7 +360,7 @@ export function RowDeck({
                   <span className="gata-live-dot h-1.5 w-1.5 rounded-full bg-[var(--gata-green)]" />
                 ) : null}
                 <span>
-                  {live ? "Live · latest" : "Showing"} {fitCount ?? shown.length}
+                  {live ? "Live, latest" : "Showing"} {fitCount ?? shown.length}
                 </span>
               </>
             ) : matched.length === 0 ? (

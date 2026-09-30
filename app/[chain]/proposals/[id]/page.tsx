@@ -74,12 +74,12 @@ const VOTE_TONE: Record<string, "ok" | "bad" | undefined> = {
   VOTE_OPTION_NO_WITH_VETO: "bad",
 };
 
-/** "Yes 60% · No 40%" for a split vote, the option alone for everyone else. */
+/** "Yes 60%, No 40%" for a split vote, the option alone for everyone else. */
 function voteLabel(vote: { primary: string; weighted: boolean; options: { option: string; weight: number }[] }) {
   if (!vote.weighted) return voteOptionLabel(vote.primary);
   return vote.options
     .map((o) => `${voteOptionLabel(o.option)} ${(o.weight * 100).toFixed(0)}%`)
-    .join(" · ");
+    .join(", ");
 }
 
 /** Votes shown per server page. The whole list used to ship at once: 3,538
@@ -288,7 +288,7 @@ async function VotesDeck({
           : { v: truncateMiddle(vote.voter, 12, 6), address: vote.voter, mono: true },
         {
           v: recasts?.get(vote.voter)
-            ? `${voteLabel(vote)} · was ${recasts.get(vote.voter)!.map(voteOptionLabel).join(", ")}`
+            ? `${voteLabel(vote)}, was ${recasts.get(vote.voter)!.map(voteOptionLabel).join(", ")}`
             : voteLabel(vote),
           tone: vote.weighted ? undefined : VOTE_TONE[vote.primary],
           dim: vote.primary === "VOTE_OPTION_ABSTAIN",
@@ -452,8 +452,8 @@ export default async function ProposalDetailPage({
       value: hasVotes ? pct(yesOfDecisive) : "—",
       sub: hasVotes
         ? `yes of decisive${
-            govParams?.threshold != null ? ` · needs ${pct(govParams.threshold, 0)}` : ""
-          }${vetoBad ? ` · veto ${pct(vetoOfAll)}` : ""}`
+            govParams?.threshold != null ? `, needs ${pct(govParams.threshold, 0)}` : ""
+          }${vetoBad ? `, veto ${pct(vetoOfAll)}` : ""}`
         : "N/A",
       tone: vetoBad ? ("bad" as const) : undefined,
       lead: true,
@@ -501,7 +501,7 @@ export default async function ProposalDetailPage({
               {
                 label: "Outcome",
                 value: `${record.outcome.charAt(0).toUpperCase()}${record.outcome.slice(1)}${
-                  record.outcomeTime ? ` · ${when(record.outcomeTime)}` : ""
+                  record.outcomeTime ? `, ${when(record.outcomeTime)}` : ""
                 }`,
               },
             ]

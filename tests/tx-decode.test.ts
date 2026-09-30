@@ -164,7 +164,7 @@ describe("authz grants", () => {
     grant: { authorization, expiration: "2027-01-01T00:00:00Z" },
   });
   const field = (fields: DecodedField[], label: string) =>
-    fields.find((f) => f.label === label || f.label.startsWith(`${label} ·`))?.value;
+    fields.find((f) => f.label === label || f.label.endsWith(` ${label.toLowerCase()}`))?.value;
 
   it("names the kind of a Stake Authorization, so delegate and redelegate grants differ", () => {
     // The operator's example: a Restake grant, delegate only, no cap.
@@ -173,14 +173,14 @@ describe("authz grants", () => {
       max_tokens: null,
       authorization_type: "AUTHORIZATION_TYPE_DELEGATE",
     }));
-    expect(field(d.fields, "Authorization")).toEqual({ kind: "text", text: "Stake Authorization · Delegate", mono: false });
+    expect(field(d.fields, "Authorization")).toEqual({ kind: "text", text: "Stake Authorization, Delegate", mono: false });
     expect(field(d.fields, "Max tokens")).toBeUndefined();
 
     const r = decodeMessage("atomone-1", "/cosmos.authz.v1beta1.MsgGrant", grant({
       "@type": "/cosmos.staking.v1beta1.StakeAuthorization",
       authorization_type: "AUTHORIZATION_TYPE_REDELEGATE",
     }));
-    expect(field(r.fields, "Authorization")).toMatchObject({ text: "Stake Authorization · Redelegate" });
+    expect(field(r.fields, "Authorization")).toMatchObject({ text: "Stake Authorization, Redelegate" });
   });
 
   it("shows the cap and every allowed validator", () => {
@@ -192,7 +192,7 @@ describe("authz grants", () => {
     }));
     expect(field(d.fields, "Max tokens")).toEqual({ kind: "coins", coins: [{ denom: "uatone", amount: "5000000" }] });
     const allowed = d.fields.filter((f) => f.value.kind === "address" && f.value.address.startsWith("atonevaloper"));
-    expect(allowed.map((f) => f.label)).toEqual(["Allowed validators · 3", "", ""]);
+    expect(allowed.map((f) => f.label)).toEqual(["3 allowed validators", "", ""]);
   });
 
   it("keeps a Generic Authorization's message", () => {

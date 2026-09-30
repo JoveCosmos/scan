@@ -9,7 +9,7 @@ describe("proposalTypeLabel", () => {
     );
   });
   it("names the module on params updates", () => {
-    expect(proposalTypeLabel("/cosmos.staking.v1beta1.MsgUpdateParams")).toBe("Update Params · staking");
+    expect(proposalTypeLabel("/cosmos.staking.v1beta1.MsgUpdateParams")).toBe("Update Params, staking");
   });
   it("reads legacy content types", () => {
     expect(

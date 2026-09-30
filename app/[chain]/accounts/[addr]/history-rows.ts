@@ -70,7 +70,7 @@ export function buildHistoryRows(
         ...(withRoles
           ? [
               tx.roles && tx.roles.length > 0
-                ? { v: tx.roles.join(" · ") }
+                ? { v: tx.roles.join(", ") }
                 : { v: "—", dim: true },
             ]
           : []),

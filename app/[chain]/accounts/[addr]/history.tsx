@@ -77,7 +77,7 @@ export function AccountHistory({
             disabled={state === "loading"}
             className="rounded-md border border-border bg-[var(--gata-card)] px-2 py-0.5 font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)] disabled:opacity-50"
           >
-            {state === "loading" ? "Loading…" : state === "failed" ? "Older · retry" : "Older"}
+            {state === "loading" ? "Loading…" : state === "failed" ? "Retry older" : "Older"}
           </button>
         ) : null}
       </div>

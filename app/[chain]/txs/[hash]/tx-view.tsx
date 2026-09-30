@@ -272,7 +272,7 @@ export function IbcTraceList({ traces, chainId }: { traces: PacketTrace[]; chain
         <section key={`${p.direction}-${p.srcChannel}-${p.sequence}`} className="gata-surface px-4 py-3">
           <header className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <h3 className="text-[14px] font-semibold">
-              {p.direction === "out" ? "Sent" : "Received"} · packet {p.sequence}
+              {p.direction === "out" ? "Sent" : "Received"}, packet {p.sequence}
             </h3>
             <span
               className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -302,7 +302,7 @@ export function IbcTraceList({ traces, chainId }: { traces: PacketTrace[]; chain
                     href={`/${counterpartyChainId}/txs/${encodeURIComponent(counterpartTx)}`}
                     className="text-primary underline decoration-transparent underline-offset-2 hover:decoration-current"
                   >
-                    {counterpartyName} · {counterpartTx.slice(0, 8)}…
+                    {counterpartyName}, {counterpartTx.slice(0, 8)}…
                   </Link>
                 ) : (
                   counterpartyName

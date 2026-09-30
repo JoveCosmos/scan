@@ -136,7 +136,7 @@ export default async function BlockDetailPage({
       label: "Transactions",
       value: String(block.txCount),
       sub: !listedAll
-        ? `${txs.length} listed · N/A`
+        ? `${txs.length} listed, N/A`
         : totalFees && totalFees !== "0"
           ? `${formatToken(totalFees, chain.exponent, 6)} ${symbol} in fees`
           : "in this block",

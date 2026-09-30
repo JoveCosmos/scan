@@ -26,7 +26,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
-  return { title: chain ? `Proposals · ${chain.prettyName}` : "Proposals" };
+  return { title: chain ? `${chain.prettyName} proposals` : "Proposals" };
 }
 
 function toneOf(status: string): "ok" | "bad" | undefined {

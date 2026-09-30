@@ -30,7 +30,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: {
     default: "GATA SCAN",
-    template: "%s · GATA SCAN",
+    template: "%s, GATA SCAN",
   },
   description:
     "Multi-chain Cosmos block scan by GATA HUB - Cosmos Hub, AtomOne and Akash.",
