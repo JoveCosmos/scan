@@ -24,7 +24,7 @@ export function AddressLink({
   full = false,
 }: {
   address: string | null | undefined;
-  /** Shown instead of the address — a validator moniker, say. */
+  /** Shown instead of the address - a validator moniker, say. */
   label?: string | null;
   className?: string;
   head?: number;
@@ -34,7 +34,7 @@ export function AddressLink({
 }) {
   const chains = useChainDirectory();
   const current = usePathname().split("/")[1] ?? null;
-  if (!address) return <span className="text-muted-foreground">—</span>;
+  if (!address) return <span className="text-muted-foreground">-</span>;
 
   const route = routeAddress(address, current, chains);
   const text = label ?? (full ? address : truncateMiddle(address, head, tail));

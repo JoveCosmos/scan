@@ -281,7 +281,7 @@ export async function getProposal(
     return null;
   }
 
-  // While voting is open final_tally_result is all zeros — the running count
+  // While voting is open final_tally_result is all zeros - the running count
   // lives on a separate endpoint.
   if (isVoting(proposal.status)) {
     try {
@@ -324,11 +324,11 @@ export interface ProposalVotes {
   /** Counts per option, by voter head-count rather than by stake. */
   byOption: Record<string, number>;
   /**
-   * "state" — live votes still held by the gov module.
-   * "history" — reconstructed from MsgVote transactions after the gov module
+   * "state" - live votes still held by the gov module.
+   * "history" - reconstructed from MsgVote transactions after the gov module
    *   deleted the votes on tally. Only the most recent vote per address, since
    *   voters can change their mind while voting is open.
-   * "indexer" — read from our own index, which stores the latest vote per
+   * "indexer" - read from our own index, which stores the latest vote per
    *   voter as the chain emitted it. Same answer as "history", without the
    *   tens of paged requests.
    */
@@ -336,7 +336,7 @@ export interface ProposalVotes {
   /** True when more votes exist than were fetched. */
   truncated: boolean;
   /**
-   * Both reads failed. Distinguishes "could not load" from "nobody voted" —
+   * Both reads failed. Distinguishes "could not load" from "nobody voted" -
    * without it a transient endpoint failure asserts that no votes exist.
    */
   failed: boolean;
@@ -420,7 +420,7 @@ const MAX_AUTHZ_DEPTH = 4;
  *
  * Validators very commonly vote from a hot key holding an authz grant, which
  * puts the real MsgVote inside `MsgExec.msgs` rather than at the top level.
- * Reading only top-level messages silently drops those votes — GATA HUB's vote
+ * Reading only top-level messages silently drops those votes - GATA HUB's vote
  * on AtomOne proposal 21 was cast exactly this way and did not appear.
  *
  * The voter recorded inside the nested message is the granter, which is the
@@ -446,7 +446,7 @@ export function flattenVoteMessages(
  * Rebuild the vote list from MsgVote transactions.
  *
  * The gov module deletes votes from state as it tallies them, so a finished
- * proposal has none left — but the transactions that cast them are still in
+ * proposal has none left - but the transactions that cast them are still in
  * block history. Fetched newest-first and deduplicated by voter, because a
  * voter may recast while voting is open and only their last vote counted.
  */
@@ -580,7 +580,7 @@ async function votesFromHistory(
 
     if (votes.length === 0) return null;
 
-    // `res.total` counts vote *transactions*, not voters — a voter who recast
+    // `res.total` counts vote *transactions*, not voters - a voter who recast
     // appears more than once and was deduplicated above. So once every page has
     // been read, the voter count is what we resolved, not what tx search
     // reported. Only a capped read leaves voters genuinely unseen.
@@ -627,7 +627,7 @@ export async function getProposalVotes(
 
   // Tried first, and only when the index demonstrably covers the whole voting
   // period. A partially backfilled proposal would otherwise report a subset of
-  // its votes as though that were the complete picture — worse than being slow,
+  // its votes as though that were the complete picture - worse than being slow,
   // because it looks like a fact.
   if (window) {
     const indexed = await votesFromIndexer(chain.chainId, id).catch(() => null);
@@ -655,7 +655,7 @@ export async function getProposalVotes(
 
   try {
     // Paged in full. The gov module returns votes in key order, so reading one
-    // page and stopping shows an arbitrary subset — and the tally underneath
+    // page and stopping shows an arbitrary subset - and the tally underneath
     // would disagree with the list above it. Measured on a 2,616-vote proposal:
     // the whole set comes back in ~1.2s.
     const raw: RawVote[] = [];
@@ -696,7 +696,7 @@ export async function getProposalVotes(
       };
     }
   } catch {
-    // Endpoint problem rather than an empty result — remember which, so an
+    // Endpoint problem rather than an empty result - remember which, so an
     // empty render can tell the difference.
     stateFailed = true;
   }

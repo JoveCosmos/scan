@@ -64,7 +64,7 @@ export function BlocksTable({
   const rows: DeckRow[] = blocks.map((block) => {
     const href = `/${chainId}/blocks/${block.height}`;
     // A resolved proposer links to its validator. An unresolved one is either
-    // a raw address (truncated) or, on gno, a name already — shown whole.
+    // a raw address (truncated) or, on gno, a name already - shown whole.
     const raw = block.proposer;
     const looksLikeAddress =
       /^[A-Za-z0-9+/=]{24,}$/.test(raw) || /^g1[0-9a-z]{30,}$/.test(raw);
@@ -100,7 +100,7 @@ export function BlocksTable({
               v: looksLikeAddress ? truncateMiddle(raw, 8, 6) : raw,
               dim: looksLikeAddress,
             },
-        { v: hash ? truncateMiddle(hash, 10, 6) : "—", mono: true, dim: true },
+        { v: hash ? truncateMiddle(hash, 10, 6) : "-", mono: true, dim: true },
       ],
       detail: {
         title: `Block ${Number(block.height).toLocaleString("en-US")}`,
@@ -122,7 +122,7 @@ export function BlocksTable({
       ]}
       rows={rows}
       fit
-      empty={isError ? "Connection lost — retrying." : "No blocks yet."}
+      empty={isError ? "Connection lost - retrying." : "No blocks yet."}
     />
   );
 }

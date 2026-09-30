@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json({ error: "N/A" }, { status: 404 });
   }
 
-  // The heaviest read on the app — scans a block window — so cache it longest.
+  // The heaviest read on the app - scans a block window - so cache it longest.
   const result = await cached(`txs:${chainId}`, 5000, async () => {
     const recent = await getAdapter(chain).getRecentTxs();
     const denoms = chain.kind === "cosmos" ? await denomsForTxs(chain, recent.txs) : [];

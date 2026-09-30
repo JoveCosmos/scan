@@ -15,7 +15,7 @@ export const DELEGATOR_PAGE = 100;
  *
  * The whole ranking is read once and cached (lib/validators); each server page
  * is a slice of it, so moving through 23,000 delegators costs one read. Still
- * streamed separately — the first read is the slowest thing on the page.
+ * streamed separately - the first read is the slowest thing on the page.
  */
 export async function ValidatorDelegators({
   chain,

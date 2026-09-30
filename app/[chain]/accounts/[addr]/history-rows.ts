@@ -32,7 +32,7 @@ export function movementFor(tx: TxSummary, address: string): AddressMovement | n
  * a zero that is not true.
  */
 function signedAmount(movement: AddressMovement | null, denoms: DenomInfo[]): string {
-  if (!movement || movement.amount.length === 0) return "—";
+  if (!movement || movement.amount.length === 0) return "-";
   const sign = movement.direction === "out" ? "−" : movement.direction === "in" ? "+" : "";
   const text = movement.amount
     .map((coin) => {
@@ -59,7 +59,7 @@ export function buildHistoryRows(
     const other = movement?.counterparty ?? null;
     const status =
       tx.code === null ? "unindexed" : tx.code === 0 ? "success" : `failed ${tx.code}`;
-    const label = tx.messages[0]?.label ?? "—";
+    const label = tx.messages[0]?.label ?? "-";
     const amount = signedAmount(movement, denoms);
 
     return {
@@ -71,7 +71,7 @@ export function buildHistoryRows(
           ? [
               tx.roles && tx.roles.length > 0
                 ? { v: tx.roles.join(", ") }
-                : { v: "—", dim: true },
+                : { v: "-", dim: true },
             ]
           : []),
         movement?.direction === "self"
@@ -82,7 +82,7 @@ export function buildHistoryRows(
                 mono: true,
                 address: other,
               }
-            : { v: "—", dim: true },
+            : { v: "-", dim: true },
         {
           v: amount,
           mono: true,

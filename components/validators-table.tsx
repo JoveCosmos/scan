@@ -43,7 +43,7 @@ const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
 };
 
 const pct = (v: number | null | undefined, d = 2) =>
-  v === null || v === undefined ? "—" : `${(v * 100).toFixed(d)}%`;
+  v === null || v === undefined ? "-" : `${(v * 100).toFixed(d)}%`;
 
 /**
  * Signing history at row height. Newest on the right; a missed block is a
@@ -77,7 +77,7 @@ function statusLabel(status: string): string {
   return s.charAt(0) + s.slice(1).toLowerCase();
 }
 
-/** The data part of a bech32 address, past its prefix — the part that differs. */
+/** The data part of a bech32 address, past its prefix - the part that differs. */
 function addressTail(address: string): string {
   const data = address.slice(address.lastIndexOf("1") + 1);
   return data.length > 14 ? `${data.slice(0, 7)}…${data.slice(-6)}` : data;
@@ -247,7 +247,7 @@ export function ValidatorsTable({
             cell: (v: ValidatorRow) => {
               const r = v.delta?.ratio;
               if (r == null)
-                return <span className="text-muted-foreground">—</span>;
+                return <span className="text-muted-foreground">-</span>;
               if (r === 0)
                 return <span className="text-muted-foreground">0.00%</span>;
               return (
@@ -307,7 +307,7 @@ export function ValidatorsTable({
             // the chain's otherwise; less its commission either way.
             cell: (v: ValidatorRow) => {
               const gross = v.apr ?? chainApr;
-              return gross == null ? "—" : pct(gross * (1 - v.commissionRate));
+              return gross == null ? "-" : pct(gross * (1 - v.commissionRate));
             },
           },
         ]
@@ -347,7 +347,7 @@ export function ValidatorsTable({
               v.uptime.bars.length > 0 ? (
                 <MiniBars bars={v.uptime.bars} />
               ) : (
-                <span className="text-muted-foreground">—</span>
+                <span className="text-muted-foreground">-</span>
               ),
           },
         ]
@@ -362,7 +362,7 @@ export function ValidatorsTable({
             w: "4.5rem",
             show: "hidden xl:table-cell",
             cell: (v: ValidatorRow) =>
-              v.uptime.missed === null ? "—" : v.uptime.missed.toLocaleString("en-US"),
+              v.uptime.missed === null ? "-" : v.uptime.missed.toLocaleString("en-US"),
           },
         ]
       : []),
@@ -377,7 +377,7 @@ export function ValidatorsTable({
             show: "hidden lg:table-cell",
             cell: (v: ValidatorRow) => {
               const n = missed30d[v.operatorAddress];
-              if (n === undefined) return <span className="text-muted-foreground">—</span>;
+              if (n === undefined) return <span className="text-muted-foreground">-</span>;
               return (
                 <span className={n > 0 ? "text-[var(--gata-amber)]" : "text-muted-foreground"}>
                   {n.toLocaleString("en-US")}
@@ -402,7 +402,7 @@ export function ValidatorsTable({
               return (
                 <span
                   className={
-                    text === "Never" || text === "—"
+                    text === "Never" || text === "-"
                       ? "text-muted-foreground"
                       : "text-[var(--gata-burn)]"
                   }

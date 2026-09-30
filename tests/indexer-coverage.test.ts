@@ -7,7 +7,7 @@ import { covers, type Coverage } from "@/lib/indexer-db";
  * It matters more than it looks: backfill descends over days, so for most of
  * that time the index holds a *slice* of history. Serving a proposal whose
  * voting period predates the slice would show a subset of its votes as though
- * that were the whole picture — worse than being slow, because a wrong number
+ * that were the whole picture - worse than being slow, because a wrong number
  * looks like a fact. Every case below is one where we must refuse.
  */
 const cover: Coverage = {

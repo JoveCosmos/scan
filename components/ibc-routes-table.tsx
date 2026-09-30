@@ -7,7 +7,7 @@ import { routeHealth, routeIsLive, type SideHealth } from "@/lib/ibc-routes";
 /**
  * The routes this chain keeps open, and whether each one works right now.
  *
- * Channel state alone is misleading — a route reads OPEN on both sides while
+ * Channel state alone is misleading - a route reads OPEN on both sides while
  * one light client has quietly expired, and nothing passes until someone
  * recovers it. So the verdict comes from both clients and both channels
  * together, and the parts are shown underneath so a failure says which end.
@@ -239,7 +239,7 @@ export async function ChannelHealth({ chainId }: { chainId: string }) {
                   {c.timeouts.toLocaleString()}
                 </td>
                 <td className="px-3 py-1.5 text-right text-muted-foreground">
-                  {c.medianLatency !== null ? `${c.medianLatency}s` : "—"}
+                  {c.medianLatency !== null ? `${c.medianLatency}s` : "-"}
                 </td>
               </tr>
             ))

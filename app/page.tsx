@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * The landing page: how many networks, the search field, and their marks.
  *
- * The header's own search field is hidden here on purpose — two search boxes on
+ * The header's own search field is hidden here on purpose - two search boxes on
  * one screen is one too many, and the one you want is the one the page is built
  * around. The header keeps its tabs and switcher, so browsing is one click away.
  */
@@ -41,8 +41,8 @@ export default function HomePage() {
       </span>
 
       <div className="mt-6 w-full">
-        {/* No chain hint on purpose: an ambiguous query — a bare block height,
-            an address valid on several chains — should ask which chain rather
+        {/* No chain hint on purpose: an ambiguous query - a bare block height,
+            an address valid on several chains - should ask which chain rather
             than quietly picking one. */}
         <SearchBar size="lg" showSlashHint />
       </div>

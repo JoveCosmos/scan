@@ -297,7 +297,7 @@ export default async function TxDetailPage({
               {/* Date and clock each stay whole; on a phone they stack, and the
                   age takes its own line rather than running into the clock. */}
               <span className="font-mono text-[12.5px]">
-                {(utc(tx.time) ?? "—").split(/ (.*)/).filter(Boolean).map((part, i) => (
+                {(utc(tx.time) ?? "-").split(/ (.*)/).filter(Boolean).map((part, i) => (
                   <span key={i} className="whitespace-nowrap">
                     {i > 0 ? " " : ""}
                     {part}
@@ -314,8 +314,8 @@ export default async function TxDetailPage({
             {tx.gasUsed || tx.gasWanted ? (
               <SummaryRow label="Gas used / wanted">
                 <span className="whitespace-nowrap font-mono">
-                  {tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "—"} /{" "}
-                  {tx.gasWanted ? Number(tx.gasWanted).toLocaleString() : "—"}
+                  {tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-"} /{" "}
+                  {tx.gasWanted ? Number(tx.gasWanted).toLocaleString() : "-"}
                 </span>
                 {gasPct !== null ? (
                   <span className="block text-[12px] text-muted-foreground sm:ml-1.5 sm:inline">

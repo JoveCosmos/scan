@@ -3,7 +3,7 @@
  *
  * The REST API returns each message as a bare JSON object whose shape depends
  * entirely on its type. Each type we know gets a decoder that names its parties
- * by role — delegator, validator, voter, contract — rather than as a positional
+ * by role - delegator, validator, voter, contract - rather than as a positional
  * from/to, so a page can label and link them correctly. A type we don't know
  * falls back to its type URL and its JSON.
  *

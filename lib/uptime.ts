@@ -9,7 +9,7 @@ export interface ValidatorUptime {
   /** Signed share of the chain's slashing window, 0–1. Null when unknown. */
   ratio: number | null;
   missed: number | null;
-  /** Blocks actually counted — the window, or fewer for a young validator. */
+  /** Blocks actually counted - the window, or fewer for a young validator. */
   window: number | null;
   /** Most recent blocks, oldest first. true = signed. Empty when unavailable. */
   bars: boolean[];
@@ -24,7 +24,7 @@ export interface ValidatorUptime {
   /**
    * When the validator's most recent jail ends (ISO), or null if never jailed.
    *
-   * The slashing module keeps no jail *count* — only this one timestamp — so
+   * The slashing module keeps no jail *count* - only this one timestamp - so
    * "how many times" is not answerable from a node. A date in the past means
    * the validator has been jailed and is since released; a future date means it
    * is jailed right now.
@@ -36,7 +36,7 @@ export const RECENT_BAR_COUNT = 20;
 
 /**
  * Bars on a single validator's page. Larger than the list's because the cost is
- * one block read per bar *for the whole chain*, not per validator — the list
+ * one block read per bar *for the whole chain*, not per validator - the list
  * pays it once for 100 rows, and a detail page can afford a longer history.
  */
 export const DETAIL_BAR_COUNT = 100;
@@ -116,7 +116,7 @@ export function consensusIdsFromPubkey(
 ): { base64: string; hex: string; valcons: string } | null {
   // Buffer.from(..., "base64") is lenient: it silently drops invalid characters
   // rather than throwing, so junk still yields bytes. Those bytes would hash to
-  // a perfectly valid-looking address that matches no validator — worse than
+  // a perfectly valid-looking address that matches no validator - worse than
   // admitting we cannot derive one. An ed25519 consensus key is exactly 32 bytes.
   const raw = Buffer.from(pubkeyBase64 ?? "", "base64");
   if (raw.length !== 32) return null;

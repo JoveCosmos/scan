@@ -6,8 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
  * the next page had returned, which is what made switching tabs feel slow even
  * when the data was cached.
  *
- * Shaped like PageFrame — a heading, a row of facts, and a body that takes the
- * rest of the height — so the real page replaces it without the layout jumping.
+ * Shaped like PageFrame - a heading, a row of facts, and a body that takes the
+ * rest of the height - so the real page replaces it without the layout jumping.
  */
 export default function ChainLoading() {
   return (

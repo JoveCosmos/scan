@@ -109,9 +109,9 @@ export function jailSpells(events: readonly JailEventLike[]): JailSpell[] {
   return spells.reverse();
 }
 
-/** "3d 4h", "5h 12m", "42m" — a downtime at a glance. */
+/** "3d 4h", "5h 12m", "42m" - a downtime at a glance. */
 export function formatDuration(ms: number | null): string {
-  if (ms === null || !Number.isFinite(ms) || ms < 0) return "—";
+  if (ms === null || !Number.isFinite(ms) || ms < 0) return "-";
   const m = Math.floor(ms / 60_000);
   const d = Math.floor(m / 1440);
   const h = Math.floor((m % 1440) / 60);

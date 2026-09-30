@@ -237,7 +237,7 @@ async function StakingHistoryDeck({
     monikers(chain),
   ]);
   const denoms = chainDenoms(chain);
-  const vname = (v: string | null) => (v ? (names.get(v) ?? truncateMiddle(v, 14, 6)) : "—");
+  const vname = (v: string | null) => (v ? (names.get(v) ?? truncateMiddle(v, 14, 6)) : "-");
 
   const columns: DeckColumn[] = [
     { label: "Event", width: "18%" },
@@ -260,16 +260,16 @@ async function StakingHistoryDeck({
                 : vname(e.validator),
             address: e.kind === "redelegate" && e.validatorDst ? e.validatorDst : e.validator,
           }
-        : { v: "—", dim: true },
+        : { v: "-", dim: true },
       {
-        v: e.amount && e.denom ? formatCoin({ denom: e.denom, amount: e.amount }, denoms, 4) : "—",
+        v: e.amount && e.denom ? formatCoin({ denom: e.denom, amount: e.amount }, denoms, 4) : "-",
         mono: true,
         align: "right" as const,
         tone:
           e.kind === "delegate" ? ("ok" as const) : e.kind === "undelegate" ? ("bad" as const) : undefined,
       },
       {
-        v: e.completionTime ? completes(e.completionTime) : "—",
+        v: e.completionTime ? completes(e.completionTime) : "-",
         dim: true,
         align: "right" as const,
       },
@@ -369,10 +369,10 @@ async function IbcDeck({
           tone: p.direction === "out" ? ("bad" as const) : ("ok" as const),
         },
         other
-          ? { v: `${cp?.prettyName ?? cpId ?? "—"}, ${truncateMiddle(other, 10, 6)}`, address: other }
-          : { v: cp?.prettyName ?? cpId ?? "—", dim: !cp },
+          ? { v: `${cp?.prettyName ?? cpId ?? "-"}, ${truncateMiddle(other, 10, 6)}`, address: other }
+          : { v: cp?.prettyName ?? cpId ?? "-", dim: !cp },
         {
-          v: p.amount && p.denom ? formatCoin({ denom: p.denom, amount: p.amount }, denoms, 4) : "—",
+          v: p.amount && p.denom ? formatCoin({ denom: p.denom, amount: p.amount }, denoms, 4) : "-",
           mono: true,
           align: "right" as const,
         },
@@ -386,16 +386,16 @@ async function IbcDeck({
                 : undefined,
           dim: status === "pending",
         },
-        { v: l.channel || "—", mono: true, dim: true },
-        { v: time ? timeAgo(time) : "—", dim: true, align: "right" as const },
+        { v: l.channel || "-", mono: true, dim: true },
+        { v: time ? timeAgo(time) : "-", dim: true, align: "right" as const },
       ],
       detail: {
         title: `Packet ${p.sequence}`,
         rows: [
-          { label: "Sender", value: p.sender ?? "—", mono: true, ...(p.sender ? { address: p.sender } : {}) },
+          { label: "Sender", value: p.sender ?? "-", mono: true, ...(p.sender ? { address: p.sender } : {}) },
           {
             label: "Receiver",
-            value: p.receiver ?? "—",
+            value: p.receiver ?? "-",
             mono: true,
             ...(p.receiver ? { address: p.receiver } : {}),
           },
@@ -645,7 +645,7 @@ function kindTile(kind: AddressKind | null, chainId: string): BrickSpec | null {
           ...(kind.endTime ? [{ label: "Ends", value: formatDateTime(kind.endTime) }] : []),
           {
             label: "Original",
-            value: kind.original.map((c) => `${c.amount} ${c.denom}`).join(", ") || "—",
+            value: kind.original.map((c) => `${c.amount} ${c.denom}`).join(", ") || "-",
             mono: true,
           },
           {
@@ -723,7 +723,7 @@ export default async function AccountPage({
     })
     .sort(assetOrder(natives.map((n) => n.denom)));
 
-  // Same key, different prefix — only meaningful for a 20-byte user key.
+  // Same key, different prefix - only meaningful for a 20-byte user key.
   const links = isUserKey(address, kind) ? linkedAddresses(address) : [];
 
   const primary = account.balances.find((b) => b.denom === chain.denom);
@@ -922,12 +922,12 @@ export default async function AccountPage({
     {
       key: "account",
       label: "Account",
-      value: account.accountNumber ?? "—",
-      sub: `sequence ${account.sequence ?? "—"}`,
+      value: account.accountNumber ?? "-",
+      sub: `sequence ${account.sequence ?? "-"}`,
       rows: [
         { label: "Address", value: address, mono: true },
-        { label: "Account number", value: account.accountNumber ?? "—", mono: true },
-        { label: "Sequence", value: account.sequence ?? "—", mono: true },
+        { label: "Account number", value: account.accountNumber ?? "-", mono: true },
+        { label: "Sequence", value: account.sequence ?? "-", mono: true },
       ],
     },
   ];

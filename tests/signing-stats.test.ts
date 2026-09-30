@@ -73,7 +73,7 @@ describe("formatDuration", () => {
   it("reads at a glance", () => {
     expect(formatDuration(3 * 86_400_000 + 4 * 3_600_000)).toBe("3d 4h");
     expect(formatDuration(42 * 60_000)).toBe("42m");
-    expect(formatDuration(null)).toBe("—");
+    expect(formatDuration(null)).toBe("-");
   });
 });
 

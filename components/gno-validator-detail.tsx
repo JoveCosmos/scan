@@ -19,7 +19,7 @@ const REGISTRY = "gno.land/r/gnops/valopers";
  * The valopers realm read can require building a signing/operator index across
  * ~95 realm calls on a cold cache, so it streams in separately rather than
  * holding up the consensus-side facts. It is the one thing on the page that
- * cannot be laid out with the rest of the board — a brick has to be there when
+ * cannot be laid out with the rest of the board - a brick has to be there when
  * the board is drawn, so the profile gets a board of its own underneath.
  */
 async function ValoperProfileBoard({
@@ -105,7 +105,7 @@ async function ValoperProfileBoard({
 /**
  * A gno.land validator: consensus weight now, and whatever it registered.
  *
- * There is no staking module, so nothing here is denominated in tokens — the
+ * There is no staking module, so nothing here is denominated in tokens - the
  * voting power is assigned, and the profile is a realm entry the operator wrote
  * itself. Both halves are bricks for the same reason the Cosmos page is: the
  * addresses and the signing key are the longest values on the page and the
@@ -136,24 +136,24 @@ export async function GnoValidatorDetail({
     {
       key: "power",
       label: "Voting power",
-      value: consensus?.votingPower ?? "—",
+      value: consensus?.votingPower ?? "-",
       sub:
         consensus?.sharePercent != null
           ? `${consensus.sharePercent.toFixed(2)}% of the set`
           : "consensus weight",
       lead: true,
       rows: [
-        { label: "Voting power", value: consensus?.votingPower ?? "—", mono: true },
+        { label: "Voting power", value: consensus?.votingPower ?? "-", mono: true },
         {
           label: "Share",
           value:
             consensus?.sharePercent != null
               ? `${consensus.sharePercent.toFixed(2)}%`
-              : "—",
+              : "-",
           mono: true,
         },
-        { label: "Rank", value: consensus?.rank ? `#${consensus.rank}` : "—", mono: true },
-        { label: "Status", value: consensus?.status ?? "—" },
+        { label: "Rank", value: consensus?.rank ? `#${consensus.rank}` : "-", mono: true },
+        { label: "Status", value: consensus?.status ?? "-" },
       ],
     },
     {

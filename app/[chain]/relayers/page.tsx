@@ -27,8 +27,8 @@ export async function generateMetadata({
  * IBC connectivity for one chain: which routes work, and who keeps them working.
  *
  * Routes are a curated set rather than every channel the chain has ever opened.
- * Chains accumulate dead channels — AtomOne carries an old Osmosis channel
- * whose light client expired long ago — and listing all of them buries the two
+ * Chains accumulate dead channels - AtomOne carries an old Osmosis channel
+ * whose light client expired long ago - and listing all of them buries the two
  * or three that actually carry traffic.
  */
 export default async function RelayersPage({

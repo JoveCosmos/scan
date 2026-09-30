@@ -2,7 +2,7 @@
  * Who a transaction message moved value between, and how much.
  *
  * The Cosmos REST API returns each message as a bare JSON object whose fields
- * depend entirely on its type — there is no common "from/to/amount" shape — so
+ * depend entirely on its type - there is no common "from/to/amount" shape - so
  * the interesting types are mapped explicitly. Anything unmapped yields null
  * and the UI shows the message label alone rather than guessing.
  */
@@ -25,7 +25,7 @@ export interface TxTransfer {
   staking: boolean;
 }
 
-/** Who a message names, by role — "delegator", "validator", "voter"… */
+/** Who a message names, by role - "delegator", "validator", "voter"… */
 export interface PartyRole {
   role: string;
   address: string;
@@ -145,7 +145,7 @@ export function transferOf(msg: RawMessage): TxTransfer | null {
       };
 
     case "MsgWithdrawDelegatorReward":
-      // The amount is not in the message — it is only in the events — so this
+      // The amount is not in the message - it is only in the events - so this
       // shows the parties and no figure rather than an invented one.
       return {
         from: msg.validator_address ?? null,
@@ -187,7 +187,7 @@ export function primaryTransfer(
 
 /**
  * Which way value moved relative to an address, for an account's own history.
- * Null when the address is not a party — a vote or a grant, say.
+ * Null when the address is not a party - a vote or a grant, say.
  */
 export function directionFor(
   transfer: TxTransfer | null,
@@ -204,7 +204,7 @@ export function directionFor(
 
 /**
  * Every address a message names, with its role. Unlike transferOf, which reads
- * as "value moved from → to", this says who each party is — a delegator is a
+ * as "value moved from → to", this says who each party is - a delegator is a
  * delegator whether stake goes in or out.
  */
 export function partiesOf(msg: RawMessage): PartyRole[] {
@@ -303,7 +303,7 @@ export interface AddressMovement {
 }
 
 /**
- * What a transaction moved for one address — for an account's own history.
+ * What a transaction moved for one address - for an account's own history.
  *
  * Looks through every message (and authz inner messages) for one where the
  * address is a party, instead of the transaction's first transfer, which can

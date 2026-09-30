@@ -44,7 +44,7 @@ export function indexerPool(): Pool | null {
  * The pool, but only for chains the index actually holds.
  *
  * Gating here rather than at each of the ten call sites means marking a chain
- * unindexed stops every indexed read at once — including from code written
+ * unindexed stops every indexed read at once - including from code written
  * later that never considered it. Callers already handle a null pool by falling
  * back to the node, so this needs no handling of its own.
  *
@@ -79,7 +79,7 @@ const READS_EXTRACT_VERSION = 2;
  * Backfill descends over days, so coverage is a moving window rather than
  * "everything". A caller must check this before trusting an answer, otherwise
  * a proposal from before the backfill reached it would render as having no
- * votes — worse than the slow path, because it would look like fact.
+ * votes - worse than the slow path, because it would look like fact.
  *
  * The window stops below the first block written by an older extractor. Having
  * the block is not the same as having what was in it: AtomOne's follower wrote
@@ -206,7 +206,7 @@ export interface SlashHistory {
   events: SlashEvent[];
   /** Start of the window these events were read from. */
   since: string;
-  /** True when that window starts at the first block — see ProposerStats. */
+  /** True when that window starts at the first block - see ProposerStats. */
   fromGenesis: boolean;
 }
 
@@ -220,7 +220,7 @@ export interface SlashHistory {
  * which is what makes it worth indexing.
  *
  * Keyed on the consensus address because that is the only identity slashing
- * events carry — they never mention the operator address.
+ * events carry - they never mention the operator address.
  *
  * The result is bounded by coverage and says so. That is a weaker gate than the
  * one votes use, and deliberately: a partial vote list is a wrong tally stated
@@ -284,7 +284,7 @@ export interface JailCounts {
   tombstoned: Set<string>;
   /** Start of the window these counts were taken from. */
   since: string;
-  /** True when that window is the whole chain — see ProposerStats. */
+  /** True when that window is the whole chain - see ProposerStats. */
   fromGenesis: boolean;
 }
 
@@ -354,7 +354,7 @@ export interface ProposerStats {
  * Proposer selection is weighted by voting power, so the share of blocks a
  * validator proposed should track its share of stake over any long window.
  * A share well below its power is the visible symptom of a validator that is
- * bonded but frequently missing its turn — something the signing percentage
+ * bonded but frequently missing its turn - something the signing percentage
  * alone does not distinguish from healthy operation, since a validator can sign
  * other proposers' blocks reliably while failing to produce its own.
  *
@@ -431,7 +431,7 @@ function blockCount(
 }
 
 export interface RelayerOperator {
-  /** Fee payer of the relay transactions — the operator's own address. */
+  /** Fee payer of the relay transactions - the operator's own address. */
   address: string;
   /** Relay transactions signed within the indexed window. */
   txCount: number;
@@ -445,14 +445,14 @@ export interface RelayerStats {
   operators: RelayerOperator[];
   totalTxs: number;
   since: string;
-  /** True when the count covers the whole chain — see ProposerStats. */
+  /** True when the count covers the whole chain - see ProposerStats. */
   fromGenesis: boolean;
 }
 
 /**
  * Who is actually relaying on this chain, and how much of the work they do.
  *
- * Not answerable from a node. Relaying leaves no module state — a delivered
+ * Not answerable from a node. Relaying leaves no module state - a delivered
  * packet updates balances and clears a commitment, and nothing anywhere records
  * that a particular operator delivered it. The only durable trace is the
  * transaction itself, and the chain forgets those beyond its pruning window.
@@ -544,10 +544,10 @@ export interface IndexedAccountTx {
 }
 
 export interface IndexedAccountTxs {
-  /** True when the index reaches the first block — see ProposerStats. */
+  /** True when the index reaches the first block - see ProposerStats. */
   fromGenesis: boolean;
   txs: IndexedAccountTx[];
-  /** Start of the window these came from — never "all of history". */
+  /** Start of the window these came from - never "all of history". */
   since: string;
   /** True when more exist below the returned page. */
   more: boolean;
@@ -557,7 +557,7 @@ export interface IndexedAccountTxs {
  * Transactions an account signed or received value in.
  *
  * This is a repair, not an optimisation. Cosmos account history has always come
- * from tx search, and AtomOne's public LCDs have stopped serving it — one
+ * from tx search, and AtomOne's public LCDs have stopped serving it - one
  * answers "transaction indexing is disabled", the other returns zero results
  * for accounts that have plainly transacted. Account pages therefore show
  * nothing, exactly as proposal votes did.
@@ -600,7 +600,7 @@ export async function accountTxsFromIndexer(
     }>(
       // One row per transaction. A transaction can carry several transfers, so
       // DISTINCT ON keeps the first and leaves the detail page to show the rest
-      // — a list view wants one line per transaction, not one per coin moved.
+      // - a list view wants one line per transaction, not one per coin moved.
       `WITH mine AS (
          SELECT hash FROM tx
           WHERE chain_id = $1 AND signer = $2
@@ -673,7 +673,7 @@ export async function accountTxsFromIndexer(
  * The live path scans a fixed window of recent blocks, which answers "what
  * happened lately" and not "what happened last". On a quiet chain most of that
  * window is empty blocks, so the tab can show two transactions while the chain
- * has thousands — the window is the limit, not the activity.
+ * has thousands - the window is the limit, not the activity.
  *
  * Indexed, "the last fifty transactions" is exactly what it sounds like.
  */
@@ -760,7 +760,7 @@ export async function indexerFreshness(chainId: string): Promise<Date | null> {
 /**
  * Each validator's bonded stake as of roughly 24 hours ago.
  *
- * Replaces reading a node's historical state, which only archive nodes retain —
+ * Replaces reading a node's historical state, which only archive nodes retain -
  * on AtomOne one public endpoint refuses outright and the other is a rotating
  * proxy that is archive on one request and pruned on the next, so the column
  * appeared and vanished between refreshes.
@@ -769,7 +769,7 @@ export async function indexerFreshness(chainId: string): Promise<Date | null> {
  * because those differ when snapshots have been missed: a gap should widen the
  * window slightly, not silently compare against something far older.
  *
- * Null when no snapshot that old exists yet — a fresh install has no baseline,
+ * Null when no snapshot that old exists yet - a fresh install has no baseline,
  * and a wrong figure is worse than an absent one. Takes a day to become useful,
  * by construction.
  */
@@ -820,8 +820,8 @@ export interface IndexedVote {
  * Every vote on a proposal, from the indexer.
  *
  * The reason this exists: reconstructing a tallied proposal from transaction
- * history costs tens of sequential paged tx-search requests — about thirty
- * seconds for AtomOne proposal 21 — because the gov module deletes votes once
+ * history costs tens of sequential paged tx-search requests - about thirty
+ * seconds for AtomOne proposal 21 - because the gov module deletes votes once
  * it tallies them. Here it is one indexed read.
  *
  * Null means "cannot answer", never "no votes". An empty proposal returns an
@@ -876,7 +876,7 @@ export interface GovParticipation {
 }
 
 export interface CommissionEarned {
-  /** One entry per denom — AtomOne pays commission in ATONE and PHOTON. */
+  /** One entry per denom - AtomOne pays commission in ATONE and PHOTON. */
   byDenom: { denom: string; amount: string }[];
   /** How many times commission was withdrawn. */
   withdrawals: number;
@@ -887,14 +887,14 @@ export interface CommissionEarned {
 /**
  * Commission a validator has actually taken, since genesis.
  *
- * Every explorer shows the commission *rate*. This is what the rate produced —
+ * Every explorer shows the commission *rate*. This is what the rate produced -
  * the sum of every withdraw_commission event the validator has ever emitted.
  * The chain cannot answer it: the distribution module carries only what is
  * currently outstanding, so once commission is withdrawn the amount survives
  * nowhere but in the block events we indexed.
  *
  * Attributed through the transaction signer, not the event. AtomOne's
- * `withdraw_commission` carries only `amount` and `msg_index` — there is no
+ * `withdraw_commission` carries only `amount` and `msg_index` - there is no
  * validator attribute for extract.ts to store, so `transfer.from_addr` is null
  * on every commission row and filtering on it matches nothing. What does
  * identify the validator is who signed: MsgWithdrawValidatorCommission is
@@ -903,7 +903,7 @@ export interface CommissionEarned {
  *
  * Takes the account address for that reason, not the operator.
  *
- * Note this is commission *withdrawn*, not earned-and-unclaimed — the
+ * Note this is commission *withdrawn*, not earned-and-unclaimed - the
  * outstanding balance is a separate figure the chain still holds.
  */
 export async function commissionEarned(
@@ -935,7 +935,7 @@ export async function commissionEarned(
     return {
       byDenom: rows.map((r) => ({ denom: r.denom, amount: r.total })),
       // Withdrawals move every denom at once, so the count is per event, not
-      // per row — taking the max avoids multiplying by the number of denoms.
+      // per row - taking the max avoids multiplying by the number of denoms.
       withdrawals: Math.max(...rows.map((r) => Number(r.n))),
       first: rows.reduce<string | null>(
         (m, r) => (!m || (r.first && r.first < m) ? r.first : m),
@@ -959,7 +959,7 @@ export interface StakePoint {
  * A validator's bonded stake over time.
  *
  * validator_stake holds a snapshot per operator per sampled height, and until
- * now the only thing reading it was the 24h delta — one subtraction over a
+ * now the only thing reading it was the 24h delta - one subtraction over a
  * table that describes a whole history. This returns the series.
  *
  * Sampled down to at most `points` rows in SQL rather than in JS: a year of
@@ -983,7 +983,7 @@ export async function stakeHistory(
     }>(
       // Both casts are load-bearing. node-postgres sends parameters as text,
       // and Postgres will not infer ntile(text) or an interval from a bare
-      // parameter — without them the query throws rather than returning
+      // parameter - without them the query throws rather than returning
       // nothing, which the caller cannot tell apart.
       `WITH windowed AS (
          SELECT time, tokens, jailed,

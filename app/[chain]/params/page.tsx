@@ -43,10 +43,10 @@ export async function generateMetadata({
 }
 
 const pct = (value: number | null | undefined, decimals = 2) =>
-  value === null || value === undefined ? "—" : `${(value * 100).toFixed(decimals)}%`;
+  value === null || value === undefined ? "-" : `${(value * 100).toFixed(decimals)}%`;
 
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
-const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
+const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" && r.value !== "");
 
 /**
  * A chain's overview: five headline figures (version, supply, community pool,
@@ -142,12 +142,12 @@ export default async function ChainOverviewPage({
                 label: `${feeSymbol} supply`,
                 value: feeSupply
                   ? `${formatToken(feeSupply, chain.exponent)} ${feeSymbol}`
-                  : "—",
+                  : "-",
                 mono: true,
               },
               {
                 label: `${feeSymbol} cap`,
-                value: chain.feeSupplyCap ? chain.feeSupplyCap.toLocaleString() : "—",
+                value: chain.feeSupplyCap ? chain.feeSupplyCap.toLocaleString() : "-",
                 mono: true,
               },
             ]
@@ -208,17 +208,17 @@ export default async function ChainOverviewPage({
           value: `${formatToken(economics.communityPool, chain.exponent)} ${symbol}`,
           mono: true,
         },
-        { label: "Share of supply", value: poolShare ?? "—", mono: true },
+        { label: "Share of supply", value: poolShare ?? "-", mono: true },
         {
           label: "Value",
           value: market
             ? formatUsdCompact(
                 (Number(economics.communityPool) / 10 ** chain.exponent) * market.usd
               )
-            : "—",
+            : "-",
           mono: true,
         },
-        { label: "Counted", value: "Native denom only — IBC dust excluded." },
+        { label: "Counted", value: "Native denom only - IBC dust excluded." },
       ]),
     });
   }
@@ -231,7 +231,7 @@ export default async function ChainOverviewPage({
     { label: "Network", value: chain.network },
     {
       label: "Latest release",
-      value: release?.tag ?? "—",
+      value: release?.tag ?? "-",
       mono: true,
       ...(release?.url ? { href: release.url } : {}),
     },

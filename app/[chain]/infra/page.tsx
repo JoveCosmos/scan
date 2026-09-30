@@ -45,7 +45,7 @@ export default async function InfraPage({
     policyFor(chain).fullNode || configured?.snapshotKey ? configured : null;
 
   // The RPC endpoints we publish are exactly the servers a state sync should
-  // point at, so there is nothing to configure — and nothing to keep in step.
+  // point at, so there is nothing to configure - and nothing to keep in step.
   const rpcServers = (services?.endpoints ?? [])
     .filter((e) => e.kind === "rpc")
     .map((e) => e.url);

@@ -8,14 +8,14 @@ import { cached } from "@/lib/cache";
 /**
  * The IBC routes we watch, and whether each one is actually working.
  *
- * A list of channels is not useful on its own — chains accumulate dead
+ * A list of channels is not useful on its own - chains accumulate dead
  * channels, and a channel in state OPEN can still be unusable. Two things
  * decide whether a route carries traffic today, and neither is visible from a
  * channel listing:
  *
  *   Light client status. Each side tracks the other with a light client that
  *   must be refreshed inside its trusting period. Miss that window and the
- *   client expires — the channel stays OPEN and nothing can pass through it
+ *   client expires - the channel stays OPEN and nothing can pass through it
  *   until somebody performs a client recovery. This is the single most useful
  *   thing to show, and it is why AtomOne's channel-0 to Osmosis is a museum
  *   piece while channel-2 is the live path.

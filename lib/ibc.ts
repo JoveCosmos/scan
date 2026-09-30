@@ -55,7 +55,7 @@ export function symbolForBase(base: string): string {
 /**
  * Decimals for a base denom when no metadata says so: micro is 6, atto is 18,
  * and a liquid-staking wrapper inherits its underlying token's. Null when the
- * shape gives nothing away — the amount is then shown in base units rather
+ * shape gives nothing away - the amount is then shown in base units rather
  * than scaled by a guessed power of ten.
  */
 export function inferExponent(base: string): number | null {

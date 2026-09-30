@@ -12,8 +12,8 @@ function within<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 
 /**
  * The same operator validating on our other networks, linked to its validator
- * page there. Matched by key first — the account behind the operator address
- * re-encoded under each chain's prefix — then by the Keybase identity it
+ * page there. Matched by key first - the account behind the operator address
+ * re-encoded under each chain's prefix - then by the Keybase identity it
  * publishes, which catches operators who use a different key per chain.
  */
 export async function ValidatorElsewhere({

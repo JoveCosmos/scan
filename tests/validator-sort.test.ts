@@ -94,7 +94,7 @@ describe("sortValidators", () => {
 
   it("sorts jailing counts, with unknown below never-jailed", () => {
     // "We have no history for this validator" must not outrank "this validator
-    // has a clean record" — that would read as the opposite of what it means.
+    // has a clean record" - that would read as the opposite of what it means.
     const rows = [
       row({ moniker: "unknown", jailings: null }),
       row({ moniker: "clean", jailings: { count: 0, tombstoned: false } }),

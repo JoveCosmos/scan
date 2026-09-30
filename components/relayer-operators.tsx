@@ -37,7 +37,7 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
 
   if (!stats || stats.operators.length === 0) return <NotAvailable />;
 
-  // Fees are paid in the fee token where a chain has a separate one — AtomOne
+  // Fees are paid in the fee token where a chain has a separate one - AtomOne
   // charges PHOTON, and labelling that ATONE would simply be wrong.
   const feeSymbol = symbolForDenom(chain.feeDenom ?? chain.denom);
   const since = stats.fromGenesis
@@ -115,14 +115,14 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
                     <td data-label="Median" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                       {legBy.get(op.address)?.medianLatency != null
                         ? `${legBy.get(op.address)!.medianLatency}s`
-                        : "—"}
+                        : "-"}
                     </td>
                   </>
                 ) : null}
                 <td data-label="Share" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                   {stats.totalTxs > 0
                     ? `${((op.txCount / stats.totalTxs) * 100).toFixed(1)}%`
-                    : "—"}
+                    : "-"}
                 </td>
                 <td data-label="Fees paid" className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                   {formatToken(op.feesPaid, chain.exponent, 2)}{" "}

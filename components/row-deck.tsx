@@ -15,14 +15,14 @@ import { ink } from "@/lib/utils";
  *
  * The page has a fixed height, so a list cannot be however long it is. This
  * measures the space it was actually given and shows the number of rows that
- * fit in it — about eight on a phone, twenty on a monitor — rather than
+ * fit in it - about eight on a phone, twenty on a monitor - rather than
  * guessing a page size that is wrong on both.
  *
  * Measured rather than fixed because a fixed count is the one thing guaranteed
  * to be wrong: it either leaves a monitor half empty or overflows a phone,
  * which is the failure the whole layout exists to avoid. Bricks are counted
- * instead of measured — a reflow that moves a tile under the cursor is worse
- * than a half-full row — but a table row is expected to move when the window
+ * instead of measured - a reflow that moves a tile under the cursor is worse
+ * than a half-full row - but a table row is expected to move when the window
  * does, so measuring is safe here.
  *
  * Clicking a row opens its full record. That replaces the navigation the old
@@ -66,7 +66,7 @@ export interface DeckRow {
    */
   search?: string;
   cells: DeckCell[];
-  /** Highlights the row — used for the block that just arrived. */
+  /** Highlights the row - used for the block that just arrived. */
   fresh?: boolean;
   detail: {
     title: string;
@@ -142,7 +142,7 @@ export function RowDeck({
    */
   filter?: { placeholder: string };
   /**
-   * Live feeds — the newest blocks, the newest transactions — show as many of
+   * Live feeds - the newest blocks, the newest transactions - show as many of
    * the newest rows as fit the frame and never page: page two of a feed is
    * stale by the time you reach it.
    */

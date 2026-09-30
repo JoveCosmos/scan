@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * Live health of the endpoints we publish.
  *
  * The point of the page is that these are endpoints someone can rely on, and a
- * list of URLs cannot make that case — a dead endpoint looks exactly like a
+ * list of URLs cannot make that case - a dead endpoint looks exactly like a
  * live one. Probing them means the page states a fact rather than an intention,
  * and shows us the same thing our users see.
  */

@@ -48,7 +48,7 @@ describe("filterDeckRows", () => {
 
   it("does not match across a column boundary", () => {
     // Cells are joined with a space, so "Forbole" and the address next to it
-    // are separate words — a query spanning both should not hit.
+    // are separate words - a query spanning both should not hit.
     expect(filterDeckRows(rows, "Forboleatone")).toHaveLength(0);
   });
 

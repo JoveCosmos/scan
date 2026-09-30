@@ -6,7 +6,7 @@ import { ChainDirectoryProvider } from "@/components/providers/chain-directory";
 /**
  * The header, the page, and the footer, pinned to the viewport.
  *
- * Nothing at this level scrolls — not the document and not the column. Each
+ * Nothing at this level scrolls - not the document and not the column. Each
  * page is handed exactly the height between header and footer and has to fit
  * it (see `PageFrame`); where content is longer than that, the list itself
  * scrolls or pages, and the chrome never moves.

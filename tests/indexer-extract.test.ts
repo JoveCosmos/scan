@@ -212,8 +212,8 @@ describe("abciResultsMissing", () => {
 
 /**
  * Real AtomOne blocks, captured from the archive:
- *   9829661 — a validator jailed for downtime, with burned coins
- *   9463782 — a vote on proposal 21
+ *   9829661 - a validator jailed for downtime, with burned coins
+ *   9463782 - a vote on proposal 21
  */
 const slashBlock = fixture("atomone-block-9829661.json") as BlockResponse;
 const slashResults = fixture(
@@ -273,7 +273,7 @@ describe("votes from a real block", () => {
 
   it("takes the voter from the event, so authz votes attribute correctly", () => {
     // The event names the granter. Reading the signer instead would credit the
-    // grantee — the bug that made Scan under-count AtomOne proposals.
+    // grantee - the bug that made Scan under-count AtomOne proposals.
     const voters = out.votes.map((v) => v.voter);
     for (const v of voters) expect(v.startsWith("atone1")).toBe(true);
   });

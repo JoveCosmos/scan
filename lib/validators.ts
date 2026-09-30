@@ -96,7 +96,7 @@ interface CommissionResponse {
 /**
  * Full profile for one validator. Rank and voting power need the whole bonded
  * set, and the delegator count and outstanding commission come from separate
- * modules — each is optional so a slow or disabled endpoint degrades to "—"
+ * modules - each is optional so a slow or disabled endpoint degrades to "-"
  * instead of failing the page.
  */
 /**
@@ -203,7 +203,7 @@ interface DelegationRow {
 }
 
 /** Rows per delegations request. Measured on a 4,598-delegator validator:
- *  500 rows 0.54s, 1,000 rows 0.94s, 2,000 rows 1.13s — the per-request
+ *  500 rows 0.54s, 1,000 rows 0.94s, 2,000 rows 1.13s - the per-request
  *  overhead dominates, so ask for large pages and make few requests. */
 const DELEGATION_PAGE = 2000;
 /** Ceiling of 50,000 delegations. Beyond this the tail is dust and the wait
@@ -214,7 +214,7 @@ const DELEGATION_MAX_PAGES = 25;
  * Who delegates to this validator, largest first.
  *
  * This reads *every* delegation, not one page. The LCD returns delegations in
- * key order, not by size, so ranking a single page ranks an arbitrary subset —
+ * key order, not by size, so ranking a single page ranks an arbitrary subset -
  * GATA HUB has 4,598 delegators, and sorting the first 200 of them silently
  * omitted the largest. Paging the lot costs ~4.7s there, which is why the
  * caller streams this section separately.
@@ -249,7 +249,7 @@ function shareOf(part: bigint, total: bigint): number {
  * Who delegates to this validator, largest first, one page at a time.
  *
  * This reads *every* delegation, not one page. The LCD returns delegations in
- * key order, not by size, so ranking a single page ranks an arbitrary subset —
+ * key order, not by size, so ranking a single page ranks an arbitrary subset -
  * GATA HUB has 4,598 delegators, and sorting the first 200 of them silently
  * omitted the largest. Paging the lot costs ~4.7s there, so the ranked list is
  * cached and every page after the first is served from it.
@@ -430,8 +430,8 @@ export async function getValidators(chain: ChainConfig): Promise<ValidatorSummar
 }
 
 /**
- * Validators outside the active set — unbonding and unbonded, jailed ones
- * included — largest first. They hold no voting power, so share and cumulative
+ * Validators outside the active set - unbonding and unbonded, jailed ones
+ * included - largest first. They hold no voting power, so share and cumulative
  * share are zero, and rank is position within this list.
  *
  * Changes only when a validator enters or leaves the set, so fresh for five

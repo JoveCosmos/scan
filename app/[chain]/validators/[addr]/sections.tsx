@@ -153,10 +153,10 @@ export interface ValidatorKeys {
 }
 
 export const pct = (value: number | null, decimals = 2) =>
-  value === null ? "—" : `${(value * 100).toFixed(decimals)}%`;
+  value === null ? "-" : `${(value * 100).toFixed(decimals)}%`;
 
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
-export const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "—" && r.value !== "");
+export const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" && r.value !== "");
 
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -238,8 +238,8 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
               mono: true,
             })),
             { label: "Withdrawals", value: earned.withdrawals.toLocaleString(), mono: true },
-            { label: "First", value: earned.first ? day(earned.first) : "—" },
-            { label: "Last", value: earned.last ? timeAgo(earned.last) : "—" },
+            { label: "First", value: earned.first ? day(earned.first) : "-" },
+            { label: "Last", value: earned.last ? timeAgo(earned.last) : "-" },
           ]),
         }
       : { key: "earned", label: "Commission taken", value: "N/A" }
@@ -324,7 +324,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
           .sort((a, b) => b[1] - a[1])
           .map(([option, n]) => ({ label: voteOptionLabel(option), value: String(n), mono: true })),
         { label: "Counted since", value: day(votes.since) },
-        { label: "Last voted", value: last ? timeAgo(last) : "—" },
+        { label: "Last voted", value: last ? timeAgo(last) : "-" },
       ]),
     });
   } else {
@@ -444,8 +444,8 @@ export async function VotesTab({ chain, accent, account }: ValidatorKeys) {
       cells: [
         { v: `#${id}`, mono: true, tone: "accent" as const },
         { v: "Did not vote", tone: "bad" as const },
-        { v: "—", dim: true },
-        { v: "—", dim: true, align: "right" as const },
+        { v: "-", dim: true },
+        { v: "-", dim: true, align: "right" as const },
       ],
       detail: {
         title: `Proposal #${id}`,
@@ -487,7 +487,7 @@ export async function EventsTab({ chain, accent, account }: ValidatorKeys) {
     cells: [
       { v: EVENT_LABEL[e.kind], tone: e.ok ? undefined : "bad" },
       {
-        v: e.amounts.length > 0 ? e.amounts.map((a) => coin(a)).join(", ") : "—",
+        v: e.amounts.length > 0 ? e.amounts.map((a) => coin(a)).join(", ") : "-",
         mono: true,
         align: "right",
         dim: e.amounts.length === 0,
@@ -544,7 +544,7 @@ export async function PowerEventsTab({ chain, accent, addr }: ValidatorKeys) {
   const power = await loadPowerEvents(chainId, addr);
   if (!power) return <NotAvailable />;
   const signed = (amount: string | null, sign: number) =>
-    !amount || sign === 0 ? "—" : `${sign > 0 ? "+" : "−"}${coin({ denom: chain.denom, amount })}`;
+    !amount || sign === 0 ? "-" : `${sign > 0 ? "+" : "−"}${coin({ denom: chain.denom, amount })}`;
   const flow = (net: string | null) => {
     if (net === null) return null;
     const neg = net.startsWith("-");
@@ -559,7 +559,7 @@ export async function PowerEventsTab({ chain, accent, addr }: ValidatorKeys) {
         { v: k.label, tone: k.sign > 0 ? "ok" : k.sign < 0 ? "bad" : undefined },
         e.delegator
           ? { v: truncateMiddle(e.delegator, 10, 6), address: e.delegator, mono: true }
-          : { v: "—", dim: true },
+          : { v: "-", dim: true },
         { v: signed(e.amount, k.sign), mono: true, align: "right", dim: k.sign === 0 },
         { v: `#${e.height.toLocaleString()}`, mono: true, align: "right", href: `/${chainId}/blocks/${e.height}` },
         { v: day(e.time), dim: true, align: "right" },
@@ -623,7 +623,7 @@ const SLASH_LABEL: Record<SlashKind, string> = {
 function reasonLabel(reason: string | null): string {
   if (reason === "downtime") return "Missed blocks";
   if (reason === "double_sign") return "Double signing";
-  return "—";
+  return "-";
 }
 
 export async function JailingsTab({
@@ -672,7 +672,7 @@ export async function JailingsTab({
         height: e.height,
         time: e.time,
         label: "Unjailed",
-        reason: "—",
+        reason: "-",
         burned: null,
         tx: e.txHash,
         bad: false,
@@ -699,17 +699,17 @@ export async function JailingsTab({
       { v: e.reason, dim: true },
       (() => {
         const spell = e.label === "Jailed" ? downtimeAt.get(e.height) : undefined;
-        if (!spell) return { v: "—", dim: true, align: "right" as const };
+        if (!spell) return { v: "-", dim: true, align: "right" as const };
         return spell.unjailedAt
           ? { v: formatDuration(spell.downtimeMs), mono: true, align: "right" as const }
           : // Open only while the chain still says jailed; otherwise the unjail
             // predates what the index holds.
             jailedOnChain
             ? { v: "ongoing", tone: "bad" as const, align: "right" as const }
-            : { v: "—", dim: true, align: "right" as const };
+            : { v: "-", dim: true, align: "right" as const };
       })(),
       {
-        v: e.burned ? coin({ denom: chain.denom, amount: e.burned }) : "—",
+        v: e.burned ? coin({ denom: chain.denom, amount: e.burned }) : "-",
         mono: true,
         align: "right",
         dim: !e.burned,

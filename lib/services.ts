@@ -5,7 +5,7 @@ import { z } from "zod";
 /**
  * The infrastructure GATA HUB runs and offers publicly.
  *
- * Deliberately separate from `config/chains/*.json`. Those describe a *chain* —
+ * Deliberately separate from `config/chains/*.json`. Those describe a *chain* -
  * its denom, its prefix, endpoints Scan reads from. This describes what
  * we operate, which is a different thing entirely and changes for different
  * reasons.
@@ -21,18 +21,18 @@ const endpointSchema = z.object({
   url: z.string().url(),
   /**
    * What it speaks, which decides how health is checked. gRPC is not reachable
-   * over plain HTTP, so it is listed but never probed — better than showing a
+   * over plain HTTP, so it is listed but never probed - better than showing a
    * permanent red mark against a service that is fine.
    */
   kind: z.enum(["rpc", "rest", "grpc"]).default("rpc"),
-  /** Shown under the URL — rate limits, retention, anything a user needs. */
+  /** Shown under the URL - rate limits, retention, anything a user needs. */
   note: z.string().optional(),
 });
 
 const chainServicesSchema = z.object({
   /**
    * Must match a chainId in config/chains. The chain's own website and source
-   * repository come from there rather than being repeated here — those belong
+   * repository come from there rather than being repeated here - those belong
    * to the project, not to us.
    */
   chainId: z.string().min(1),

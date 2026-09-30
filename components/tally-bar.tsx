@@ -59,7 +59,7 @@ export function TallyBar({
               />
               <span className="text-muted-foreground">{o.label}</span>
               <span className="font-mono tabular-nums">
-                {hasVotes ? `${(shares[o.key] * 100).toFixed(1)}%` : "—"}
+                {hasVotes ? `${(shares[o.key] * 100).toFixed(1)}%` : "-"}
               </span>
             </span>
           ))}

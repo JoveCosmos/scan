@@ -20,7 +20,7 @@ export interface MarqueeMark {
   name: string;
   accent: string;
   symbol: string;
-  /** Null when we have no asset — drawn as a monogram instead. */
+  /** Null when we have no asset - drawn as a monogram instead. */
   logo: string | null;
 }
 

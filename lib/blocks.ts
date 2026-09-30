@@ -194,7 +194,7 @@ export async function getBlockDetail(
 /**
  * The Cosmos REST API exposes no "list blocks" endpoint, so we read the head and
  * fan out over the preceding heights. Individual misses are dropped rather than
- * failing the list — pruned nodes legitimately return 404 for older heights.
+ * failing the list - pruned nodes legitimately return 404 for older heights.
  */
 export async function getRecentBlocks(
   chain: ChainConfig,

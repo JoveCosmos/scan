@@ -128,7 +128,7 @@ interface SingleTxResponse {
 }
 /**
  * A Cosmos tx hash is the SHA-256 of the raw (base64) tx bytes as included in the
- * block — verified to match the node's own `txhash`. Computing it locally means
+ * block - verified to match the node's own `txhash`. Computing it locally means
  * the tx list still works against nodes with transaction indexing switched off.
  */
 export function txHashFromBase64(rawTx: string): string {
@@ -335,7 +335,7 @@ async function readTxsAtHeight(
     });
     if (res.tx_responses?.length) return res.tx_responses.map((r) => rawTxToSummary(r, chain.chainId));
   } catch {
-    // Indexing disabled or endpoint unhappy — fall through to hashes-only.
+    // Indexing disabled or endpoint unhappy - fall through to hashes-only.
   }
 
   // Degraded mode: we still know each tx's hash and which block it landed in,
@@ -367,7 +367,7 @@ async function readTxsAtHeight(
  * the same columns and differ only in what they select on.
  *
  * The index stores extracted facts rather than transaction bodies, so a few
- * fields a raw tx would carry are absent — memos, message bodies. Gas and the
+ * fields a raw tx would carry are absent - memos, message bodies. Gas and the
  * signer are kept and come through.
  */
 export function indexedTxToSummary(t: IndexedAccountTx): TxSummary {
@@ -494,7 +494,7 @@ export async function getRecentTxs(
   if (indexed && indexed.length > 0 && indexFresh) {
     return {
       txs: indexed.map(indexedTxToSummary),
-      // Not a window — these are the last transactions, not a slice of blocks.
+      // Not a window - these are the last transactions, not a slice of blocks.
       scannedBlocks: 0,
       headHeight: indexed[0]?.height ?? null,
     };
@@ -517,7 +517,7 @@ export async function getRecentTxs(
   }
 
   // Newest first; take enough blocks to satisfy maxTxs, then resolve them in
-  // parallel — sequentially cost several seconds on chains with sparse blocks.
+  // parallel - sequentially cost several seconds on chains with sparse blocks.
   const needed: typeof facts = [];
   let running = 0;
   for (const block of facts) {

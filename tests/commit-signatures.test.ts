@@ -49,7 +49,7 @@ describe("commit signatures", () => {
     expect(r.missed).toEqual([{ height: "100", consAddr: "BBB", flag: "absent" }]);
   });
 
-  it("separates a nil vote from an absence — one is disagreement, not downtime", () => {
+  it("separates a nil vote from an absence - one is disagreement, not downtime", () => {
     const r = resolveMissed([sig(2, "AAA"), sig(3), sig(1)], SET, "100");
     expect(r.missed).toEqual([
       { height: "100", consAddr: "BBB", flag: "nil" },

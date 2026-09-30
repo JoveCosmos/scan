@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export function SearchBar({
   chainId,
   // Names what the field actually accepts. "Search…" left the reader to guess,
-  // and the three kinds are not obvious — an explorer search box could plausibly
+  // and the three kinds are not obvious - an explorer search box could plausibly
   // want a validator name or a chain. Long enough to be clipped on a narrow
   // phone, which is fine: the visible part still says "address, tx…".
   placeholder = "address, tx or a block height…",

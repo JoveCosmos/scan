@@ -7,7 +7,7 @@ import { ink } from "@/lib/utils";
  *
  * The unit the whole app is laid out in. A brick states the single number worth
  * knowing and hides the rest behind a click, which is what lets a page stay
- * inside one screen — a section that used to be eight rows down a scrolling page
+ * inside one screen - a section that used to be eight rows down a scrolling page
  * is now one tile with those eight rows in its popup.
  *
  * Deliberately not a `.gata-panel`: a wall of frosted panels with glows costs a
@@ -39,14 +39,14 @@ export interface BrickVisual {
   label: string;
   value: string;
   sub?: string;
-  /** Tint the value with the chain accent — for the figure that identifies it. */
+  /** Tint the value with the chain accent - for the figure that identifies it. */
   lead?: boolean;
   tone?: "ok" | "bad";
   /** Shown bottom-right: how many fields the popup holds. */
   count?: number;
   /**
    * Render the value as prose over two lines rather than one mono figure. For
-   * bricks whose identity is a title — a proposal — where a number would be the
+   * bricks whose identity is a title - a proposal - where a number would be the
    * least useful thing on the tile.
    */
   text?: boolean;
@@ -77,7 +77,7 @@ function Body({
         </span>
         {/*
           The affordance. A tile that opens and a tile that does not looked
-          identical, so the only way to find out was to click one — and half of
+          identical, so the only way to find out was to click one - and half of
           them are inert. Top corner rather than bottom: it sits beside the
           label, which is the part of a tile the eye lands on first, and leaves
           the figure's line uninterrupted.
@@ -121,7 +121,7 @@ function Body({
 const SHELL =
   "gata-surface gata-brick flex h-[5rem] flex-col gap-0.5 overflow-hidden px-3.5 py-2.5 text-left transition-[border-color,background-color,transform,box-shadow]";
 
-/** Static — a fact with nothing behind it. */
+/** Static - a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {
   return (
     <div className={SHELL} style={{ ["--brick-acc" as string]: accent }}>
@@ -152,7 +152,7 @@ export function BrickButton({
   );
 }
 
-/** Goes somewhere — used where the detail is a whole page, not a popup. */
+/** Goes somewhere - used where the detail is a whole page, not a popup. */
 export function BrickLink({
   brick,
   accent,

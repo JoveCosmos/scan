@@ -87,8 +87,8 @@ function voteLabel(vote: { primary: string; weighted: boolean; options: { option
 const VOTE_PAGE = 100;
 
 /**
- * A proposal message as labelled rows. The proposal-only types — spending the
- * community pool, scheduling an upgrade, legacy content — are read here; the
+ * A proposal message as labelled rows. The proposal-only types - spending the
+ * community pool, scheduling an upgrade, legacy content - are read here; the
  * rest go through the shared message decoder.
  */
 function messageRows(
@@ -136,7 +136,7 @@ function messageRows(
 }
 
 /**
- * Who voted, and how — or which validators did not.
+ * Who voted, and how - or which validators did not.
  *
  * Streamed separately: fetching every vote is the slowest read on the page and
  * the tally above does not depend on it. Filtered and paged on the server so
@@ -226,7 +226,7 @@ async function VotesDeck({
         cells: [
           { v: v.moniker, href: `/${chainId}/validators/${v.operatorAddress}` },
           {
-            v: v.votingPower != null ? `${(v.votingPower * 100).toFixed(2)}%` : "—",
+            v: v.votingPower != null ? `${(v.votingPower * 100).toFixed(2)}%` : "-",
             mono: true,
             align: "right",
           },
@@ -294,19 +294,19 @@ async function VotesDeck({
           dim: vote.primary === "VOTE_OPTION_ABSTAIN",
         },
         {
-          v: power != null ? `${(power * 100).toFixed(2)}%` : "—",
+          v: power != null ? `${(power * 100).toFixed(2)}%` : "-",
           mono: true,
           align: "right",
           dim: power == null,
         },
-        { v: vote.time ? formatDate(vote.time) : "—", mono: true, dim: true, align: "right" },
+        { v: vote.time ? formatDate(vote.time) : "-", mono: true, dim: true, align: "right" },
         vote.txHash
           ? {
               v: truncateMiddle(vote.txHash, 6, 4),
               mono: true,
               href: `/${chainId}/txs/${encodeURIComponent(vote.txHash)}`,
             }
-          : { v: "—", dim: true },
+          : { v: "-", dim: true },
       ],
       detail: { title: validator?.moniker ?? vote.voter, rows: [], action: { label: "Voter", href: target } },
     };
@@ -449,7 +449,7 @@ export default async function ProposalDetailPage({
     {
       key: "tally",
       label: voting ? "Current votes" : "Final tally",
-      value: hasVotes ? pct(yesOfDecisive) : "—",
+      value: hasVotes ? pct(yesOfDecisive) : "-",
       sub: hasVotes
         ? `yes of decisive${
             govParams?.threshold != null ? `, needs ${pct(govParams.threshold, 0)}` : ""
@@ -528,7 +528,7 @@ export default async function ProposalDetailPage({
       sub:
         proposal.votingStartTime || proposal.votingEndTime
           ? voting
-            ? `ends ${timeUntil(proposal.votingEndTime) ?? "—"}`
+            ? `ends ${timeUntil(proposal.votingEndTime) ?? "-"}`
             : `opened ${day(proposal.votingStartTime)}`
           : "never opened",
       rows: [
@@ -545,7 +545,7 @@ export default async function ProposalDetailPage({
       sub: deposits
         ? `${deposits.length} depositor${deposits.length === 1 ? "" : "s"}`
         : depositing
-          ? `ends ${timeUntil(proposal.depositEndTime) ?? "—"}`
+          ? `ends ${timeUntil(proposal.depositEndTime) ?? "-"}`
           : "total deposit",
       count: deposits?.length,
       rows: [

@@ -109,7 +109,7 @@ export interface RecentTxs {
 export interface ChainCapabilities {
   staking: boolean;
   gas: boolean;
-  /** Whether tx hashes are hex (Cosmos) or base64 (gno) — affects URL encoding. */
+  /** Whether tx hashes are hex (Cosmos) or base64 (gno) - affects URL encoding. */
   hexHashes: boolean;
   /**
    * Voting power is assigned rather than staked, so power-share metrics measure

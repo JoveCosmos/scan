@@ -2,7 +2,7 @@ import { bech32 } from "bech32";
 import { getAllChains } from "@/lib/chains";
 
 /**
- * The same account key produces a different address on every chain — only the
+ * The same account key produces a different address on every chain - only the
  * human-readable prefix changes, the 20-byte payload does not. So an address on
  * one chain can be re-encoded to its counterpart elsewhere without any lookup.
  *
@@ -14,7 +14,7 @@ import { getAllChains } from "@/lib/chains";
 /**
  * Chains offered in the address switcher: every mainnet we carry, in config
  * order. Derived from config rather than listed, so a chain added there is
- * offered here too — the hand-kept list had four and missed Osmosis, Juno and
+ * offered here too - the hand-kept list had four and missed Osmosis, Juno and
  * Passage.
  */
 export function linkedChains(): { chainId: string; prefix: string; label: string }[] {
@@ -43,7 +43,7 @@ export function convertAddress(address: string, toPrefix: string): string | null
 /**
  * The account behind a validator operator address.
  *
- * `cosmosvaloper1abc…` and `cosmos1abc…` carry the same 20 bytes — the operator
+ * `cosmosvaloper1abc…` and `cosmos1abc…` carry the same 20 bytes - the operator
  * form is just the same key under a different prefix. That account is the
  * validator's self-delegation address, so this is the link from a validator
  * page to its balances and transaction history.
@@ -69,7 +69,7 @@ export function decodePrefix(address: string): string | null {
 
 /**
  * The same account across every chain in linkedChains(), including the one it
- * was given as. Empty when the input is not a decodable account address —
+ * was given as. Empty when the input is not a decodable account address -
  * validator (`…valoper1…`) addresses are deliberately excluded, since their
  * counterparts are not the same entity.
  */

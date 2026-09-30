@@ -9,8 +9,8 @@ afterEach(() => vi.useRealTimers());
 
 describe("timeAgo", () => {
   it("handles null and unparseable input rather than showing NaN", () => {
-    expect(timeAgo(null)).toBe("—");
-    expect(timeAgo("not a date")).toBe("—");
+    expect(timeAgo(null)).toBe("-");
+    expect(timeAgo("not a date")).toBe("-");
   });
 
   it("scales through seconds, minutes, hours and days", () => {
@@ -62,7 +62,7 @@ describe("decodeParam", () => {
 
 describe("formatToken", () => {
   it("returns an em dash for null rather than NaN", () => {
-    expect(formatToken(null, 6)).toBe("—");
+    expect(formatToken(null, 6)).toBe("-");
   });
 
   it("converts by exponent and abbreviates by magnitude", () => {

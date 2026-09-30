@@ -27,7 +27,7 @@ export function ValidatorStatus({
 }) {
   const label = tombstoned ? "Tombstoned" : jailed ? "Jailed" : statusLabel(status);
 
-  // Tombstoned is worse than jailed — it cannot be undone — so it gets the
+  // Tombstoned is worse than jailed - it cannot be undone - so it gets the
   // stronger treatment rather than sharing the jailed style.
   const tone = tombstoned
     ? "bg-[var(--gata-burn)]/20 text-[var(--gata-burn)] ring-1 ring-[var(--gata-burn)]/30"

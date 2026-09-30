@@ -1,8 +1,8 @@
 /** Compact relative age, e.g. "6s ago". Safe against null/invalid timestamps. */
 export function timeAgo(iso: string | null, now: number = Date.now()): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const delta = (now - new Date(iso).getTime()) / 1000;
-  if (!Number.isFinite(delta)) return "—";
+  if (!Number.isFinite(delta)) return "-";
   if (delta < 1) return "just now";
   if (delta < 60) return `${Math.floor(delta)}s ago`;
   if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
@@ -23,7 +23,7 @@ export function decodeParam(value: string): string {
   }
 }
 
-/** "cosmosvaloper1abc…xyz9" — keeps both ends, which are the identifying parts. */
+/** "cosmosvaloper1abc…xyz9" - keeps both ends, which are the identifying parts. */
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
   if (value.length <= head + tail + 1) return value;
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
@@ -31,14 +31,14 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
 
 /**
  * A validator's jail record, worded the same everywhere it appears: the list,
- * the validator page, and anywhere later. Zero is "Never", never "0" — a bare
+ * the validator page, and anywhere later. Zero is "Never", never "0" - a bare
  * zero reads as a missing figure, not a clean record. Null means the index
  * cannot say, which is not the same claim and must not look like it.
  */
 export function jailRecord(
   jailings: { count: number; tombstoned: boolean } | null
 ): string {
-  if (!jailings) return "—";
+  if (!jailings) return "-";
   if (jailings.tombstoned) return "Tombstoned";
   if (jailings.count === 0) return "Never";
   if (jailings.count === 1) return "Once";
@@ -47,7 +47,7 @@ export function jailRecord(
 
 /**
  * Time left until a moment, e.g. "in 4d 6h". Past moments read "ended" rather
- * than a relative age — timeAgo on a future date is what printed "ends just
+ * than a relative age - timeAgo on a future date is what printed "ends just
  * now" for a vote with five days to run. Null for a missing or invalid date.
  */
 export function timeUntil(iso: string | null | undefined, now = Date.now()): string | null {
@@ -71,17 +71,17 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
  * server's locale and again in the browser's is a hydration mismatch.
  */
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
 /** "30 Sep 2026, 23:20 UTC". */
 export function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   const hh = String(d.getUTCHours()).padStart(2, "0");
   const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${formatDate(iso)}, ${hh}:${mm} UTC`;

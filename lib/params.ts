@@ -158,7 +158,7 @@ export async function getChainParams(chain: ChainConfig): Promise<ChainParams> {
 
 /** "1814400s" -> "21 days". Cosmos expresses durations as second strings. */
 export function humanDuration(value: string | null): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const seconds = Number(value.replace(/s$/, ""));
   if (!Number.isFinite(seconds)) return value;
 
@@ -186,7 +186,7 @@ export interface ChainEconomics {
   communityPool: string | null;
   /** Gross annual staking yield before validator commission, 0–1. */
   stakingApr: number | null;
-  /** Yield after the chain's minimum commission — the best any validator offers. */
+  /** Yield after the chain's minimum commission - the best any validator offers. */
   stakingAprAfterMinCommission: number | null;
 }
 
@@ -200,7 +200,7 @@ export interface ChainEconomics {
  *
  * Newly minted tokens go to stakers in proportion to stake, less the slice
  * diverted to the community pool. The result is before validator commission,
- * which is why the commission-adjusted figure is given alongside it — a
+ * which is why the commission-adjusted figure is given alongside it - a
  * headline APR nobody actually receives is worse than no APR.
  */
 export async function getChainEconomics(
@@ -305,7 +305,7 @@ export function getChainAprCached(chain: ChainConfig): Promise<{
  *
  *   APR(t) = R·(1 − e)/S + R·e/(N·t)
  *
- * — the same model atomone.gatahub.zone renders. The range runs from the
+ * - the same model atomone.gatahub.zone renders. The range runs from the
  * largest validator (lowest APR) to the smallest (highest). Null where the
  * chain has no such coefficient: its APR is the single figure above.
  */

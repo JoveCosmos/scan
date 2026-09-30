@@ -13,7 +13,7 @@ import type { Pool } from "pg";
  * Worth having as a database test rather than a mocked one: the query it
  * replaced aliased two columns `AS from` and `AS to`, which are reserved words
  * and a syntax error. Because the caller swallows errors and falls back to the
- * live path, that failure was completely silent — the indexer would simply
+ * live path, that failure was completely silent - the indexer would simply
  * never have been used. Nothing short of executing the SQL would have found it.
  */
 const url = process.env.INDEXER_TEST_DATABASE_URL;

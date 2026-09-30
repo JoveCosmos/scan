@@ -13,7 +13,7 @@ export interface ChainSummary {
   prettyName: string;
   symbol: string;
   accent: string;
-  /** Null when we have no asset — drawn as an accent dot instead. */
+  /** Null when we have no asset - drawn as an accent dot instead. */
   logo: string | null;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
@@ -102,7 +102,7 @@ function ChainSwitcher({
         {/*
           The name drops below sm, leaving the accent dot and the chevron. This
           button does not shrink, so "Cosmos Hub Testnet" was 18 characters the
-          search field paid for — and search is what the header is for. Nothing
+          search field paid for - and search is what the header is for. Nothing
           is lost: the page heading below names the chain, and the dot is its
           colour. Without an active chain the label stays at every width, since
           then there is nothing else to identify it.
@@ -134,8 +134,8 @@ function ChainSwitcher({
             return (
               <li key={chain.chainId}>
                 <Link
-                  // Every section now exists on every chain — one that has
-                  // nothing to show says so rather than 404ing — so switching
+                  // Every section now exists on every chain - one that has
+                  // nothing to show says so rather than 404ing - so switching
                   // keeps the tab you were on instead of dropping you to the
                   // overview and making you find your way back.
                   href={`/${chain.chainId}${section || "/params"}`}
@@ -238,7 +238,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
     chains[0] ??
     null;
 
-  // Switching chains keeps you on the same section. Only the section survives —
+  // Switching chains keeps you on the same section. Only the section survives -
   // a block height, tx hash or validator address means nothing on another
   // chain, so detail routes fall back to their list.
   const section =

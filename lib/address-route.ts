@@ -43,7 +43,7 @@ export function decodeBech32(input: string): { prefix: string; address: string }
 /**
  * Route an address. The current chain wins when the prefix fits it (testnets
  * share their mainnet's prefix); otherwise the first mainnet with that prefix,
- * then any chain with it. Null when nothing we carry uses the prefix — the
+ * then any chain with it. Null when nothing we carry uses the prefix - the
  * caller then shows plain text rather than a link to an empty page.
  */
 export function routeAddress(

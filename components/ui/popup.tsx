@@ -8,7 +8,7 @@ import { X } from "lucide-react";
 /**
  * The detail layer.
  *
- * With the app scroll-free, a page can only show what fits — so the depth that
+ * With the app scroll-free, a page can only show what fits - so the depth that
  * used to live further down a long page lives in here instead. Clicking a brick
  * or a row opens the whole record without leaving the page that gave it
  * context, which is also why this is a popup and not a route: coming back from

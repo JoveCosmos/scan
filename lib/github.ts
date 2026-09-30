@@ -4,7 +4,7 @@ import { cached } from "@/lib/cache";
  * The newest published release of a chain's node software.
  *
  * `node_info` reports the version of whichever public node answered, which is
- * not the same thing as the current release — AtomOne's public endpoints ran
+ * not the same thing as the current release - AtomOne's public endpoints ran
  * v4.0.1 for weeks after v4.1.0 shipped, because it needed no coordinated
  * upgrade. Showing only the node's version quietly understates the chain.
  *
@@ -39,7 +39,7 @@ export async function getLatestRelease(
   if (!path) return null;
 
   // Throws inside the cache callback so a failure is not stored as a good
-  // value — the same trap that blanked the price for five minutes.
+  // value - the same trap that blanked the price for five minutes.
   try {
     return await cached(`release:${path}`, 21_600_000, async () => {
       const res = await fetch(

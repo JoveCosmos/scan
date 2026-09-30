@@ -31,7 +31,7 @@ export function LoadingPanel({
       ) : null}
 
       {/* Shape of the table that is coming, so the panel does not jump when it
-          arrives. Hidden from assistive tech — the label above is the message. */}
+          arrives. Hidden from assistive tech - the label above is the message. */}
       <div className="mt-5 space-y-3" aria-hidden="true">
         {Array.from({ length: rows }, (_, i) => (
           <div key={i} className="flex items-center gap-4">

@@ -81,7 +81,7 @@ interface RewardsResponse {
 }
 
 /**
- * Rewards come back as decimal strings — "16021146.828901032017806464" — because
+ * Rewards come back as decimal strings - "16021146.828901032017806464" - because
  * the distribution module tracks fractions of a token. Everything downstream
  * treats amounts as integer base units, so the fraction is dropped rather than
  * rounded: a reward is not claimable below one base unit anyway, and rounding up
@@ -101,8 +101,8 @@ export function truncateDecimal(value: string | undefined): string {
  * Everything an account has at stake: what is bonded and to whom, what is on its
  * way back out, and what is mid-flight between validators.
  *
- * Four independent reads. Each is allowed to fail on its own — a chain with the
- * distribution module disabled still shows delegations, just without rewards —
+ * Four independent reads. Each is allowed to fail on its own - a chain with the
+ * distribution module disabled still shows delegations, just without rewards -
  * because a single missing module should not blank the whole section.
  *
  * Monikers come from the validator set that the validators page has already
@@ -283,7 +283,7 @@ interface SingleDelegationResponse {
  *
  * The number a delegator actually wants: an operator with little of its own
  * stake at risk is exposed to less of the loss it would cause. The staking
- * module does not carry it on the validator record — it is an ordinary
+ * module does not carry it on the validator record - it is an ordinary
  * delegation from the operator's own account, so it has to be asked for
  * separately.
  *
@@ -314,7 +314,7 @@ export async function getSelfBond(
     }
     return { amount, share };
   } catch {
-    // A validator with no self delegation 404s here, which is a real answer —
+    // A validator with no self delegation 404s here, which is a real answer -
     // but so does an endpoint having a bad day, and the two are not
     // distinguishable from the status alone.
     return null;
@@ -324,15 +324,15 @@ export async function getSelfBond(
 /**
  * Self bond for a whole validator set, keyed by operator address.
  *
- * There is no bulk endpoint for this — a self bond is an ordinary delegation,
+ * There is no bulk endpoint for this - a self bond is an ordinary delegation,
  * so it is one query per validator. That is the whole design problem here: 100
  * validators is 100 requests against endpoints we do not run.
  *
  * Hence a long cache and a small concurrency window. Self bond moves when an
- * operator bonds or unbonds its own stake, which is rare — a ten minute answer
+ * operator bonds or unbonds its own stake, which is rare - a ten minute answer
  * is not meaningfully staler than a live one, and it turns 100 requests per page
  * view into 100 per ten minutes. Failures are omitted rather than cached as
- * zero: the column shows "—" and tries again next window.
+ * zero: the column shows "-" and tries again next window.
  */
 export async function getSelfBonds(
   chain: ChainConfig,

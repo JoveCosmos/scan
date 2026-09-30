@@ -5,7 +5,7 @@ import { useState } from "react";
 /**
  * Two or three views sharing one frame.
  *
- * A fixed-height page cannot stack sections — the second one would start below
+ * A fixed-height page cannot stack sections - the second one would start below
  * the fold, which is the thing the layout exists to prevent. Where a page
  * genuinely has more than one answer to give, they take turns rather than
  * queue up.

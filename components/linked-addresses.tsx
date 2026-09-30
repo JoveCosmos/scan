@@ -8,7 +8,7 @@ import { truncateMiddle } from "@/lib/format";
 import type { LinkedAddress } from "@/lib/bech32";
 
 /**
- * The same key produces a different address on every chain — only the prefix
+ * The same key produces a different address on every chain - only the prefix
  * differs. This offers those counterparts so you can follow one account across
  * chains without re-deriving the address by hand.
  */

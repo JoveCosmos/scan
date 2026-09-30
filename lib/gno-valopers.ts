@@ -10,12 +10,12 @@ import type { ChainConfig } from "@/lib/chains";
  * The registry is keyed by a validator's *operator* address, while the
  * consensus set (and every block proposer) uses its *signing* address. Only the
  * per-valoper render carries both, so mapping between them means reading every
- * profile once — hence the cached index below.
+ * profile once - hence the cached index below.
  */
 
 export interface ValoperProfile {
   moniker: string;
-  /** Validator-authored markdown. Rendered as plain text — never as HTML. */
+  /** Validator-authored markdown. Rendered as plain text - never as HTML. */
   description: string;
   operatorAddress: string;
   signingAddress: string | null;
@@ -172,7 +172,7 @@ const EMPTY_INDEX: ValoperIndex = { bySigning: new Map(), byOperator: new Map() 
  *
  * Rebuilding costs ~25s of serialised realm execution, which the node cannot be
  * made to do faster. Persisting means only the very first run on a machine pays
- * it — every later restart, including a rebuild that wipes .next, starts warm.
+ * it - every later restart, including a rebuild that wipes .next, starts warm.
  *
  * Registrations change rarely, so a stale file is still far better than falling
  * back to raw addresses; it is served immediately and refreshed in the
@@ -219,7 +219,7 @@ async function readDisk(
 
     return { at: payload.at, index: indexFromProfiles(payload.profiles) };
   } catch {
-    // Missing or unreadable cache is normal — just rebuild.
+    // Missing or unreadable cache is normal - just rebuild.
     return null;
   }
 }
@@ -308,7 +308,7 @@ async function buildIndex(chain: ChainConfig): Promise<ValoperIndex> {
 
 /**
  * Kick off a build if none is cached or the cache is stale. Returns the in-flight
- * promise. Safe to call repeatedly — concurrent callers share one build.
+ * promise. Safe to call repeatedly - concurrent callers share one build.
  */
 async function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
   // Consult disk before deciding to rebuild, so a restart does not pay the
@@ -334,7 +334,7 @@ async function ensureIndex(chain: ChainConfig): Promise<ValoperIndex> {
       return index;
     })
     .catch((err) => {
-      // Keep any previously good value — including one loaded from disk —
+      // Keep any previously good value - including one loaded from disk -
       // rather than losing it to a failed refresh.
       const prev = indexCache.get(chain.chainId);
       indexCache.set(chain.chainId, {
@@ -366,7 +366,7 @@ export function prewarmValoperIndex(chain: ChainConfig): void {
 
 /**
  * The signing/operator index, awaited to completion. Costs ~95 sequential realm
- * executions on a cold cache — the node serialises them, so this is ~15s and
+ * executions on a cold cache - the node serialises them, so this is ~15s and
  * cannot be parallelised away. Prefer getValoperIndexNow() on request paths.
  */
 export function getValoperIndex(chain: ChainConfig): Promise<ValoperIndex> {

@@ -12,7 +12,7 @@ interface FetchLcdOptions {
   next?: NextFetchRequestConfig;
   cache?: RequestCache;
   searchParams?: Record<string, string | number | boolean | undefined>;
-  /** Extra request headers — notably x-cosmos-block-height for state at a past
+  /** Extra request headers - notably x-cosmos-block-height for state at a past
    *  height, which is how the 24h stake delta is measured. */
   headers?: Record<string, string>;
   /**
@@ -27,7 +27,7 @@ const DEFAULT_TIMEOUT_MS = 5000;
 
 /*
  * Which endpoint answered last, per endpoint list. Endpoint health is sticky in
- * practice — a node that just failed is likely to fail again — so remembering
+ * practice - a node that just failed is likely to fail again - so remembering
  * the winner avoids paying the timeout repeatedly. Held on globalThis because
  * route handlers and instrumentation are bundled separately.
  */
@@ -52,7 +52,7 @@ export function orderEndpoints(
   preferred?: string
 ): string[] {
   // primaries.includes is the load-bearing part. Without it a preferred value
-  // that is not a primary — a fallback — gets prepended, which both promotes it
+  // that is not a primary - a fallback - gets prepended, which both promotes it
   // and leaves it in the list twice.
   const promotable =
     preferred !== undefined &&
@@ -138,7 +138,7 @@ export async function fetchFrom<T>(
       }
 
       const body = (await res.json()) as T;
-      // Only primaries are remembered — see orderEndpoints.
+      // Only primaries are remembered - see orderEndpoints.
       if (endpoints.length > 1 && endpoints.includes(endpoint)) {
         lastGood.set(endpoints.join("|"), endpoint);
       }

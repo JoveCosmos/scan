@@ -2,7 +2,7 @@
  * Runs once when the server boots.
  *
  * The gno.land valopers realm index costs ~95 sequential vm/qrender calls
- * (~15s — the node serialises realm execution, so it cannot be parallelised
+ * (~15s - the node serialises realm execution, so it cannot be parallelised
  * away). Building it at startup means the validator list is already warm by the
  * time anyone opens it, instead of the first visitor seeing bare addresses
  * while a lazy build runs.

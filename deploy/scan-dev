@@ -3,7 +3,7 @@
 #
 #   sudo install -m 755 /srv/scan/repo/deploy/scan-dev /usr/local/bin/scan-dev
 #
-# The agent runs as `scan`, the account the app already runs under — no new
+# The agent runs as `scan`, the account the app already runs under - no new
 # user and no new attack surface. That account has /usr/sbin/nologin on purpose
 # and cannot be SSHed into, so this reaches it with sudo from a root login
 # rather than giving it a shell.

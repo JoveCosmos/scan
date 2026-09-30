@@ -27,7 +27,7 @@ PrivateTmp=true
 InaccessiblePaths=/srv/gata-hub /etc/gata
 
 # Must stay false: deploy.sh calls sudo to restart the app, and sudo is setuid,
-# which NoNewPrivileges blocks outright. The app service itself sets it true —
+# which NoNewPrivileges blocks outright. The app service itself sets it true -
 # that is the process actually exposed to the internet.
 NoNewPrivileges=false
 ProtectKernelTunables=true

@@ -3,7 +3,7 @@
 #
 #   sudo /srv/explorer/repo/deploy/migrate-to-scan.sh
 #
-# SPENT — this ran on 2026-08-13 and is kept as a record of what moved. Do not
+# SPENT - this ran on 2026-08-13 and is kept as a record of what moved. Do not
 # run it again; /srv/explorer no longer exists. The notes below describe the box
 # as it was at that moment, so two of them have since been overtaken: the GitHub
 # repo was renamed to JoveCosmos/scan, and the deploy key was split into a
@@ -23,7 +23,7 @@
 #
 # The Postgres role is renamed rather than recreated. That is only safe because
 # the cluster uses scram-sha-256, whose verifier does not include the user name
-# — under the older md5 scheme the stored hash covers user+password, and a
+# - under the older md5 scheme the stored hash covers user+password, and a
 # rename would silently invalidate the password. Checked below rather than
 # assumed.
 set -euo pipefail
@@ -129,7 +129,7 @@ fi
 
 # ── 6. systemd units ──────────────────────────────────────────────────────────
 say "installing units"
-# The release, not /srv/scan/repo. That repo is only ever fetched into — its
+# The release, not /srv/scan/repo. That repo is only ever fetched into - its
 # working tree stays on whatever commit it was cloned at, months behind, because
 # releases are built with `git archive` from origin. Reading unit files from
 # there would install stale ones that look plausible.
@@ -173,7 +173,7 @@ systemctl enable scan.service
 systemctl enable --now scan-deploy.timer
 
 # A forced rebuild rather than a restart of what was moved. `next build` bakes
-# absolute paths into its output — the file-tracing manifests name them — so a
+# absolute paths into its output - the file-tracing manifests name them - so a
 # release built at /srv/explorer/releases/<sha> and then moved is not reliably
 # runnable from /srv/scan/releases/<sha>. It might start and fail later on a
 # route that needs a traced file, which is the worst version of this.

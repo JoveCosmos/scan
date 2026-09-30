@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getAllChains, chainDenoms } from "@/lib/chains";
 
 describe("chain order", () => {
-  // The order is a product decision, not a property of the chains — ours first,
+  // The order is a product decision, not a property of the chains - ours first,
   // then the rest, with each testnet next to its mainnet. Nothing derives it, so
   // only this test stops a new config file or a changed sort from quietly
   // rearranging the switcher.

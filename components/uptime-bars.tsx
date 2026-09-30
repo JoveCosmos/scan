@@ -3,14 +3,14 @@ import { cn } from "@/lib/utils";
 import type { ValidatorUptime } from "@/lib/uptime";
 
 /**
- * Recent signing history as a bar strip, newest on the right — the shape people
+ * Recent signing history as a bar strip, newest on the right - the shape people
  * already read on other explorers. Missed blocks are the whole point, so they
  * are the only ones given a strong colour.
  *
  * `expand` stretches the same strip to fill whatever it is given, for the panel
  * on a validator's page. A hundred three-pixel bars sitting in the corner of a
  * full-height panel would be the smallest thing on the largest surface, and the
- * information — which of the last hundred blocks this validator missed — is
+ * information - which of the last hundred blocks this validator missed - is
  * worth the room once it has a panel to itself.
  */
 export function UptimeBars({

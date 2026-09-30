@@ -90,7 +90,7 @@ describe("linkedAddresses", () => {
     expect(fromGno.find((l) => l.chainId === "cosmoshub-4")!.address).toBe(COSMOS);
   });
 
-  it("refuses validator operator addresses — a different namespace", () => {
+  it("refuses validator operator addresses - a different namespace", () => {
     expect(
       linkedAddresses("cosmosvaloper1qphf0ferqcch0jca9hlqfm3x0eds3dpkcvpafp")
     ).toEqual([]);

@@ -48,8 +48,8 @@ function Facts({ sub }: { sub: string }) {
 /**
  * A page that fits the screen.
  *
- * The document itself never scrolls — `AppShell` fixes the column to the
- * viewport — so a page is given exactly the height between the header and the
+ * The document itself never scrolls - `AppShell` fixes the column to the
+ * viewport - so a page is given exactly the height between the header and the
  * footer and has to live inside it. This is the frame that does that: a heading
  * strip that cannot grow, and a body that takes what is left.
  *

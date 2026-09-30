@@ -17,7 +17,7 @@ interface Candidate {
   note: string;
 }
 
-/** Chains whose bech32 prefix matches — several, since testnets share a prefix. */
+/** Chains whose bech32 prefix matches - several, since testnets share a prefix. */
 function chainsForPrefix(prefix: string): ChainConfig[] {
   const base = prefix.replace(/(valoper|valcons)$/, "");
   return getAllChains().filter((c) => c.bech32Prefix === base);
@@ -158,7 +158,7 @@ function NoResult({ query }: { query: string }) {
 
 /**
  * Chain-agnostic search. An address carries its chain in its prefix, a tx hash
- * has to be looked up, and a height is meaningful on every chain — so this
+ * has to be looked up, and a height is meaningful on every chain - so this
  * redirects when the answer is unambiguous and asks when it is not.
  *
  * `chain` is a hint from the header on a chain page: if that chain is among the

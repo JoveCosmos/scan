@@ -74,7 +74,7 @@ describe("isSnapshotDue", () => {
   });
 
   it("is due after a long gap, without trying to catch up", () => {
-    // A missed day takes one snapshot now, not twenty-four backdated ones —
+    // A missed day takes one snapshot now, not twenty-four backdated ones -
     // there is no way to recover stake as it was at a moment already past.
     expect(
       isSnapshotDue(t("2026-08-10T00:00:00Z"), t("2026-08-11T00:00:00Z"), 3_600_000)

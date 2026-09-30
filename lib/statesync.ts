@@ -6,7 +6,7 @@ import { cached } from "@/lib/cache";
  * State sync: the fastest way to bring a node up, and the fiddliest to get
  * right by hand.
  *
- * An operator needs four things — two RPC servers, a recent height, that
+ * An operator needs four things - two RPC servers, a recent height, that
  * block's hash, and a trust period. Three of the four are derived here rather
  * than written into config, because a trust height goes stale: a hash pinned in
  * a file is wrong within days, and a wrong `trust_hash` fails the sync with an
@@ -24,7 +24,7 @@ const DEFAULT_TRUST_PERIOD = "8h0m0s";
 export interface StateSync {
   rpcServers: string[];
   trustHeight: number;
-  /** Hex, uppercase — the form CometBFT's config expects. */
+  /** Hex, uppercase - the form CometBFT's config expects. */
   trustHash: string;
   trustPeriod: string;
   /** Ready to paste into config.toml. */

@@ -26,7 +26,7 @@ export function TxsTable({
 }: {
   chainId: string;
   accent: string;
-  /** Known denoms, including resolved IBC tokens — a fee may be in another token. */
+  /** Known denoms, including resolved IBC tokens - a fee may be in another token. */
   denoms: DenomInfo[];
   initial: Feed;
   /** Server clock at render, so the first ages match the server's HTML. */
@@ -55,7 +55,7 @@ export function TxsTable({
         ? tx.messageCount > 1
           ? `${tx.messages[0].label} +${tx.messageCount - 1}`
           : tx.messages[0].label
-        : "—");
+        : "-");
     const href = `/${chainId}/txs/${encodeURIComponent(tx.hash)}`;
 
     return {
@@ -64,14 +64,14 @@ export function TxsTable({
         { v: truncateMiddle(tx.hash, 10, 6), mono: true, tone: "accent" },
         { v: type },
         {
-          v: tx.transfer && tx.transfer.amount.length > 0 ? formatCoinsShort(tx.transfer.amount, known) : "—",
+          v: tx.transfer && tx.transfer.amount.length > 0 ? formatCoinsShort(tx.transfer.amount, known) : "-",
           mono: true,
           align: "right",
           dim: !tx.transfer?.amount.length,
         },
         { v: formatCoinsShort(tx.fee, known, 6), mono: true, align: "right", dim: true },
         {
-          v: tx.code === null ? "—" : ok ? "ok" : `fail ${tx.code}`,
+          v: tx.code === null ? "-" : ok ? "ok" : `fail ${tx.code}`,
           mono: true,
           tone: tx.code === null ? undefined : ok ? "ok" : "bad",
         },

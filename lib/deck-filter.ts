@@ -3,7 +3,7 @@
  *
  * One filter for every list in the app, rather than one written per page. The
  * decks are rendered by server components, which cannot hold a query, so the
- * deck owns both the box and the matching — and since a deck already decides
+ * deck owns both the box and the matching - and since a deck already decides
  * which rows you can see, narrowing them belongs in the same place.
  *
  * Matched against what the row *shows*, plus whatever it declares separately.

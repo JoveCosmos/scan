@@ -26,13 +26,13 @@ const chainConfigSchema = z
     feeSupplyCap: z.number().optional(),
     /**
      * "cosmos" chains are read over the Cosmos SDK REST (LCD) API. "gno" chains
-     * expose no /cosmos/* modules at all — they are read over Tendermint2 JSON-RPC
+     * expose no /cosmos/* modules at all - they are read over Tendermint2 JSON-RPC
      * plus an indexing REST API, so they need a different adapter entirely.
      */
     kind: z.enum(["cosmos", "gno"]).default("cosmos"),
     /**
      * Kept for context where a chain is named without its network being
-     * obvious — the search disambiguation list, mainly. It no longer groups the
+     * obvious - the search disambiguation list, mainly. It no longer groups the
      * switcher: mainnets and testnets are listed together in `order`, because
      * splitting them buried AtomOne's testnet far from AtomOne itself when the
      * two are worked on side by side.
@@ -40,14 +40,14 @@ const chainConfigSchema = z
     network: z.enum(["mainnet", "testnet"]).default("mainnet"),
     /**
      * Position in the switcher and anywhere else chains are listed. Ascending,
-     * and deliberately not derived from name or network — the intended reading
+     * and deliberately not derived from name or network - the intended reading
      * order is "ours first, then the rest", which no property of the chain
      * itself expresses. A chain without one sorts to the end by prettyName, so
      * adding a chain stays a JSON file and never a renumbering exercise.
      */
     order: z.number().int().optional(),
     /**
-     * How much of this chain we undertake to serve — see lib/tiers.ts. Policy,
+     * How much of this chain we undertake to serve - see lib/tiers.ts. Policy,
      * not capability: "limited" means we chose not to carry a section, where a
      * missing capability means the chain has no such module.
      *
@@ -58,7 +58,7 @@ const chainConfigSchema = z
     /**
      * Whether our Postgres index actually holds this chain.
      *
-     * A fact about the indexer, not a service level — which is why it is here
+     * A fact about the indexer, not a service level - which is why it is here
      * and not in the tier. Treating it as a tier consequence marked AtomOne's
      * testnet and gno.land as indexed because they are high tier, so the app
      * queried Postgres for chains the indexer had never been pointed at and
@@ -82,7 +82,7 @@ const chainConfigSchema = z
      * Our own nodes, tried only when every endpoint above has failed.
      *
      * Separate from the lists above rather than appended to them because the
-     * fetch layer promotes whichever endpoint last answered — one failover
+     * fetch layer promotes whichever endpoint last answered - one failover
      * would otherwise leave the scan reading from our validator indefinitely.
      * These are for building against and for keeping the site up, not for
      * carrying its traffic.
@@ -147,7 +147,7 @@ function loadChains(): ChainConfig[] {
     seen.add(chain.chainId);
   }
 
-  // Sorted once here so every list — switcher, landing page, search results —
+  // Sorted once here so every list - switcher, landing page, search results -
   // agrees. Order was previously whatever readdir returned, which is
   // alphabetical on this filesystem but is not guaranteed to be anywhere.
   chains.sort((a, b) => {

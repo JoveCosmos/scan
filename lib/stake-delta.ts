@@ -13,7 +13,7 @@ import { stakeBaseline } from "@/lib/indexer-db";
  * is the only source that does not depend on somebody else keeping historical
  * state around.
  *
- * Otherwise a node's state at yesterday's height, via `x-cosmos-block-height` —
+ * Otherwise a node's state at yesterday's height, via `x-cosmos-block-height` -
  * the whole set in one request rather than one per validator. Only archive
  * nodes retain it: on AtomOne one public endpoint answers 500 and the other is
  * a rotating proxy, archive on one request and pruned on the next. That is what
@@ -31,7 +31,7 @@ const BLOCK_SAMPLE = 2000;
 
 /**
  * Seconds per block, measured rather than configured, so adding a chain needs
- * no timing constant. Cached for an hour — block time barely moves.
+ * no timing constant. Cached for an hour - block time barely moves.
  *
  * Falls back to 6s (the Cosmos Hub norm) if the sample cannot be read. A small
  * error here only shifts the window slightly, e.g. 23.5h instead of 24h, which
@@ -84,7 +84,7 @@ export async function getStakeDeltas(
   //
   // Keyed by chain alone, deliberately, even though the height it reads moves
   // every block. A height-keyed entry would be a fresh key every time and so
-  // never a hit — which is what made this column flicker: only some endpoints
+  // never a hit - which is what made this column flicker: only some endpoints
   // retain state 14,000 blocks back, `fetchLcd` fails over between them, and
   // the toss was re-thrown on every request. One key means cached() keeps
   // serving the last good baseline through a node that refuses, and the column

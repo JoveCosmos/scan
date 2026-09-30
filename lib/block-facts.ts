@@ -49,7 +49,7 @@ export interface BlockSummary {
 export interface BlockFacts {
   summary: BlockSummary;
   /**
-   * Base64 consensus addresses that signed the *previous* block — a block's
+   * Base64 consensus addresses that signed the *previous* block - a block's
    * last_commit describes its parent. Absent votes are left out.
    */
   signers: string[];
@@ -118,7 +118,7 @@ export function latestFacts(chain: ChainConfig): Promise<BlockFacts> {
 
 /**
  * The last `count` blocks, newest first. Misses are dropped rather than
- * failing the list — a pruned node legitimately 404s older heights.
+ * failing the list - a pruned node legitimately 404s older heights.
  */
 export async function recentFacts(chain: ChainConfig, count: number): Promise<BlockFacts[]> {
   const head = await latestFacts(chain);

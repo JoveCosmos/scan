@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { consensusIdsFromPubkey, emptyUptime, RECENT_BAR_COUNT } from "@/lib/uptime";
 
 // A real Cosmos Hub consensus key and the addresses it must produce. Both forms
-// come from the same sha256(pubkey)[:20] — blocks carry the base64, the slashing
-// module keys on the bech32 — so a change to either derivation breaks uptime
+// come from the same sha256(pubkey)[:20] - blocks carry the base64, the slashing
+// module keys on the bech32 - so a change to either derivation breaks uptime
 // silently, matching nothing rather than erroring.
 const PUBKEY = "voVoXB0ArzZ57NgZgyAhrwa0mVabPijeqT0ebQJYPPc=";
 
@@ -25,7 +25,7 @@ describe("consensusIdsFromPubkey", () => {
     expect(consensusIdsFromPubkey(PUBKEY, "atone")!.valcons.startsWith("atonevalcons1")).toBe(
       true
     );
-    // Same key, same payload — only the prefix differs.
+    // Same key, same payload - only the prefix differs.
     expect(consensusIdsFromPubkey(PUBKEY, "atone")!.base64).toBe(
       consensusIdsFromPubkey(PUBKEY, "cosmos")!.base64
     );
@@ -41,7 +41,7 @@ describe("consensusIdsFromPubkey", () => {
 describe("emptyUptime", () => {
   it("is all-unknown, never a fabricated zero", () => {
     const u = emptyUptime();
-    // A missing reading must not render as 0% uptime — that would libel a
+    // A missing reading must not render as 0% uptime - that would libel a
     // validator that is actually fine.
     expect(u.ratio).toBeNull();
     expect(u.missed).toBeNull();

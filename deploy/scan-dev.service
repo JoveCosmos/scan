@@ -14,7 +14,7 @@ WorkingDirectory=/srv/scan-dev/scan
 # No EnvironmentFile. The dev server must not hold the production database
 # credential: /etc/gata/scan.env carries INDEXER_DATABASE_URL, and pointing this
 # at it would give an unreviewed working tree a live connection. Without it the
-# dev server behaves exactly as a fresh checkout does — every indexed feature
+# dev server behaves exactly as a fresh checkout does - every indexed feature
 # falls back to querying nodes, which is the path that has to keep working
 # anyway.
 #
@@ -25,7 +25,7 @@ Environment=PORT=3006
 Environment=HOSTNAME=127.0.0.1
 
 # HOME must be set explicitly. systemd otherwise uses the account home,
-# /srv/scan, which is the *production* tree — npm and Next were writing
+# /srv/scan, which is the *production* tree - npm and Next were writing
 # /srv/scan/.npm and /srv/scan/.config from the dev server. /srv/scan-dev also
 # matches where npm's cache is already configured and what the scan-dev tmux
 # wrapper uses, so dev state stays in the dev tree.
@@ -36,7 +36,7 @@ Environment=HOME=/srv/scan-dev
 # --turbopack matches package.json's dev script, and is required rather than
 # preferred: lib/gno-valopers.ts imports `node:fs/promises`, and webpack rejects
 # the `node:` scheme outright with "Unhandled scheme", so every page 500s. Only
-# dev is affected — `next build` uses a different pipeline, which is why
+# dev is affected - `next build` uses a different pipeline, which is why
 # production has always been fine.
 ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev --turbopack -p 3006 -H 127.0.0.1
 
@@ -45,7 +45,7 @@ ExecStart=/usr/bin/node node_modules/next/dist/bin/next dev --turbopack -p 3006 
 #
 # ProtectSystem=strict makes the whole hierarchy read-only, hence ReadWritePaths
 # for .next/ and the npm cache. /srv/scan is blocked because the dev server has
-# no business in the production tree — that is only safe because HOME is set
+# no business in the production tree - that is only safe because HOME is set
 # above; without it this would break npm. /etc/gata holds the live
 # INDEXER_DATABASE_URL, which is exactly what this service must never reach.
 NoNewPrivileges=yes

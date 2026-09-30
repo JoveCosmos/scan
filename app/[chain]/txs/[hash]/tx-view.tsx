@@ -308,7 +308,7 @@ export function IbcTraceList({ traces, chainId }: { traces: PacketTrace[]; chain
                   counterpartyName
                 )
               ) : (
-                <span className="font-mono text-muted-foreground">{counterpartyChainId ?? "—"}</span>
+                <span className="font-mono text-muted-foreground">{counterpartyChainId ?? "-"}</span>
               )}
             </dd>
             {p.sender ? (

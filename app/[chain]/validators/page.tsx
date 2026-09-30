@@ -23,8 +23,8 @@ export const revalidate = 60;
 const BUDGET = 1500;
 
 /**
- * Shaped like the deck it stands in for — a filter bar over a full-height
- * table — rather than the four stat cards this page used to open with, which
+ * Shaped like the deck it stands in for - a filter bar over a full-height
+ * table - rather than the four stat cards this page used to open with, which
  * the skeleton went on describing long after the cards were gone.
  */
 function TableSkeleton({ chain }: { chain: ChainConfig }) {
@@ -105,7 +105,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
         )
       : Promise.resolve(new Map()),
     // One request per validator, so it is cached for ten minutes and only
-    // gathered where the chain has staking at all — see getSelfBonds.
+    // gathered where the chain has staking at all - see getSelfBonds.
     adapter.capabilities.staking
       ? withinBudget(getSelfBonds(chain, validators), BUDGET, new Map())
       : Promise.resolve(new Map()),
@@ -174,7 +174,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
 
   // Outside the set there is no signing to measure and no 24h baseline, and a
   // self-bond read per inactive validator would be hundreds of requests for a
-  // column few would sort by — so those stay empty. Jail records do apply.
+  // column few would sort by - so those stay empty. Jail records do apply.
   const inactiveRows: ValidatorRow[] = inactive.map((v) => ({
     rank: v.rank,
     operatorAddress: v.operatorAddress,
@@ -195,7 +195,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   const { staking } = adapter.capabilities;
 
   // How far back the jailing counts reach. Zero jailings means nothing without
-  // it — "0" alone could as easily be a validator with a clean record as a
+  // it - "0" alone could as easily be a validator with a clean record as a
   // window that starts after the last time it was jailed. Formatted here rather
   // than in the component, since a date rendered on the client picks up the
   // browser's locale and disagrees with the server's markup.
@@ -220,7 +220,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
 
   // The rail's five figures move into the heading. On a fixed-height page a
   // rail costs a whole band of rows, and these are context for the table rather
-  // than the point of the page — the same figures are bricks on the overview,
+  // than the point of the page - the same figures are bricks on the overview,
   // where they are the point.
   const summary = [
     `${validators.length} validators`,
@@ -247,7 +247,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   ].join(" · ");
 
   // Keyed by operator for the table; a validator the index knows but that
-  // missed nothing reads zero, one without a consensus key reads "—".
+  // missed nothing reads zero, one without a consensus key reads "-".
   const missed30d = missed30
     ? Object.fromEntries(
         validators.flatMap((v) => {

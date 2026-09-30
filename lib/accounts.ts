@@ -34,7 +34,7 @@ export interface AccountView {
   unbondingTotal?: string | null;
   /** Claimable staking rewards across all validators, every denom. */
   rewards?: Coin[] | null;
-  /** Module, escrow, contract, vesting — or a plain account. */
+  /** Module, escrow, contract, vesting - or a plain account. */
   kind?: AddressKind | null;
 }
 
@@ -66,7 +66,7 @@ function wholeUnits(value: string | undefined): string {
 /**
  * Every balance, paging through the bank module. A single page of 100 sorted
  * by denom let the native token fall off the end for accounts holding many
- * IBC tokens — an escrow showed "0 ATOM" beside "Balances (100)".
+ * IBC tokens - an escrow showed "0 ATOM" beside "Balances (100)".
  */
 async function readBalances(chain: ChainConfig, address: string): Promise<Coin[]> {
   const out: Coin[] = [];
@@ -258,7 +258,7 @@ export async function getCosmosAccountTxs(
   const indexedCursor = cursor?.match(/^i:(\d+):([0-9A-Fa-f]+|~)$/);
   const pageCursor = cursor?.match(/^p:(\d+)$/);
 
-  // Every transaction the address touched, in any role, failed ones too —
+  // Every transaction the address touched, in any role, failed ones too -
   // where the index's tx_party covers. Below its floor the older union takes
   // over, on the same page when this one runs short, so paging never notices
   // the seam.
@@ -337,8 +337,8 @@ export async function getCosmosAccountTxs(
         "/cosmos/tx/v1beta1/txs",
         {
           cache: "no-store",
-          // Busy accounts time out on one direction or the other — the
-          // distribution module on sender, an escrow on recipient — after the
+          // Busy accounts time out on one direction or the other - the
+          // distribution module on sender, an escrow on recipient - after the
           // node's own 30 s. A tight budget keeps whichever answers.
           timeoutMs: 8000,
           deadlineMs: 9000,

@@ -6,7 +6,7 @@ import { isNumericId, isCosmosTxHash, isBech32ish } from "@/lib/input";
  *
  * Two properties matter and both are pinned: nothing legitimate is rejected,
  * and the traversal shapes that motivated the module never pass. The second
- * half uses the actual attack strings — `decodeParam` has already
+ * half uses the actual attack strings - `decodeParam` has already
  * percent-decoded by the time these run, so the guards see raw `/` and `?`.
  */
 

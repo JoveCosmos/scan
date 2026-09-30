@@ -16,7 +16,7 @@ export function shortDenom(denom: string): string {
 
 /**
  * Exact display amount: every significant decimal, grouped, never rounded.
- * Split with BigInt — amounts routinely exceed Number.MAX_SAFE_INTEGER, and
+ * Split with BigInt - amounts routinely exceed Number.MAX_SAFE_INTEGER, and
  * dividing them as floats prints ...124.9999 for ...125.
  */
 export function exactAmount(raw: string, exponent: number): string {
@@ -33,7 +33,7 @@ export function exactAmount(raw: string, exponent: number): string {
  * A compact amount for a list cell: grouped, at most `maxFrac` decimals,
  * truncated rather than rounded (a display should never overstate), and never
  * abbreviated to K/M. A non-zero amount that truncates to zero shows as
- * "<0.0001" — a dust payment is not nothing.
+ * "<0.0001" - a dust payment is not nothing.
  */
 export function shortAmount(raw: string, exponent: number, maxFrac = 4): string {
   if (!/^\d+$/.test(raw)) return raw;
@@ -49,8 +49,8 @@ export function shortAmount(raw: string, exponent: number, maxFrac = 4): string 
 /**
  * Format a coin by its own denom rather than an assumed one.
  *
- * A transaction's fee is not always in the staking token — AtomOne pays fees in
- * PHOTON — so formatting every amount with the chain's headline symbol
+ * A transaction's fee is not always in the staking token - AtomOne pays fees in
+ * PHOTON - so formatting every amount with the chain's headline symbol
  * mislabels them. A denom the app does not recognise is shown in base units
  * with a shortened denom, never scaled by a guessed power of ten.
  */
@@ -70,7 +70,7 @@ export function formatCoins(
   known: DenomInfo[],
   decimals = 4
 ): string {
-  if (coins.length === 0) return "—";
+  if (coins.length === 0) return "-";
   return coins.map((c) => formatCoin(c, known, decimals)).join(", ");
 }
 
@@ -82,7 +82,7 @@ export function formatCoinExact(coin: { denom: string; amount: string }, known: 
 }
 
 export function formatCoinsExact(coins: { denom: string; amount: string }[], known: DenomInfo[]): string {
-  if (coins.length === 0) return "—";
+  if (coins.length === 0) return "-";
   return coins.map((c) => formatCoinExact(c, known)).join(", ");
 }
 
@@ -102,7 +102,7 @@ export function formatCoinsShort(
   known: DenomInfo[],
   maxFrac = 4
 ): string {
-  if (coins.length === 0) return "—";
+  if (coins.length === 0) return "-";
   const first = formatCoinShort(coins[0], known, maxFrac);
   return coins.length > 1 ? `${first} +${coins.length - 1}` : first;
 }

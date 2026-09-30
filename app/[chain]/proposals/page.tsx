@@ -120,7 +120,7 @@ export default async function ProposalsPage({
           align: "right",
         },
         {
-          v: hasVotes && decisive > 0 ? `${((s.yes / decisive) * 100).toFixed(1)}%` : voting && !live.get(p.id) ? "N/A" : "—",
+          v: hasVotes && decisive > 0 ? `${((s.yes / decisive) * 100).toFixed(1)}%` : voting && !live.get(p.id) ? "N/A" : "-",
           mono: true,
           align: "right",
           dim: !hasVotes,
@@ -134,7 +134,7 @@ export default async function ProposalsPage({
                 : undefined,
               mono: !proposerValidator,
             }
-          : { v: "—", dim: true },
+          : { v: "-", dim: true },
       ],
       detail: { title: `#${p.id}`, rows: [], action: { label: "Proposal", href } },
     };

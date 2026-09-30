@@ -77,7 +77,7 @@ describe("parseValoperDetail", () => {
 
 describe("txHashFromBase64", () => {
   it("derives the hash the node reports for the same bytes", () => {
-    // sha256 of the empty payload, upper-cased hex — a fixed, checkable vector.
+    // sha256 of the empty payload, upper-cased hex - a fixed, checkable vector.
     expect(txHashFromBase64("")).toBe(
       "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
     );

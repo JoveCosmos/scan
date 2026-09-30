@@ -57,7 +57,7 @@ describe.skipIf(!url)("indexer database", () => {
     const txs = await pool.query("SELECT * FROM tx WHERE chain_id = $1", [CHAIN]);
     expect(txs.rowCount).toBe(1);
     expect(txs.rows[0].fee_denom).toBe("uphoton");
-    // numeric comes back as a string, which is the point — no float rounding.
+    // numeric comes back as a string, which is the point - no float rounding.
     expect(txs.rows[0].fee_amount).toBe("220335");
     expect(txs.rows[0].msg_types).toHaveLength(4);
 
@@ -68,7 +68,7 @@ describe.skipIf(!url)("indexer database", () => {
     expect(transfers.rowCount).toBe(b.transfers.length);
   });
 
-  it("is idempotent — replaying a height changes nothing", async () => {
+  it("is idempotent - replaying a height changes nothing", async () => {
     const before = await pool.query(
       "SELECT count(*)::int AS n FROM transfer WHERE chain_id = $1",
       [CHAIN]

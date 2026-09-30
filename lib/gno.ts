@@ -18,7 +18,7 @@ import {
 
 /*
  * gno.land runs Tendermint2, not the Cosmos SDK. There is no /cosmos/* REST API,
- * no staking module, and the RPC ships with transaction indexing disabled — its
+ * no staking module, and the RPC ships with transaction indexing disabled - its
  * /tx_search route 404s. Chain head and the validator set therefore come from
  * JSON-RPC, while blocks and transactions come from our own tx-indexer
  * (gnolang/tx-indexer), which runs beside the node on this box and answers
@@ -920,7 +920,7 @@ export async function gnoOverview(chain: ChainConfig): Promise<ChainOverview> {
     activeValidators:
       validators.status === "fulfilled" ? validators.value.validators.length : null,
     // gno.land has no staking module, so there is no bonded ratio or supply to
-    // report here. Left null so the UI renders "—" rather than a fabricated 0.
+    // report here. Left null so the UI renders "-" rather than a fabricated 0.
     bondedRatio: null,
     bondedTokens: null,
     supply: null,
@@ -1023,8 +1023,8 @@ export async function gnoBlockTxs(
 }
 
 /**
- * Transactions are sparse on gno — a quiet testnet can go ten thousand blocks
- * without one — so look back in widening windows over blocks that hold any,
+ * Transactions are sparse on gno - a quiet testnet can go ten thousand blocks
+ * without one - so look back in widening windows over blocks that hold any,
  * and stop at the first window with enough. Block rows list every hash even
  * where the indexer lost the transaction itself, so nothing is skipped; the
  * transactions are then resolved from the indexer or the node. The widest
@@ -1178,7 +1178,7 @@ function rankValidators(
 
 /**
  * The active consensus set, from JSON-RPC, named from the valopers realm.
- * "Voting power" is raw Tendermint power — gno.land has no staking module, so
+ * "Voting power" is raw Tendermint power - gno.land has no staking module, so
  * commission and jailing have no meaning here.
  */
 export async function gnoValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
@@ -1256,7 +1256,7 @@ export async function gnoAccount(
 
 /**
  * Transactions this account sent or received, newest first: every message kind
- * that names an address — a bank send either way, a realm call or run by it,
+ * that names an address - a bank send either way, a realm call or run by it,
  * a package it deployed.
  */
 export async function gnoAccountTxs(
@@ -1414,7 +1414,7 @@ interface GnoBlockCommit {
 /**
  * Signing history over the last N blocks, keyed by the validator's g1 address.
  *
- * gno.land has no slashing module, so there is no long-window uptime to read —
+ * gno.land has no slashing module, so there is no long-window uptime to read -
  * the ratio here is measured over these blocks only, and is labelled as such.
  * Absent precommits are null entries, which is what makes a miss visible.
  */

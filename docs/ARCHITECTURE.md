@@ -15,7 +15,7 @@ Cosmos SDK chains and gno.land have almost nothing in common at the API level:
 | Transactions   | LCD, or tx-search by event       | Indexing API (RPC has `tx_index: off`)     |
 | Validators     | staking module                   | consensus set + the `valopers` realm       |
 | Identity       | `description.moniker`            | realm markdown                             |
-| Governance     | gov module                       | GovDAO realms — not exposed here           |
+| Governance     | gov module                       | GovDAO realms - not exposed here           |
 | Tx hashes      | 64 hex chars                     | base64                                     |
 
 Rather than branch in every page, `lib/adapter.ts` exposes one `ChainAdapter`
@@ -34,14 +34,14 @@ app/[chain]/*  ──►  getAdapter(chain)  ──┬──► lib/{overview,bl
 The adapter publishes what a chain can actually do, so the UI hides what would
 otherwise render as a misleading zero:
 
-- `staking` — gno has no staking module, so the validator table drops the
+- `staking` - gno has no staking module, so the validator table drops the
   Staked and Commission columns.
-- `slashingWindow` — gno has no slashing module, so its uptime percentage is
+- `slashingWindow` - gno has no slashing module, so its uptime percentage is
   measured over recent blocks only and the tooltip says so.
-- `stakeWeighted` — gno voting power is *assigned*, so the Nakamoto coefficient
+- `stakeWeighted` - gno voting power is *assigned*, so the Nakamoto coefficient
   is labelled "of voting power" rather than "of stake".
-- `registry` — gno has a validator registry (96) larger than its active set (87).
-- `governance` — gno gets no Proposals tab, and `/sapphire-1/proposals` 404s.
+- `registry` - gno has a validator registry (96) larger than its active set (87).
+- `governance` - gno gets no Proposals tab, and `/sapphire-1/proposals` 404s.
 
 Adding a chain without governance needs no code change, only config.
 
@@ -54,7 +54,7 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
 {
   "chainId": "provider",            // also the URL segment
   "order": 5,                       // position in the switcher; ascending
-  "tier": "medium",                 // how much we serve — see Service tiers
+  "tier": "medium",                 // how much we serve - see Service tiers
   "indexed": false,                 // does our Postgres index hold this chain
   "prettyName": "Cosmos Hub Testnet",
   "kind": "cosmos",                 // "cosmos" | "gno"
@@ -71,19 +71,19 @@ Drop a JSON file in `config/chains/`. It is validated by zod at load
 ```
 
 A chain with no `order` sorts to the end, and one with no `tier` defaults to
-`medium` — so adding a chain stays a matter of dropping in a file, and never
+`medium` - so adding a chain stays a matter of dropping in a file, and never
 silently costs an existing chain its position or its transactions.
 
 **Our own nodes go in the `fallback*` lists, never the main ones.** The fetch
 layer remembers whichever endpoint last answered and tries it first, so an
 endpoint appended to `lcdEndpoints` becomes the primary the moment it wins one
-failover — which would leave the scan reading from a validator that has another
+failover - which would leave the scan reading from a validator that has another
 job. `orderEndpoints` in `lib/lcd.ts` places fallbacks last always and refuses to
 promote them, and only primaries are recorded as last-good.
 
 Public endpoints for the two testnets are easy to miss: AtomOne's are in the
 chain registry under `testnets/atomonetestnet`, and Cosmos Hub's ICS provider
-lives under `testnets/cosmosicsprovidertestnet` — *not* `testnets/cosmoshubtestnet`,
+lives under `testnets/cosmosicsprovidertestnet` - *not* `testnets/cosmoshubtestnet`,
 which is a different chain (`theta-testnet-001`). Verify a candidate reports the
 expected `chain_id` before adding it; several listed in the registry no longer
 answer.
@@ -95,13 +95,13 @@ answer.
 | | high | medium | limited |
 | --- | --- | --- | --- |
 | | sapphire-1, atomone-1, atomone-testnet-1 | cosmoshub-4, provider, akashnet-2 | osmosis-1, passage-2, juno-1 |
-| our own full node | ✅ | — | — |
-| derived metrics | ✅ | — | — |
-| txs / proposals / relayers | ✅ | ✅ | — |
+| our own full node | ✅ | - | - |
+| derived metrics | ✅ | - | - |
+| txs / proposals / relayers | ✅ | ✅ | - |
 | blocks / validators / params | ✅ | ✅ | ✅ |
 
 **A tier is policy; `ChainCapabilities` is fact.** Keep them apart. gno.land has
-no Proposals tab because it has no governance module — no decision of ours can
+no Proposals tab because it has no governance module - no decision of ours can
 produce one. Juno has no Proposals tab because we chose not to carry it. Reading
 the UI depends on that distinction, and a tier must never appear to grant a chain
 something its kind cannot do.
@@ -114,14 +114,14 @@ rendering them empty for every row.
 
 Enforced in three places:
 
-- **Tabs** — `components/site-header.tsx` filters `NAV` by the chain's sections,
+- **Tabs** - `components/site-header.tsx` filters `NAV` by the chain's sections,
   and switching chains lands on `/params` rather than a section the target does
   not offer.
-- **Routes** — `/[chain]/{txs,proposals,relayers}` call `notFound()` when their
+- **Routes** - `/[chain]/{txs,proposals,relayers}` call `notFound()` when their
   tier withholds them, so a hidden tab is not merely unlinked.
-- **The index** — `poolFor(chainId)` in `lib/indexer-db.ts` returns null for a
+- **The index** - `poolFor(chainId)` in `lib/indexer-db.ts` returns null for a
   chain the index does not hold. The gate is at that boundary, not at its ten
-  call sites, so unmarking a chain stops every indexed read at once — including
+  call sites, so unmarking a chain stops every indexed read at once - including
   from code written later that never considered it. Callers already fall back to
   the node when the pool is null, so nothing else changed.
 
@@ -146,7 +146,7 @@ like lookups are pure local re-encodings:
 | `cosmosvaloper1…` | `cosmos1…` | a validator's self-delegation account |
 | ed25519 pubkey | `cosmosvalcons1…` + base64 | matching slashing records and block signatures |
 
-That last one is not bech32 — a consensus address is the first 20 bytes of
+That last one is not bech32 - a consensus address is the first 20 bytes of
 `sha256(pubkey)`, which blocks carry base64-encoded and the slashing module
 keys bech32-encoded. One derivation feeds both.
 
@@ -173,7 +173,7 @@ answered and tries it first. Without this a dead primary cost the full 5s
 timeout on every request before failing over.
 
 **The valopers index** (`lib/gno-valopers.ts`). gno validator identity requires
-~96 `vm/qrender` calls, which the node serialises — measured 95-way parallel at
+~96 `vm/qrender` calls, which the node serialises - measured 95-way parallel at
 14.6s versus 15.9s at 20-way, so concurrency does not help. It is therefore
 built once, cached to disk (`VALOPER_CACHE_DIR`, outside the release tree so a
 deploy never discards it), warmed at boot by `instrumentation.ts`, and refreshed
@@ -182,8 +182,8 @@ stale-while-revalidate.
 **Validator uptime** (`lib/uptime.ts`). Signing history comes from two sources
 combined: the slashing module's `signing_infos` gives the missed-block counter
 over the chain's full window (the percentage), and the last `RECENT_BAR_COUNT`
-block commits give the ping-style bars. Both key off the consensus address —
-the first 20 bytes of `sha256(ed25519 pubkey)` — which appears base64-encoded
+block commits give the ping-style bars. Both key off the consensus address -
+the first 20 bytes of `sha256(ed25519 pubkey)` - which appears base64-encoded
 in block commits and as `<prefix>valcons` in slashing. Cached 15s and shared
 between the validator list and the detail page, so opening a validator straight
 from the list costs nothing extra.
@@ -194,7 +194,7 @@ re-encoded for any chain in `LINKED_CHAINS`. This powers three things: the
 address switcher, the validator's self-delegation account link
 (`accountFromOperator`, valoper → account prefix), and the "active elsewhere"
 hint shown when an address has no activity on the current chain. Validator
-addresses are deliberately excluded from the switcher — a `…valoper1…` and the
+addresses are deliberately excluded from the switcher - a `…valoper1…` and the
 account sharing its payload are not interchangeable identities.
 
 **IBC denominations** (`lib/ibc.ts`). An `ibc/<HASH>` balance is meaningless
@@ -209,7 +209,7 @@ Hard-won, and each one cost time to find:
 
 - **`next build` rewrites `.next` under a running server.** Deploys build into a
   new release directory and swap a symlink. Never build in the live directory.
-- **`HOSTNAME=127.0.0.1` does not restrict `next start`** — it still binds
+- **`HOSTNAME=127.0.0.1` does not restrict `next start`** - it still binds
   `0.0.0.0`. Only `--hostname` on the command line does.
 - **Next hands route params through percent-encoded.** gno's base64 tx hashes
   break without `decodeParam` at the boundary.
@@ -221,7 +221,7 @@ Hard-won, and each one cost time to find:
   transactions and says so.
 - **Tx search reports its count in a top-level `total`**, not under
   `pagination`, and caps pages at 100 regardless of the requested limit.
-- **`Buffer.from(x, "base64")` is lenient** — it drops invalid characters
+- **`Buffer.from(x, "base64")` is lenient** - it drops invalid characters
   instead of throwing, so junk still yields bytes, which hash to a valid-looking
   consensus address that matches nothing. Consensus keys are checked for exactly
   32 bytes.
@@ -234,7 +234,7 @@ Hard-won, and each one cost time to find:
   size, so that read always fails over. It is streamed behind Suspense for
   exactly this reason.
 - **Delegations and gov votes come back in key order, not by size.** Ranking a
-  single page ranks an arbitrary subset — GATA HUB has 4,598 delegators, and
+  single page ranks an arbitrary subset - GATA HUB has 4,598 delegators, and
   sorting the first 200 silently omitted the largest. Both reads page in full.
 - **Tx search silently ignores `pagination.offset`.** Every offset returns the
   identical first page, so offset paging looks like it works and quietly
@@ -243,21 +243,21 @@ Hard-won, and each one cost time to find:
 - **Public LCD pools contain nodes with no tx index.** They answer 200 with zero
   results rather than erroring, punching silent holes in a paged read. Vote
   pages retry once, which lands on an indexed node.
-- **Tailwind generated no rule for `[&[open]_.summary-chevron]:rotate-90`** —
+- **Tailwind generated no rule for `[&[open]_.summary-chevron]:rotate-90`** -
   nested brackets inside an arbitrary variant. The chevron rotation is plain
   CSS in `globals.css`, using the standalone `rotate` property (a `transform`
   shorthand computed to an identity matrix) and no transition (interpolating
   `rotate` from `none` left it stuck at 0deg).
 - **A client component must not import from `lib/proposals` (or any module
   reaching `lib/lcd`).** Pulling a server data module into the client bundle
-  can stop the component hydrating at all — no console error, just a section
+  can stop the component hydrating at all - no console error, just a section
   that never becomes interactive. Duplicate the small pure helper instead.
 - **AtomOne's gov module has no `NoWithVeto`.** `Tally.veto` is nullable and the
   bar omits that segment rather than drawing a permanent zero.
 
 ## Testing
 
-`npm test` — 84 vitest tests over the pure logic. `npm run build` runs
+`npm test` - 84 vitest tests over the pure logic. `npm run build` runs
 `tsc --noEmit && vitest run` first, so a type error or a failing test stops a
 deploy before the symlink swaps.
 
@@ -267,7 +267,7 @@ that the mocks match yesterday's API.
 
 ## Security
 
-The app holds no secrets — every endpoint is a public node URL, and there are no
+The app holds no secrets - every endpoint is a public node URL, and there are no
 build-time env vars. It runs as a dedicated `scan` user that cannot read
 gata-hub's data, bound to loopback behind nginx. See
 [`deploy/README.md`](../deploy/README.md).

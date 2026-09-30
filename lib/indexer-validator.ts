@@ -20,8 +20,8 @@ import {
 /**
  * Indexed reads for one validator's page, the overview and relayers.
  *
- * Every function returns null when the index cannot answer — no pool, no
- * coverage, a failed query — and the page shows N/A rather than a zero it
+ * Every function returns null when the index cannot answer - no pool, no
+ * coverage, a failed query - and the page shows N/A rather than a zero it
  * cannot vouch for. Same contract as lib/indexer-db.ts.
  */
 
@@ -290,7 +290,7 @@ export interface ValidatorVotes {
   votes: ValidatorVote[];
   /** Proposals voted on since `since` that this account skipped, newest first. */
   skipped: number[];
-  /** Proposals with recorded votes since `since` — the fair denominator. */
+  /** Proposals with recorded votes since `since` - the fair denominator. */
   total: number;
   /** Voted on, among those `total`. */
   voted: number;
@@ -299,8 +299,8 @@ export interface ValidatorVotes {
 
 /**
  * Every vote an account cast, with its transaction, and the proposals it
- * skipped. The denominator counts only proposals voted on after `since` — the
- * validator's creation where the index holds it — so a validator is never
+ * skipped. The denominator counts only proposals voted on after `since` - the
+ * validator's creation where the index holds it - so a validator is never
  * marked absent from a proposal that closed before it existed.
  */
 export async function validatorVotes(

@@ -103,7 +103,7 @@ then open http://127.0.0.1:3006 locally.
 
 Pushing needs THIS key (the dev one) to have write access, at
 https://github.com/JoveCosmos/scan/settings/keys with "Allow write access"
-ticked. GitHub cannot switch a key's access after it is created — delete and
+ticked. GitHub cannot switch a key's access after it is created - delete and
 re-add it instead.
 
 Production keeps a separate read-only key (/srv/scan/.ssh/scan_prod_ro) and can

@@ -7,7 +7,7 @@ const HEIGHT = 100;
 /**
  * Bonded stake over the last quarter.
  *
- * The 24h delta answers "did it move"; this answers "what has been happening" —
+ * The 24h delta answers "did it move"; this answers "what has been happening" -
  * whether a validator has been steadily gaining delegations, bled them after a
  * jailing, or sat flat. validator_stake has held the snapshots all along and
  * nothing read them beyond that one subtraction.
@@ -17,14 +17,14 @@ const HEIGHT = 100;
  * than the feature is worth.
  *
  * The Y axis deliberately does not start at zero. Stake moves by a few percent
- * and a zero-based axis renders every validator as the same flat line — the
+ * and a zero-based axis renders every validator as the same flat line - the
  * question here is the shape of the change, and the labelled ends carry the
  * absolute figures.
  *
  * Takes the points rather than reading them. The page needs the series anyway
  * to decide whether this section exists at all, and a second read behind a
  * Suspense boundary would be the one thing a fixed-height layout cannot lay out
- * in advance. Stretched to whatever height the panel gives it — the shape is
+ * in advance. Stretched to whatever height the panel gives it - the shape is
  * the content, so there is nothing gained by leaving the rest of the panel
  * empty under a 72-pixel strip.
  */

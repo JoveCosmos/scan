@@ -25,7 +25,7 @@ export async function generateMetadata({
 /**
  * One block: a band of bricks over the transactions it carried.
  *
- * The header hashes — app, data, validators — are the clearest argument for
+ * The header hashes - app, data, validators - are the clearest argument for
  * this layout. They are the reason someone opens a block once a year and pure
  * noise every other time, so they are one brick rather than three rows anyone
  * reading the transaction list has to scroll past.
@@ -156,7 +156,7 @@ export default async function BlockDetailPage({
     {
       key: "hashes",
       label: "Hashes",
-      value: block.hash ? truncateMiddle(block.hash, 6, 4) : "—",
+      value: block.hash ? truncateMiddle(block.hash, 6, 4) : "-",
       sub: "block, app, data",
       rows: [
         ...(block.hash ? [{ label: "Block", value: block.hash, mono: true }] : []),
@@ -177,7 +177,7 @@ export default async function BlockDetailPage({
       cells: [
         { v: truncateMiddle(tx.hash, 10, 6), mono: true, tone: "accent" },
         {
-          v: `${tx.messages[0]?.label ?? "—"}${
+          v: `${tx.messages[0]?.label ?? "-"}${
             tx.messages.length > 1 ? ` +${tx.messages.length - 1}` : ""
           }`,
         },

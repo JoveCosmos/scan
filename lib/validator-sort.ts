@@ -4,8 +4,8 @@ import type { StakeDelta } from "@/lib/stake-delta";
 /**
  * Ranking and filtering the validator set.
  *
- * Lifted out of the component so it can be tested as what it is — pure
- * functions over a list — and so the table itself is only presentation. The
+ * Lifted out of the component so it can be tested as what it is - pure
+ * functions over a list - and so the table itself is only presentation. The
  * comparisons carry real decisions (BigInt for stake, share rather than amount
  * for self-bond, unknowns sinking rather than posing as zero), which is exactly
  * the kind of thing that should not live inside a render.
@@ -26,7 +26,7 @@ export interface ValidatorRow {
   votingPower: number;
   /** Share of power held by this validator and everyone ranked above it. */
   cumulativePower: number;
-  /** Base denom, as a string — a large validator's stake exceeds a safe double. */
+  /** Base denom, as a string - a large validator's stake exceeds a safe double. */
   tokens: string;
   /** Pre-formatted by the server, which owns the chain's exponent. */
   tokensLabel: string;
@@ -39,7 +39,7 @@ export interface ValidatorRow {
    * Times jailed within the indexed window, or null when the indexer cannot
    * say. Null and zero are different claims: zero means "never, over the window
    * the reader is told about", null means there is no basis for the figure at
-   * all. Which window that is travels separately, on the table — it is the same
+   * all. Which window that is travels separately, on the table - it is the same
    * for every validator and does not belong on each row.
    */
   jailings: { count: number; tombstoned: boolean } | null;

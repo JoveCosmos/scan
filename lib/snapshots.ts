@@ -5,7 +5,7 @@ import { servicesFor } from "@/lib/services";
  *
  * Heights, sizes, filenames and checksums change every night when the snapshot
  * timers run. Baking them into config/services.json guarantees the panel is
- * wrong within a day and stays wrong until someone edits it by hand — which is
+ * wrong within a day and stays wrong until someone edits it by hand - which is
  * exactly what happened: the committed entries advertised a host that does not
  * resolve, an .lz4 extension we never produced, and a height from a snapshot
  * that was never taken.

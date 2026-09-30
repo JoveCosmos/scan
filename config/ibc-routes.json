@@ -6,7 +6,7 @@
     "counterparty, most of them long dead, and only the registry says which one",
     "is the live path.",
     "",
-    "Both chainIds must exist in config/chains for a route to render — each side",
+    "Both chainIds must exist in config/chains for a route to render - each side",
     "is probed against its own chain's endpoints.",
     "",
     "AtomOne <-> gno.land is deliberately absent: gno.land runs Tendermint2 with",

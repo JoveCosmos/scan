@@ -28,8 +28,8 @@ export interface ChainOverview {
 }
 
 /**
- * Head-of-chain summary. Every field degrades independently — one unavailable
- * module renders as "—" rather than failing the whole overview.
+ * Head-of-chain summary. Every field degrades independently - one unavailable
+ * module renders as "-" rather than failing the whole overview.
  */
 export async function getChainOverview(chain: ChainConfig): Promise<ChainOverview> {
   const noStore = { cache: "no-store" as const };
@@ -63,8 +63,8 @@ export async function getChainOverview(chain: ChainConfig): Promise<ChainOvervie
 
     // Against total supply, not against the staking pool.
     //
-    // `not_bonded_tokens` is only the unbonding queue — tokens on their way out
-    // of staking — not the circulating remainder. Dividing by
+    // `not_bonded_tokens` is only the unbonding queue - tokens on their way out
+    // of staking - not the circulating remainder. Dividing by
     // bonded + not_bonded gave Cosmos Hub 94.44% when the real figure is
     // 62.59% (327.81M bonded of 523.75M supply), because it was measuring
     // "share of tokens involved in staking at all" rather than "share of supply
@@ -94,9 +94,9 @@ export async function getChainOverview(chain: ChainConfig): Promise<ChainOvervie
 
 /** Format a raw base-denom integer string into display units. */
 export function formatToken(raw: string | null, exponent: number, maxFrac = 2): string {
-  if (raw === null) return "—";
+  if (raw === null) return "-";
   const n = Number(raw) / 10 ** exponent;
-  if (!Number.isFinite(n)) return "—";
+  if (!Number.isFinite(n)) return "-";
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(maxFrac)}B`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(maxFrac)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(maxFrac)}K`;

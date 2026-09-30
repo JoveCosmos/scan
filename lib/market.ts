@@ -6,7 +6,7 @@ import { cached } from "@/lib/cache";
  * The only data here that does not come from a chain node. It is therefore the
  * only thing that can be wrong in a way the chain cannot correct, so it is
  * clearly attributed in the UI and always optional: no key, no price, no
- * market figures — the rest of the page is unaffected.
+ * market figures - the rest of the page is unaffected.
  *
  * Cached for five minutes. The free endpoint is rate limited per IP, and every
  * viewer of every chain page would otherwise hit it.
@@ -33,7 +33,7 @@ export async function getMarketDataById(
   if (!id) return null;
 
   // Throws inside the cache callback rather than returning null, so a failure
-  // is not cached. cached() only treats a rejection as a failure — a returned
+  // is not cached. cached() only treats a rejection as a failure - a returned
   // null looks like a perfectly good value and would blank the price for the
   // full five minutes after one transient blip. On failure it keeps serving the
   // last good price instead.
@@ -75,7 +75,7 @@ export function formatUsd(value: number): string {
   return `$${value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
 }
 
-/** "$705.4M" — market caps are read at a glance, not to the dollar. */
+/** "$705.4M" - market caps are read at a glance, not to the dollar. */
 export function formatUsdCompact(value: number): string {
   if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
   if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;

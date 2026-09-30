@@ -12,7 +12,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1400);
     } catch {
-      // Clipboard unavailable (insecure origin or denied permission) — the full
+      // Clipboard unavailable (insecure origin or denied permission) - the full
       // value is on screen anyway, so silently leave the button idle.
     }
   }

@@ -90,7 +90,7 @@ export default async function ValidatorDetailPage({
 
   const addr = decodeParam(rawAddr).trim().toLowerCase();
 
-  // gno.land has no staking module — identity comes from the valopers realm
+  // gno.land has no staking module - identity comes from the valopers realm
   // instead, so it gets an entirely different detail view.
   if (chain.kind === "gno") {
     const raw = decodeParam(rawAddr);
@@ -196,7 +196,7 @@ export default async function ValidatorDetailPage({
           mono: true,
         },
         { label: "Voting power", value: pct(validator.votingPower), mono: true },
-        { label: "Rank", value: validator.rank ? `#${validator.rank}` : "—", mono: true },
+        { label: "Rank", value: validator.rank ? `#${validator.rank}` : "-", mono: true },
         { label: "Status", value: status },
         // Only while it is actually unbonding: the field keeps the height of the
         // last unbonding forever, and on a bonded validator it read as a status.
@@ -242,27 +242,27 @@ export default async function ValidatorDetailPage({
           rows: kept([
             {
               label: "Signed",
-              value: !jailed && signed !== null ? signed.toLocaleString() : "—",
+              value: !jailed && signed !== null ? signed.toLocaleString() : "-",
               mono: true,
             },
             {
               label: "Missed",
-              value: !jailed && uptime.missed !== null ? uptime.missed.toLocaleString() : "—",
+              value: !jailed && uptime.missed !== null ? uptime.missed.toLocaleString() : "-",
               mono: true,
             },
             {
               label: "Window",
-              value: uptime.window !== null ? `${uptime.window.toLocaleString()} blocks` : "—",
+              value: uptime.window !== null ? `${uptime.window.toLocaleString()} blocks` : "-",
               mono: true,
             },
             {
               label: "Miss budget",
-              value: !jailed && budget !== null ? `${budget.toLocaleString()} blocks` : "—",
+              value: !jailed && budget !== null ? `${budget.toLocaleString()} blocks` : "-",
               mono: true,
             },
             {
               label: `Longest miss streak, last ${uptime.bars.length} blocks`,
-              value: streak !== null ? String(streak) : "—",
+              value: streak !== null ? String(streak) : "-",
               mono: true,
             },
             {
@@ -286,14 +286,14 @@ export default async function ValidatorDetailPage({
           label: "Updated",
           value: validator.commissionUpdatedAt
             ? new Date(validator.commissionUpdatedAt).toLocaleString()
-            : "—",
+            : "-",
         },
         {
           label: "Outstanding",
           value:
             validator.outstandingCommission.length > 0
               ? validator.outstandingCommission.map((c) => coin(c, 4)).join(", ")
-              : "—",
+              : "-",
           mono: true,
         },
       ]),

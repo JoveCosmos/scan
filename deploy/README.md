@@ -16,9 +16,9 @@ The app listens on `127.0.0.1:3200`; nginx is the only thing that reaches it.
 
 > **Never build in the live directory.** `next build` rewrites `.next`
 > underneath the running server, so an in-place build serves 404s until the
-> restart lands. That is why releases exist — same reason as `gata-hub`.
+> restart lands. That is why releases exist - same reason as `gata-hub`.
 
-## 0. DNS — do this first
+## 0. DNS - do this first
 
 `explorer.gatahub.zone` does not resolve yet (NXDOMAIN). Certbot cannot issue a
 certificate until it does. In GoDaddy DNS for `gatahub.zone`, add:
@@ -33,7 +33,7 @@ dig +short explorer.gatahub.zone   # expect 37.27.63.150
 
 ## 1. Layout and clone
 
-Runs as its own `scan` system account — **not** `gata`. The gata account
+Runs as its own `scan` system account - **not** `gata`. The gata account
 can read `/etc/gata/app.env` (`root:gata 0640`), so running a public-facing
 service as gata would put gata-hub's secrets one compromise away.
 
@@ -44,13 +44,13 @@ sudo chown -R scan:scan /srv/scan /opt/scan
 sudo chmod 750 /srv/scan
 ```
 
-The repo is private, so the box gets its own **read-only deploy key** — a
+The repo is private, so the box gets its own **read-only deploy key** - a
 separate one from gata-hub's, so neither service can pull the other's code.
 
 **Production's key is read-only, and that is the point.** A push to `master` is
 a deploy (§4), so a write key here would let anything owning the app account
 ship its own code to production. The write key lives only in the dev tree, at
-`/srv/scan-dev/.ssh/scan_deploy` — see `setup-dev.sh`. Two keys, one per role.
+`/srv/scan-dev/.ssh/scan_deploy` - see `setup-dev.sh`. Two keys, one per role.
 
 The key is referenced by **absolute path**, not through an ssh config alias:
 sudo and systemd disagree about `HOME`, so an alias only resolves when ssh
@@ -61,7 +61,7 @@ sudo -u scan mkdir -p /srv/scan/.ssh
 sudo -u scan chmod 700 /srv/scan/.ssh
 sudo -u scan ssh-keygen -t ed25519 -f /srv/scan/.ssh/scan_prod_ro -N '' -C 'scan-prod-ro@gata-box'
 sudo -u scan cat /srv/scan/.ssh/scan_prod_ro.pub
-# Add at https://github.com/JoveCosmos/scan/settings/keys — leave write access OFF
+# Add at https://github.com/JoveCosmos/scan/settings/keys - leave write access OFF
 ```
 
 A GitHub deploy key cannot be attached to more than one repository, so each
@@ -92,7 +92,7 @@ sudo systemctl daemon-reload
 ### Connecting the indexer (optional)
 
 Scan reads proposal votes from the indexer's Postgres when it can, and
-falls back to querying nodes directly when it cannot — so this step can be
+falls back to querying nodes directly when it cannot - so this step can be
 skipped entirely, and skipping it changes nothing about how the site behaves.
 
 Give the read-only role a password, then hand Scan a connection string
@@ -117,7 +117,7 @@ internet-facing process cannot write to the historical record even if it is
 compromised.
 
 Then `sudo systemctl restart scan`. Confirm it took by reading the running
-process's own environment — `systemctl show -p Environment` reports only the
+process's own environment - `systemctl show -p Environment` reports only the
 inline `Environment=` directives and will not show anything loaded from a file,
 so it cannot answer this. Counting rather than printing keeps the password off
 the terminal:
@@ -128,7 +128,7 @@ sudo tr '\0' '\n' < /proc/$(systemctl show scan -p MainPID --value)/environ | gr
 
 `1` means Scan has it. `0` means the file is missing, unreadable by the
 `scan` group, or the unit was copied to `/etc/systemd/system/` without a
-`daemon-reload` — and because the `-` prefix makes the file optional, all three
+`daemon-reload` - and because the `-` prefix makes the file optional, all three
 fail silently.
 
 `deploy.sh` restarts the app, so the `scan` user needs exactly that and nothing more:
@@ -178,7 +178,7 @@ sudo -u scan /opt/scan/deploy.sh --force # rebuild the same commit
 readlink -f /srv/scan/current            # which sha is live
 ```
 
-After changing `deploy.sh` itself, reinstall it — the timer runs the copy in
+After changing `deploy.sh` itself, reinstall it - the timer runs the copy in
 `/opt/scan`, not the one in the checkout:
 
 ```bash

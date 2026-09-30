@@ -6,7 +6,7 @@ Blocks, transactions, validators, governance and accounts across nine networks,
 read from full nodes. Chains we run ourselves are additionally backed by our own
 Postgres index for the history a node no longer holds; the rest are read live.
 
-Listed in the order the app shows them — the networks we operate first, each
+Listed in the order the app shows them - the networks we operate first, each
 testnet beside its mainnet. Every testnet says so in its name, so they are not
 split into a separate group.
 
@@ -22,7 +22,7 @@ split into a separate group.
 | Passage            | `passage-2`         |
 | Juno               | `juno-1`            |
 
-How much of each chain is served varies — see
+How much of each chain is served varies - see
 [service tiers](docs/ARCHITECTURE.md#service-tiers).
 
 ## Develop
@@ -34,7 +34,7 @@ npm test             # unit tests
 npm run build        # runs tsc --noEmit && vitest run first
 ```
 
-No environment variables are needed — every endpoint lives in
+No environment variables are needed - every endpoint lives in
 `config/chains/*.json`. Adding a chain is a JSON file, not code; see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -48,10 +48,10 @@ Server setup and runbook: [`deploy/README.md`](deploy/README.md).
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how one UI serves two
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - how one UI serves two
   incompatible chain kinds, how to add a chain, the performance mechanisms, and
   the non-obvious platform behaviours that cost time to discover.
-- [`deploy/README.md`](deploy/README.md) — server layout, isolation, operations.
+- [`deploy/README.md`](deploy/README.md) - server layout, isolation, operations.
 
 ## Stack
 

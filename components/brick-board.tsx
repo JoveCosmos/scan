@@ -12,7 +12,7 @@ import { Prose } from "@/components/prose";
 /**
  * A page laid out in bricks, with the detail in popups.
  *
- * Everything is computed on the server and arrives as data — this component
+ * Everything is computed on the server and arrives as data - this component
  * knows nothing about chains, params or governance, which is why the same board
  * renders the overview, the infra tab and anything added later.
  *
@@ -35,12 +35,12 @@ export interface BrickSpec extends BrickVisual {
   /** Rows shown when the brick is opened. Without rows or a body it is inert. */
   rows?: DetailRow[];
   /**
-   * Prose shown above the rows — a proposal's summary, an operator's own
+   * Prose shown above the rows - a proposal's summary, an operator's own
    * description. Kept separate from a row because it is paragraphs rather than
    * a value, and reads as neither a label nor a figure.
    */
   body?: string;
-  /** Navigates instead of opening — for detail that is a whole page. */
+  /** Navigates instead of opening - for detail that is a whole page. */
   href?: string;
   /** Re-read from the live head poll rather than the server render. */
   live?: "height" | "txCount" | "blockTime";
@@ -65,7 +65,7 @@ export function BrickBoard({
   bricks: BrickSpec[];
   /**
    * Server-rendered head, so the live bricks have no loading state. Omit it on
-   * a board with nothing live — a block that has already been produced does not
+   * a board with nothing live - a block that has already been produced does not
    * change, and polling it would be a request per page for no new information.
    */
   head?: ChainOverview;
@@ -96,14 +96,14 @@ export function BrickBoard({
     if (brick.live === "height") {
       return {
         ...brick,
-        value: data.height ? Number(data.height).toLocaleString("en-US") : "—",
+        value: data.height ? Number(data.height).toLocaleString("en-US") : "-",
         sub: timeAgo(data.blockTime),
       };
     }
     if (brick.live === "txCount") {
-      return { ...brick, value: data.txCount === null ? "—" : String(data.txCount) };
+      return { ...brick, value: data.txCount === null ? "-" : String(data.txCount) };
     }
-    return { ...brick, value: data.blockTime ? timeAgo(data.blockTime) : "—" };
+    return { ...brick, value: data.blockTime ? timeAgo(data.blockTime) : "-" };
   }
 
   const open = bricks.find((b) => b.key === openKey) ?? null;

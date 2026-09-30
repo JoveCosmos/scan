@@ -238,7 +238,7 @@
 }
 
 @layer components {
-  /* Frosted panel with a hairline top highlight — the hub's card signature. */
+  /* Frosted panel with a hairline top highlight - the hub's card signature. */
   .gata-panel {
     position: relative;
     overflow: hidden;
@@ -288,7 +288,7 @@
     animation: gataRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* Light sweep across a panel — used sparingly, on hero stats only. */
+  /* Light sweep across a panel - used sparingly, on hero stats only. */
   .gata-sheen::after {
     content: "";
     position: absolute;
@@ -325,7 +325,7 @@
     animation: gataPulse 1.8s ease-in-out infinite;
   }
 
-  /* Row that just changed — fades from accent back to transparent. */
+  /* Row that just changed - fades from accent back to transparent. */
   .gata-flash {
     animation: gataFlash 0.9s ease-out both;
   }
@@ -350,7 +350,7 @@
    *
    * Below sm a table collapses into one stacked card per row, each cell
    * becoming a label/value line. The label comes from the cell's data-label,
-   * so the markup stays a single real <table> — no duplicated mobile markup,
+   * so the markup stays a single real <table> - no duplicated mobile markup,
    * and the semantics and header stay intact for assistive tech at every size.
    */
   @media (width < 40rem) {
@@ -619,7 +619,7 @@
 details[open] .summary-chevron {
   /* The standalone rotate property, not transform: Tailwind v4 composes
      transforms from translate/rotate/scale, and a transform shorthand here
-     computed to an identity matrix. The chevron carries no transition either —
+     computed to an identity matrix. The chevron carries no transition either -
      interpolating rotate from `none` left it stuck at 0deg. */
   rotate: 90deg;
 }

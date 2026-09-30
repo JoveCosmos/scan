@@ -8,7 +8,7 @@ import { cached } from "@/lib/cache";
  * What an address is, beyond "an account".
  *
  * A module account, an IBC escrow, a CosmWasm contract and a vesting account
- * all render as the same bare page otherwise — the distribution module read as
+ * all render as the same bare page otherwise - the distribution module read as
  * someone's wallet, an escrow holding a hundred denoms read as an airdrop
  * farmer. The auth record says most of it; the rest is derived.
  */
@@ -74,7 +74,7 @@ const unixToIso = (v: unknown): string | null => {
 /**
  * Account number and sequence live on `base_account` for a module account,
  * on `base_vesting_account.base_account` for vesting, and at the top for a
- * plain one. Reading only the top level showed "—" for every module.
+ * plain one. Reading only the top level showed "-" for every module.
  */
 export function parseAuthAccount(account: unknown): AuthFacts {
   const top = asObj(account);

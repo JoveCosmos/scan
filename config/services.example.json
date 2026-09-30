@@ -1,6 +1,6 @@
 {
   "_comment": [
-    "Shape reference for config/services.json \u2014 the infrastructure we run and",
+    "Shape reference for config/services.json - the infrastructure we run and",
     "publish. Without that file the Infra tab says nothing is published: an",
     "endpoint we do not run must never be listed as one we do.",
     "",
@@ -15,7 +15,7 @@
     "<node-id>@<host>:<port>. They cannot be derived: an RPC endpoint knows its",
     "own node id but not which host and port its P2P listener answers on.",
     "Seeds are for discovery and get dropped once a node has peers; persistent",
-    "peers are held open \u2014 putting one in the other's slot gives you a node",
+    "peers are held open - putting one in the other's slot gives you a node",
     "that either never finds the network or clings to three addresses forever.",
     "",
     "stateSync is OFF unless a chain sets enabled: true - and it should only when",
@@ -24,7 +24,7 @@
     "",
     "stateSync carries only the parts that are a choice. rpc_servers come from",
     "the endpoints above, and trust_height and trust_hash are computed live on",
-    "every page load \u2014 a trust hash written into a config file is wrong within",
+    "every page load - a trust hash written into a config file is wrong within",
     "days, and a wrong one fails the sync with an error that reads like a",
     "network problem."
   ],

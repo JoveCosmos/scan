@@ -41,7 +41,7 @@ function txResult(height: number, i = 0) {
 /** The key transfer had up to version 3, as a v3 row would have seen it. */
 function v3Key(t: TransferRow, preUpgrade: boolean): string {
   // Pre-upgrade events have no msg_index, so version 3 filed every one of them
-  // under -1 — and a transfer at -1 is, by its rule, the fee.
+  // under -1 - and a transfer at -1 is, by its rule, the fee.
   const msgIndex = preUpgrade ? -1 : t.msgIndex;
   const kind = preUpgrade && t.kind === "transfer" ? "fee" : t.kind;
   return `${t.txHash}|${msgIndex}|${t.coinIndex}|${kind}`;

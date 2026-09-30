@@ -6,7 +6,7 @@ import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
 /**
  * An account's history with an "Older" control that appends the next page.
  * Rows arrive fully built from the server, so the browser needs no chain
- * knowledge — it only keeps the cursor and asks for more.
+ * knowledge - it only keeps the cursor and asks for more.
  */
 export function AccountHistory({
   chainId,

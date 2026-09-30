@@ -2,8 +2,8 @@
  * Which messages count as relaying.
  *
  * Used to attribute relay work to operators from indexed transaction history.
- * Relaying leaves no trace in module state — a delivered packet looks the same
- * whoever delivered it — so the transaction is the only durable record, and the
+ * Relaying leaves no trace in module state - a delivered packet looks the same
+ * whoever delivered it - so the transaction is the only durable record, and the
  * fee payer is the only identity in it.
  */
 export const RELAYER_MSG_TYPES = [

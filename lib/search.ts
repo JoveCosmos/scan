@@ -29,7 +29,7 @@ function hexHash(q: string): string | null {
  *
  * This is what chain-agnostic search needs. It exists so that page does not
  * have to nominate an arbitrary chain purely to satisfy a parameter it never
- * uses — there is no default chain, and search should not invent one.
+ * uses - there is no default chain, and search should not invent one.
  */
 export function classifyChainless(raw: string): SearchGuess {
   const q = raw.trim();
@@ -48,8 +48,8 @@ export function classifyChainless(raw: string): SearchGuess {
 }
 
 /**
- * Classify a search term for one chain. Deliberately syntactic — it never hits
- * the network — so the caller decides how to resolve an ambiguous "address"
+ * Classify a search term for one chain. Deliberately syntactic - it never hits
+ * the network - so the caller decides how to resolve an ambiguous "address"
  * (which on gno may be either a consensus validator or a plain account).
  * Anything this chain cannot answer is "unknown", and the chain search hands
  * it to the global search.
