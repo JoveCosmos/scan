@@ -10,9 +10,9 @@
   "denom": "uatone",
   "exponent": 6,
   "lcdEndpoints": [
-    "https://api-testnet-atomone.nodeist.net",
     "https://atomone-testnet-api.cogwheel.zone",
-    "https://rest.testcosmos.directory/atomonetestnet"
+    "https://rest.testcosmos.directory/atomonetestnet",
+    "https://api-testnet-atomone.nodeist.net"
   ],
   "rpcEndpoints": [
     "https://rpc-testnet-atomone.nodeist.net",
