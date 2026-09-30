@@ -156,3 +156,51 @@ describe("coin formatting", () => {
     ]);
   });
 });
+
+describe("authz grants", () => {
+  const grant = (authorization: Record<string, unknown>) => ({
+    granter: "atone1granter",
+    grantee: "atone1grantee",
+    grant: { authorization, expiration: "2027-01-01T00:00:00Z" },
+  });
+  const field = (fields: DecodedField[], label: string) =>
+    fields.find((f) => f.label === label || f.label.startsWith(`${label} ·`))?.value;
+
+  it("names the kind of a Stake Authorization, so delegate and redelegate grants differ", () => {
+    // The operator's example: a Restake grant, delegate only, no cap.
+    const d = decodeMessage("atomone-testnet-1", "/cosmos.authz.v1beta1.MsgGrant", grant({
+      "@type": "/cosmos.staking.v1beta1.StakeAuthorization",
+      max_tokens: null,
+      authorization_type: "AUTHORIZATION_TYPE_DELEGATE",
+    }));
+    expect(field(d.fields, "Authorization")).toEqual({ kind: "text", text: "Stake Authorization · Delegate", mono: false });
+    expect(field(d.fields, "Max tokens")).toBeUndefined();
+
+    const r = decodeMessage("atomone-1", "/cosmos.authz.v1beta1.MsgGrant", grant({
+      "@type": "/cosmos.staking.v1beta1.StakeAuthorization",
+      authorization_type: "AUTHORIZATION_TYPE_REDELEGATE",
+    }));
+    expect(field(r.fields, "Authorization")).toMatchObject({ text: "Stake Authorization · Redelegate" });
+  });
+
+  it("shows the cap and every allowed validator", () => {
+    const d = decodeMessage("atomone-1", "/cosmos.authz.v1beta1.MsgGrant", grant({
+      "@type": "/cosmos.staking.v1beta1.StakeAuthorization",
+      authorization_type: "AUTHORIZATION_TYPE_DELEGATE",
+      max_tokens: { denom: "uatone", amount: "5000000" },
+      allow_list: { address: ["atonevaloper1a", "atonevaloper1b", "atonevaloper1c"] },
+    }));
+    expect(field(d.fields, "Max tokens")).toEqual({ kind: "coins", coins: [{ denom: "uatone", amount: "5000000" }] });
+    const allowed = d.fields.filter((f) => f.value.kind === "address" && f.value.address.startsWith("atonevaloper"));
+    expect(allowed.map((f) => f.label)).toEqual(["Allowed validators · 3", "", ""]);
+  });
+
+  it("keeps a Generic Authorization's message", () => {
+    const d = decodeMessage("atomone-1", "/cosmos.authz.v1beta1.MsgGrant", grant({
+      "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+      msg: "/cosmos.gov.v1beta1.MsgVote",
+    }));
+    expect(field(d.fields, "Message")).toMatchObject({ text: "/cosmos.gov.v1beta1.MsgVote" });
+    expect(field(d.fields, "Authorization")).toMatchObject({ text: "Generic Authorization" });
+  });
+});

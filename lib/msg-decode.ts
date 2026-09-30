@@ -156,6 +156,31 @@ function text(label: string, v: unknown, mono = false): DecodedField[] {
   return t ? [{ label, value: { kind: "text", text: t, mono } }] : [];
 }
 
+/** Each address its own row; the label, with the count, only on the first. */
+function addressList(label: string, v: unknown): DecodedField[] {
+  const list = Array.isArray(v) ? v.map(str).filter((a): a is string => a !== null) : [];
+  return list.map((address, i) => ({
+    label: i === 0 ? (list.length > 1 ? `${label} · ${list.length}` : label) : "",
+    value: { kind: "address", address },
+  }));
+}
+
+const STAKE_AUTH_KINDS: Record<string, string> = {
+  AUTHORIZATION_TYPE_DELEGATE: "Delegate",
+  AUTHORIZATION_TYPE_UNDELEGATE: "Undelegate",
+  AUTHORIZATION_TYPE_REDELEGATE: "Redelegate",
+  AUTHORIZATION_TYPE_CANCEL_UNBONDING_DELEGATION: "Cancel unbonding",
+  "1": "Delegate",
+  "2": "Undelegate",
+  "3": "Redelegate",
+  "4": "Cancel unbonding",
+};
+
+function stakeAuthKind(v: unknown): string | null {
+  const k = str(v);
+  return k ? (STAKE_AUTH_KINDS[k] ?? null) : null;
+}
+
 function coinsField(label: string, coins: Coin[]): DecodedField[] {
   return coins.length ? [{ label, value: { kind: "coins", coins } }] : [];
 }
@@ -459,11 +484,21 @@ function decodeFields(chainId: string, name: string, m: Raw, ctx?: DecodeContext
     case "MsgGrant": {
       const grant = (m.grant as Raw | undefined) ?? {};
       const auth = (grant.authorization as Raw | undefined) ?? {};
+      const kind = stakeAuthKind(auth.authorization_type);
+      const type = labelForType(String(auth["@type"] ?? ""));
       return [
         ...addr("Granter", m.granter),
         ...addr("Grantee", m.grantee),
-        ...text("Authorization", labelForType(String(auth["@type"] ?? "")) || null),
+        // A Stake Authorization is one type for three powers; without the kind
+        // a delegate-only grant (Restake) reads the same as a redelegate one.
+        ...text("Authorization", type ? (kind ? `${type} · ${kind}` : type) : null),
         ...text("Message", auth.msg, true),
+        ...coinsField("Max tokens", coinList(auth.max_tokens)),
+        ...coinsField("Spend limit", coinList(auth.spend_limit)),
+        ...addressList("Allowed validators", (auth.allow_list as Raw | undefined)?.address),
+        ...addressList("Denied validators", (auth.deny_list as Raw | undefined)?.address),
+        // SendAuthorization's own allow list is of recipients.
+        ...addressList("Allowed recipients", auth["@type"] === "/cosmos.bank.v1beta1.SendAuthorization" ? auth.allow_list : undefined),
         ...text("Expires", grant.expiration, true),
       ];
     }
