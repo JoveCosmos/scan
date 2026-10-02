@@ -510,18 +510,33 @@
   }
 
   /* Headline tiles (the overview): taller, with a large display figure. */
-  .brick-lg .gata-brick {
-    height: 7.25rem;
-    padding: 14px 18px 14px;
-    gap: 4px;
+  /* Headline tiles from sm up; phones keep the compact tile so the lists
+     below get the screen. */
+  @media (min-width: 640px) {
+    .brick-lg .gata-brick {
+      height: 7.25rem;
+      padding: 14px 18px 14px;
+      gap: 4px;
+    }
+    .brick-lg .brick-value {
+      font-size: 30px;
+      letter-spacing: -0.03em;
+    }
+    .brick-lg .gata-brick::before {
+      inset-inline: 18px;
+      opacity: 0.8;
+    }
   }
-  .brick-lg .brick-value {
-    font-size: 30px;
-    letter-spacing: -0.03em;
-  }
-  .brick-lg .gata-brick::before {
-    inset-inline: 18px;
-    opacity: 0.8;
+
+  /* Three tiles a row on phones: a last row of one or two stretches across,
+     so no tile sits beside a hole. */
+  @media (max-width: 639px) {
+    .brick-fill > :last-child:nth-child(3n + 1) {
+      grid-column: span 3;
+    }
+    .brick-fill > :last-child:nth-child(3n + 2) {
+      grid-column: span 2;
+    }
   }
 
   /* A clickable row: tinted on hover, with a lit leading edge in the page's

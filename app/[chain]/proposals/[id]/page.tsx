@@ -188,30 +188,33 @@ async function VotesDeck({
     : null;
 
   const tabs = (
-    <div className="flex flex-wrap items-center gap-2 text-[12px]">
+    // One row at every width: on phones the second view's name shortens and
+    // the filter narrows rather than wrapping onto rows of their own.
+    <div className="flex items-center gap-1.5 text-[12px] sm:gap-2">
       <a
         href={`${base}`}
         aria-current={view === "votes" ? "page" : undefined}
-        className={`rounded-md px-2 py-0.5 ${view === "votes" ? "bg-[var(--gata-card-hi)] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 ${view === "votes" ? "bg-[var(--gata-card-hi)] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
       >
         Votes <span className="font-mono text-[11px] text-muted-foreground">{unreadable ? "N/A" : votes.length.toLocaleString()}</span>
       </a>
       <a
         href={`${base}?view=novote`}
         aria-current={view === "novote" ? "page" : undefined}
-        className={`rounded-md px-2 py-0.5 ${view === "novote" ? "bg-[var(--gata-card-hi)] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        className={`shrink-0 whitespace-nowrap rounded-md px-2 py-0.5 ${view === "novote" ? "bg-[var(--gata-card-hi)] text-foreground" : "text-muted-foreground hover:text-foreground"}`}
       >
-        Validators not voted{" "}
+        <span className="sm:hidden">Not voted</span>
+        <span className="hidden sm:inline">Validators not voted</span>{" "}
         <span className="font-mono text-[11px] text-muted-foreground">{didNotVote ? didNotVote.length : "N/A"}</span>
       </a>
       {view === "votes" ? (
-        <form method="get" action={base} className="ml-auto">
+        <form method="get" action={base} className="ml-auto min-w-0 flex-1 sm:flex-none">
           <input
             name="voter"
             defaultValue={voterQuery}
             placeholder="Filter voter or validator…"
             aria-label="Filter voter or validator"
-            className="h-7 w-52 rounded-md border border-border bg-[var(--gata-card)] px-2 text-[12px] outline-none focus:border-[var(--gata-border-hi)]"
+            className="h-7 w-full rounded-md border border-border sm:w-52 bg-[var(--gata-card)] px-2 text-[12px] outline-none focus:border-[var(--gata-border-hi)]"
           />
         </form>
       ) : null}
@@ -338,7 +341,8 @@ async function VotesDeck({
           {rows.length > 0 ? (
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {counts.map(([option, count]) => (
-                <span key={option} className="font-mono tabular-nums">
+                // The tally bar and its tile carry the breakdown on phones.
+                <span key={option} className="hidden font-mono tabular-nums sm:inline">
                   {voteOptionLabel(option)} {count.toLocaleString()}
                 </span>
               ))}
@@ -623,9 +627,9 @@ export default async function ProposalDetailPage({
         </>
       }
     >
-      {/* Phones scroll the page body and give the list a fixed height; from
-          lg the list takes the rest of the frame and only it scrolls. */}
-      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+      {/* The list takes whatever height is left at every width. On a screen
+          too short for its minimum the body scrolls instead. */}
+      <div className="flex h-full flex-col gap-2.5 overflow-y-auto sm:gap-3 lg:overflow-hidden">
         <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
 
         {hasVotes ? (
@@ -634,7 +638,7 @@ export default async function ProposalDetailPage({
           </div>
         ) : null}
 
-        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="min-h-[18rem] flex-1 lg:min-h-0">
           <Suspense fallback={<LoadingPanel label="Loading votes…" rows={4} />}>
             <VotesDeck
               chain={chain}

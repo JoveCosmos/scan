@@ -7,7 +7,7 @@ export function BrickLoading({ count }: { count: number }) {
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="gata-surface gata-brick flex h-[5rem] flex-col justify-between px-3.5 py-2.5"
+          className="gata-surface gata-brick flex h-[3.5rem] flex-col justify-between px-2.5 py-2 sm:h-[5rem] sm:px-3.5 sm:py-2.5"
           aria-hidden="true"
         >
           <Skeleton className="h-2.5 w-20" />

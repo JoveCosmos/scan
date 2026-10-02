@@ -27,11 +27,11 @@ export default function ValidatorLoading() {
           ))}
         </div>
         <div className="flex min-h-0 flex-col gap-3">
-          <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+          <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 2xl:grid-cols-8">
             {Array.from({ length: 8 }, (_, i) => (
               <div
                 key={i}
-                className="gata-surface gata-brick flex h-[5rem] flex-col justify-between px-3.5 py-2.5"
+                className="gata-surface gata-brick flex h-[3.5rem] flex-col justify-between px-2.5 py-2 sm:h-[5rem] sm:px-3.5 sm:py-2.5"
               >
                 <Skeleton className="h-2.5 w-20" />
                 <Skeleton className="h-5 w-24" />

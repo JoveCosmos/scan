@@ -114,9 +114,9 @@ export function BlocksTable({
     <RowDeck
       accent={accent}
       columns={[
-        { label: "Height", align: "right", width: "22%", phoneWidth: "33%" },
-        { label: "Age", align: "right", width: "16%", phoneWidth: "22%" },
-        { label: "Txs", align: "right", width: "12%", phoneWidth: "13%" },
+        { label: "Height", align: "right", width: "22%", phoneWidth: "30%" },
+        { label: "Age", align: "right", width: "16%", phoneWidth: "20%" },
+        { label: "Txs", align: "right", width: "12%", phoneWidth: "11%" },
         { label: "Proposer" },
         { label: "Hash", optional: true, width: "22%" },
       ]}

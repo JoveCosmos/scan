@@ -223,19 +223,19 @@ export default async function BlockDetailPage({
         </>
       }
     >
-      {/* Phones scroll the page body and give the list a fixed height; from
-          lg the list takes the rest of the frame and only it scrolls. */}
-      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+      {/* The list takes whatever height is left at every width. On a screen
+          too short for its minimum the body scrolls instead. */}
+      <div className="flex h-full flex-col gap-2.5 overflow-y-auto sm:gap-3 lg:overflow-hidden">
         <div className="shrink-0">
           <BrickBoard chainId={chainId} accent={accent} bricks={bricks} />
         </div>
-        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="min-h-[18rem] flex-1 lg:min-h-0">
           <RowDeck
             accent={accent}
             columns={[
-              { label: "Hash", width: "26%" },
+              { label: "Hash", width: "26%", phoneWidth: "30%" },
               { label: "Type" },
-              { label: "Status", width: "16%" },
+              { label: "Status", width: "16%", phoneWidth: "24%" },
               { label: "Fee", align: "right", width: "20%", phoneHide: true },
             ]}
             rows={rows}

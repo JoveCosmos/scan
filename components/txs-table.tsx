@@ -97,11 +97,11 @@ export function TxsTable({
     <RowDeck
       accent={accent}
       columns={[
-        { label: "Hash", width: "18%" },
+        { label: "Hash", width: "18%", phoneWidth: "30%" },
         { label: "Type" },
         { label: "Amount", align: "right", phoneHide: true, width: "17%" },
         { label: "Fee", align: "right", optional: true, width: "12%" },
-        { label: "Status", width: "9%" },
+        { label: "Status", width: "9%", phoneWidth: "20%" },
         { label: "Height", align: "right", optional: true, width: "12%" },
         { label: "Age", align: "right", phoneHide: true, width: "9%" },
       ]}

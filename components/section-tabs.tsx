@@ -1,25 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Two or three views sharing one frame.
+ * Two or more views sharing one frame.
  *
  * A fixed-height page cannot stack sections - the second one would start below
  * the fold, which is the thing the layout exists to prevent. Where a page
  * genuinely has more than one answer to give, they take turns rather than
  * queue up.
  *
- * Both panels are rendered and one is hidden, not unmounted: the content is
+ * Every panel is rendered and the others hidden, not unmounted: the content is
  * already fetched by the time it gets here, and remounting would throw away the
  * paging position of whichever deck you just left.
+ *
+ * The strip stays one line at every width. When it runs past the edge it fades
+ * there, so the tabs out of view read as more to scroll to.
  */
+export interface Section {
+  key: string;
+  label: string;
+  content: React.ReactNode;
+  /** Only below lg, for what the desktop layout shows beside the tabs. */
+  phoneOnly?: boolean;
+}
+
+const LG = "(min-width: 1024px)";
+
 export function SectionTabs({
   sections,
   initial,
   param,
 }: {
-  sections: { key: string; label: string; content: React.ReactNode }[];
+  sections: Section[];
   /** Tab open on arrival, e.g. from the URL; ignored if no such tab. */
   initial?: string;
   /**
@@ -28,25 +41,69 @@ export function SectionTabs({
    */
   param?: string;
 }) {
+  const firstShared = sections.find((s) => !s.phoneOnly)?.key ?? sections[0]?.key ?? "";
   const [active, setActiveState] = useState(
-    initial && sections.some((s) => s.key === initial) ? initial : (sections[0]?.key ?? "")
+    initial && sections.some((s) => s.key === initial) ? initial : firstShared
   );
 
   function setActive(key: string) {
     setActiveState(key);
     if (!param) return;
     const url = new URL(window.location.href);
-    if (key === sections[0]?.key) url.searchParams.delete(param);
+    if (key === firstShared) url.searchParams.delete(param);
     else url.searchParams.set(param, key);
     window.history.replaceState(window.history.state, "", url);
   }
 
+  // A phone-only tab left open while the window widens would leave an empty
+  // panel: fall back to the first tab both layouts share.
+  useEffect(() => {
+    const mq = window.matchMedia(LG);
+    const check = () => {
+      if (mq.matches && sections.find((s) => s.key === active)?.phoneOnly) setActiveState(firstShared);
+    };
+    check();
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
+  }, [active, sections, firstShared]);
+
+  // Fade the strip's right edge while tabs remain beyond it.
+  const [more, setMore] = useState(false);
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const measure = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    el.addEventListener("scroll", measure, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener("scroll", measure);
+    };
+  }, [measure]);
+
+  // Keep the open tab in view when it was opened from a link.
+  useEffect(() => {
+    stripRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active]);
+
   return (
     <div className="flex h-full flex-col">
       <div
+        ref={stripRef}
         role="tablist"
         aria-label="Sections"
-        className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border pb-2 sm:flex-nowrap sm:overflow-x-auto sm:[scrollbar-width:none]"
+        className={`flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border pb-1.5 [scrollbar-width:none] sm:pb-2 [&::-webkit-scrollbar]:hidden ${
+          more ? "[mask-image:linear-gradient(to_right,black_82%,transparent)]" : ""
+        }`}
       >
         {sections.map((section) => {
           const on = section.key === active;
@@ -57,7 +114,9 @@ export function SectionTabs({
               role="tab"
               aria-selected={on}
               onClick={() => setActive(section.key)}
-              className={`relative shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-[13px] transition-colors ${
+              className={`relative shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[13px] transition-colors sm:px-3 ${
+                section.phoneOnly ? "lg:hidden" : ""
+              } ${
                 on
                   ? "bg-[var(--gata-card-hi)] text-foreground"
                   : "text-muted-foreground hover:text-foreground"
@@ -74,7 +133,7 @@ export function SectionTabs({
           key={section.key}
           role="tabpanel"
           hidden={section.key !== active}
-          className={section.key === active ? "min-h-0 flex-1 pt-3" : "hidden"}
+          className={section.key === active ? "min-h-0 flex-1 pt-2.5 sm:pt-3" : "hidden"}
         >
           {section.content}
         </div>

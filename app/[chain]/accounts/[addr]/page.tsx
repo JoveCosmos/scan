@@ -1071,9 +1071,9 @@ export default async function AccountPage({
         </>
       }
     >
-      {/* Phones scroll the page body and give the list a fixed height; from
-          lg the list takes the rest of the frame and only it scrolls. */}
-      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+      {/* The list takes whatever height is left at every width. On a screen
+          too short for its minimum the body scrolls instead. */}
+      <div className="flex h-full flex-col gap-2.5 overflow-y-auto sm:gap-3 lg:overflow-hidden">
         {account.exists ? (
           <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
         ) : (
@@ -1087,7 +1087,7 @@ export default async function AccountPage({
           </div>
         )}
 
-        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="min-h-[18rem] flex-1 lg:min-h-0">
           <SectionTabs sections={sections} />
         </div>
       </div>

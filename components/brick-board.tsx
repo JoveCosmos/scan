@@ -136,7 +136,7 @@ export function BrickBoard({
         tiles
       ) : (
         <BrickGrid
-          className={`${size === "lg" ? "brick-lg !grid-cols-2 sm:!grid-cols-3 lg:!grid-cols-5" : ""} ${className ?? ""}`}
+          className={`${size === "lg" ? "brick-lg !grid-cols-3 lg:!grid-cols-5" : ""} ${className ?? ""}`}
         >
           {tiles}
         </BrickGrid>

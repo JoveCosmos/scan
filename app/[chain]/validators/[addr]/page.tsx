@@ -17,7 +17,7 @@ import { withinBudget } from "@/lib/cache";
 import { validatorLogoMap } from "@/lib/validator-logos";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
-import { SectionTabs } from "@/components/section-tabs";
+import { SectionTabs, type Section } from "@/components/section-tabs";
 import { CopyButton } from "@/components/copy-button";
 import { AddressLink } from "@/components/address-link";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
@@ -311,7 +311,83 @@ export default async function ValidatorDetailPage({
     },
   ];
 
-  const sections = [
+  // Who the validator is: a column of its own from lg, a tab of its own on
+  // phones, where a column would push the lists off the screen.
+  const profile = (
+    <>
+      {validator.details ? (
+        <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-foreground/85">
+          {validator.details}
+        </p>
+      ) : null}
+
+      {website || keybase || validator.identity ? (
+        <div className="flex flex-wrap gap-1.5 text-[12px]">
+          {websiteHref ? (
+            <ExternalChip href={websiteHref} label={website} />
+          ) : website ? (
+            <span className="rounded-md border border-border px-2 py-0.5 text-muted-foreground">
+              {website}
+            </span>
+          ) : null}
+          {keybase ? (
+            <ExternalChip href={`https://keybase.io/${keybase}`} label={`Keybase ${keybase}`} />
+          ) : validator.identity ? (
+            <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
+              {validator.identity}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Group label="Addresses">
+        <AddressRow label="Operator" copy={validator.operatorAddress}>
+          <span className="font-mono">{truncateMiddle(validator.operatorAddress, 16, 8)}</span>
+        </AddressRow>
+        {account ? (
+          <AddressRow label="Account" copy={account}>
+            <AddressLink address={account} head={12} tail={8} />
+          </AddressRow>
+        ) : null}
+        {ids ? (
+          <>
+            <AddressRow label="Consensus" copy={ids.valcons}>
+              <span className="font-mono">{truncateMiddle(ids.valcons, 16, 8)}</span>
+            </AddressRow>
+            <AddressRow label="Hex" copy={ids.hex}>
+              <span className="font-mono">{truncateMiddle(ids.hex, 12, 8)}</span>
+            </AddressRow>
+          </>
+        ) : null}
+      </Group>
+
+      <Group label="Terms">
+        <TermRow label="Max commission" value={pct(validator.maxRate, 0)} />
+        <TermRow label="Max change" value={`${pct(validator.maxChangeRate)}/day`} />
+        <TermRow
+          label="Min self delegation"
+          value={`${formatToken(validator.minSelfDelegation, chain.exponent, 6)} ${symbol}`}
+        />
+        {validator.securityContact ? (
+          <TermRow label="Security" value={validator.securityContact} />
+        ) : null}
+      </Group>
+
+      <Suspense fallback={null}>
+        <ValidatorElsewhere chain={chain} account={account} identity={validator.identity} />
+      </Suspense>
+    </>
+  );
+
+  const sections: Section[] = [
+    {
+      key: "profile",
+      label: "Profile",
+      phoneOnly: true,
+      content: (
+        <div className="gata-surface flex h-full flex-col gap-4 overflow-y-auto px-4 py-3.5">{profile}</div>
+      ),
+    },
     {
       key: "delegators",
       label: "Delegators",
@@ -418,81 +494,21 @@ export default async function ValidatorDetailPage({
         </>
       }
     >
-      {/* Phones stack and scroll inside the frame; from lg the profile takes a
+      {/* Phones: figures, then the tabs filling the rest; from lg the profile takes a
           column of its own and only the lists scroll. */}
-      <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto lg:grid lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:overflow-hidden">
-        <aside className="gata-surface order-last flex shrink-0 flex-col gap-4 px-4 py-3.5 lg:order-none lg:min-h-0 lg:overflow-y-auto">
-          {validator.details ? (
-            <p className="whitespace-pre-line text-[12.5px] leading-relaxed text-foreground/85">
-              {validator.details}
-            </p>
-          ) : null}
-
-          {website || keybase || validator.identity ? (
-            <div className="flex flex-wrap gap-1.5 text-[12px]">
-              {websiteHref ? (
-                <ExternalChip href={websiteHref} label={website} />
-              ) : website ? (
-                <span className="rounded-md border border-border px-2 py-0.5 text-muted-foreground">
-                  {website}
-                </span>
-              ) : null}
-              {keybase ? (
-                <ExternalChip href={`https://keybase.io/${keybase}`} label={`Keybase ${keybase}`} />
-              ) : validator.identity ? (
-                <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground">
-                  {validator.identity}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          <Group label="Addresses">
-            <AddressRow label="Operator" copy={validator.operatorAddress}>
-              <span className="font-mono">{truncateMiddle(validator.operatorAddress, 16, 8)}</span>
-            </AddressRow>
-            {account ? (
-              <AddressRow label="Account" copy={account}>
-                <AddressLink address={account} head={12} tail={8} />
-              </AddressRow>
-            ) : null}
-            {ids ? (
-              <>
-                <AddressRow label="Consensus" copy={ids.valcons}>
-                  <span className="font-mono">{truncateMiddle(ids.valcons, 16, 8)}</span>
-                </AddressRow>
-                <AddressRow label="Hex" copy={ids.hex}>
-                  <span className="font-mono">{truncateMiddle(ids.hex, 12, 8)}</span>
-                </AddressRow>
-              </>
-            ) : null}
-          </Group>
-
-          <Group label="Terms">
-            <TermRow label="Max commission" value={pct(validator.maxRate, 0)} />
-            <TermRow label="Max change" value={`${pct(validator.maxChangeRate)}/day`} />
-            <TermRow
-              label="Min self delegation"
-              value={`${formatToken(validator.minSelfDelegation, chain.exponent, 6)} ${symbol}`}
-            />
-            {validator.securityContact ? (
-              <TermRow label="Security" value={validator.securityContact} />
-            ) : null}
-          </Group>
-
-          <Suspense fallback={null}>
-            <ValidatorElsewhere chain={chain} account={account} identity={validator.identity} />
-          </Suspense>
+      <div className="flex h-full min-h-0 flex-col gap-2.5 lg:grid lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:gap-3">
+        <aside className="gata-surface hidden flex-col gap-4 px-4 py-3.5 lg:flex lg:min-h-0 lg:overflow-y-auto">
+          {profile}
         </aside>
 
-        <div className="flex shrink-0 flex-col gap-3 lg:min-h-0 lg:shrink">
-          <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-4 2xl:grid-cols-8">
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 sm:gap-3">
+          <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 2xl:grid-cols-8">
             <BrickBoard accent={accent} bricks={bricks} bare />
             <Suspense fallback={<BrickLoading count={3} />}>
               <IndexedBricks {...keys} />
             </Suspense>
           </div>
-          <div className="h-[34rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+          <div className="min-h-0 flex-1">
             <SectionTabs sections={sections} initial={initialTab} param="tab" />
           </div>
         </div>

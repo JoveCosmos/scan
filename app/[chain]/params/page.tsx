@@ -20,6 +20,7 @@ import { PageFrame } from "@/components/page-frame";
 import { withinBudget } from "@/lib/cache";
 import { BlocksTable } from "@/components/blocks-table";
 import { TxsTable } from "@/components/txs-table";
+import { PairPanels } from "@/components/pair-panels";
 import { denomsForTxs } from "@/lib/txs";
 import { nameProposers } from "@/lib/blocks";
 import { withProposerLogos } from "@/lib/validator-logos";
@@ -308,7 +309,7 @@ export default async function ChainOverviewPage({
         ) : undefined
       }
     >
-      <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex h-full min-h-0 flex-col gap-2.5 sm:gap-3">
         <div className="shrink-0">
           <BrickBoard
             chainId={chain.chainId}
@@ -318,42 +319,40 @@ export default async function ChainOverviewPage({
             size="lg"
           />
         </div>
-        {/* Side by side, filling the screen, from tablet width up. On a phone
-            each list gets a usable height and this area scrolls instead. */}
-        <div
-          className={`flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto pb-1 lg:grid lg:gap-3 lg:overflow-hidden lg:pb-0 ${
-            txInitial ? "lg:grid-cols-2" : ""
-          }`}
-        >
-          <section className="flex h-[30rem] shrink-0 flex-col gap-2 lg:h-auto lg:min-h-0">
-            <h2 className="font-display shrink-0 text-[15px] font-semibold tracking-[-0.01em]">
-              Blocks
-            </h2>
-            <div className="min-h-0 flex-1">
-              <BlocksTable
-                chainId={chain.chainId}
-                accent={accent}
-                initialBlocks={named}
-                renderedAt={renderedAt}
-              />
-            </div>
-          </section>
-          {txInitial ? (
-            <section className="flex h-[30rem] shrink-0 flex-col gap-2 lg:h-auto lg:min-h-0">
-              <h2 className="font-display shrink-0 text-[15px] font-semibold tracking-[-0.01em]">
-                Transactions
-              </h2>
-              <div className="min-h-0 flex-1">
-                <TxsTable
-                  chainId={chain.chainId}
-                  accent={accent}
-                  denoms={chainDenoms(chain)}
-                  initial={txInitial}
-                  renderedAt={renderedAt}
-                />
-              </div>
-            </section>
-          ) : null}
+        <div className="min-h-0 flex-1">
+          <PairPanels
+            panels={[
+              {
+                key: "blocks",
+                label: "Blocks",
+                content: (
+                  <BlocksTable
+                    chainId={chain.chainId}
+                    accent={accent}
+                    initialBlocks={named}
+                    renderedAt={renderedAt}
+                  />
+                ),
+              },
+              ...(txInitial
+                ? [
+                    {
+                      key: "txs",
+                      label: "Transactions",
+                      content: (
+                        <TxsTable
+                          chainId={chain.chainId}
+                          accent={accent}
+                          denoms={chainDenoms(chain)}
+                          initial={txInitial}
+                          renderedAt={renderedAt}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
       </div>
     </PageFrame>

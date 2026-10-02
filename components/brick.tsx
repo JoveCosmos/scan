@@ -26,9 +26,8 @@ export function BrickGrid({
     // auto-fill rather than a fixed column count: the tiles are small enough
     // that a wide screen should get more of them, not wider ones.
     <div
-      // On a two-column phone an odd last tile takes the whole row rather than
-      // sitting alone beside a hole.
-      className={`grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 ${className}`}
+      // Phones get three compact tiles a row (see .brick-fill for the last row).
+      className={`brick-fill grid grid-cols-3 gap-1.5 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] sm:gap-2 ${className}`}
     >
       {children}
     </div>
@@ -37,6 +36,8 @@ export function BrickGrid({
 
 export interface BrickVisual {
   label: string;
+  /** A shorter label for a phone tile, where the full one would be cut off. */
+  short?: string;
   value: string;
   sub?: string;
   /** Tint the value with the chain accent - for the figure that identifies it. */
@@ -72,8 +73,15 @@ function Body({
   return (
     <>
       <span className="flex items-start justify-between gap-1">
-        <span className="truncate text-[10px] font-medium uppercase leading-none tracking-[0.1em] text-muted-foreground">
-          {brick.label}
+        <span className="truncate text-[9px] font-medium uppercase leading-none tracking-[0.04em] text-muted-foreground sm:text-[10px] sm:tracking-[0.1em]">
+          {brick.short ? (
+            <>
+              <span className="sm:hidden">{brick.short}</span>
+              <span className="hidden sm:inline">{brick.label}</span>
+            </>
+          ) : (
+            brick.label
+          )}
         </span>
         {/*
           The affordance. A tile that opens and a tile that does not looked
@@ -81,11 +89,13 @@ function Body({
           them are inert. Top corner rather than bottom: it sits beside the
           label, which is the part of a tile the eye lands on first, and leaves
           the figure's line uninterrupted.
+          Hidden on phones, where a third-of-the-screen tile needs the room for
+          its label; there every tile is a tap target anyway.
         */}
         {opens ? (
           <span
             aria-hidden="true"
-            className="grid h-4 w-4 shrink-0 place-items-center rounded-full border border-[var(--gata-border)] text-[var(--gata-faint)] transition-colors group-hover/brick:border-[var(--brick-acc)] group-hover/brick:text-foreground"
+            className="hidden h-4 w-4 shrink-0 place-items-center rounded-full border sm:grid border-[var(--gata-border)] text-[var(--gata-faint)] transition-colors group-hover/brick:border-[var(--brick-acc)] group-hover/brick:text-foreground"
           >
             <ArrowUpRight className="h-2.5 w-2.5" />
           </span>
@@ -94,14 +104,20 @@ function Body({
       <span
         className={
           brick.text
-            ? "mt-auto line-clamp-2 text-[11.5px] font-medium leading-[1.2]"
-            : "brick-value font-display mt-auto truncate text-[19px] font-semibold leading-tight tracking-[-0.02em] tabular-nums"
+            ? "mt-auto line-clamp-1 text-[11px] font-medium leading-[1.2] sm:line-clamp-2 sm:text-[11.5px]"
+            : `brick-value font-display mt-auto truncate font-semibold leading-tight tracking-[-0.02em] tabular-nums sm:text-[19px] ${
+                // A phone tile is a third of the screen: long figures step down
+                // a size rather than lose their unit to an ellipsis.
+                brick.value.length > 8 ? "text-[13px]" : "text-[15px]"
+              }`
         }
         style={{ color: toneColor(brick.tone, accent, brick.lead) }}
       >
         {brick.value}
       </span>
-      <span className="flex items-end justify-between gap-2">
+      {/* Phones drop the sub line: the tiles there are half height, and what
+          it says is in the popup. */}
+      <span className="hidden items-end justify-between gap-2 sm:flex">
         <span className="truncate text-[10px] leading-tight text-muted-foreground">
           {brick.sub ?? ""}
         </span>
@@ -119,7 +135,7 @@ function Body({
 // The figure is still the largest thing in the tile; everything around it gave
 // up the room instead.
 const SHELL =
-  "gata-surface gata-brick flex h-[5rem] flex-col gap-0.5 overflow-hidden px-3.5 py-2.5 text-left transition-[border-color,background-color,transform,box-shadow]";
+  "gata-surface gata-brick flex h-[3.5rem] flex-col gap-0.5 overflow-hidden px-2.5 py-2 text-left sm:h-[5rem] sm:px-3.5 sm:py-2.5 transition-[border-color,background-color,transform,box-shadow]";
 
 /** Static - a fact with nothing behind it. */
 export function Brick({ brick, accent }: { brick: BrickVisual; accent: string }) {

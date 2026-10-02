@@ -178,6 +178,7 @@ export async function GnoValidatorDetail({
     {
       key: "consensus-address",
       label: "Consensus address",
+      short: "Consensus",
       value: truncateMiddle(signing, 10, 6),
       sub: "signing identity",
       rows: [
@@ -212,7 +213,7 @@ export async function GnoValidatorDetail({
       <div className="flex h-full flex-col gap-3">
         {/* One grid for the consensus figures and the registered profile, so the
             profile's tiles continue the row rather than start a new one. */}
-        <div className="grid shrink-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2">
+        <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:gap-2 lg:grid-cols-5">
           <BrickBoard accent={accent} bricks={bricks} bare />
           <Suspense fallback={<BrickLoading count={2} />}>
             <ValoperProfileBoard chain={chain} address={address} accent={accent} />

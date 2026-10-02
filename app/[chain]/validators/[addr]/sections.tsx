@@ -229,6 +229,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
       ? {
           key: "earned",
           label: "Commission taken",
+          short: "Comm. earned",
           value: coin(earned.byDenom[0]),
           sub: `${earned.withdrawals.toLocaleString()} withdrawals`,
           rows: kept([
@@ -242,7 +243,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
             { label: "Last", value: earned.last ? timeAgo(earned.last) : "-" },
           ]),
         }
-      : { key: "earned", label: "Commission taken", value: "N/A" }
+      : { key: "earned", label: "Commission taken", short: "Comm. earned", value: "N/A" }
   );
 
   if (proposer && proposer.totalBlocks > 0) {
@@ -250,6 +251,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
     bricks.push({
       key: "proposed",
       label: "Blocks proposed",
+      short: "Proposed",
       value: proposer.proposed.toLocaleString(),
       sub: fairness
         ? `${fairness.ratio.toFixed(2)}× expected, ${verdict(fairness.ratio)}`
@@ -304,7 +306,7 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
       ]),
     });
   } else {
-    bricks.push({ key: "proposed", label: "Blocks proposed", value: "N/A" });
+    bricks.push({ key: "proposed", label: "Blocks proposed", short: "Proposed", value: "N/A" });
   }
 
   if (votes && votes.total > 0) {

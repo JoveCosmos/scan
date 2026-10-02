@@ -366,9 +366,7 @@ export function RowDeck({
             ) : matched.length === 0 ? (
               query ? (
                 `no match of ${rows.length}`
-              ) : (
-                "0"
-              )
+              ) : null
             ) : (
               `${current * perPage + 1}–${current * perPage + shown.length} of ${matched.length}`
             )}

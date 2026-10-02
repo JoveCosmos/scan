@@ -256,9 +256,9 @@ export default async function TxDetailPage({
       ].join(" · ")}
       accent={accent}
     >
-      {/* Phones scroll the page body and give the list a fixed height; from
-          lg the list takes the rest of the frame and only it scrolls. */}
-      <div className="flex h-full flex-col gap-3 overflow-y-auto lg:overflow-hidden">
+      {/* The list takes whatever height is left at every width. On a screen
+          too short for its minimum the body scrolls instead. */}
+      <div className="flex h-full flex-col gap-2.5 overflow-y-auto sm:gap-3 lg:overflow-hidden">
         <div className="gata-surface shrink-0 px-4 py-3">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 lg:grid-cols-4">
             <SummaryRow label="Hash" wide>
@@ -362,7 +362,7 @@ export default async function TxDetailPage({
             ) : null}
           </dl>
         </div>
-        <div className="h-[32rem] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+        <div className="min-h-[18rem] flex-1 lg:min-h-0">
           <SectionTabs sections={sections} initial={tab} param="tab" />
         </div>
       </div>
