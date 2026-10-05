@@ -19,24 +19,62 @@ interface Entry<T> {
 }
 
 const CACHE_KEY = Symbol.for("gata.ttlCache");
+const GROUPS_KEY = Symbol.for("gata.ttlCacheGroups");
 
 const store = globalThis as typeof globalThis & {
   [CACHE_KEY]?: Map<string, Entry<unknown>>;
+  [GROUPS_KEY]?: Map<string, string[]>;
 };
 
 const cache: Map<string, Entry<unknown>> = (store[CACHE_KEY] ??= new Map());
+/** Keys of each capped group, oldest first. */
+const groups: Map<string, string[]> = (store[GROUPS_KEY] ??= new Map());
 
 /**
- * Keys include heights and addresses, so the map would otherwise grow for as
- * long as the process lives. Past this size, expired entries are dropped.
+ * Keys include heights, hashes and addresses, so without a bound the map grows
+ * for as long as the process lives. Production reached 7.2 GB in 27 hours
+ * (2026-10-05): the old sweep ran only once 4,000 keys had piled up, and below
+ * that no expired entry was ever dropped, so every validator page a crawler
+ * opened left its whole delegator ranking behind.
+ *
+ * Now expired entries go at least once a minute, and past MAX_ENTRIES the
+ * oldest-written go too, expired or not.
  */
-const SWEEP_AT = 4000;
+const SWEEP_EVERY_MS = 60_000;
+const MAX_ENTRIES = 5000;
+let lastSweep = 0;
 
 function sweep(now: number) {
-  if (cache.size < SWEEP_AT) return;
-  for (const [key, entry] of cache) {
-    if (!entry.inflight && now - entry.at > entry.keepMs) cache.delete(key);
+  if (now - lastSweep >= SWEEP_EVERY_MS || cache.size > MAX_ENTRIES) {
+    lastSweep = now;
+    for (const [key, entry] of cache) {
+      if (!entry.inflight && now - entry.at > entry.keepMs) cache.delete(key);
+    }
   }
+  // Map order is write order (see put()), so the first keys are the stalest.
+  for (const [key, entry] of cache) {
+    if (cache.size <= MAX_ENTRIES) break;
+    if (!entry.inflight) cache.delete(key);
+  }
+}
+
+/** Writes an entry as the newest, so the cap evicts by age of the last write. */
+function put(key: string, entry: Entry<unknown>) {
+  cache.delete(key);
+  cache.set(key, entry);
+}
+
+/** Holds a group to its size: past `max`, its oldest key is dropped. */
+function admit(key: string, group: { name: string; max: number }) {
+  const keys = groups.get(group.name) ?? [];
+  const at = keys.indexOf(key);
+  if (at !== -1) keys.splice(at, 1);
+  keys.push(key);
+  while (keys.length > group.max) {
+    const old = keys.shift()!;
+    if (!cache.get(old)?.inflight) cache.delete(old);
+  }
+  groups.set(group.name, keys);
 }
 
 export interface CacheOptions {
@@ -46,14 +84,27 @@ export interface CacheOptions {
    * read only ever blocks the very first request, never a later one.
    */
   staleMs?: number;
+  /**
+   * At most `max` entries of this group at once, oldest dropped first. For
+   * values large enough that the global cap alone would still hold too much
+   * (a validator's whole delegator ranking).
+   */
+  group?: { name: string; max: number };
 }
 
-function load<T>(key: string, ttlMs: number, keepMs: number, loader: () => Promise<T>) {
+function load<T>(
+  key: string,
+  ttlMs: number,
+  keepMs: number,
+  loader: () => Promise<T>,
+  group?: CacheOptions["group"]
+) {
   const entry = cache.get(key) as Entry<T> | undefined;
   const inflight = loader()
     .then((value) => {
       const now = Date.now();
-      cache.set(key, { at: now, value, keepMs });
+      put(key, { at: now, value, keepMs });
+      if (group) admit(key, group);
       sweep(now);
       return value;
     })
@@ -94,18 +145,25 @@ export async function cached<T>(
     const age = now - entry.at;
     if (age < ttlMs) return entry.value;
     if (age < staleMs) {
-      if (!entry.inflight) void load(key, ttlMs, keepMs, loader).catch(() => {});
+      if (!entry.inflight) void load(key, ttlMs, keepMs, loader, options.group).catch(() => {});
       return entry.value;
     }
   }
   if (entry?.inflight) return entry.inflight;
 
-  return load(key, ttlMs, keepMs, loader);
+  return load(key, ttlMs, keepMs, loader, options.group);
 }
 
 /** Test seam. */
 export function clearCache(): void {
   cache.clear();
+  groups.clear();
+  lastSweep = 0;
+}
+
+/** Test seam: how many entries the cache holds. */
+export function cacheSize(): number {
+  return cache.size;
 }
 
 /**

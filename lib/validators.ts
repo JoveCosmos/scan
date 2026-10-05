@@ -235,7 +235,8 @@ export interface DelegatorPage {
 }
 
 interface RankedDelegations {
-  rows: { address: string; amount: string; raw: bigint }[];
+  /** The amount is kept once, as a BigInt; its string form is made per page. */
+  rows: { address: string; raw: bigint }[];
   totalStake: bigint;
   truncated: boolean;
 }
@@ -277,7 +278,9 @@ export async function getValidatorDelegators(
       `delegations:${chain.chainId}:${operatorAddress}`,
       5 * 60_000,
       () => readDelegations(chain, operatorAddress),
-      { staleMs: 30 * 60_000 }
+      // A ranking can run to 50,000 rows, and crawlers open every validator:
+      // only the most recently read rankings are held, never one per validator.
+      { staleMs: 30 * 60_000, group: { name: "delegations", max: 24 } }
     );
   } catch {
     return failed;
@@ -289,7 +292,7 @@ export async function getValidatorDelegators(
   return {
     delegators: rows.slice(offset, offset + page.limit).map((d) => ({
       address: d.address,
-      amount: d.amount,
+      amount: d.raw.toString(),
       share: shareOf(d.raw, totalStake),
     })),
     offset,
@@ -334,7 +337,6 @@ async function readDelegations(
   const parsed = rows
     .map((r) => ({
       address: r.delegation?.delegator_address ?? "",
-      amount: (r.balance?.amount ?? "0").split(".")[0],
       raw: BigInt((r.balance?.amount ?? "0").split(".")[0] || "0"),
     }))
     .filter((d) => d.address);

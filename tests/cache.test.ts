@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { cached, clearCache } from "@/lib/cache";
+import { cached, cacheSize, clearCache } from "@/lib/cache";
 
 beforeEach(() => clearCache());
 
@@ -90,5 +90,40 @@ describe("cached, stale-while-revalidate", () => {
     expect(await cached("swr2", 5, load, { staleMs: 10 })).toBe("v1");
     await new Promise((r) => setTimeout(r, 25));
     expect(await cached("swr2", 5, load, { staleMs: 10 })).toBe("v2");
+  });
+});
+
+describe("cached bounds", () => {
+  it("drops expired entries within a minute, however few there are", async () => {
+    // The leak of 2026-10-05: below 4,000 keys nothing expired was ever dropped.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(0);
+      for (let i = 0; i < 50; i++) await cached(`old:${i}`, 1000, async () => i);
+      expect(cacheSize()).toBe(50);
+      vi.setSystemTime(61_000);
+      await cached("new", 1000, async () => "x");
+      expect(cacheSize()).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never holds more than its cap, dropping the oldest-written first", async () => {
+    for (let i = 0; i < 5100; i++) await cached(`k:${i}`, 3_600_000, async () => i);
+    expect(cacheSize()).toBe(5000);
+    // The newest survive; the first written were evicted and reload.
+    const load = vi.fn(async () => "again");
+    expect(await cached("k:5099", 3_600_000, load)).toBe(5099);
+    expect(await cached("k:0", 3_600_000, load)).toBe("again");
+  });
+
+  it("holds a group to its size, most recently read kept", async () => {
+    const group = { name: "big", max: 2 };
+    for (const k of ["a", "b", "c"]) await cached(`g:${k}`, 3_600_000, async () => k, { group });
+    const reload = vi.fn(async () => "reloaded");
+    expect(await cached("g:c", 3_600_000, reload, { group })).toBe("c");
+    expect(await cached("g:b", 3_600_000, reload, { group })).toBe("b");
+    expect(await cached("g:a", 3_600_000, reload, { group })).toBe("reloaded");
   });
 });
