@@ -41,9 +41,15 @@ services:
     # Scan on a shared box. 4g, not 1g: at 1g the archive refill (backfill at
     # concurrency 16, the follower, Scan's reads and autoanalyze) was
     # OOM-killed twice, 2026-09-26 and 09-27. The box has 125 GB.
+    # 6g with 4g reserved since 2026-10-05: at 4g the database sat pinned at its
+    # cap (peak 4.00 GB), its cache squeezed; the reservation keeps 4 GB of it
+    # ahead of unreserved services when the box runs short (operator). Matches
+    # what the running container was given with `docker update`.
     deploy:
       resources:
         limits:
+          memory: 6g
+        reservations:
           memory: 4g
 
 volumes:
