@@ -107,6 +107,7 @@ export function TxsTable({
       ]}
       rows={rows}
       fit
+      phoneLimit={10}
       empty={isError || data.stale ? "N/A" : "No transactions"}
     />
   );

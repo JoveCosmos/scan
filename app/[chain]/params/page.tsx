@@ -201,6 +201,7 @@ export default async function ChainOverviewPage({
     bricks.push({
       key: "pool",
       label: "Community pool",
+      short: "Pool",
       value: formatToken(economics.communityPool, chain.exponent),
       sub: poolShare,
       rows: kept([
@@ -309,8 +310,10 @@ export default async function ChainOverviewPage({
         ) : undefined
       }
     >
-      <div className="flex h-full min-h-0 flex-col gap-2.5 sm:gap-3">
-        <div className="shrink-0">
+      {/* The one page that scrolls as a whole below lg: its figures, then both
+          feeds at full height. From lg it fits the frame like every other. */}
+      <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto pb-3 sm:gap-3 lg:overflow-hidden lg:pb-0">
+        <div className="brick-dense shrink-0">
           <BrickBoard
             chainId={chain.chainId}
             accent={accent}
@@ -319,7 +322,7 @@ export default async function ChainOverviewPage({
             size="lg"
           />
         </div>
-        <div className="min-h-0 flex-1">
+        <div className="shrink-0 lg:min-h-0 lg:flex-1">
           <PairPanels
             panels={[
               {

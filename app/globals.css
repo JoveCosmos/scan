@@ -529,8 +529,17 @@
   }
 
   /* Three tiles a row on phones: a last row of one or two stretches across,
-     so no tile sits beside a hole. */
+     so no tile sits beside a hole. A .brick-dense board (the home page's
+     figures) goes smaller still there, so the feeds start higher. */
   @media (max-width: 639px) {
+    .brick-dense .gata-brick {
+      height: 2.9rem;
+      padding: 6px 10px;
+      gap: 2px;
+    }
+    .brick-dense .brick-value {
+      font-size: 14px;
+    }
     .brick-fill > :last-child:nth-child(3n + 1) {
       grid-column: span 3;
     }

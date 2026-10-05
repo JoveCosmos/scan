@@ -21,11 +21,7 @@ export interface Section {
   key: string;
   label: string;
   content: React.ReactNode;
-  /** Only below lg, for what the desktop layout shows beside the tabs. */
-  phoneOnly?: boolean;
 }
-
-const LG = "(min-width: 1024px)";
 
 export function SectionTabs({
   sections,
@@ -41,31 +37,19 @@ export function SectionTabs({
    */
   param?: string;
 }) {
-  const firstShared = sections.find((s) => !s.phoneOnly)?.key ?? sections[0]?.key ?? "";
+  const first = sections[0]?.key ?? "";
   const [active, setActiveState] = useState(
-    initial && sections.some((s) => s.key === initial) ? initial : firstShared
+    initial && sections.some((s) => s.key === initial) ? initial : first
   );
 
   function setActive(key: string) {
     setActiveState(key);
     if (!param) return;
     const url = new URL(window.location.href);
-    if (key === firstShared) url.searchParams.delete(param);
+    if (key === first) url.searchParams.delete(param);
     else url.searchParams.set(param, key);
     window.history.replaceState(window.history.state, "", url);
   }
-
-  // A phone-only tab left open while the window widens would leave an empty
-  // panel: fall back to the first tab both layouts share.
-  useEffect(() => {
-    const mq = window.matchMedia(LG);
-    const check = () => {
-      if (mq.matches && sections.find((s) => s.key === active)?.phoneOnly) setActiveState(firstShared);
-    };
-    check();
-    mq.addEventListener("change", check);
-    return () => mq.removeEventListener("change", check);
-  }, [active, sections, firstShared]);
 
   // Fade the strip's right edge while tabs remain beyond it.
   const [more, setMore] = useState(false);
@@ -115,8 +99,6 @@ export function SectionTabs({
               aria-selected={on}
               onClick={() => setActive(section.key)}
               className={`relative shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 text-[13px] transition-colors sm:px-3 ${
-                section.phoneOnly ? "lg:hidden" : ""
-              } ${
                 on
                   ? "bg-[var(--gata-card-hi)] text-foreground"
                   : "text-muted-foreground hover:text-foreground"

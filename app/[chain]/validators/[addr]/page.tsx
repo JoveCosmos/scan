@@ -17,7 +17,7 @@ import { withinBudget } from "@/lib/cache";
 import { validatorLogoMap } from "@/lib/validator-logos";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
-import { SectionTabs, type Section } from "@/components/section-tabs";
+import { SectionTabs } from "@/components/section-tabs";
 import { CopyButton } from "@/components/copy-button";
 import { AddressLink } from "@/components/address-link";
 import { GnoValidatorDetail } from "@/components/gno-validator-detail";
@@ -67,7 +67,7 @@ export async function generateMetadata({
   return { title: validator ? validator.moniker : "Validator" };
 }
 
-const TABS = ["delegators", "signing", "proposed", "votes", "power", "stake", "events", "jailings"];
+const TABS = ["overview", "delegators", "signing", "proposed", "votes", "power", "stake", "events", "jailings"];
 
 /**
  * One validator: who it is on the left, its figures and records on the right.
@@ -311,8 +311,8 @@ export default async function ValidatorDetailPage({
     },
   ];
 
-  // Who the validator is: a column of its own from lg, a tab of its own on
-  // phones, where a column would push the lists off the screen.
+  // Who the validator is: a column of its own from lg, below the figures in
+  // the Overview tab on narrower screens.
   const profile = (
     <>
       {validator.details ? (
@@ -379,13 +379,23 @@ export default async function ValidatorDetailPage({
     </>
   );
 
-  const sections: Section[] = [
+  const sections = [
     {
-      key: "profile",
-      label: "Profile",
-      phoneOnly: true,
+      // The validator's figures, in a tab of their own so every list tab gets
+      // the full height. Below lg the profile follows them here, since it has
+      // no column of its own there.
+      key: "overview",
+      label: "Overview",
       content: (
-        <div className="gata-surface flex h-full flex-col gap-4 overflow-y-auto px-4 py-3.5">{profile}</div>
+        <div className="flex h-full flex-col gap-3 overflow-y-auto">
+          <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 2xl:grid-cols-8">
+            <BrickBoard accent={accent} bricks={bricks} bare />
+            <Suspense fallback={<BrickLoading count={3} />}>
+              <IndexedBricks {...keys} />
+            </Suspense>
+          </div>
+          <div className="gata-surface flex shrink-0 flex-col gap-4 px-4 py-3.5 lg:hidden">{profile}</div>
+        </div>
       ),
     },
     {
@@ -494,23 +504,14 @@ export default async function ValidatorDetailPage({
         </>
       }
     >
-      {/* Phones: figures, then the tabs filling the rest; from lg the profile takes a
-          column of its own and only the lists scroll. */}
+      {/* The tabs fill the frame; from lg the profile takes a column of its own. */}
       <div className="flex h-full min-h-0 flex-col gap-2.5 lg:grid lg:grid-cols-[18.5rem_minmax(0,1fr)] lg:gap-3">
         <aside className="gata-surface hidden flex-col gap-4 px-4 py-3.5 lg:flex lg:min-h-0 lg:overflow-y-auto">
           {profile}
         </aside>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2.5 sm:gap-3">
-          <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 2xl:grid-cols-8">
-            <BrickBoard accent={accent} bricks={bricks} bare />
-            <Suspense fallback={<BrickLoading count={3} />}>
-              <IndexedBricks {...keys} />
-            </Suspense>
-          </div>
-          <div className="min-h-0 flex-1">
-            <SectionTabs sections={sections} initial={initialTab} param="tab" />
-          </div>
+        <div className="min-h-0 flex-1">
+          <SectionTabs sections={sections} initial={initialTab} param="tab" />
         </div>
       </div>
     </PageFrame>

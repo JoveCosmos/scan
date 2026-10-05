@@ -115,13 +115,14 @@ export function BlocksTable({
       accent={accent}
       columns={[
         { label: "Height", align: "right", width: "22%", phoneWidth: "30%" },
-        { label: "Age", align: "right", width: "16%", phoneWidth: "20%" },
-        { label: "Txs", align: "right", width: "12%", phoneWidth: "11%" },
+        { label: "Age", align: "right", width: "16%", phoneWidth: "22%" },
+        { label: "Txs", align: "right", width: "12%", phoneWidth: "10%" },
         { label: "Proposer" },
         { label: "Hash", optional: true, width: "22%" },
       ]}
       rows={rows}
       fit
+      phoneLimit={10}
       empty={isError ? "Connection lost - retrying." : "No blocks yet."}
     />
   );

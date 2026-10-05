@@ -127,6 +127,7 @@ export function RowDeck({
   filter,
   fit = false,
   live = true,
+  phoneLimit,
   footer,
 }: {
   columns: DeckColumn[];
@@ -149,6 +150,12 @@ export function RowDeck({
   fit?: boolean;
   /** A fit list that polls; a fixed older window says so in its footer. */
   live?: boolean;
+  /**
+   * Below lg, show only this many rows: on a phone the home page scrolls as a
+   * whole and each feed shows its newest few at full height instead of filling
+   * a frame.
+   */
+  phoneLimit?: number;
   /** Extra controls on the right of the card's footer, e.g. an "Older" link. */
   footer?: React.ReactNode;
 }) {
@@ -182,7 +189,9 @@ export function RowDeck({
       const bottom = el.getBoundingClientRect().bottom + 0.5;
       let whole = 0;
       el.querySelectorAll("tbody tr").forEach((r) => {
-        if (r.getBoundingClientRect().bottom <= bottom) whole += 1;
+        const rect = r.getBoundingClientRect();
+        // A row hidden by phoneLimit has no box; it is not a row on screen.
+        if (rect.height > 0 && rect.bottom <= bottom) whole += 1;
       });
       setFitCount(whole);
     };
@@ -266,7 +275,7 @@ export function RowDeck({
                           ? { width: col.width }
                           : undefined
                     }
-                    className={`${col.phoneWidth ? "w-[var(--pw)] sm:w-[var(--w)]" : ""} h-8 px-3 text-left text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
+                    className={`${col.phoneWidth ? "w-[var(--pw)] sm:w-[var(--w)]" : ""} h-8 px-2 text-left sm:px-3 text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground ${
                       col.align === "right" ? "text-right" : ""
                     } ${col.optional ? "hidden lg:table-cell" : ""} ${
                       col.phoneHide ? "hidden sm:table-cell" : ""
@@ -292,14 +301,16 @@ export function RowDeck({
                   }}
                   className={`deck-row group/row cursor-pointer border-b border-border/40 outline-none last:border-0 ${
                     row.fresh ? "gata-flash" : ""
-                  } ${cut(index) ? "invisible" : ""}`}
+                  } ${cut(index) ? "invisible" : ""} ${
+                    phoneLimit !== undefined && index >= phoneLimit ? "max-lg:hidden" : ""
+                  }`}
                 >
                   {row.cells.map((cell, i) => {
                     const col = columns[i];
                     return (
                       <td
                         key={i}
-                        className={`h-[38px] truncate px-3 text-[13px] ${
+                        className={`h-[38px] truncate px-2 sm:px-3 text-[13px] ${
                           cell.bar !== undefined ? "relative" : ""
                         } ${
                           // The affordance: the row's first cell is its link, so
