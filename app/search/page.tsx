@@ -7,6 +7,7 @@ import { classifySearch, secpKeyToAddress } from "@/lib/search";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 import type { ValidatorSummary } from "@/lib/validators";
+import { txFromIndex } from "@/lib/indexer-tx";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
@@ -51,6 +52,11 @@ async function validatorSets(
  * Ask every chain whether it holds this hash. Only one ever should. A gno
  * chain is asked in its own base64 form, so a hex hash copied from gnoscan
  * resolves as well.
+ *
+ * An indexed chain is asked its index first: the nodes we read from keep a
+ * few weeks of transactions, so asking only them could not find anything
+ * older, though the transaction's own page (which falls back to the index)
+ * showed it. The index answers in milliseconds and warms that page's cache.
  */
 async function chainsWithTx(
   hash: string,
@@ -64,6 +70,10 @@ async function chainsWithTx(
             ? hash
             : null;
       if (!asked) return null;
+      if (chain.kind === "cosmos") {
+        const indexed = await within(txFromIndex(chain.chainId, asked), 3000, null);
+        if (indexed) return { chain, hash: asked };
+      }
       try {
         const tx = await getAdapter(chain).getTx(asked);
         return tx ? { chain, hash: asked } : null;
