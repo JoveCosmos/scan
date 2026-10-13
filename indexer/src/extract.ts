@@ -548,6 +548,31 @@ function coinOrAmount(value: string | undefined): { amount: string | null; denom
  */
 export function parseVoteOptions(raw: string): VoteOption[] {
   const out: VoteOption[] = [];
+
+  // Since the chains' cosmos-sdk v0.50 line (AtomOne v4), the event carries the
+  // options as JSON instead: [{"option":3,"weight":"1.000000000000000000"}],
+  // with the option as the enum's NUMBER (1 yes, 2 abstain, 3 no, 4 veto) or,
+  // on some chains, its name. Missing this form dropped every post-upgrade vote
+  // (audit 2026-10-13: the testnet vote table was empty).
+  const NUM: Record<string, string> = {
+    "1": "VOTE_OPTION_YES", "2": "VOTE_OPTION_ABSTAIN",
+    "3": "VOTE_OPTION_NO", "4": "VOTE_OPTION_NO_WITH_VETO",
+  };
+  const t = raw.trim();
+  if (t.startsWith("[") || t.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(t);
+      for (const o of Array.isArray(parsed) ? parsed : [parsed]) {
+        if (o == null || o.option == null) continue;
+        const name = NUM[String(o.option)] ?? String(o.option);
+        out.push({ option: name, weight: String(o.weight ?? "1") });
+      }
+    } catch {
+      /* not JSON after all: fall through to the text forms */
+    }
+    if (out.length > 0) return out;
+  }
+
   const re = /option:(\S+)\s+weight:"([^"]*)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw)) !== null) {
