@@ -9,13 +9,21 @@ import { formatDate, formatDateTime, timeAgo, timeUntil, truncateMiddle } from "
 import { cached, withinBudget } from "@/lib/cache";
 import { getGovernors } from "@/lib/governors";
 import { decodeMessage } from "@/lib/msg-decode";
-import { govDeposits, govProposalRecord, proposalRecasts } from "@/lib/indexer-validator";
+import {
+  govDeposits,
+  govProposalRecord,
+  indexedProposals,
+  proposalRecasts,
+  type IndexedProposal,
+} from "@/lib/indexer-validator";
 import {
   getBondedTokens,
   getDeposits,
   indexValidatorAccounts,
   isVoting,
+  outcomeLabel,
   proposalStatusLabel,
+  proposalTypeLabel,
   tallyShares,
   voteOptionLabel,
   type ProposalMessage,
@@ -407,7 +415,12 @@ export default async function ProposalDetailPage({
     adapter.getValidators().catch(() => []),
   ]);
   const accent = accentFor(chain);
-  if (!proposal) notFound();
+  if (!proposal) {
+    // Dropped before voting: the chain deleted it, the index kept its record.
+    const indexed = (await indexedProposals(chain.chainId).catch(() => null))?.find((r) => r.id === Number(id));
+    if (!indexed) notFound();
+    return <IndexedOnlyProposal chain={chain} accent={accent} record={indexed} />;
+  }
 
   const voting = isVoting(proposal.status);
   const depositing = proposal.status === "PROPOSAL_STATUS_DEPOSIT_PERIOD";
@@ -667,6 +680,76 @@ export default async function ProposalDetailPage({
           </Suspense>
         </div>
       </div>
+    </PageFrame>
+  );
+}
+
+/**
+ * A proposal the chain no longer holds: what the index recorded of it. A
+ * proposal dropped at the deposit stage has no title or tally left anywhere
+ * we read (the index keeps no message bodies), but its submit tx, proposer,
+ * deposits, message types and end are on record.
+ */
+async function IndexedOnlyProposal({
+  chain,
+  accent,
+  record,
+}: {
+  chain: ChainConfig;
+  accent: string;
+  record: IndexedProposal;
+}) {
+  const denoms = chainDenoms(chain);
+  const deposits = await govDeposits(chain.chainId, record.id, record.submitTime).catch(() => null);
+  const total = new Map<string, bigint>();
+  for (const d of deposits ?? []) {
+    for (const c of d.amount) total.set(c.denom, (total.get(c.denom) ?? BigInt(0)) + BigInt(c.amount));
+  }
+  const totalCoins = [...total].map(([denom, amount]) => ({ denom, amount: amount.toString() }));
+  const outcome = outcomeLabel(record.outcome);
+  const facts: BrickSpec[] = [
+    { key: "status", label: "Status", value: outcome, sub: record.outcomeTime ? formatDate(record.outcomeTime) : undefined },
+    {
+      key: "submitted",
+      label: "Submitted",
+      value: record.submitTime ? formatDate(record.submitTime) : "N/A",
+      sub: record.submitHeight ? `block ${record.submitHeight.toLocaleString()}` : undefined,
+      ...(record.submitTx ? { href: `/${chain.chainId}/txs/${record.submitTx}` } : {}),
+    },
+    {
+      key: "deposit",
+      label: "Deposit",
+      value: totalCoins.length ? formatCoins(totalCoins, denoms) : "N/A",
+      sub: deposits ? `${deposits.length} depositor${deposits.length === 1 ? "" : "s"}` : undefined,
+      rows: (deposits ?? []).map((d) => ({
+        label: truncateMiddle(d.depositor, 10, 6),
+        value: formatCoinsExact(d.amount, denoms),
+        mono: true,
+        address: d.depositor,
+      })),
+    },
+    {
+      key: "proposer",
+      label: "Proposer",
+      value: record.proposer ? truncateMiddle(record.proposer, 10, 6) : "N/A",
+      ...(record.proposer ? { href: `/${chain.chainId}/accounts/${record.proposer}` } : {}),
+    },
+    {
+      key: "messages",
+      label: "Messages",
+      value: record.messages[0] ? proposalTypeLabel(record.messages[0]) : "N/A",
+      sub: record.messages.length > 1 ? `+${record.messages.length - 1} more` : undefined,
+      rows: record.messages.map((m, i) => ({ label: `#${i + 1}`, value: m, mono: true })),
+    },
+  ];
+  return (
+    <PageFrame
+      title={`Proposal ${record.id}`}
+      sub={`#${record.id} · ${chain.prettyName}`}
+      accent={accent}
+      actions={<span className="rounded-full bg-[var(--gata-faint)]/15 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">{outcome}</span>}
+    >
+      <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
     </PageFrame>
   );
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import { getAllChains, getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
+import { getAllChains, getChain, symbolFor, symbolForDenom, accentFor, chainDenoms } from "@/lib/chains";
 import type { ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
@@ -44,7 +44,7 @@ import {
   type StakingEventRow,
 } from "@/lib/indexer-tx";
 import { counterpartyChainOf } from "@/lib/txs";
-import { formatCoin } from "@/lib/coin";
+import { denomInfoFromTrace, formatCoin, type DenomInfo } from "@/lib/coin";
 import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
 import { AccountHistory } from "./history";
 import { buildHistoryRows } from "./history-rows";
@@ -308,6 +308,24 @@ async function StakingHistoryDeck({
   );
 }
 
+/**
+ * A packet's denom is a path on the sending chain. A token coming home carries
+ * the sender's port/channel in front of our own denom ("transfer/channel-2/
+ * uatone" received on AtomOne is ATONE); any other path is a voucher whose
+ * base denom is its last segment. Shown raw, a returning 40,000 ATONE read
+ * "40,000,000,000 transfer/cha…".
+ */
+function packetAmount(p: PacketRow, denoms: DenomInfo[]): string {
+  if (!p.amount || !p.denom) return "-";
+  let denom = p.denom;
+  const home = `${p.srcPort}/${p.srcChannel}/`;
+  if (p.direction === "in" && denom.startsWith(home)) denom = denom.slice(home.length);
+  if (!denom.includes("/")) return formatCoin({ denom, amount: p.amount }, denoms, 4);
+  const base = denom.split("/").at(-1) ?? denom;
+  const info = denomInfoFromTrace(denom, { base, symbol: symbolForDenom(base) }, denoms);
+  return formatCoin({ denom, amount: p.amount }, info ? [info] : denoms, 4);
+}
+
 const PACKET_STATUS: Record<ReturnType<typeof packetStatus>, string> = {
   acked: "acked",
   error: "ack error",
@@ -374,7 +392,7 @@ async function IbcDeck({
           ? { v: `${cp?.prettyName ?? cpId ?? "-"}, ${truncateMiddle(other, 10, 6)}`, address: other }
           : { v: cp?.prettyName ?? cpId ?? "-", dim: !cp },
         {
-          v: p.amount && p.denom ? formatCoin({ denom: p.denom, amount: p.amount }, denoms, 4) : "-",
+          v: packetAmount(p, denoms),
           mono: true,
           align: "right" as const,
         },

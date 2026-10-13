@@ -1,8 +1,6 @@
 import { cache } from "react";
 import type { ChainConfig } from "@/lib/chains";
-import { chainDenoms, getChain } from "@/lib/chains";
-import { formatToken } from "@/lib/overview";
-import { shortDenom } from "@/lib/coin";
+import { getChain } from "@/lib/chains";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { getAdapter } from "@/lib/adapter";
 import { getValidator, getValidatorsCached } from "@/lib/validators";
@@ -30,6 +28,8 @@ import {
   proposedBlocks,
   proposerFairness,
   signingHistory,
+  VALIDATOR_PAGE,
+  validatorCreatedAt,
   validatorEvents,
   validatorVotes,
   voterRecasts,
@@ -39,6 +39,8 @@ import { formatDuration, jailSpells } from "@/lib/signing-stats";
 import { voteOptionLabel } from "@/lib/proposals";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { OlderDeck } from "@/components/older-deck";
+import { coinFormatter, POWER_COLUMNS, powerRows, PROPOSED_COLUMNS, proposedRows } from "./rows";
 import { Skeleton } from "@/components/ui/skeleton";
 export { BrickLoading } from "@/components/brick-loading";
 import { UptimeBars } from "@/components/uptime-bars";
@@ -134,8 +136,7 @@ const loadPowerHist = cache(async (chainId: string, addr: string, hex: string | 
 
 /** Votes are counted from the validator's creation, where the index holds it. */
 const loadVotes = cache(async (chainId: string, account: string) => {
-  const events = await loadEvents(chainId, account);
-  const created = events?.filter((e) => e.kind === "create").at(-1)?.time ?? null;
+  const created = await soft(validatorCreatedAt(chainId, account));
   return soft(validatorVotes(chainId, account, created));
 });
 
@@ -160,18 +161,6 @@ export const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" &&
 
 const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-
-/** The chain's own denoms scaled and named; anything else (an IBC hash) as-is. */
-function coinFormatter(chain: ChainConfig) {
-  const known = new Map(chainDenoms(chain).map((d) => [d.denom, d]));
-  const coin = (c: { denom: string; amount: string }, frac = 2) => {
-    const info = known.get(c.denom);
-    return info
-      ? `${formatToken(c.amount, info.exponent, frac)} ${info.symbol}`
-      : `${c.amount} ${shortDenom(c.denom)}`;
-  };
-  return { coin, symbolOf: (denom: string) => known.get(denom)?.symbol ?? shortDenom(denom) };
-}
 
 function NotAvailable() {
   return (
@@ -379,32 +368,18 @@ export async function SigningTab({ chain, addr, ids, jailedOnChain }: ValidatorK
   );
 }
 
-export async function ProposedTab({ chain, accent, ids }: ValidatorKeys) {
+export async function ProposedTab({ chain, accent, addr, ids }: ValidatorKeys) {
   const chainId = chain.chainId;
   const list = ids ? await loadProposed(chainId, ids.hex) : null;
   if (!list) return <NotAvailable />;
-  const rows: DeckRow[] = list.blocks.map((b) => ({
-    key: String(b.height),
-    cells: [
-      { v: `#${b.height.toLocaleString()}`, mono: true, tone: "accent" },
-      { v: timeAgo(b.time), dim: true, align: "right" },
-      { v: String(b.txCount), mono: true, align: "right" },
-    ],
-    detail: {
-      title: `Block ${b.height}`,
-      rows: [],
-      action: { label: "Block", href: `/${chainId}/blocks/${b.height}` },
-    },
-  }));
+  const last = list.blocks.at(-1);
   return (
-    <RowDeck
+    <OlderDeck
+      endpoint={`/${chainId}/validators/${addr}/proposed`}
+      columns={PROPOSED_COLUMNS}
+      initialRows={proposedRows(chainId, list.blocks)}
+      initialNext={list.blocks.length >= VALIDATOR_PAGE && last ? String(last.height) : null}
       accent={accent}
-      columns={[
-        { label: "Block" },
-        { label: "Age", align: "right", width: "30%" },
-        { label: "Txs", align: "right", width: "18%" },
-      ]}
-      rows={rows}
       empty="None"
     />
   );
@@ -518,85 +493,36 @@ export async function EventsTab({ chain, accent, account }: ValidatorKeys) {
   );
 }
 
-/** Stake moving in and out, signed from this validator's side. */
-function powerKind(e: { kind: string; validatorDst: string | null }, addr: string) {
-  switch (e.kind) {
-    case "delegate":
-      return { label: "Delegate", sign: 1 };
-    case "undelegate":
-      return { label: "Undelegate", sign: -1 };
-    case "redelegate":
-      return e.validatorDst === addr
-        ? { label: "Redelegate in", sign: 1 }
-        : { label: "Redelegate out", sign: -1 };
-    case "cancel_unbonding":
-      return { label: "Cancel unbonding", sign: 1 };
-    case "create_validator":
-      return { label: "Create", sign: 1 };
-    case "edit_validator":
-      return { label: "Edit", sign: 0 };
-    default:
-      return { label: e.kind, sign: 0 };
-  }
-}
-
 export async function PowerEventsTab({ chain, accent, addr }: ValidatorKeys) {
   const chainId = chain.chainId;
   const { coin } = coinFormatter(chain);
   const power = await loadPowerEvents(chainId, addr);
   if (!power) return <NotAvailable />;
-  const signed = (amount: string | null, sign: number) =>
-    !amount || sign === 0 ? "-" : `${sign > 0 ? "+" : "−"}${coin({ denom: chain.denom, amount })}`;
   const flow = (net: string | null) => {
     if (net === null) return null;
     const neg = net.startsWith("-");
     const abs = neg ? net.slice(1) : net;
     return `${neg ? "−" : abs === "0" ? "" : "+"}${coin({ denom: chain.denom, amount: abs })}`;
   };
-  const rows: DeckRow[] = power.events.map((e) => {
-    const k = powerKind(e, addr);
-    return {
-      key: `${e.txHash}-${e.height}-${e.kind}-${e.delegator ?? ""}`,
-      cells: [
-        { v: k.label, tone: k.sign > 0 ? "ok" : k.sign < 0 ? "bad" : undefined },
-        e.delegator
-          ? { v: truncateMiddle(e.delegator, 10, 6), address: e.delegator, mono: true }
-          : { v: "-", dim: true },
-        { v: signed(e.amount, k.sign), mono: true, align: "right", dim: k.sign === 0 },
-        { v: `#${e.height.toLocaleString()}`, mono: true, align: "right", href: `/${chainId}/blocks/${e.height}` },
-        { v: day(e.time), dim: true, align: "right" },
-      ],
-      detail: {
-        title: k.label,
-        rows: [],
-        action: e.txHash
-          ? { label: "Transaction", href: `/${chainId}/txs/${e.txHash}` }
-          : { label: "Block", href: `/${chainId}/blocks/${e.height}` },
-      },
-    };
-  });
   const flow7 = flow(power.flow7);
   const flow30 = flow(power.flow30);
+  const last = power.events.at(-1);
   return (
-    <RowDeck
+    <OlderDeck
+      endpoint={`/${chainId}/validators/${addr}/power`}
+      columns={POWER_COLUMNS}
+      initialRows={powerRows(chain, addr, power.events)}
+      initialNext={power.events.length >= VALIDATOR_PAGE && last ? String(last.height) : null}
       accent={accent}
-      columns={[
-        { label: "Event", width: "18%" },
-        { label: "Delegator", phoneHide: true },
-        { label: "Amount", align: "right", width: "22%" },
-        { label: "Block", align: "right", width: "15%", optional: true },
-        { label: "Date", align: "right", width: "16%" },
-      ]}
-      rows={rows}
-      toolbar={
+      empty="None"
+      extra={
         flow7 || flow30 ? (
-          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+          <>
             {flow7 ? <Fact label="net 7d" value={flow7} /> : null}
             {flow30 ? <Fact label="net 30d" value={flow30} /> : null}
-          </div>
+          </>
         ) : undefined
       }
-      empty="None"
     />
   );
 }
@@ -665,8 +591,10 @@ export async function JailingsTab({
     })),
     // Before extract version 4 the index kept no unjail; the MsgUnjail
     // transaction stands in, unless the index already has that unjail.
+    // Only unjails that went through: a failed MsgUnjail left the validator
+    // jailed (the audit found 20 such rows, 15 of them FIVETECH's).
     ...(events ?? [])
-      .filter((e) => e.kind === "unjail")
+      .filter((e) => e.kind === "unjail" && e.ok)
       .filter(
         (u) => !slashes.events.some((e) => e.kind === "unjailed" && e.height === u.height)
       )

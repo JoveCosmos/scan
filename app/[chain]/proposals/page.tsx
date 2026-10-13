@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
 import { getAdapter } from "@/lib/adapter";
-import { cached } from "@/lib/cache";
+import { cached, withinBudget } from "@/lib/cache";
+import { indexedProposals } from "@/lib/indexer-validator";
 import {
   getAllProposals,
   getLiveTally,
   indexValidatorAccounts,
   isVoting,
+  outcomeLabel,
   proposalStatusLabel,
+  proposalTypeLabel,
   tallyShares,
 } from "@/lib/proposals";
 import { formatDate, timeUntil, truncateMiddle } from "@/lib/format";
@@ -63,12 +66,15 @@ export default async function ProposalsPage({
     );
   }
 
-  const [proposals, govParams, validators] = await Promise.all([
+  const [proposals, govParams, validators, indexed] = await Promise.all([
     cached(`proposals-all:${chain.chainId}`, 60_000, () => getAllProposals(chain), {
       staleMs: 10 * 60_000,
     }).catch(() => null),
     adapter.getGovParams(),
     adapter.getValidators().catch(() => []),
+    // Proposals the chain no longer holds (dropped before voting) live on in
+    // the index; only where the chain is indexed.
+    withinBudget(indexedProposals(chain.chainId), 1500, null),
   ]);
 
   if (!proposals) {
@@ -141,11 +147,41 @@ export default async function ProposalsPage({
     };
   });
 
+  const onChain = new Set(proposals.map((p) => p.id));
+  const dropped = (indexed ?? []).filter((r) => !onChain.has(String(r.id)));
+  for (const r of dropped) {
+    const href = `/${chain.chainId}/proposals/${r.id}`;
+    const type = r.messages[0] ? proposalTypeLabel(r.messages[0]) : "Text";
+    const proposerValidator = r.proposer ? byAccount.get(r.proposer) : undefined;
+    rows.push({
+      key: String(r.id),
+      search: `${r.id} ${type} ${r.proposer ?? ""} ${proposerValidator?.moniker ?? ""}`,
+      cells: [
+        { v: `#${r.id}`, mono: true, tone: "accent", href },
+        { v: `Proposal ${r.id}`, dim: true },
+        { v: r.messages.length > 1 ? `${type} +${r.messages.length - 1}` : type, dim: true },
+        { v: outcomeLabel(r.outcome), dim: true },
+        { v: formatDate(r.outcomeTime ?? r.submitTime), mono: true, dim: true, align: "right" },
+        { v: "-", mono: true, align: "right", dim: true },
+        r.proposer
+          ? {
+              v: proposerValidator?.moniker ?? truncateMiddle(r.proposer, 10, 5),
+              address: proposerValidator ? undefined : r.proposer,
+              href: proposerValidator ? `/${chain.chainId}/validators/${proposerValidator.operatorAddress}` : undefined,
+              mono: !proposerValidator,
+            }
+          : { v: "-", dim: true },
+      ],
+      detail: { title: `#${r.id}`, rows: [], action: { label: "Proposal", href } },
+    });
+  }
+  if (dropped.length > 0) rows.sort((a, b) => Number(b.key) - Number(a.key));
+
   const active = proposals.filter((p) => isVoting(p.status)).length;
   const pct = (v: number | null | undefined) =>
     v != null ? `${(v * 100).toFixed(v * 100 < 10 ? 1 : 0)}%` : null;
   const facts = [
-    `${proposals.length} total`,
+    `${proposals.length + dropped.length} total`,
     `${active} in voting`,
     ...(pct(govParams?.quorum) ? [`quorum ${pct(govParams?.quorum)}`] : []),
     ...(pct(govParams?.threshold) ? [`threshold ${pct(govParams?.threshold)}`] : []),

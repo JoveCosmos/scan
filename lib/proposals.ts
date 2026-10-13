@@ -120,6 +120,12 @@ export function proposalStatusLabel(status: string): string {
   return STATUS_LABEL[status] ?? status.replace(/^PROPOSAL_STATUS_/, "");
 }
 
+/** How the index words a proposal's end: passed, rejected, failed, dropped. */
+export function outcomeLabel(outcome: string | null): string {
+  if (!outcome) return "N/A";
+  return outcome.charAt(0).toUpperCase() + outcome.slice(1);
+}
+
 export function isVoting(status: string): boolean {
   return status === "PROPOSAL_STATUS_VOTING_PERIOD";
 }

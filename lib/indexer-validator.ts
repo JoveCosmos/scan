@@ -40,10 +40,15 @@ export interface ProposedBlocks {
 }
 
 /** The newest blocks a validator proposed, within the indexed window. */
+/** Rows per page of a validator's proposed blocks or power events. */
+export const VALIDATOR_PAGE = 200;
+
 export async function proposedBlocks(
   chainId: string,
   proposerHex: string,
-  limit = 200
+  limit = VALIDATOR_PAGE,
+  /** Only blocks below this height: the next older page. */
+  before?: number
 ): Promise<ProposedBlocks | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
@@ -51,7 +56,8 @@ export async function proposedBlocks(
   if (!c) return null;
 
   try {
-    return await cached(`idx:proposedlist:${chainId}:${proposerHex}`, 60_000, async () => {
+    const highest = before !== undefined ? Math.min(c.highest, before - 1) : c.highest;
+    return await cached(`idx:proposedlist:${chainId}:${proposerHex}:${before ?? ""}`, 60_000, async () => {
       const { rows } = await pool.query<{ height: string; time: string; tx_count: number }>(
         `SELECT height::text, time::text, tx_count
            FROM block
@@ -59,7 +65,7 @@ export async function proposedBlocks(
             AND height BETWEEN $3 AND $4
           ORDER BY block.height DESC
           LIMIT $5`,
-        [chainId, proposerHex, c.lowest, c.highest, limit]
+        [chainId, proposerHex, c.lowest, highest, limit]
       );
       return {
         blocks: rows.map((r) => ({
@@ -269,6 +275,36 @@ export async function validatorEvents(
           },
         ];
       });
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When the operator created its validator: the first successful
+ * MsgCreateValidator it signed. Read on its own rather than picked out of
+ * validatorEvents, whose newest-300 window a busy operator's commission
+ * withdrawals push the creation out of; the votes tab then counted proposals
+ * that ended before the validator existed as "Did not vote" (2026-10-13 audit:
+ * ruangnode, linkednode, Roomit, BonyNode). Null for a genesis validator,
+ * which has no creation tx: it existed from the start.
+ */
+export async function validatorCreatedAt(chainId: string, account: string): Promise<string | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  try {
+    return await cached(`idx:valcreated:${chainId}:${account}`, 60 * 60_000, async () => {
+      const { rows } = await pool.query<{ time: string }>(
+        `SELECT t.time::text AS time
+           FROM tx t
+          WHERE t.chain_id = $1 AND t.signer = $2 AND COALESCE(t.code, 0) = 0
+            AND EXISTS (SELECT 1 FROM unnest(t.msg_types) m WHERE m LIKE '%.MsgCreateValidator')
+          ORDER BY t.height ASC
+          LIMIT 1`,
+        [chainId, account]
+      );
+      return rows[0]?.time ?? null;
     });
   } catch {
     return null;
@@ -847,7 +883,7 @@ export async function powerEvents(chainId: string, operator: string): Promise<Po
           amount: string | null;
           denom: string | null;
           completion_time: string | null;
-        }>(SQL.stakingEvents, [chainId, operator, cov.lo, cov.hi, 200]),
+        }>(SQL.stakingEvents, [chainId, operator, cov.lo, cov.hi, VALIDATOR_PAGE]),
         pool.query<{
           kind: string;
           validator: string | null;
@@ -865,18 +901,7 @@ export async function powerEvents(chainId: string, operator: string): Promise<Po
       }));
       const coveredFrom = cov.loTime ? Date.parse(cov.loTime) : Infinity;
       return {
-        events: list.rows.map((r) => ({
-          height: Number(r.height),
-          txHash: r.tx_hash,
-          time: r.time,
-          kind: r.kind,
-          validator: r.validator,
-          validatorDst: r.validator_dst,
-          delegator: r.delegator,
-          amount: r.amount,
-          denom: r.denom,
-          completionTime: r.completion_time,
-        })),
+        events: list.rows.map(toPowerEvent),
         flow7:
           coveredFrom <= now - 7 * DAY_MS
             ? netStakeFlow(flows, operator, now - 7 * DAY_MS).toString()
@@ -887,6 +912,62 @@ export async function powerEvents(chainId: string, operator: string): Promise<Po
             : null,
         since: cov.loTime,
       };
+    });
+  } catch {
+    return null;
+  }
+}
+
+interface StakingEventRow {
+  height: string;
+  tx_hash: string;
+  time: string;
+  kind: string;
+  validator: string | null;
+  validator_dst: string | null;
+  delegator: string | null;
+  amount: string | null;
+  denom: string | null;
+  completion_time: string | null;
+}
+
+function toPowerEvent(r: StakingEventRow) {
+  return {
+    height: Number(r.height),
+    txHash: r.tx_hash,
+    time: r.time,
+    kind: r.kind,
+    validator: r.validator,
+    validatorDst: r.validator_dst,
+    delegator: r.delegator,
+    amount: r.amount,
+    denom: r.denom,
+    completionTime: r.completion_time,
+  };
+}
+
+/** The next older page of a validator's power events, below `before`. */
+export async function powerEventsBefore(
+  chainId: string,
+  operator: string,
+  before: number
+): Promise<PowerEvents["events"] | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  const cov = await coverageOf(chainId, "staking_event");
+  if (!cov) return null;
+  const hi = Math.min(cov.hi, before - 1);
+  if (hi < cov.lo) return [];
+  try {
+    return await cached(`idx:powerev:${chainId}:${operator}:${before}`, 60_000, async () => {
+      const { rows } = await pool.query<StakingEventRow>(SQL.stakingEvents, [
+        chainId,
+        operator,
+        cov.lo,
+        hi,
+        VALIDATOR_PAGE,
+      ]);
+      return rows.map(toPowerEvent);
     });
   } catch {
     return null;
@@ -978,6 +1059,60 @@ export async function govProposalRecord(
       outcomeHeight: r.outcome_height ? Number(r.outcome_height) : null,
       outcomeTime: r.outcome_time,
     };
+  } catch {
+    return null;
+  }
+}
+
+export interface IndexedProposal extends GovProposalRecord {
+  id: number;
+  /** Message type URLs, as submitted. */
+  messages: string[];
+}
+
+/**
+ * Every proposal the index recorded. The chain deletes a proposal that never
+ * reaches voting (dropped at the deposit stage), so its list misses those:
+ * AtomOne's #17, submitted at 5,499,987 and dropped at 5,707,239, was in no
+ * list and its page 404'd. The index keeps the record.
+ */
+export async function indexedProposals(chainId: string): Promise<IndexedProposal[] | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  const cov = await coverageOf(chainId, "gov_proposal");
+  if (!cov) return null;
+  try {
+    return await cached(`idx:proposals:${chainId}`, 5 * 60_000, async () => {
+      const { rows } = await pool.query<{
+        proposal_id: string;
+        submit_height: string | null;
+        submit_tx: string | null;
+        submit_time: string | null;
+        proposer: string | null;
+        messages: string[] | null;
+        outcome: string | null;
+        outcome_height: string | null;
+        outcome_time: string | null;
+      }>(
+        `SELECT proposal_id::text, submit_height::text, submit_tx, submit_time::text, proposer,
+                messages, outcome, outcome_height::text, outcome_time::text
+           FROM gov_proposal
+          WHERE chain_id = $1
+          ORDER BY gov_proposal.proposal_id DESC`,
+        [chainId]
+      );
+      return rows.map((r) => ({
+        id: Number(r.proposal_id),
+        submitHeight: r.submit_height ? Number(r.submit_height) : null,
+        submitTx: r.submit_tx || null,
+        submitTime: r.submit_time,
+        proposer: r.proposer,
+        messages: r.messages ?? [],
+        outcome: r.outcome,
+        outcomeHeight: r.outcome_height ? Number(r.outcome_height) : null,
+        outcomeTime: r.outcome_time,
+      }));
+    });
   } catch {
     return null;
   }
