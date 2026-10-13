@@ -1,5 +1,6 @@
 import { cached } from "@/lib/cache";
 import { indexerPool, poolFor } from "@/lib/indexer-db";
+import { getChain } from "@/lib/chains";
 
 /**
  * What the index can answer, per capability, and whether it is keeping up.
@@ -53,7 +54,11 @@ export async function coverageOf(
   // otherwise "indexed" (that flag turns on Cosmos-only reads), so these
   // capabilities reach the database regardless.
   const anyChain =
-    capability === "gno_tx" || capability === "gno_tx_party" || capability === "address_tx_count";
+    capability === "gno_tx" ||
+    capability === "gno_tx_party" ||
+    capability === "address_tx_count" ||
+    // gno.land signing (gno-signatures) is written for gnoland-1 too.
+    (capability === "missed_signatures" && getChain(chainId)?.kind === "gno");
   const pool = anyChain ? indexerPool() : poolFor(chainId);
   if (!pool) return null;
   return cached(`idx:cov4:${chainId}:${capability}`, 30_000, async () => {

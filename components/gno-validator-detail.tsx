@@ -6,6 +6,8 @@ import { gnoValidatorDetail, gnoUptime } from "@/lib/gno";
 import { gnoPathHref } from "@/lib/address-route";
 import { cached } from "@/lib/cache";
 import { UptimeBars } from "@/components/uptime-bars";
+import { ValidatorSigningHistory } from "@/components/validator-signing-history";
+import { signingHistory } from "@/lib/indexer-validator";
 import { getValoper } from "@/lib/gno-valopers";
 import { truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
@@ -224,7 +226,25 @@ export async function GnoValidatorDetail({
             <UptimeBars uptime={uptime} slashingWindow={false} />
           </div>
         ) : null}
+        <Suspense fallback={null}>
+          <GnoSigningHistory chainId={chain.chainId} address={address} />
+        </Suspense>
       </div>
     </PageFrame>
+  );
+}
+
+/**
+ * The validator's signing record back to genesis, from the index: the chain's
+ * own RPC answers only for the last few blocks. missed_signature files gno.land
+ * validators under their g1… signing address. Absent when the index has none.
+ */
+async function GnoSigningHistory({ chainId, address }: { chainId: string; address: string }) {
+  const history = await signingHistory(chainId, address).catch(() => null);
+  if (!history) return null;
+  return (
+    <div className="gata-surface min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <ValidatorSigningHistory history={history} chainId={chainId} />
+    </div>
   );
 }

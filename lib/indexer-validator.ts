@@ -1,5 +1,6 @@
 import { cached } from "@/lib/cache";
-import { coverage, poolFor } from "@/lib/indexer-db";
+import { coverage, indexerPool, poolFor } from "@/lib/indexer-db";
+import { getChain } from "@/lib/chains";
 import {
   coverageOf,
   indexerHealth,
@@ -599,10 +600,27 @@ export const SQL = {
  * Covered range for missed signatures: the capability when the indexer
  * reports it, otherwise the version-3 block run the follower has written.
  */
+/**
+ * The pool for signing reads. gno.land's signing is indexed although the
+ * chain is not flagged "indexed" (that flag turns on Cosmos-only reads), so it
+ * reaches the database directly; every other chain goes through the gate.
+ */
+function signingPool(chainId: string) {
+  return getChain(chainId)?.kind === "gno" ? indexerPool() : poolFor(chainId);
+}
+
+/**
+ * The key missed_signature files a validator under: hex consensus address
+ * (upper-cased) on Cosmos chains, the bech32 g1… address as-is on gno.land.
+ */
+function signingKey(key: string): string {
+  return /^[0-9a-fA-F]+$/.test(key) ? key.toUpperCase() : key;
+}
+
 export async function signingCoverage(chainId: string): Promise<CoverageRange | null> {
   const cap = await coverageOf(chainId, "missed_signatures");
   if (cap) return cap;
-  const pool = poolFor(chainId);
+  const pool = signingPool(chainId);
   if (!pool) return null;
   try {
     return await cached(`idx:v3cov:${chainId}`, 30_000, async () => {
@@ -645,7 +663,7 @@ export async function consHexOf(chainId: string, operator: string): Promise<stri
  * still for that long.
  */
 function heightDaysAgo(chainId: string, days: number): Promise<number | null> {
-  const pool = poolFor(chainId);
+  const pool = signingPool(chainId);
   if (!pool) return Promise.resolve(null);
   const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
   const since = new Date(hour - days * DAY_MS).toISOString();
@@ -688,11 +706,11 @@ export async function signingHistory(
   chainId: string,
   consHex: string
 ): Promise<SigningHistory | null> {
-  const pool = poolFor(chainId);
+  const pool = signingPool(chainId);
   if (!pool) return null;
   const cov = await signingCoverage(chainId);
   if (!cov) return null;
-  const hex = consHex.toUpperCase();
+  const hex = signingKey(consHex);
 
   try {
     return await cached(
