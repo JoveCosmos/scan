@@ -304,6 +304,8 @@ describe("txFromIndex", () => {
         msgIndex: 0,
         typeUrl: "/cosmos.authz.v1beta1.MsgExec",
         sender: "grantee",
+        // tx_msg_raw is not covered in this fixture: no body to decode.
+        body: null,
         inner: [{ typeUrl: "/cosmos.staking.v1beta1.MsgDelegate", sender: "granter" }],
       },
     ]);
