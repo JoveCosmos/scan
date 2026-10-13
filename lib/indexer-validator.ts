@@ -10,6 +10,7 @@ import {
 import {
   dailySeries,
   earlierVotes,
+  activeBlocks,
   longestRun,
   netStakeFlow,
   reliability,
@@ -702,6 +703,33 @@ const DAY_MS = 86_400_000;
  * the recent ones. Denominators are blocks in the window; periods out of the
  * active set count as signed, since the index records only slots it was given.
  */
+/**
+ * A consensus key's voting-power changes up to `to`, oldest first, where the
+ * index covers validator_power from the signing record's start. Null when it
+ * does not, so the caller keeps counting every block.
+ */
+async function powerChanges(
+  chainId: string,
+  hex: string,
+  to: number
+): Promise<{ height: number; power: bigint }[] | null> {
+  const pool = signingPool(chainId);
+  if (!pool) return null;
+  const cov = await coverageOf(chainId, "validator_power");
+  if (!cov || cov.lo > 1) return null;
+  try {
+    const { rows } = await pool.query<{ height: string; power: string }>(
+      `SELECT height::text, power::text FROM validator_power
+        WHERE chain_id = $1 AND cons_addr = $2 AND height <= $3
+        ORDER BY validator_power.height ASC`,
+      [chainId, hex, to]
+    );
+    return rows.map((r) => ({ height: Number(r.height), power: BigInt(r.power) }));
+  } catch {
+    return null;
+  }
+}
+
 export async function signingHistory(
   chainId: string,
   consHex: string
@@ -726,7 +754,7 @@ export async function signingHistory(
         const from90 = h90 !== null && h90 >= cov.lo ? h90 : null;
         const dailyFrom = Math.max(cov.lo, h90 ?? cov.lo);
 
-        const [counts, daily, runs] = await Promise.all([
+        const [counts, daily, runs, power] = await Promise.all([
           pool.query<{ d30: number; d90: number; total: number; nil: number }>(SQL.missedCounts, [
             chainId,
             hex,
@@ -747,13 +775,20 @@ export async function signingHistory(
             cov.lo,
             cov.hi,
           ]),
+          // Its power changes, to count only the blocks it was in the set for.
+          powerChanges(chainId, hex, cov.hi),
         ]);
 
         const c = counts.rows[0] ?? { d30: 0, d90: 0, total: 0, nil: 0 };
-        const window = (from: number | null, missed: number): SigningWindow | null =>
-          from === null
-            ? null
-            : { blocks: cov.hi - from + 1, missed, ratio: reliability(cov.hi - from + 1, missed) };
+        // Where the index has no power record (gno.land), every block counts,
+        // as before.
+        const blocksFrom = (from: number) =>
+          power && power.length > 0 ? activeBlocks(power, from, cov.hi) : cov.hi - from + 1;
+        const window = (from: number | null, missed: number): SigningWindow | null => {
+          if (from === null) return null;
+          const blocks = blocksFrom(from);
+          return { blocks, missed, ratio: reliability(blocks, missed) };
+        };
 
         const toRun = (r: { lo: string; hi: string; n: number }): MissRun => ({
           from: Number(r.lo),
@@ -776,9 +811,9 @@ export async function signingHistory(
           d30: window(from30, Number(c.d30)),
           d90: window(from90, Number(c.d90)),
           all: {
-            blocks: cov.hi - cov.lo + 1,
+            blocks: blocksFrom(cov.lo),
             missed: Number(c.total),
-            ratio: reliability(cov.hi - cov.lo + 1, Number(c.total)),
+            ratio: reliability(blocksFrom(cov.lo), Number(c.total)),
           },
           nil: Number(c.nil),
           longest: longestRow ? toRun(longestRow) : longestRun(recent),

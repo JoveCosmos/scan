@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeBlocks,
   dailySeries,
   earlierVotes,
   formatDuration,
@@ -118,5 +119,20 @@ describe("netStakeFlow", () => {
       Date.parse("2026-09-01T00:00:00Z")
     );
     expect(net.toString()).toBe("55");
+  });
+});
+
+describe("activeBlocks", () => {
+  const ch = (pairs: [number, number][]) => pairs.map(([height, power]) => ({ height, power: BigInt(power) }));
+  it("counts only the blocks with power, inside the window", () => {
+    // In the set 100-199, out 200-299, back from 300.
+    const c = ch([[100, 5], [200, 0], [300, 7]]);
+    expect(activeBlocks(c, 1, 399)).toBe(100 + 100);
+    expect(activeBlocks(c, 150, 250)).toBe(50);
+    expect(activeBlocks(c, 200, 299)).toBe(0);
+  });
+  it("is zero before the first change and for an empty window", () => {
+    expect(activeBlocks(ch([[500, 3]]), 1, 499)).toBe(0);
+    expect(activeBlocks(ch([[1, 3]]), 10, 5)).toBe(0);
   });
 });

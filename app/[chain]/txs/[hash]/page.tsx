@@ -208,6 +208,7 @@ export default async function TxDetailPage({
                 <EventList
                   events={events}
                   isAddress={(v) => routeAddress(v, chainId, prefixes) !== null}
+                  denoms={denoms}
                 />
               </div>
             ),

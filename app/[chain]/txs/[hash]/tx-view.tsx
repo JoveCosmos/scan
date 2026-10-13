@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AddressLink } from "@/components/address-link";
 import { CopyButton } from "@/components/copy-button";
 import { formatCoinsExact, type DenomInfo } from "@/lib/coin";
-import type { DecodedField } from "@/lib/msg-decode";
+import { parseCoinString, type DecodedField } from "@/lib/msg-decode";
 import type { TxEvent, TxMessage, IbcCounterpart } from "@/lib/txs";
 
 /**
@@ -153,13 +153,24 @@ export function MessageCard({
   );
 }
 
+/**
+ * "1779391693uatone,92199uphoton": an event's coin list, in base units.
+ * Reward and commission events carry decimal base units ("12.5uatom"); a
+ * fraction of a base unit is not worth showing, so it is dropped.
+ */
+const COIN_LIST = /^\d+(\.\d+)?[a-zA-Z][\w/:.-]*(,\d+(\.\d+)?[a-zA-Z][\w/:.-]*)*$/;
+const coinsOf = (v: string) => parseCoinString(v.replace(/(\d+)\.\d+/g, "$1"));
+
 export function EventList({
   events,
   isAddress,
+  denoms,
 }: {
   events: TxEvent[];
   /** Whether an attribute value is an address we can route. */
   isAddress: (value: string) => boolean;
+  /** To show coin amounts in whole tokens, with the raw value on hover. */
+  denoms: DenomInfo[];
 }) {
   const groups = new Map<string, TxEvent[]>();
   for (const e of events) {
@@ -181,7 +192,13 @@ export function EventList({
                   <div key={`${a.key}-${j}`} className="contents">
                     <dt className="font-mono text-[11.5px] text-muted-foreground">{a.key}</dt>
                     <dd className="min-w-0 break-all font-mono text-[11.5px]">
-                      {isAddress(a.value) ? <AddressLink address={a.value} full /> : a.value}
+                      {isAddress(a.value) ? (
+                        <AddressLink address={a.value} full />
+                      ) : COIN_LIST.test(a.value) ? (
+                        <span title={a.value}>{formatCoinsExact(coinsOf(a.value), denoms)}</span>
+                      ) : (
+                        a.value
+                      )}
                     </dd>
                   </div>
                 ))}

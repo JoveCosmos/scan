@@ -46,6 +46,29 @@ export function longestRun(runs: readonly MissRun[]): MissRun | null {
  * Share of blocks signed. Null when the window is empty or the counts are
  * inconsistent, so a page never prints a ratio it cannot stand behind.
  */
+/**
+ * Blocks in [from, to] the validator spent in the active set, from its voting
+ * power changes (oldest first; power 0 = out of the set). Before its first
+ * change it held no power. The index records misses only for slots a
+ * validator was given, so this, not every block in the window, is the
+ * denominator: time out of the set must not count as signed.
+ */
+export function activeBlocks(
+  changes: { height: number; power: bigint }[],
+  from: number,
+  to: number
+): number {
+  if (to < from) return 0;
+  let total = 0;
+  for (let i = 0; i < changes.length; i++) {
+    if (changes[i].power <= BigInt(0)) continue;
+    const start = Math.max(changes[i].height, from);
+    const end = Math.min(i + 1 < changes.length ? changes[i + 1].height - 1 : to, to);
+    if (end >= start) total += end - start + 1;
+  }
+  return total;
+}
+
 export function reliability(blocks: number, missed: number): number | null {
   if (!Number.isFinite(blocks) || !Number.isFinite(missed)) return null;
   if (blocks <= 0 || missed < 0 || missed > blocks) return null;
