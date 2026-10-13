@@ -1001,3 +1001,94 @@ export async function stakeHistory(
     return rows.length >= 2 ? rows : [];
   });
 }
+
+export interface IndexedBlock {
+  height: string;
+  time: string;
+  /** Proposer's consensus address, hex as the RPC reports it. */
+  proposerCons: string | null;
+  hash: string | null;
+  txCount: number;
+}
+
+/**
+ * One block as the index holds it. The nodes we read keep a few weeks of
+ * blocks; older block pages 404'd although the index has every block from
+ * genesis (2026-10-13 audit: 15 of 18 heights below ~9.8M).
+ */
+export async function blockFromIndexer(chainId: string, height: number): Promise<IndexedBlock | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  const c = await coverage(chainId, "blocks");
+  if (!c || height < c.lowest || height > c.highest) return null;
+  return cached(`idx:block:${chainId}:${height}`, 30 * 60_000, async () => {
+    const res = await pool.query<{
+      height: string;
+      time: string;
+      proposer_cons: string | null;
+      hash: string | null;
+      tx_count: number;
+    }>(
+      `SELECT height::text, time::text, proposer_cons, hash, tx_count
+         FROM block WHERE chain_id = $1 AND height = $2`,
+      [chainId, height]
+    );
+    const r = res.rows[0];
+    return r
+      ? { height: r.height, time: r.time, proposerCons: r.proposer_cons, hash: r.hash, txCount: Number(r.tx_count ?? 0) }
+      : null;
+  }).catch(() => null);
+}
+
+/** A block's transactions from the index, one row each, as the account lists show them. */
+export async function blockTxsFromIndexer(chainId: string, height: number): Promise<IndexedAccountTx[] | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  const c = await coverage(chainId, "fees");
+  if (!c || height < c.lowest || height > c.highest) return null;
+  return cached(`idx:blocktxs:${chainId}:${height}`, 30 * 60_000, async () => {
+    const res = await pool.query<{
+      hash: string;
+      height: string;
+      time: string;
+      code: number;
+      msg_types: string[];
+      fee_denom: string | null;
+      fee_amount: string | null;
+      gas_used: string | null;
+      gas_wanted: string | null;
+      signer: string | null;
+      from_addr: string | null;
+      to_addr: string | null;
+      denom: string | null;
+      amount: string | null;
+    }>(
+      `SELECT DISTINCT ON (t.hash)
+              t.hash, t.height::text, t.time::text, t.code, t.msg_types,
+              t.fee_denom, t.fee_amount::text,
+              t.gas_used::text, t.gas_wanted::text, t.signer,
+              tr.from_addr, tr.to_addr, tr.denom, tr.amount::text
+         FROM tx t
+         LEFT JOIN transfer tr
+           ON tr.chain_id = t.chain_id AND tr.tx_hash = t.hash AND tr.kind <> 'fee'
+        WHERE t.chain_id = $1 AND t.height = $2
+        ORDER BY t.hash, tr.msg_index, tr.coin_index
+        LIMIT 2000`,
+      [chainId, height]
+    );
+    return res.rows.map((r) => ({
+      hash: r.hash,
+      height: r.height,
+      time: r.time,
+      code: r.code,
+      msgTypes: r.msg_types ?? [],
+      feeDenom: r.fee_denom,
+      feeAmount: r.fee_amount,
+      gasUsed: r.gas_used,
+      gasWanted: r.gas_wanted,
+      signer: r.signer,
+      transfer:
+        r.denom && r.amount ? { from: r.from_addr, to: r.to_addr, denom: r.denom, amount: r.amount } : null,
+    }));
+  }).catch(() => null);
+}

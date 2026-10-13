@@ -10,6 +10,13 @@ import { formatDateTime, timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { blockFromIndexer, blockTxsFromIndexer } from "@/lib/indexer-db";
+import { operatorsForHex } from "@/lib/indexer-validator";
+import { indexedTxToSummary } from "@/lib/txs";
+import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
+import type { BlockDetail } from "@/lib/blocks";
+import type { ChainConfig } from "@/lib/chains";
+import { bech32 } from "bech32";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +51,7 @@ export default async function BlockDetailPage({
   if (!/^\d+$/.test(height)) notFound();
 
   const adapter = getAdapter(chain);
-  const [block, head] = await Promise.all([
+  const [nodeBlock, head] = await Promise.all([
     adapter.getBlockDetail(height),
     // Only to know whether there is a next block to link to.
     adapter
@@ -55,10 +62,19 @@ export default async function BlockDetailPage({
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
 
-  // Above the head, or pruned from every node we read: a real 404.
+  // Pruned from every node we read: the index keeps every block from genesis.
+  let block = nodeBlock;
+  let fromIndex = false;
+  if (!block && chain.kind === "cosmos") {
+    block = await indexedBlockDetail(chain, Number(height));
+    fromIndex = block !== null;
+  }
+  // Above the head, or in neither: a real 404.
   if (!block) notFound();
 
-  const txs = await adapter.getBlockTxs(block);
+  const txs = fromIndex
+    ? ((await blockTxsFromIndexer(chain.chainId, Number(height))) ?? []).map(indexedTxToSummary)
+    : await adapter.getBlockTxs(block);
   const heightNum = Number(block.height);
   const denoms = chainDenoms(chain);
 
@@ -245,4 +261,46 @@ export default async function BlockDetailPage({
       </div>
     </PageFrame>
   );
+}
+
+/**
+ * A block the nodes no longer hold, from the index: height, time, proposer,
+ * hash and transaction count. The commit (who signed) and the header hashes
+ * are not indexed, so those read N/A.
+ */
+async function indexedBlockDetail(chain: ChainConfig, height: number): Promise<BlockDetail | null> {
+  const b = await blockFromIndexer(chain.chainId, height);
+  if (!b) return null;
+  const hex = b.proposerCons?.toUpperCase() ?? null;
+  const [operators, active, inactive] = await Promise.all([
+    hex ? operatorsForHex(chain.chainId, [hex]) : Promise.resolve(new Map<string, string>()),
+    getValidatorsCached(chain).catch(() => []),
+    getInactiveValidators(chain).catch(() => []),
+  ]);
+  const operator = hex ? (operators.get(hex) ?? null) : null;
+  const validator = operator ? [...active, ...inactive].find((v) => v.operatorAddress === operator) : undefined;
+  let valcons: string | null = null;
+  if (hex && /^[0-9A-F]{40}$/.test(hex)) {
+    valcons = bech32.encode(`${chain.bech32Prefix}valcons`, bech32.toWords(Buffer.from(hex, "hex")));
+  }
+  return {
+    height: b.height,
+    time: b.time,
+    txCount: b.txCount,
+    proposer: hex ?? "",
+    hash: b.hash,
+    chainId: chain.chainId,
+    appHash: null,
+    dataHash: null,
+    validatorsHash: null,
+    lastCommitHash: null,
+    signatureCount: null,
+    signedCount: null,
+    absentCount: null,
+    absentValidators: null,
+    rawTxs: [],
+    proposerMoniker: validator?.moniker ?? null,
+    proposerOperator: operator,
+    proposerValcons: valcons,
+  };
 }
