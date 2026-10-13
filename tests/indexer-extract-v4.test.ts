@@ -52,9 +52,10 @@ const v4Key = (t: TransferRow) => `${t.txHash}|${t.eventSeq}|${t.coinIndex}`;
 const MODULE_FEE_COLLECTOR = "atone17xpfvakm2amg962yls6f84z3kell8c5l7el8a9";
 
 describe("version", () => {
-  it("is 4", () => {
-    expect(EXTRACT_VERSION).toBe(4);
-    expect(at(9515610).extractVersion).toBe(4);
+  // 5 since 2026-10-13 (tx_msg.raw); everything version 4 wrote, 5 still writes.
+  it("is 5", () => {
+    expect(EXTRACT_VERSION).toBe(5);
+    expect(at(9515610).extractVersion).toBe(5);
   });
 });
 

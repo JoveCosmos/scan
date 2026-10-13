@@ -561,7 +561,7 @@ async function writePackets(client: PoolClient, chainId: string, rows: IbcPacket
     const k = `${r.direction}|${r.srcPort}|${r.srcChannel}|${r.sequence}`;
     const prev = folded.get(k);
     if (!prev) { folded.set(k, { ...r }); continue; }
-    for (const [key, val] of Object.entries(r)) if (val !== undefined && val !== null) (prev as Record<string, unknown>)[key] = val;
+    for (const [key, val] of Object.entries(r)) if (val !== undefined && val !== null) (prev as unknown as Record<string, unknown>)[key] = val;
   }
   const frows = [...folded.values()];
   const params = cols.map((c) => frows.map(c[2]));
