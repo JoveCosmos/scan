@@ -237,7 +237,7 @@ async function writeBlocks(
   }
 
   // ── tx_msg ──
-  const msgs = full.flatMap((b) => b.txMsgs);
+  const msgs = lastBy(full.flatMap((b) => b.txMsgs), (m) => `${m.txHash}|${m.msgIndex}|${m.innerIndex}`);
   if (msgs.length > 0) {
     await client.query(
       `INSERT INTO tx_msg (chain_id, tx_hash, msg_index, inner_index, type_url, sender, height)
@@ -554,7 +554,15 @@ async function writePackets(client: PoolClient, chainId: string, rows: IbcPacket
   ];
   const names = cols.map((c) => c[0]);
   const keys = new Set(["direction", "src_port", "src_channel", "sequence"]);
-  const params = cols.map((c) => rows.map(c[2]));
+  const folded = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const k = `${r.direction}|${r.srcPort}|${r.srcChannel}|${r.sequence}`;
+    const prev = folded.get(k);
+    if (!prev) { folded.set(k, { ...r }); continue; }
+    for (const [key, val] of Object.entries(r)) if (val !== undefined && val !== null) (prev as Record<string, unknown>)[key] = val;
+  }
+  const frows = [...folded.values()];
+  const params = cols.map((c) => frows.map(c[2]));
   const unnest = cols.map((c, i) => `$${i + 2}::${c[1]}[]`).join(", ");
   // Column-scoped: each event fills its own columns, and a later event that does
   // not know a column never erases what an earlier one wrote.
