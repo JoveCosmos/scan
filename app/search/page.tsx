@@ -21,7 +21,12 @@ interface Candidate {
 /** Chains whose bech32 prefix matches - several, since testnets share a prefix. */
 function chainsForPrefix(prefix: string): ChainConfig[] {
   const base = prefix.replace(/(valoper|valcons)$/, "");
-  return getAllChains().filter((c) => c.bech32Prefix === base);
+  const chains = getAllChains().filter((c) => c.bech32Prefix === base);
+  if (chains.length > 0) return chains;
+  // AtomOne governors: atonegov1… belongs to the chains that have them.
+  return prefix.endsWith("gov")
+    ? getAllChains().filter((c) => c.governors && c.bech32Prefix === prefix.slice(0, -3))
+    : [];
 }
 
 /** Resolves or gives up within `ms`, so one slow chain cannot stall search. */
@@ -233,6 +238,16 @@ export default async function GlobalSearchPage({
                 note: v.moniker,
               })),
           ),
+        );
+      }
+
+      if (chains[0] && shape.prefix === `${chains[0].bech32Prefix}gov`) {
+        return settle(
+          chains.map((chain) => ({
+            chain,
+            href: `/${chain.chainId}/governors/${address}`,
+            note: "governor",
+          })),
         );
       }
 

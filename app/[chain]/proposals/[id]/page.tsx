@@ -6,7 +6,8 @@ import type { ChainConfig } from "@/lib/chains";
 import { formatCoins, formatCoinsExact } from "@/lib/coin";
 import { getAdapter } from "@/lib/adapter";
 import { formatDate, formatDateTime, timeAgo, timeUntil, truncateMiddle } from "@/lib/format";
-import { cached } from "@/lib/cache";
+import { cached, withinBudget } from "@/lib/cache";
+import { getGovernors } from "@/lib/governors";
 import { decodeMessage } from "@/lib/msg-decode";
 import { govDeposits, govProposalRecord, proposalRecasts } from "@/lib/indexer-validator";
 import {
@@ -172,6 +173,11 @@ async function VotesDeck({
   const chainId = chain.chainId;
   const base = `/${chainId}/proposals/${proposal.id}`;
   const byAccount = indexValidatorAccounts(validators, chain.bech32Prefix);
+  // AtomOne governors vote from their own account: name them like validators.
+  const governorList = chain.governors ? await withinBudget(getGovernors(chain), 1500, null) : null;
+  const governorByAccount = new Map(
+    (governorList ?? []).flatMap((g) => (g.account ? [[g.account, g] as const] : []))
+  );
   const powerOf = new Map(validators.map((v) => [v.operatorAddress, v.votingPower]));
   const tallied = Number(proposal.tally.total) > 0;
   // Votes that could not be read, beside a tally that says there are some,
@@ -253,16 +259,22 @@ async function VotesDeck({
 
   const q = voterQuery.trim().toLowerCase();
   const all = votes
-    .map((vote) => ({ vote, validator: byAccount.get(vote.voter) ?? null }))
+    .map((vote) => ({
+      vote,
+      validator: byAccount.get(vote.voter) ?? null,
+      governor: governorByAccount.get(vote.voter) ?? null,
+    }))
     .filter(
-      ({ vote, validator }) =>
+      ({ vote, validator, governor }) =>
         !q ||
         vote.voter.toLowerCase().includes(q) ||
-        (validator?.moniker.toLowerCase().includes(q) ?? false)
+        (validator?.moniker.toLowerCase().includes(q) ?? false) ||
+        (governor?.moniker.toLowerCase().includes(q) ?? false)
     )
     .sort(
       (a, b) =>
         Number(!!b.validator) - Number(!!a.validator) ||
+        Number(!!b.governor) - Number(!!a.governor) ||
         (powerOf.get(b.validator?.operatorAddress ?? "") ?? 0) -
           (powerOf.get(a.validator?.operatorAddress ?? "") ?? 0)
     );
@@ -278,17 +290,21 @@ async function VotesDeck({
     { label: "Tx", width: "9rem", optional: true },
   ];
 
-  const rows: DeckRow[] = shown.map(({ vote, validator }) => {
+  const rows: DeckRow[] = shown.map(({ vote, validator, governor }) => {
     const power = validator ? powerOf.get(validator.operatorAddress) : undefined;
     const target = validator
       ? `/${chainId}/validators/${validator.operatorAddress}`
-      : `/${chainId}/accounts/${vote.voter}`;
+      : governor
+        ? `/${chainId}/governors/${governor.address}`
+        : `/${chainId}/accounts/${vote.voter}`;
     return {
       key: vote.voter,
       cells: [
         validator
           ? { v: validator.moniker, href: target }
-          : { v: truncateMiddle(vote.voter, 12, 6), address: vote.voter, mono: true },
+          : governor
+            ? { v: `${governor.moniker}, governor`, href: target }
+            : { v: truncateMiddle(vote.voter, 12, 6), address: vote.voter, mono: true },
         {
           v: recasts?.get(vote.voter)
             ? `${voteLabel(vote)}, was ${recasts.get(vote.voter)!.map(voteOptionLabel).join(", ")}`
@@ -311,7 +327,7 @@ async function VotesDeck({
             }
           : { v: "-", dim: true },
       ],
-      detail: { title: validator?.moniker ?? vote.voter, rows: [], action: { label: "Voter", href: target } },
+      detail: { title: validator?.moniker ?? governor?.moniker ?? vote.voter, rows: [], action: { label: "Voter", href: target } },
     };
   });
 

@@ -9,6 +9,7 @@ interface RawValidator {
   jailed: boolean;
   status: string;
   tokens: string;
+  delegator_shares?: string;
   description: {
     moniker: string;
     identity: string;
@@ -35,6 +36,8 @@ export interface ValidatorSummary {
   jailed: boolean;
   status: string;
   tokens: string;
+  /** Shares issued against `tokens`; a share converts to tokens/delegatorShares. */
+  delegatorShares?: string;
   /** Base64 ed25519 key; uptime derives the consensus address from it. */
   consensusPubkey: string | null;
   /** Share of total bonded stake, 0–1. */
@@ -409,6 +412,7 @@ function toSummary(v: RawValidator, rank: number, power: number, running: number
     jailed: v.jailed,
     status: v.status,
     tokens: v.tokens,
+    delegatorShares: v.delegator_shares,
     consensusPubkey: v.consensus_pubkey?.key ?? null,
     votingPower: power,
     cumulativePower: running,

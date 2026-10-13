@@ -16,7 +16,7 @@ export interface ChainPrefix {
   network: "mainnet" | "testnet";
 }
 
-export type AddressKind = "account" | "validator" | "consensus";
+export type AddressKind = "account" | "validator" | "consensus" | "governor";
 
 export interface AddressRoute {
   chainId: string;
@@ -64,6 +64,10 @@ export function routeAddress(
   } else if (prefix.endsWith("valcons")) {
     kind = "consensus";
     base = prefix.slice(0, -"valcons".length);
+  } else if (prefix.endsWith("gov") && chains.some((c) => c.bech32Prefix === prefix.slice(0, -3))) {
+    // AtomOne governors: atonegov1… is the governor behind an atone1… account.
+    kind = "governor";
+    base = prefix.slice(0, -"gov".length);
   }
 
   const matches = chains.filter((c) => c.bech32Prefix === base);
@@ -73,7 +77,8 @@ export function routeAddress(
     matches.find((c) => c.network === "mainnet") ??
     matches[0];
 
-  const section = kind === "account" ? "accounts" : "validators";
+  const section =
+    kind === "account" ? "accounts" : kind === "governor" ? "governors" : "validators";
   return {
     chainId: chain.chainId,
     kind,

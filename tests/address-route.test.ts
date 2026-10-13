@@ -7,9 +7,19 @@ const chains = [
   { chainId: "osmosis-1", bech32Prefix: "osmo", network: "mainnet" as const },
   { chainId: "gnoland-1", bech32Prefix: "g", network: "mainnet" as const },
   { chainId: "onyx-1", bech32Prefix: "g", network: "testnet" as const },
+  { chainId: "atomone-1", bech32Prefix: "atone", network: "mainnet" as const },
+  { chainId: "atomone-testnet-1", bech32Prefix: "atone", network: "testnet" as const },
 ];
 
 describe("routeAddress", () => {
+  it("sends an AtomOne governor address to the governor page, on the current network", () => {
+    const g = "atonegov1p454fm4rerxddn0uppen8hvckceylf7pa940su";
+    const r = routeAddress(g, "atomone-testnet-1", chains);
+    expect(r?.href).toBe(`/atomone-testnet-1/governors/${g}`);
+    expect(r?.kind).toBe("governor");
+    expect(routeAddress(g, "cosmoshub-4", chains)?.chainId).toBe("atomone-1");
+  });
+
   it("sends an operator address to the validator page, not /accounts", () => {
     const r = routeAddress("cosmosvaloper1n229vhepft6wnkt5tjpwmxdmcnfz55jv3vp77d", "cosmoshub-4", chains);
     expect(r?.href).toBe("/cosmoshub-4/validators/cosmosvaloper1n229vhepft6wnkt5tjpwmxdmcnfz55jv3vp77d");

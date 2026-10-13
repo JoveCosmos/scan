@@ -30,5 +30,6 @@
   "website": "https://atom.one",
   "repo": "https://github.com/atomone-hub/atomone",
   "feeDenom": "uphoton",
-  "feeSupplyCap": 1000000000
+  "feeSupplyCap": 1000000000,
+  "governors": true
 }

@@ -14,6 +14,7 @@ import {
 } from "@/lib/proposals";
 import { formatDate, timeUntil, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
+import { GovernanceSwitch } from "@/components/governance-switch";
 import { SectionUnavailable } from "@/components/section-unavailable";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
@@ -152,7 +153,16 @@ export default async function ProposalsPage({
   ];
 
   return (
-    <PageFrame title="Proposals" sub={facts.join(" · ")} accent={accent}>
+    <PageFrame
+      title="Proposals"
+      sub={facts.join(" · ")}
+      accent={accent}
+      actions={
+        chain.governors ? (
+          <GovernanceSwitch chainId={chain.chainId} current="proposals" counts={{ proposals: proposals.length }} />
+        ) : undefined
+      }
+    >
       <RowDeck
         accent={accent}
         columns={[

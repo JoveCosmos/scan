@@ -27,5 +27,6 @@
   "repo": "https://github.com/atomone-hub/atomone",
   "feeDenom": "uphoton",
   "feeCoingeckoId": "photon-2",
-  "feeSupplyCap": 1000000000
+  "feeSupplyCap": 1000000000,
+  "governors": true
 }

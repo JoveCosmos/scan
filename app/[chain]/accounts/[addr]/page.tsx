@@ -15,6 +15,8 @@ import {
   truncateMiddle,
 } from "@/lib/format";
 import { convertAddress, linkedAddresses } from "@/lib/bech32";
+import { withinBudget } from "@/lib/cache";
+import { getGovernors, governorOf } from "@/lib/governors";
 import { decodeBech32, gnoPathHref, routeAddress } from "@/lib/address-route";
 import { isUserKey, type AddressKind } from "@/lib/address-kind";
 import { resolveAssets, type AssetInfo } from "@/lib/ibc";
@@ -705,10 +707,17 @@ export default async function AccountPage({
   const adapter = getAdapter(chain);
   const natives = chainDenoms(chain);
 
-  const [account, operated] = await Promise.all([
+  // AtomOne: who this account's governance vote goes to, and whether the
+  // account is itself a governor (the same key under the gov prefix).
+  const ownGovernor = chain.governors ? convertAddress(address, `${chain.bech32Prefix}gov`) : null;
+  const [account, operated, delegatedTo, governors] = await Promise.all([
     adapter.getAccount(address) as Promise<AccountView>,
     operatedValidator(chain, address).catch(() => null),
+    chain.governors ? withinBudget(governorOf(chain, address), 1500, null) : null,
+    chain.governors ? withinBudget(getGovernors(chain), 1500, null) : null,
   ]);
+  const governorName = (g: string | null) => (g ? (governors?.find((x) => x.address === g)?.moniker ?? null) : null);
+  const isGovernor = ownGovernor !== null && (governors ?? []).some((g) => g.address === ownGovernor);
   const kind = account.kind ?? null;
 
   const assets = await resolveAssets(
@@ -919,6 +928,27 @@ export default async function AccountPage({
           } satisfies BrickSpec,
         ]
       : []),
+    ...(isGovernor
+      ? [
+          {
+            key: "is-governor",
+            label: "Governor",
+            value: governorName(ownGovernor) ?? "Governor",
+            sub: "this account governs",
+            href: `/${chainId}/governors/${ownGovernor}`,
+          } satisfies BrickSpec,
+        ]
+      : chain.governors && delegatedTo
+        ? [
+            {
+              key: "governor",
+              label: "Governor",
+              value: governorName(delegatedTo) ?? truncateMiddle(delegatedTo, 10, 6),
+              sub: "votes for this account",
+              href: `/${chainId}/governors/${delegatedTo}`,
+            } satisfies BrickSpec,
+          ]
+        : []),
     {
       key: "account",
       label: "Account",

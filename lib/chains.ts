@@ -68,6 +68,12 @@ const chainConfigSchema = z
      */
     indexed: z.boolean().default(false),
     /**
+     * AtomOne's x/gov governors: accounts that vote for the delegators who
+     * hand them their governance power. Listed beside proposals where the
+     * chain has the module.
+     */
+    governors: z.boolean().default(false),
+    /**
      * CoinGecko id, for price and market cap. Absent on testnets and on chains
      * with no traded token, which simply show no market figures.
      */
