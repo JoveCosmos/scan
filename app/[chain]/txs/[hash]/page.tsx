@@ -101,6 +101,9 @@ export default async function TxDetailPage({
       failed = false;
     }
   }
+  // A real miss: the not-found page, marked noindex. A failed read stays here
+  // as N/A, since it says nothing about whether the transaction exists.
+  if (!tx && !failed) notFound();
   if (!tx) {
     return (
       <PageFrame title="Transaction" sub={`${chain.prettyName} · ${failed ? "N/A" : "Not found"}`} accent={accent}>

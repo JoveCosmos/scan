@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor, symbolFor } from "@/lib/chains";
 import {
@@ -66,18 +65,7 @@ export default async function GovernorPage({
   const addr = decodeParam(rawAddr).trim().toLowerCase();
 
   const governor = await getGovernor(chain, addr);
-  if (!governor) {
-    return (
-      <PageFrame title="Governor not found" sub={chain.prettyName} accent={accent}>
-        <p className="text-sm text-muted-foreground">
-          <span className="font-mono">{truncateMiddle(addr, 14, 8)}</span>: N/A.{" "}
-          <Link href={`/${chainId}/governors`} className="text-primary hover:underline">
-            Governors
-          </Link>
-        </p>
-      </PageFrame>
-    );
-  }
+  if (!governor) notFound();
 
   const account = governor.account;
   const [power, delegators, table, picture, record, open] = await Promise.all([

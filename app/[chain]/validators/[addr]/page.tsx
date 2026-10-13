@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
@@ -123,18 +122,7 @@ export default async function ValidatorDetailPage({
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
 
-  if (!validator) {
-    return (
-      <PageFrame title="Validator not found" sub={chain.prettyName} accent={accent}>
-        <p className="text-sm text-muted-foreground">
-          <span className="font-mono">{truncateMiddle(addr, 12, 8)}</span>: N/A.{" "}
-          <Link href={`/${chainId}/validators`} className="text-primary hover:underline">
-            Validators
-          </Link>
-        </p>
-      </PageFrame>
-    );
-  }
+  if (!validator) notFound();
 
   const account = accountFromOperator(addr, chain.bech32Prefix);
   // Derived from the self-delegation account, never from the operator address:

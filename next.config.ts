@@ -42,7 +42,16 @@ function chainNameAliases(): { name: string; chainId: string }[] {
   return [...byName].map(([name, { chainId }]) => ({ name, chainId }));
 }
 
+/** Every chain id, for middleware.ts, which cannot read config/ at runtime. */
+function chainIds(): string[] {
+  const dir = join(process.cwd(), "config", "chains");
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => (JSON.parse(readFileSync(join(dir, f), "utf8")) as { chainId: string }).chainId);
+}
+
 const nextConfig: NextConfig = {
+  env: { SCAN_CHAIN_IDS: chainIds().join(",") },
   async redirects() {
     return [
       // An address is the same key on every testnet, so its page carries over.
