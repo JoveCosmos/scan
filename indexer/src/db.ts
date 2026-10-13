@@ -240,10 +240,11 @@ async function writeBlocks(
   const msgs = lastBy(full.flatMap((b) => b.txMsgs), (m) => `${m.txHash}|${m.msgIndex}|${m.innerIndex}`);
   if (msgs.length > 0) {
     await client.query(
-      `INSERT INTO tx_msg (chain_id, tx_hash, msg_index, inner_index, type_url, sender, height)
-       SELECT $1, * FROM unnest($2::text[], $3::int[], $4::int[], $5::text[], $6::text[], $7::bigint[])
+      `INSERT INTO tx_msg (chain_id, tx_hash, msg_index, inner_index, type_url, sender, height, raw)
+       SELECT $1, * FROM unnest($2::text[], $3::int[], $4::int[], $5::text[], $6::text[], $7::bigint[], $8::bytea[])
        ON CONFLICT (chain_id, tx_hash, msg_index, inner_index) DO UPDATE SET
-         type_url = EXCLUDED.type_url, sender = EXCLUDED.sender, height = EXCLUDED.height`,
+         type_url = EXCLUDED.type_url, sender = EXCLUDED.sender, height = EXCLUDED.height,
+         raw = COALESCE(EXCLUDED.raw, tx_msg.raw)`,
       [
         chainId,
         col(msgs, (m) => m.txHash),
@@ -252,6 +253,7 @@ async function writeBlocks(
         col(msgs, (m) => m.typeUrl),
         col(msgs, (m) => m.sender),
         col(msgs, (m) => m.height),
+        msgs.map((m) => (m.raw ? Buffer.from(m.raw) : null)),
       ]
     );
   }

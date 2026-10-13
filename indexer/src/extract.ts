@@ -48,7 +48,7 @@ import {
  *   0  a block whose node returned no ABCI results although it has
  *      transactions: present, but nothing derived from events can be trusted
  */
-export const EXTRACT_VERSION = 4;
+export const EXTRACT_VERSION = 5;   // 5: tx_msg carries each message's raw protobuf value (2026-10-13)
 
 /**
  * Capability -> the lowest extract_version that carries it.
@@ -346,6 +346,7 @@ export interface TxMsgRow {
   /** -1 for a top-level message; the position inside a MsgExec otherwise. */
   innerIndex: number;
   typeUrl: string;
+  raw: Uint8Array;
   sender: string | null;
 }
 
@@ -1238,7 +1239,7 @@ export function extractTx(
   if (decoded) {
     decoded.messages.forEach((m, i) => {
       const sender = messageSender(m.value);
-      msgs.push({ txHash: hash, height, msgIndex: i, innerIndex: -1, typeUrl: m.typeUrl, sender });
+      msgs.push({ txHash: hash, height, msgIndex: i, innerIndex: -1, typeUrl: m.typeUrl, sender, raw: m.value });
       // A message's own sender is a party even when no event names it: a
       // validator's operator address on MsgUnjail or MsgEditValidator.
       parties.add(sender, ROLE.sender);
@@ -1246,7 +1247,7 @@ export function extractTx(
       if (m.typeUrl === MSG_EXEC) {
         execInner(m.value).forEach((inner, j) => {
           const innerSender = messageSender(inner.value);
-          msgs.push({ txHash: hash, height, msgIndex: i, innerIndex: j, typeUrl: inner.typeUrl, sender: innerSender });
+          msgs.push({ txHash: hash, height, msgIndex: i, innerIndex: j, typeUrl: inner.typeUrl, sender: innerSender, raw: inner.value });
           parties.add(innerSender, ROLE.granter);
         });
         parties.add(sender, ROLE.grantee);
