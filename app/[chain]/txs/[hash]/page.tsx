@@ -95,7 +95,7 @@ export default async function TxDetailPage({
   if (!tx && chain.kind === "cosmos") {
     const indexed = await txFromIndex(chain.chainId, hash).catch(() => null);
     if (indexed) {
-      tx = indexedDetailToView(indexed);
+      tx = indexedDetailToView(indexed, chain.chainId);
       movements = indexed.movements;
       fromIndex = true;
       failed = false;

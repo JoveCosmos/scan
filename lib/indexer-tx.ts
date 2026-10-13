@@ -1,3 +1,4 @@
+import { decodeRawMessage } from "@/lib/proto-decode";
 import { cached } from "@/lib/cache";
 import { indexerPool, poolFor } from "@/lib/indexer-db";
 import { coverageOf, type CoverageRange } from "@/lib/indexer-coverage";
@@ -624,7 +625,16 @@ export interface IndexedTxDetail {
   feeGranter: string | null;
   msgTypes: string[];
   /** From tx_msg when covered: top-level messages with authz inner ones under them. */
-  messages: { msgIndex: number; typeUrl: string; sender: string | null; inner: { typeUrl: string; sender: string | null }[] }[] | null;
+  messages:
+    | {
+        msgIndex: number;
+        typeUrl: string;
+        sender: string | null;
+        /** The message as the REST API shows it, decoded from tx_msg.raw where covered. */
+        body: Record<string, unknown> | null;
+        inner: { typeUrl: string; sender: string | null }[];
+      }[]
+    | null;
   /** Every movement, in event order, when transfers is covered. */
   movements: MovementRow[] | null;
   /** Whether memo, signers, fee coins and granter are populated (tx_meta). */
@@ -639,10 +649,11 @@ export interface IndexedTxDetail {
 export async function txFromIndex(chainId: string, hash: string): Promise<IndexedTxDetail | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
-  const [meta, msgs, transfers] = await Promise.all([
+  const [meta, msgs, transfers, raws] = await Promise.all([
     coverageOf(chainId, "tx_meta"),
     coverageOf(chainId, "tx_msg"),
     coverageOf(chainId, "transfers"),
+    coverageOf(chainId, "tx_msg_raw"),
   ]);
   return cached(`idx4:tx:${chainId}:${hash}`, 60_000, async () => {
     const base = await pool.query<{
@@ -699,13 +710,16 @@ export async function txFromIndex(chainId: string, hash: string): Promise<Indexe
 
     let messages: IndexedTxDetail["messages"] = null;
     if (covered(msgs)) {
+      // The raw protobuf value only where the extract-5 refill has reached.
+      const withRaw = covered(raws);
       const res = await pool.query<{
         msg_index: number;
         inner_index: number;
         type_url: string;
         sender: string | null;
+        raw?: Buffer | null;
       }>(
-        `SELECT msg_index, inner_index, type_url, sender FROM tx_msg
+        `SELECT msg_index, inner_index, type_url, sender${withRaw ? ", raw" : ""} FROM tx_msg
           WHERE chain_id = $1 AND tx_hash = $2
           ORDER BY msg_index, inner_index`,
         [chainId, t.hash]
@@ -713,7 +727,13 @@ export async function txFromIndex(chainId: string, hash: string): Promise<Indexe
       messages = [];
       for (const r of res.rows) {
         if (r.inner_index < 0) {
-          messages.push({ msgIndex: r.msg_index, typeUrl: r.type_url, sender: r.sender, inner: [] });
+          messages.push({
+            msgIndex: r.msg_index,
+            typeUrl: r.type_url,
+            sender: r.sender,
+            body: r.raw ? decodeRawMessage(r.type_url, r.raw) : null,
+            inner: [],
+          });
         } else {
           const parent = messages.find((m) => m.msgIndex === r.msg_index);
           if (parent) parent.inner.push({ typeUrl: r.type_url, sender: r.sender });

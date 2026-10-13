@@ -23,6 +23,7 @@ import {
 } from "@/lib/tx-parties";
 import {
   decodeMessage,
+  type DecodedMessage,
   isBookkeeping,
   labelForType as decodeLabel,
   mergeCoins,
@@ -435,18 +436,30 @@ export function partyTxToSummary(t: PartyTx, address: string): TxSummary {
  * signer as its one field; the index keeps no message bodies, so amounts are
  * shown from the transaction's movements instead.
  */
-export function indexedDetailToView(d: IndexedTxDetail): TxDetail {
+export function indexedDetailToView(d: IndexedTxDetail, chainId: string): TxDetail {
   const toMessage = (typeUrl: string, sender: string | null): TxMessage => ({
     typeUrl,
     label: labelForType(typeUrl),
     transfer: null,
     fields: sender ? [{ label: "Signer", value: { kind: "address", address: sender } }] : [],
   });
+  // A message the index kept whole (tx_msg.raw) reads exactly like the node's.
+  const fromDecoded = (m: DecodedMessage): TxMessage => ({
+    typeUrl: m.typeUrl,
+    label: m.label,
+    transfer: null,
+    fields: m.fields,
+    ...(m.inner ? { inner: m.inner.map(fromDecoded) } : {}),
+  });
   const messages: TxMessage[] = d.messages
-    ? d.messages.map((m) => ({
-        ...toMessage(m.typeUrl, m.sender),
-        ...(m.inner.length > 0 ? { inner: m.inner.map((i) => toMessage(i.typeUrl, i.sender)) } : {}),
-      }))
+    ? d.messages.map((m) =>
+        m.body
+          ? fromDecoded(decodeMessage(chainId, m.typeUrl, m.body))
+          : {
+              ...toMessage(m.typeUrl, m.sender),
+              ...(m.inner.length > 0 ? { inner: m.inner.map((i) => toMessage(i.typeUrl, i.sender)) } : {}),
+            }
+      )
     : d.msgTypes.map((t) => toMessage(t, null));
   const move = (d.movements ?? []).find((m) => m.kind === "transfer") ?? null;
   return {

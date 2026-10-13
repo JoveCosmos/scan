@@ -27,6 +27,8 @@ export type Capability =
   | "tx_meta"
   | "tx_party"
   | "tx_msg"
+  /** tx_msg.raw, each message's protobuf value (extract version 5). */
+  | "tx_msg_raw"
   | "ibc_packet"
   | "staking_event"
   | "validator_power"
