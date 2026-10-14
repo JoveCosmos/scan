@@ -23,6 +23,7 @@ const SECTIONS = new Set([
   "blocks",
   "txs",
   "accounts",
+  "photon",
 ]);
 
 const BECH32 = /^[a-z0-9]{1,83}1[02-9ac-hj-np-z]{6,}$/i;

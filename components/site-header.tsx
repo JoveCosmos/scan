@@ -302,7 +302,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
                 routeChain !== null &&
                 (pathname.startsWith(`/${chain.chainId}${tab.href}`) ||
                   (tab.href === "/params" &&
-                    /^\/[^/]+\/(blocks|txs)(\/|$)/.test(pathname)) ||
+                    /^\/[^/]+\/(blocks|txs|photon)(\/|$)/.test(pathname)) ||
                   // Governors sit beside proposals under Governance.
                   (tab.href === "/proposals" && /^\/[^/]+\/governors(\/|$)/.test(pathname)));
               const na = unavailable(tab);

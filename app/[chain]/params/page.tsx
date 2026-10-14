@@ -21,6 +21,7 @@ import { withinBudget } from "@/lib/cache";
 import { BlocksTable } from "@/components/blocks-table";
 import { TxsTable } from "@/components/txs-table";
 import { PairPanels } from "@/components/pair-panels";
+import { getPhotonState } from "@/lib/photon";
 import { denomsForTxs } from "@/lib/txs";
 import { nameProposers } from "@/lib/blocks";
 import { withProposerLogos } from "@/lib/validator-logos";
@@ -277,6 +278,21 @@ export default async function ChainOverviewPage({
   // The overview shows five figures; the rest live on their own tabs.
   const KEEP = ["network", "supply", "pool", "apr", "uptime"];
   const shown = KEEP.flatMap((k) => bricks.filter((b) => b.key === k));
+  // AtomOne's fee token has its own page; its tile leads there.
+  if (chain.photon) {
+    const ph = await withinBudget(getPhotonState(chain), 1500, null);
+    const cap = chain.feeSupplyCap ? chain.feeSupplyCap * 1e6 : null;
+    shown.push({
+      key: "photon",
+      label: "PHOTON",
+      value: ph?.photonSupply ? formatToken(ph.photonSupply, 6) : "N/A",
+      sub:
+        ph?.rate != null
+          ? `1 ${symbolFor(chain)} = ${ph.rate.toFixed(2)}${cap && ph.photonSupply ? `, ${((Number(ph.photonSupply) / cap) * 100).toFixed(1)}% of cap` : ""}`
+          : "fee token",
+      href: `/${chain.chainId}/photon`,
+    });
+  }
 
   // The live lists under the tiles: this is where blocks and transactions
   // are browsed now, with every column their own tabs had.
@@ -320,6 +336,7 @@ export default async function ChainOverviewPage({
             bricks={shown}
             head={overview}
             size="lg"
+            className={shown.length === 6 ? "lg:!grid-cols-6" : undefined}
           />
         </div>
         <div className="shrink-0 lg:min-h-0 lg:flex-1">

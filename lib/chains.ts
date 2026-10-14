@@ -73,6 +73,8 @@ const chainConfigSchema = z
      * chain has the module.
      */
     governors: z.boolean().default(false),
+    /** AtomOne's PHOTON fee token (x/photon): minted by burning the staking token. */
+    photon: z.boolean().default(false),
     /**
      * CoinGecko id, for price and market cap. Absent on testnets and on chains
      * with no traded token, which simply show no market figures.
