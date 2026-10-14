@@ -279,9 +279,9 @@ export async function GovdaoMembers({ chain }: { chain: ChainConfig }) {
         accent={accent}
         columns={[
           { label: "#", align: "right", width: "3rem", phoneHide: true },
-          { label: "Name", width: "18%" },
+          { label: "Name", width: "18%", phoneWidth: "30%" },
           { label: "Address" },
-          { label: "Tier", width: "8%" },
+          { label: "Tier", width: "8%", phoneWidth: "16%" },
           { label: "Power", align: "right", width: "9%", optional: true },
           { label: "Votes", align: "right", width: "12%", phoneHide: true },
         ]}

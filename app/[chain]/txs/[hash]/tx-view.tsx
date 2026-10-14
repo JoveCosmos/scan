@@ -427,19 +427,19 @@ export function TokenTransferList({
 }) {
   return (
     <div className="gata-surface overflow-x-auto">
-      <table className="w-full border-collapse text-[12.5px]">
+      <table className="w-full border-collapse text-[11.5px] sm:text-[12.5px]">
         <thead className="bg-[var(--gata-bg2)]">
           <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Token</th>
-            <th className="px-3 py-2 font-medium">From</th>
-            <th className="px-3 py-2 font-medium">To</th>
-            <th className="px-3 py-2 text-right font-medium">Amount</th>
+            <th className="px-2 sm:px-3 py-2 font-medium">Token</th>
+            <th className="px-2 sm:px-3 py-2 font-medium">From</th>
+            <th className="px-2 sm:px-3 py-2 font-medium">To</th>
+            <th className="px-2 sm:px-3 py-2 text-right font-medium">Amount</th>
           </tr>
         </thead>
         <tbody>
           {transfers.map((t, i) => (
             <tr key={i} className="border-b border-border/40 last:border-0">
-              <td className="px-3 py-1.5 font-mono">
+              <td className="px-2 sm:px-3 py-1.5 font-mono">
                 {t.href ? (
                   <Link href={t.href} className="text-primary hover:underline">
                     {t.symbol}
@@ -448,9 +448,13 @@ export function TokenTransferList({
                   t.symbol
                 )}
               </td>
-              <td className="px-3 py-1.5">{t.from ? <AddressLink address={t.from} /> : <span className="text-muted-foreground">Mint</span>}</td>
-              <td className="px-3 py-1.5">{t.to ? <AddressLink address={t.to} /> : <span className="text-muted-foreground">Burn</span>}</td>
-              <td className="px-3 py-1.5 text-right font-mono">{t.amount}</td>
+              <td className="whitespace-nowrap px-2 sm:px-3 py-1.5">
+                {t.from ? <AddressLink address={t.from} head={6} tail={3} /> : <span className="text-muted-foreground">Mint</span>}
+              </td>
+              <td className="whitespace-nowrap px-2 sm:px-3 py-1.5">
+                {t.to ? <AddressLink address={t.to} head={6} tail={3} /> : <span className="text-muted-foreground">Burn</span>}
+              </td>
+              <td className="whitespace-nowrap px-2 sm:px-3 py-1.5 text-right font-mono">{t.amount}</td>
             </tr>
           ))}
         </tbody>
