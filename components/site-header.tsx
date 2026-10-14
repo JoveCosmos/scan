@@ -304,7 +304,7 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
                   (tab.href === "/params" &&
                     /^\/[^/]+\/(blocks|txs|photon|charts|packages|tokens)(\/|$)/.test(pathname)) ||
                   // Governors sit beside proposals under Governance.
-                  (tab.href === "/proposals" && /^\/[^/]+\/governors(\/|$)/.test(pathname)));
+                  (tab.href === "/proposals" && /^\/[^/]+\/(governors|members)(\/|$)/.test(pathname)));
               const na = unavailable(tab);
               return (
                 <Link

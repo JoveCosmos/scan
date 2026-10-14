@@ -20,7 +20,7 @@ import { withinBudget } from "@/lib/cache";
 import { getGovernors, governorOf } from "@/lib/governors";
 import { decodeBech32, gnoPathHref, packageHref, routeAddress } from "@/lib/address-route";
 import { balancesOf, gnoTokens, tokenHref } from "@/lib/gno-tokens";
-import { realmByAddress, shortPath } from "@/lib/gno-packages";
+import { gnoDeploys, gnoPackagePaths, isRealm, realmByAddress, shortPath } from "@/lib/gno-packages";
 import { isUserKey, type AddressKind } from "@/lib/address-kind";
 import { resolveAssets, type AssetInfo } from "@/lib/ibc";
 import { getAccountStaking, getSelfBond, type ValidatorState } from "@/lib/staking";
@@ -1025,10 +1025,36 @@ export default async function AccountPage({
 
   // gno.land: GRC20 tokens held, from the token state kept in memory (never
   // waited on long: it is built at boot).
-  const [tokens, realms] =
+  const [tokens, realms, deploys, livePaths] =
     chain.kind === "gno"
-      ? await Promise.all([withinBudget(gnoTokens(chain), 1500, null), withinBudget(realmByAddress(chain), 1500, null)])
-      : [null, null];
+      ? await Promise.all([
+          withinBudget(gnoTokens(chain), 1500, null),
+          withinBudget(realmByAddress(chain), 1500, null),
+          withinBudget(gnoDeploys(chain), 1500, null),
+          withinBudget(gnoPackagePaths(chain), 1500, null),
+        ])
+      : [null, null, null, null];
+  // Realms and packages this account deployed that the chain still has.
+  const live = livePaths ? new Set(livePaths) : null;
+  const deployed = [...(deploys?.values() ?? [])]
+    .filter((d) => d.creator === address && (!live || live.has(d.path)))
+    .sort((a, b) => b.height - a.height);
+  const deployedRows: DeckRow[] = deployed.map((d) => ({
+    key: d.path,
+    search: d.path,
+    cells: [
+      { v: shortPath(d.path), mono: true, href: packageHref(chainId, d.path) },
+      { v: isRealm(d.path) ? "Realm" : "Package", dim: true },
+      d.height === 0
+        ? { v: "Genesis", dim: true, align: "right" as const }
+        : { v: d.height.toLocaleString(), mono: true, align: "right" as const, href: `/${chainId}/blocks/${d.height}` },
+    ],
+    detail: {
+      title: shortPath(d.path),
+      rows: [],
+      action: { label: isRealm(d.path) ? "Realm" : "Package", href: packageHref(chainId, d.path) },
+    },
+  }));
   // A realm's own account: named by the realm it belongs to.
   const realmPath = realms?.get(address) ?? null;
   const realmTile: BrickSpec | null = realmPath
@@ -1076,6 +1102,27 @@ export default async function AccountPage({
                 rows={balanceRows}
                 accent={accent}
                 empty={account.balancesFailed ? "N/A" : "No balances"}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(deployedRows.length > 0
+      ? [
+          {
+            key: "packages",
+            label: `Packages (${deployedRows.length})`,
+            content: (
+              <RowDeck
+                columns={[
+                  { label: "Path" },
+                  { label: "Kind", width: "16%", phoneHide: true },
+                  { label: "Block", align: "right", width: "18%" },
+                ]}
+                rows={deployedRows}
+                accent={accent}
+                filter={deployedRows.length > 12 ? { placeholder: "Filter by path…" } : undefined}
+                empty="None"
               />
             ),
           },

@@ -7,7 +7,7 @@ import { isNumericId, isBech32ish } from "@/lib/input";
 import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
-import type { TxSummary, TxMessage } from "@/lib/txs";
+import type { TxSummary, TxMessage, TxEvent } from "@/lib/txs";
 import type { DecodedField } from "@/lib/msg-decode";
 import { packageHref } from "@/lib/address-route";
 import type { ValidatorSummary } from "@/lib/validators";
@@ -249,6 +249,9 @@ export function normalizeGnoHash(input: string): string | null {
 
 type GnoCoin = { denom: string; amount: string };
 
+/** The package every GRC20 token is built on; it emits their events. */
+const GRC20_PACKAGE = "gno.land/p/nt/grc20/v0";
+
 /** A decoded gno message, carried on TxMessage as `gno` for the tx page. */
 export interface GnoMessageValue {
   kind: "send" | "call" | "addpkg" | "run" | "other";
@@ -281,7 +284,7 @@ export interface GnoStorageChange {
   fee: GnoCoin | null;
 }
 
-/** A GRC-20 "Transfer" event: the token is the realm that emitted it. */
+/** A GRC20 transfer: `token` is the token's key, "<realm>.<SYMBOL>.<seq>". */
 export interface GnoTokenTransfer {
   token: string;
   from: string | null;
@@ -701,6 +704,29 @@ export function gnoMessageFields(chainId: string, m: GnoMessageValue): DecodedFi
   }
 }
 
+/**
+ * Every event for the transaction page's Events tab, each with the package
+ * that emitted it; gno does not say which message emitted an event.
+ */
+function eventsOf(rec: GnoTxRecord): TxEvent[] {
+  return [
+    ...rec.events.map((e) => ({
+      type: e.type,
+      attributes: [...(e.pkgPath ? [{ key: "pkg_path", value: e.pkgPath }] : []), ...e.attrs],
+      msgIndex: null,
+    })),
+    ...rec.storage.map((st) => ({
+      type: st.kind === "deposit" ? "StorageDeposit" : "StorageUnlock",
+      attributes: [
+        ...(st.pkgPath ? [{ key: "pkg_path", value: st.pkgPath }] : []),
+        { key: "bytes_delta", value: String(st.bytesDelta) },
+        ...(st.fee ? [{ key: st.kind === "deposit" ? "fee_delta" : "fee_refund", value: `${st.fee.amount}${st.fee.denom}` }] : []),
+      ],
+      msgIndex: null,
+    })),
+  ];
+}
+
 function toTxSummary(chainId: string, rec: GnoTxRecord, time: string | null): GnoTxSummary {
   const messages: GnoTxMessage[] = rec.messages.map((m) => ({
     // A realm call keeps its path in the type, as the list has always shown it.
@@ -711,11 +737,14 @@ function toTxSummary(chainId: string, rec: GnoTxRecord, time: string | null): Gn
     gno: m,
   }));
 
+  // GRC20 transfers: the grc20 package's own Transfer events, which name the
+  // token by its key. A token realm often emits its own Transfer beside it.
   const tokenTransfers: GnoTokenTransfer[] = rec.events
-    .filter((e) => e.type === "Transfer" && e.pkgPath)
-    .map((e) => {
+    .filter((e) => e.type === "Transfer" && e.pkgPath === GRC20_PACKAGE)
+    .flatMap((e) => {
       const get = (k: string) => e.attrs.find((a) => a.key === k)?.value ?? null;
-      return { token: e.pkgPath as string, from: get("from"), to: get("to"), value: get("value") ?? "" };
+      const token = get("token");
+      return token ? [{ token, from: get("from"), to: get("to"), value: get("value") ?? "" }] : [];
     });
 
   // One line for list views: the first message that moved coins, else the
@@ -1137,7 +1166,7 @@ export async function gnoRecentTxs(
 export async function gnoTx(
   chain: ChainConfig,
   hashInput: string
-): Promise<(GnoTxSummary & { rawLog: string }) | null> {
+): Promise<(GnoTxSummary & { rawLog: string; events: TxEvent[] }) | null> {
   const hash = normalizeGnoHash(hashInput);
   if (!hash) return null;
 
@@ -1168,7 +1197,7 @@ export async function gnoTx(
   if (!rec) return null;
 
   const [summary] = await withTimes(chain, [rec]);
-  return { ...summary, rawLog: rec.error };
+  return { ...summary, rawLog: rec.error, events: eventsOf(rec) };
 }
 
 /**

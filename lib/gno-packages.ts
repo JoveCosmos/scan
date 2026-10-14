@@ -305,6 +305,12 @@ export function gnoStorage(chain: ChainConfig, path: string): Promise<{ bytes: n
   ).catch(() => null);
 }
 
+/** A read-only expression evaluated by vm/qeval, e.g. `path.Func("x")`. Null on error. */
+export async function gnoEval(chain: ChainConfig, expr: string): Promise<string | null> {
+  const r = await vmQuery(chain, "vm/qeval", expr);
+  return r.ok ? r.data : null;
+}
+
 /** A realm's Render(args) output, Markdown. Null when it has none. */
 export function gnoRender(chain: ChainConfig, path: string, args = ""): Promise<string | null> {
   return cached(

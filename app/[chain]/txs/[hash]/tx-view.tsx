@@ -418,3 +418,43 @@ export function MovementList({
     </div>
   );
 }
+
+/** GRC20 transfers in a gno.land transaction, by token. */
+export function TokenTransferList({
+  transfers,
+}: {
+  transfers: { symbol: string; href: string | null; from: string | null; to: string | null; amount: string }[];
+}) {
+  return (
+    <div className="gata-surface overflow-x-auto">
+      <table className="w-full border-collapse text-[12.5px]">
+        <thead className="bg-[var(--gata-bg2)]">
+          <tr className="border-b border-border text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+            <th className="px-3 py-2 font-medium">Token</th>
+            <th className="px-3 py-2 font-medium">From</th>
+            <th className="px-3 py-2 font-medium">To</th>
+            <th className="px-3 py-2 text-right font-medium">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transfers.map((t, i) => (
+            <tr key={i} className="border-b border-border/40 last:border-0">
+              <td className="px-3 py-1.5 font-mono">
+                {t.href ? (
+                  <Link href={t.href} className="text-primary hover:underline">
+                    {t.symbol}
+                  </Link>
+                ) : (
+                  t.symbol
+                )}
+              </td>
+              <td className="px-3 py-1.5">{t.from ? <AddressLink address={t.from} /> : <span className="text-muted-foreground">Mint</span>}</td>
+              <td className="px-3 py-1.5">{t.to ? <AddressLink address={t.to} /> : <span className="text-muted-foreground">Burn</span>}</td>
+              <td className="px-3 py-1.5 text-right font-mono">{t.amount}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

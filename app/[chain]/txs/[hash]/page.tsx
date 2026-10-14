@@ -21,6 +21,7 @@ import {
   type MovementRow,
 } from "@/lib/indexer-tx";
 import { indexerHealth } from "@/lib/indexer-coverage";
+import { withinBudget } from "@/lib/cache";
 import { routeAddress } from "@/lib/address-route";
 import { PageFrame } from "@/components/page-frame";
 import { SectionTabs } from "@/components/section-tabs";
@@ -34,7 +35,11 @@ import {
   RawJson,
   SummaryRow,
   type PacketTrace,
+  TokenTransferList,
 } from "./tx-view";
+import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { formatUnits } from "@/lib/format";
+import type { GnoTxExtras } from "@/lib/gno";
 
 export const dynamic = "force-dynamic";
 
@@ -199,8 +204,37 @@ export default async function TxDetailPage({
     </div>
   );
 
+  // gno.land: GRC20 transfers, named from the token state (built at boot).
+  const gnoExtras = (tx as TxView & { gno?: GnoTxExtras }).gno;
+  const grc20 = gnoExtras?.tokenTransfers ?? [];
+  const tokenState = grc20.length ? await withinBudget(gnoTokens(chain), 1500, null) : null;
+  const tokenRows = grc20.map((t) => {
+    const token = tokenState?.get(t.token) ?? null;
+    const symbol = token?.symbol ?? t.token.split(".").slice(-2, -1)[0] ?? t.token;
+    return {
+      symbol,
+      href: token ? tokenHref(chainId, token) : null,
+      from: t.from || null,
+      to: t.to || null,
+      amount: token ? formatUnits(t.value, token.decimals) : t.value,
+    };
+  });
+
   const sections = [
     { key: "messages", label: `Messages (${tx.messageCount})`, content: messagesPanel },
+    ...(tokenRows.length
+      ? [
+          {
+            key: "tokens",
+            label: `Tokens (${tokenRows.length})`,
+            content: (
+              <div className="h-full overflow-y-auto pr-1">
+                <TokenTransferList transfers={tokenRows} />
+              </div>
+            ),
+          },
+        ]
+      : []),
     ...(events.length
       ? [
           {

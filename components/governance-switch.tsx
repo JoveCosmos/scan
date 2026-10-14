@@ -1,22 +1,24 @@
 import Link from "next/link";
 
 /**
- * Proposals or governors: two views of a chain's governance, for chains that
- * have governors (AtomOne). The same control as the validators' Active or
- * Inactive switch, but links, since each view is its own page.
+ * Proposals and who decides them: AtomOne's governors, or gno.land's GovDAO
+ * members. The same control as the validators' Active or Inactive switch, but
+ * links, since each view is its own page.
  */
 export function GovernanceSwitch({
   chainId,
   current,
+  second = "governors",
   counts,
 }: {
   chainId: string;
-  current: "proposals" | "governors";
-  counts?: { proposals?: number | null; governors?: number | null };
+  current: "proposals" | "governors" | "members";
+  second?: "governors" | "members";
+  counts?: { proposals?: number | null; governors?: number | null; members?: number | null };
 }) {
   const items = [
     ["proposals", "Proposals", counts?.proposals],
-    ["governors", "Governors", counts?.governors],
+    second === "members" ? ["members", "Members", counts?.members] : ["governors", "Governors", counts?.governors],
   ] as const;
   return (
     <nav

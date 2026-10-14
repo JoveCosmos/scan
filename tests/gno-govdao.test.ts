@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import fx from "./fixtures/govdao-render.json";
-import { parseProposal, parseProposalList, statusLabel } from "@/lib/gno-govdao";
+import { parseMembers, parseProposal, parseProposalList, parseTiers, statusLabel } from "@/lib/gno-govdao";
 
 // The realm's own Render output on gnoland-1, captured 2026-10-14.
 describe("GovDAO render parsing", () => {
@@ -37,6 +37,17 @@ describe("GovDAO render parsing", () => {
     ]);
     expect(parseProposal(10, fx.prop10, null)?.status).toBe("active");
     expect(parseProposal(9, fx.prop10, null)).toBeNull();
+  });
+
+  test("members and tiers from the member store", () => {
+    const chip = "![T1 colored chip](data:image/svg+xml;base64,PHN2Zz4=)";
+    expect(
+      parseMembers(`| [Tier](?x) | [Address](?y) |\n| --- | --- |\n| ${chip} T1 | g1manfred47kzduec920z88wfr64ylksmdcedlf5 |`)
+    ).toEqual([{ tier: "T1", address: "g1manfred47kzduec920z88wfr64ylksmdcedlf5" }]);
+    expect(parseTiers(`- ${chip} Tier T1 contains 3 members with power: 9\n- ${chip} Tier T2 contains 0 members with power: 0`)).toEqual([
+      { tier: "T1", members: 3, power: 9 },
+      { tier: "T2", members: 0, power: 0 },
+    ]);
   });
 
   test("labels", () => {

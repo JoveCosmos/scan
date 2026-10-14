@@ -2,10 +2,11 @@ import Link from "next/link";
 import type { ChainConfig } from "@/lib/chains";
 import { accentFor } from "@/lib/chains";
 import {
-  GOVDAO,
+  govdaoMembers,
   govdaoProposal,
   govdaoProposals,
   statusLabel,
+  type GovMember,
   type GovProposal,
   type GovProposalSummary,
   type GovStatus,
@@ -18,6 +19,7 @@ import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckCell, type DeckRow } from "@/components/row-deck";
 import { Prose } from "@/components/prose";
+import { GovernanceSwitch } from "@/components/governance-switch";
 
 /**
  * gno.land's Governance tab: GovDAO's proposals, read from the realm itself.
@@ -76,7 +78,7 @@ export async function GovdaoList({ chain }: { chain: ChainConfig }) {
   });
 
   const voting = (list ?? []).filter((p) => p.status === "active").length;
-  const facts = list ? [`${list.length} total`, `${voting} in voting`, "GovDAO"] : ["N/A"];
+  const facts = list ? [`${list.length} total`, `${voting} in voting`] : ["N/A"];
 
   return (
     <PageFrame
@@ -84,12 +86,7 @@ export async function GovdaoList({ chain }: { chain: ChainConfig }) {
       sub={facts.join(" · ")}
       accent={accent}
       actions={
-        <Link
-          href={packageHref(chain.chainId, GOVDAO)}
-          className="rounded-md border border-border bg-[var(--gata-card)] px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)]"
-        >
-          GovDAO realm
-        </Link>
+        <GovernanceSwitch chainId={chain.chainId} current="proposals" second="members" counts={{ proposals: list?.length ?? null }} />
       }
     >
       <RowDeck
@@ -214,6 +211,84 @@ export async function GovdaoProposalView({
       }
     >
       <SectionTabs sections={sections} initial={tab === "votes" ? "votes" : undefined} param="tab" />
+    </PageFrame>
+  );
+}
+
+export async function GovdaoMembers({ chain }: { chain: ChainConfig }) {
+  const accent = accentFor(chain);
+  const [data, list] = await Promise.all([
+    withinBudget(govdaoMembers(chain), 8000, null),
+    withinBudget(govdaoProposals(chain), 4000, null),
+  ]);
+  // Votes each member cast, from every proposal's voter list (cached by the
+  // proposals page). A voter is listed by name where it has one.
+  const details = (
+    await Promise.all(
+      (list ?? []).slice(0, 60).map((p) => withinBudget(govdaoProposal(chain, p.id).catch(() => null), 3000, null))
+    )
+  ).filter((d): d is GovProposal => d !== null);
+  const votesOf = (m: GovMember) =>
+    details.filter((d) => d.voters?.some((v) => v.voter === m.address || (m.name && v.voter === `@${m.name}`))).length;
+  const powerOf = new Map((data?.tiers ?? []).map((t) => [t.tier, t.members > 0 ? t.power / t.members : null]));
+
+  const rows: DeckRow[] = (data?.members ?? []).map((m, i) => {
+    const votes = votesOf(m);
+    const each = powerOf.get(m.tier);
+    return {
+      key: m.address,
+      search: `${m.name ?? ""} ${m.address} ${m.tier}`,
+      cells: [
+        { v: String(i + 1), mono: true, dim: true, align: "right" },
+        m.name ? { v: `@${m.name}`, href: `/${chain.chainId}/accounts/${m.address}` } : { v: "-", dim: true },
+        { v: truncateMiddle(m.address, 10, 6), mono: true, address: m.address },
+        { v: m.tier, mono: true, tone: "accent" },
+        { v: each != null ? String(each) : "-", mono: true, align: "right", dim: each == null },
+        { v: details.length ? `${votes} of ${details.length}` : "-", mono: true, align: "right" },
+      ],
+      detail: {
+        title: m.name ? `@${m.name}` : truncateMiddle(m.address, 14, 8),
+        rows: [{ label: "Tier", value: m.tier }],
+        action: { label: "Account", href: `/${chain.chainId}/accounts/${m.address}` },
+      },
+    };
+  });
+
+  const facts = data
+    ? [
+        `${data.members.length} member${data.members.length === 1 ? "" : "s"}`,
+        ...data.tiers.filter((t) => t.members > 0).map((t) => `${t.tier} power ${t.power}`),
+      ]
+    : ["N/A"];
+
+  return (
+    <PageFrame
+      title="Members"
+      sub={facts.join(" · ")}
+      accent={accent}
+      actions={
+        <GovernanceSwitch
+          chainId={chain.chainId}
+          current="members"
+          second="members"
+          counts={{ members: data?.members.length ?? null }}
+        />
+      }
+    >
+      <RowDeck
+        accent={accent}
+        columns={[
+          { label: "#", align: "right", width: "3rem", phoneHide: true },
+          { label: "Name", width: "18%" },
+          { label: "Address" },
+          { label: "Tier", width: "8%" },
+          { label: "Power", align: "right", width: "9%", optional: true },
+          { label: "Votes", align: "right", width: "12%", phoneHide: true },
+        ]}
+        rows={rows}
+        filter={{ placeholder: "Filter by name or address…" }}
+        empty={data ? "None" : "N/A"}
+      />
     </PageFrame>
   );
 }

@@ -1,6 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
-import { gnoRender } from "@/lib/gno-packages";
+import { gnoEval, gnoRender } from "@/lib/gno-packages";
 
 /**
  * gno.land's governance: GovDAO, a realm (gno.land/r/gov/dao) rather than a
@@ -191,4 +191,67 @@ export function statusLabel(s: GovStatus, text: string): string {
     default:
       return text ? text[0].toUpperCase() + text.slice(1).toLowerCase() : "N/A";
   }
+}
+
+export const MEMBERSTORE = "gno.land/r/gov/dao/memberstore/v0";
+
+export interface GovMember {
+  address: string;
+  tier: string;
+  /** The name registered in gno.land/r/sys/users, without "@"; null when none. */
+  name: string | null;
+}
+
+export interface GovTier {
+  tier: string;
+  members: number;
+  power: number;
+}
+
+/** The member list and the tier summary. Exported for tests. */
+export function parseMembers(md: string): { address: string; tier: string }[] {
+  return [...md.matchAll(/(T\d+) \| (g1[a-z0-9]{38})/g)].map((m) => ({ tier: m[1], address: m[2] }));
+}
+
+export function parseTiers(md: string): GovTier[] {
+  return [...md.matchAll(/Tier (T\d+) contains (\d+) members? with power: (\d+)/g)].map((m) => ({
+    tier: m[1],
+    members: Number(m[2]),
+    power: Number(m[3]),
+  }));
+}
+
+/** A g1 address's registered name, from gno.land/r/sys/users. */
+export function gnoUserName(chain: ChainConfig, address: string): Promise<string | null> {
+  return cached(
+    `gno-user:${chain.chainId}:${address}`,
+    60 * 60_000,
+    async () => {
+      const out = await gnoEval(chain, `gno.land/r/sys/users.ResolveAddress("${address}").Name()`);
+      return out?.match(/^\("([^"]+)" string\)/)?.[1] ?? null;
+    },
+    { group: { name: "gno-user", max: 500 } }
+  ).catch(() => null);
+}
+
+/** GovDAO's members with their tier and name, and the power of each tier. */
+export function govdaoMembers(chain: ChainConfig): Promise<{ members: GovMember[]; tiers: GovTier[] } | null> {
+  return cached(
+    `govdao-members:${chain.chainId}`,
+    5 * 60_000,
+    async () => {
+      const [list, summary] = await Promise.all([
+        gnoRender(chain, MEMBERSTORE, "members?filter=T1%2CT2%2CT3"),
+        gnoRender(chain, MEMBERSTORE, ""),
+      ]);
+      if (!list) throw new Error("memberstore unavailable");
+      const rows = parseMembers(list);
+      const names = await Promise.all(rows.map((r) => gnoUserName(chain, r.address)));
+      return {
+        members: rows.map((r, i) => ({ ...r, name: names[i] })),
+        tiers: summary ? parseTiers(summary) : [],
+      };
+    },
+    { staleMs: 60 * 60_000 }
+  ).catch(() => null);
 }
