@@ -344,10 +344,25 @@ type CallTx = {
 /** Calls kept per realm, newest first. */
 const MAX_CALLS = 500;
 
+/** The indexer returns at most this many transactions a query, silently or with an error. */
+const INDEXER_CAP = 10_000;
+
+/** MsgCall transactions to a realm in a height range; the lowest window has no lower bound (see gno-tokens). */
+const callQuery = (bounded: boolean) => `query($p: String!, ${bounded ? "$a: Int!, " : ""}$b: Int!) {
+  getTransactions(where: { block_height: { ${bounded ? "gt: $a, " : ""}lt: $b },
+    messages: { value: { MsgCall: { pkg_path: { eq: $p } } } } }, order: { heightAndIndex: DESC }) {
+    hash block_height success
+    messages { value { __typename ... on MsgCall { caller func pkg_path } } }
+  }
+}`;
+
 /**
- * Calls made to a realm (MsgCall), newest first, with the total. The
- * indexer's message filter also returns transactions with messages it cannot
- * type, so each message's own package path is checked here.
+ * Calls made to a realm (MsgCall), newest first, with the total. Read from
+ * the chain's head down in height windows, each halved when it comes back
+ * full, since the indexer caps a query at 10,000 transactions and a busy
+ * realm has more. The indexer's message filter also returns transactions
+ * with messages it cannot type, so each message's own package path is
+ * checked here.
  */
 export function gnoRealmCalls(
   chain: ChainConfig,
@@ -357,38 +372,44 @@ export function gnoRealmCalls(
     `gno-calls:${chain.chainId}:${path}`,
     2 * 60_000,
     async () => {
-      const data = await gql<{ getTransactions: CallTx[] | null }>(
-        chain,
-        `query($p: String!) { getTransactions(where: { messages: { value: { MsgCall: { pkg_path: { eq: $p } } } } }, order: { heightAndIndex: DESC }) {
-            hash block_height success
-            messages { value { __typename ... on MsgCall { caller func pkg_path } } }
-          } }`,
-        { p: path },
-        30_000
-      );
-      const calls: GnoCall[] = [];
+      const { latestBlockHeight: head } = await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }");
+      const shown: GnoCall[] = [];
       const callers = new Set<string>();
-      for (const tx of data.getTransactions ?? []) {
-        const txHash = gnoHashToHex(tx.hash);
-        if (!txHash) continue;
-        for (const m of tx.messages) {
-          const v = m.value;
-          if (v?.__typename !== "MsgCall" || v.pkg_path !== path) continue;
-          if (v.caller) callers.add(v.caller);
-          calls.push({
-            txHash,
-            height: tx.block_height,
-            success: tx.success,
-            caller: v.caller ?? "",
-            func: v.func ?? "",
-            time: null,
-          });
+      let total = 0;
+      let hi = head + 1;
+      let window = 400_000;
+      while (hi > 0) {
+        const lo = Math.max(0, hi - window);
+        const data = await gql<{ getTransactions: CallTx[] | null }>(
+          chain,
+          callQuery(lo > 0),
+          lo > 0 ? { p: path, a: lo - 1, b: hi } : { p: path, b: hi },
+          30_000
+        );
+        const txs = data.getTransactions ?? [];
+        if (txs.length >= INDEXER_CAP && hi - lo > 1) {
+          window = Math.max(1, Math.floor((hi - lo) / 2));
+          continue;
         }
+        for (const tx of txs) {
+          const txHash = gnoHashToHex(tx.hash);
+          if (!txHash) continue;
+          for (const m of tx.messages) {
+            const v = m.value;
+            if (v?.__typename !== "MsgCall" || v.pkg_path !== path) continue;
+            if (v.caller) callers.add(v.caller);
+            total += 1;
+            if (shown.length < MAX_CALLS) {
+              shown.push({ txHash, height: tx.block_height, success: tx.success, caller: v.caller ?? "", func: v.func ?? "", time: null });
+            }
+          }
+        }
+        hi = lo;
+        window = Math.min(window * 2, 400_000);
       }
-      const shown = calls.slice(0, MAX_CALLS);
       const times = await gnoTxTimes(chain.chainId, [...new Set(shown.map((c) => c.txHash))]);
       for (const c of shown) c.time = times.get(c.txHash) ?? null;
-      return { calls: shown, total: calls.length, callers: callers.size };
+      return { calls: shown, total, callers: callers.size };
     },
     { staleMs: 30 * 60_000, group: { name: "gno-calls", max: 30 } }
   ).catch(() => null);
