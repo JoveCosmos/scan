@@ -316,7 +316,7 @@ export default async function ChainOverviewPage({
       sub={chain.chainId}
       accent={accent}
       actions={
-        chain.indexed ? (
+        chain.indexed || chain.kind === "gno" ? (
           <Link
             href={`/${chain.chainId}/charts`}
             className="rounded-md border border-border bg-[var(--gata-card)] px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)]"

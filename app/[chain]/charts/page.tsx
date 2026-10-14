@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
 export default async function ChartsPage({ params }: { params: Promise<{ chain: string }> }) {
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
-  if (!chain || !chain.indexed) notFound();
+  if (!chain || !(chain.indexed || chain.kind === "gno")) notFound();
   const accent = accentFor(chain);
 
   const [daily, photon] = await Promise.all([
