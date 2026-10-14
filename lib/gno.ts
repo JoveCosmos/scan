@@ -106,7 +106,7 @@ async function abciQuery(
  * The indexer has no limit argument: a query returns every match, capped at
  * 10,000 rows. Callers bound their queries by height instead.
  */
-async function gql<T>(
+export async function gql<T>(
   chain: ChainConfig,
   query: string,
   variables: Record<string, unknown> = {},

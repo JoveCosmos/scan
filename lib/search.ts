@@ -99,7 +99,7 @@ export type SearchShape =
   /** 20 bytes of hex: a consensus address as CometBFT prints it. */
   | { kind: "consHex"; value: string }
   | { kind: "bech32"; prefix: string; address: string }
-  | { kind: "gnoPath"; value: string }
+  | { kind: "gnoPath"; value: string; render?: string }
   | { kind: "name"; value: string };
 
 export function classifySearch(raw: string): SearchShape {
@@ -110,7 +110,11 @@ export function classifySearch(raw: string): SearchShape {
   const hex = hexHash(q);
   if (hex) return { kind: "txHex", value: hex };
 
-  if (/^gno\.land\/[pr]\/[\w\-./]+$/.test(q)) return { kind: "gnoPath", value: q };
+  // A gno.land package: its path, a gno.land link to it, or a Render path
+  // ("gno.land/r/gov/dao:13", whose argument is kept for the render tab).
+  const gno = q.replace(/^https?:\/\//, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  const gnoPath = gno.match(/^(gno\.land\/[pr]\/[\w\-./]+?)(?::(.*))?$/);
+  if (gnoPath) return { kind: "gnoPath", value: gnoPath[1].toLowerCase(), render: gnoPath[2] || undefined };
 
   const decoded = decodeBech32(q);
   if (decoded) return { kind: "bech32", prefix: decoded.prefix, address: decoded.address };

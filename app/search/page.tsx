@@ -4,6 +4,7 @@ import { SearchX } from "lucide-react";
 import { getAllChains, accentFor, type ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { classifySearch, secpKeyToAddress } from "@/lib/search";
+import { gnoPackagePaths, packageHref, shortPath } from "@/lib/gno-packages";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 import type { ValidatorSummary } from "@/lib/validators";
@@ -213,8 +214,17 @@ export default async function GlobalSearchPage({
         })),
       );
 
-    case "gnoPath":
-      redirect(`https://${shape.value}`);
+    case "gnoPath": {
+      // Each gno chain that has the package; the same path can live on both.
+      const gno = all.filter((c) => c.kind === "gno");
+      const lists = await Promise.all(gno.map((c) => within(gnoPackagePaths(c), 3000, null)));
+      const render = shape.render ? `?tab=render&render=${encodeURIComponent(shape.render)}` : "";
+      return settle(
+        gno
+          .filter((_, i) => lists[i]?.includes(shape.value))
+          .map((chain) => ({ chain, href: `${packageHref(chain.chainId, shape.value)}${render}`, note: shortPath(shape.value) }))
+      );
+    }
 
     case "bech32": {
       const chains = chainsForPrefix(shape.prefix);

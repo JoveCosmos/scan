@@ -60,6 +60,9 @@ const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" && r.valu
  * The holder count is deliberately absent: it is a full scan of every account
  * with a balance and takes ~25s on AtomOne.
  */
+const ACTION =
+  "rounded-md border border-border bg-[var(--gata-card)] px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)]";
+
 export default async function ChainOverviewPage({
   params,
 }: {
@@ -317,12 +320,16 @@ export default async function ChainOverviewPage({
       accent={accent}
       actions={
         chain.indexed || chain.kind === "gno" ? (
-          <Link
-            href={`/${chain.chainId}/charts`}
-            className="rounded-md border border-border bg-[var(--gata-card)] px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)]"
-          >
-            Charts
-          </Link>
+          <div className="flex items-center gap-1.5">
+            {chain.kind === "gno" ? (
+              <Link href={`/${chain.chainId}/packages`} className={ACTION}>
+                Packages
+              </Link>
+            ) : null}
+            <Link href={`/${chain.chainId}/charts`} className={ACTION}>
+              Charts
+            </Link>
+          </div>
         ) : undefined
       }
       emblem={

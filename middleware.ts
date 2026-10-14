@@ -25,6 +25,7 @@ const SECTIONS = new Set([
   "accounts",
   "photon",
   "charts",
+  "packages",
 ]);
 
 const BECH32 = /^[a-z0-9]{1,83}1[02-9ac-hj-np-z]{6,}$/i;
@@ -38,6 +39,8 @@ const ID: Record<string, RegExp> = {
   validators: BECH32,
   accounts: BECH32,
   governors: BECH32,
+  // gno.land: /packages/r/… or /packages/p/…, "gno.land/" optional.
+  packages: /^(r|p|gno\.land)$/,
 };
 
 function notFound(req: NextRequest) {

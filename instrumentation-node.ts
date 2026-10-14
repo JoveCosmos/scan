@@ -1,5 +1,6 @@
 import { getAllChains } from "@/lib/chains";
 import { getValoperIndex } from "@/lib/gno-valopers";
+import { gnoDeploys, gnoPackagePaths } from "@/lib/gno-packages";
 import { warmValidators } from "@/lib/warm";
 
 /**
@@ -22,6 +23,10 @@ export function warm() {
 
   for (const chain of getAllChains()) {
     if (chain.kind !== "gno") continue;
+
+    // The package list and who deployed each (one slow indexer scan).
+    void gnoPackagePaths(chain);
+    void gnoDeploys(chain);
 
     // Fire-and-forget: startup must never block on a remote node.
     const startedAt = Date.now();
