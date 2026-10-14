@@ -87,6 +87,11 @@ export function routeAddress(
   };
 }
 
+/** Scan's page for a gno.land package: the path without its gno.land/ domain. */
+export function packageHref(chainId: string, path: string): string {
+  return `/${chainId}/packages/${path.replace(/^gno\.land\//, "")}`;
+}
+
 /** External page for a gno.land realm or package path, or null. */
 export function gnoPathHref(path: string | null | undefined): string | null {
   if (!path) return null;

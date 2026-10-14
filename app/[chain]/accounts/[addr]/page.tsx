@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAllChains, getChain, symbolFor, symbolForDenom, accentFor, chainDenoms } from "@/lib/chains";
 import type { ChainConfig } from "@/lib/chains";
@@ -17,7 +18,9 @@ import {
 import { convertAddress, linkedAddresses } from "@/lib/bech32";
 import { withinBudget } from "@/lib/cache";
 import { getGovernors, governorOf } from "@/lib/governors";
-import { decodeBech32, gnoPathHref, routeAddress } from "@/lib/address-route";
+import { decodeBech32, gnoPathHref, packageHref, routeAddress } from "@/lib/address-route";
+import { balancesOf, gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { realmByAddress, shortPath } from "@/lib/gno-packages";
 import { isUserKey, type AddressKind } from "@/lib/address-kind";
 import { resolveAssets, type AssetInfo } from "@/lib/ibc";
 import { getAccountStaking, getSelfBond, type ValidatorState } from "@/lib/staking";
@@ -698,7 +701,7 @@ export default async function AccountPage({
 
   const raw = decodeParam(rawAddr).trim();
   const realm = gnoPathHref(raw);
-  if (realm) redirect(realm);
+  if (realm) redirect(chain.kind === "gno" ? packageHref(chainId, raw) : realm);
 
   const decoded = decodeBech32(raw);
   if (!decoded) notFound();
@@ -1020,7 +1023,40 @@ export default async function AccountPage({
     },
   }));
 
-  // Indexed tabs appear only where the index covers them.
+  // gno.land: GRC20 tokens held, from the token state kept in memory (never
+  // waited on long: it is built at boot).
+  const [tokens, realms] =
+    chain.kind === "gno"
+      ? await Promise.all([withinBudget(gnoTokens(chain), 1500, null), withinBudget(realmByAddress(chain), 1500, null)])
+      : [null, null];
+  // A realm's own account: named by the realm it belongs to.
+  const realmPath = realms?.get(address) ?? null;
+  const realmTile: BrickSpec | null = realmPath
+    ? { key: "realm", label: "Realm", value: shortPath(realmPath), sub: "realm account", lead: true, href: packageHref(chainId, realmPath) }
+    : null;
+  const tokenRows: DeckRow[] = (tokens ? balancesOf(tokens, address) : [])
+    .sort((a, b) => a.token.symbol.localeCompare(b.token.symbol))
+    .map(({ token, balance }) => ({
+      key: token.key,
+      search: `${token.name} ${token.symbol} ${token.realm}`,
+      cells: [
+        { v: token.symbol, tone: "accent" as const, href: tokenHref(chainId, token) },
+        { v: shortPath(token.realm), dim: true },
+        { v: formatUnits(balance.toString(), token.decimals), mono: true, align: "right" as const },
+      ],
+      detail: {
+        title: token.name,
+        sub: token.symbol,
+        rows: [
+          { label: "Amount", value: formatUnits(balance.toString(), token.decimals), mono: true },
+          { label: "Base units", value: balance.toString(), mono: true },
+          { label: "Realm", value: token.realm, mono: true, href: packageHref(chainId, token.realm) },
+        ],
+        action: { label: "Token", href: tokenHref(chainId, token) },
+      },
+    }));
+
+    // Indexed tabs appear only where the index covers them.
   const [stakeCov, ibcCov] = adapter.capabilities.staking
     ? await Promise.all([
         coverageOf(chain.chainId, "staking_event"),
@@ -1040,6 +1076,27 @@ export default async function AccountPage({
                 rows={balanceRows}
                 accent={accent}
                 empty={account.balancesFailed ? "N/A" : "No balances"}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(tokenRows.length > 0
+      ? [
+          {
+            key: "tokens",
+            label: `Tokens (${tokenRows.length})`,
+            content: (
+              <RowDeck
+                columns={[
+                  { label: "Token" },
+                  { label: "Realm", optional: true },
+                  { label: "Amount", align: "right", width: "40%" },
+                ]}
+                rows={tokenRows}
+                accent={accent}
+                filter={tokenRows.length > 12 ? { placeholder: "Filter tokens…" } : undefined}
+                empty="None"
               />
             ),
           },
@@ -1123,7 +1180,15 @@ export default async function AccountPage({
           too short for its minimum the body scrolls instead. */}
       <div className="flex h-full flex-col gap-2.5 overflow-y-auto sm:gap-3 lg:overflow-hidden">
         {account.exists ? (
-          <BrickBoard bricks={facts} accent={accent} className="shrink-0" />
+          <BrickBoard bricks={realmTile ? [realmTile, ...facts] : facts} accent={accent} className="shrink-0" />
+        ) : realmPath ? (
+          <Link
+            href={packageHref(chainId, realmPath)}
+            className="gata-surface flex w-fit max-w-full shrink-0 items-baseline gap-2.5 px-3.5 py-2.5 transition-colors hover:border-[var(--gata-border-hi)]"
+          >
+            <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Realm</span>
+            <span className="truncate font-mono text-[13px] text-primary">{realmPath}</span>
+          </Link>
         ) : (
           // An unused address keeps the tabs below: the transaction list is
           // read from block history, not from account state.

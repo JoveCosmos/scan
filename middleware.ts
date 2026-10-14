@@ -26,6 +26,7 @@ const SECTIONS = new Set([
   "photon",
   "charts",
   "packages",
+  "tokens",
 ]);
 
 const BECH32 = /^[a-z0-9]{1,83}1[02-9ac-hj-np-z]{6,}$/i;
@@ -41,6 +42,8 @@ const ID: Record<string, RegExp> = {
   governors: BECH32,
   // gno.land: /packages/r/… or /packages/p/…, "gno.land/" optional.
   packages: /^(r|p|gno\.land)$/,
+  // gno.land GRC20: /tokens/r/<realm>/<SYMBOL>.
+  tokens: /^(r|gno\.land)$/,
 };
 
 function notFound(req: NextRequest) {

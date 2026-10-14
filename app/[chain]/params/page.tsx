@@ -322,9 +322,14 @@ export default async function ChainOverviewPage({
         chain.indexed || chain.kind === "gno" ? (
           <div className="flex items-center gap-1.5">
             {chain.kind === "gno" ? (
-              <Link href={`/${chain.chainId}/packages`} className={ACTION}>
-                Packages
-              </Link>
+              <>
+                <Link href={`/${chain.chainId}/packages`} className={ACTION}>
+                  Packages
+                </Link>
+                <Link href={`/${chain.chainId}/tokens`} className={ACTION}>
+                  Tokens
+                </Link>
+              </>
             ) : null}
             <Link href={`/${chain.chainId}/charts`} className={ACTION}>
               Charts

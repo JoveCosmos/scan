@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { isPackagePath, packageHref, shortPath } from "@/lib/gno-packages";
+import { isPackagePath, packageHref, realmAddress, shortPath } from "@/lib/gno-packages";
 import { classifySearch } from "@/lib/search";
 
 describe("gno.land package paths", () => {
@@ -15,6 +15,12 @@ describe("gno.land package paths", () => {
     expect(shortPath("gno.land/r/g1n4pl5uc4yt5r96m9w6fmdznx3x0jyg8l6arhmt/gnocial")).toBe("r/g1n4pl…rhmt/gnocial");
     expect(shortPath("gno.land/r/gov/dao")).toBe("r/gov/dao");
     expect(packageHref("gnoland-1", "gno.land/r/gov/dao")).toBe("/gnoland-1/packages/r/gov/dao");
+  });
+
+  test("a realm's account address is derived from its path", () => {
+    // Gnoswap's pool and launchpad, as they hold tokens on gnoland-1.
+    expect(realmAddress("gno.land/r/gnoswap/pool")).toBe("g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v");
+    expect(realmAddress("gno.land/r/gnoswap/launchpad")).toBe("g1x6r75sxlkp9zfqufew0vcuq9sfclsq8uaqkru9");
   });
 
   test("search reads paths, gno.land links and render paths", () => {

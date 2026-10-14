@@ -5,6 +5,7 @@ import { getAllChains, accentFor, type ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { classifySearch, secpKeyToAddress } from "@/lib/search";
 import { gnoPackagePaths, packageHref, shortPath } from "@/lib/gno-packages";
+import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 import type { ValidatorSummary } from "@/lib/validators";
@@ -401,6 +402,24 @@ export default async function GlobalSearchPage({
             href: `/${chain.chainId}/governors/${g.address}`,
             note: `${g.moniker}, governor`,
             exact: g.moniker.toLowerCase() === needle,
+          });
+        }
+      }
+      // gno.land GRC20 tokens, by symbol or name.
+      const tokenSets = await Promise.all(
+        all
+          .filter((c) => c.kind === "gno")
+          .map(async (chain) => ({ chain, tokens: await within(gnoTokens(chain), 1500, null) })),
+      );
+      for (const { chain, tokens } of tokenSets) {
+        for (const t of tokens?.values() ?? []) {
+          const symbol = t.symbol.toLowerCase();
+          if (!symbol.includes(needle) && !t.name.toLowerCase().includes(needle)) continue;
+          matches.push({
+            chain,
+            href: tokenHref(chain.chainId, t),
+            note: `${t.name} (${t.symbol}), token`,
+            exact: symbol === needle || t.name.toLowerCase() === needle,
           });
         }
       }

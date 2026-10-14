@@ -1,4 +1,7 @@
+import { createHash } from "node:crypto";
+import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
+import { packageHref } from "@/lib/address-route";
 import { cached } from "@/lib/cache";
 import { gnoHashToHex, gql } from "@/lib/gno";
 import { coverageOf } from "@/lib/indexer-coverage";
@@ -21,10 +24,7 @@ export function isPackagePath(path: string): boolean {
   return PKG_PATH.test(path);
 }
 
-/** Scan's page for a package: the path without its gno.land/ domain. */
-export function packageHref(chainId: string, path: string): string {
-  return `/${chainId}/packages/${path.replace(/^gno\.land\//, "")}`;
-}
+export { packageHref };
 
 /** "gno.land/r/g1abc…xyz/app": the domain off, a namespace address shortened. */
 export function shortPath(path: string): string {
@@ -91,6 +91,26 @@ export function gnoPackagePaths(chain: ChainConfig): Promise<string[] | null> {
     },
     { staleMs: 24 * 60 * 60_000 }
   ).catch(() => null);
+}
+
+/**
+ * A realm's own account address: the first 20 bytes of
+ * sha256("pkgPath:" + path), as gno derives it.
+ */
+export function realmAddress(path: string): string {
+  const bytes = createHash("sha256").update(`pkgPath:${path}`).digest().subarray(0, 20);
+  return bech32.encode("g", bech32.toWords(bytes));
+}
+
+/** Every realm's account address to its path. Null when no node answered. */
+export async function realmByAddress(chain: ChainConfig): Promise<Map<string, string> | null> {
+  const paths = await gnoPackagePaths(chain);
+  if (!paths) return null;
+  return cached(`gno-realm-addrs:${chain.chainId}:${paths.length}`, 24 * 60 * 60_000, async () => {
+    const map = new Map<string, string>();
+    for (const p of paths) if (isRealm(p)) map.set(realmAddress(p), p);
+    return map;
+  });
 }
 
 export interface GnoDeploy {

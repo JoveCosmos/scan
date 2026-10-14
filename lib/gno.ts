@@ -8,6 +8,8 @@ import { RECENT_BAR_COUNT, type ValidatorUptime } from "@/lib/uptime";
 import type { ChainOverview } from "@/lib/overview";
 import type { BlockSummary } from "@/lib/blocks";
 import type { TxSummary, TxMessage } from "@/lib/txs";
+import type { DecodedField } from "@/lib/msg-decode";
+import { packageHref } from "@/lib/address-route";
 import type { ValidatorSummary } from "@/lib/validators";
 import { getValoperIndexNow, prewarmValoperIndex } from "@/lib/gno-valopers";
 import {
@@ -657,12 +659,55 @@ export function gnoMessageTransfer(m: GnoMessageValue): TxMessage["transfer"] {
 export type GnoTxMessage = TxMessage & { gno: GnoMessageValue };
 export type GnoTxSummary = TxSummary & { messages: GnoTxMessage[]; gno: GnoTxExtras };
 
-function toTxSummary(rec: GnoTxRecord, time: string | null): GnoTxSummary {
+/**
+ * A message's details for the transaction page: the realm called and with
+ * what, or the package deployed. A plain send keeps the shared From, To and
+ * Amount rows.
+ */
+export function gnoMessageFields(chainId: string, m: GnoMessageValue): DecodedField[] {
+  const coins = (label: string, c?: GnoCoin[]): DecodedField[] =>
+    c && c.length ? [{ label, value: { kind: "coins", coins: c } }] : [];
+  const pkg = (label: string): DecodedField[] =>
+    m.pkgPath
+      ? [{ label, value: { kind: "link", href: packageHref(chainId, m.pkgPath), text: m.pkgPath, mono: true } }]
+      : [];
+  switch (m.kind) {
+    case "call":
+      return [
+        ...pkg("Realm"),
+        ...(m.func ? [{ label: "Function", value: { kind: "text" as const, text: m.func, mono: true } }] : []),
+        ...(m.args?.length
+          ? [{ label: "Arguments", value: { kind: "json" as const, json: m.args.map((a) => JSON.stringify(a)).join("\n") } }]
+          : []),
+        ...(m.caller ? [{ label: "Caller", value: { kind: "address" as const, address: m.caller } }] : []),
+        ...coins("Sent", m.send),
+        ...coins("Max deposit", m.maxDeposit),
+      ];
+    case "addpkg":
+      return [
+        ...pkg("Package"),
+        ...(m.creator ? [{ label: "Creator", value: { kind: "address" as const, address: m.creator } }] : []),
+        ...coins("Sent", m.send),
+        ...coins("Max deposit", m.maxDeposit),
+      ];
+    case "run":
+      return [
+        ...(m.caller ? [{ label: "Caller", value: { kind: "address" as const, address: m.caller } }] : []),
+        ...coins("Sent", m.send),
+        ...coins("Max deposit", m.maxDeposit),
+      ];
+    default:
+      return [];
+  }
+}
+
+function toTxSummary(chainId: string, rec: GnoTxRecord, time: string | null): GnoTxSummary {
   const messages: GnoTxMessage[] = rec.messages.map((m) => ({
     // A realm call keeps its path in the type, as the list has always shown it.
     typeUrl: m.kind === "call" && m.pkgPath ? `${m.type} ${m.pkgPath}` : m.type,
     label: labelFor(m),
     transfer: gnoMessageTransfer(m),
+    fields: gnoMessageFields(chainId, m),
     gno: m,
   }));
 
@@ -848,7 +893,7 @@ async function withTimes(chain: ChainConfig, recs: GnoTxRecord[]): Promise<GnoTx
     chain,
     recs.map((r) => r.height)
   );
-  return recs.map((r) => toTxSummary(r, times.get(r.height) ?? null));
+  return recs.map((r) => toTxSummary(chain.chainId, r, times.get(r.height) ?? null));
 }
 
 /** signing address -> moniker, from whatever the realm index has ready. */

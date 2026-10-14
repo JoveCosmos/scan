@@ -14,10 +14,12 @@ import {
   gnoStorage,
   isPackagePath,
   isRealm,
+  realmAddress,
   shortPath,
   type GnoPackage,
 } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
+import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
 import { formatToken } from "@/lib/overview";
 import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
@@ -103,6 +105,9 @@ export default async function PackagePage({
     withinBudget(gnoStorage(chain, path), BUDGET, null),
     realm ? withinBudget(gnoRender(chain, path, arg), BUDGET, null) : null,
   ]);
+  // Tokens this realm created, from the in-memory token state (built at boot).
+  const tokens = realm ? await withinBudget(gnoTokens(chain), 1000, null) : null;
+  const ownTokens = [...(tokens?.values() ?? [])].filter((t) => t.realm === path);
   const deploy = deploys?.get(path) ?? null;
 
   const code = (sources ?? []).filter((f) => f.name.endsWith(".gno") && !f.name.endsWith("_test.gno"));
@@ -146,6 +151,23 @@ export default async function PackagePage({
           <Row label="Path" copy={path}>
             <span className="font-mono">{path}</span>
           </Row>
+          {realm ? (
+            <Row label="Account" copy={realmAddress(path)}>
+              <AddressLink address={realmAddress(path)} head={12} tail={8} />
+            </Row>
+          ) : null}
+          {ownTokens.length ? (
+            <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
+              <span className="shrink-0 text-muted-foreground">Tokens</span>
+              <span className="flex min-w-0 flex-wrap justify-end gap-x-2.5 gap-y-1">
+                {ownTokens.map((t) => (
+                  <Link key={t.key} href={tokenHref(chainId, t)} className="font-mono text-primary hover:underline">
+                    {t.symbol}
+                  </Link>
+                ))}
+              </span>
+            </div>
+          ) : null}
           {deploy?.creator ? (
             <Row label="Deployer" copy={deploy.creator}>
               <AddressLink address={deploy.creator} head={12} tail={8} />
