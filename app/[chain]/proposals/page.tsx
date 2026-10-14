@@ -18,6 +18,7 @@ import {
 import { formatDate, timeUntil, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { GovernanceSwitch } from "@/components/governance-switch";
+import { GovdaoList } from "./govdao";
 import { SectionUnavailable } from "@/components/section-unavailable";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
@@ -52,6 +53,8 @@ export default async function ProposalsPage({
   const { chain: chainId } = await params;
   const chain = getChain(chainId);
   if (!chain) notFound();
+  // gno.land: governance is the GovDAO realm.
+  if (chain.kind === "gno") return <GovdaoList chain={chain} />;
   const adapter = getAdapter(chain);
   const accent = accentFor(chain);
 

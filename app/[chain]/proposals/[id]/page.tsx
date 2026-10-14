@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { govdaoProposal } from "@/lib/gno-govdao";
+import { GovdaoProposalView } from "../govdao";
 import { getChain, accentFor, chainDenoms } from "@/lib/chains";
 import type { ChainConfig } from "@/lib/chains";
 import { formatCoins, formatCoinsExact } from "@/lib/coin";
@@ -45,6 +47,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { chain: chainId, id } = await params;
   const chain = getChain(chainId);
+  if (chain?.kind === "gno" && /^\d+$/.test(id)) {
+    const p = await govdaoProposal(chain, Number(id)).catch(() => null);
+    return { title: p ? `#${id} ${p.title}` : `Proposal #${id}` };
+  }
   if (!chain || !getAdapter(chain).capabilities.governance) {
     return { title: `Proposal #${id}` };
   }
@@ -398,12 +404,19 @@ export default async function ProposalDetailPage({
   searchParams,
 }: {
   params: Promise<{ chain: string; id: string }>;
-  searchParams: Promise<{ view?: string; voter?: string; vpage?: string }>;
+  searchParams: Promise<{ view?: string; voter?: string; vpage?: string; tab?: string }>;
 }) {
   const { chain: chainId, id } = await params;
   const sp = await searchParams;
   const chain = getChain(chainId);
   if (!chain) notFound();
+
+  if (chain.kind === "gno") {
+    if (!/^\d+$/.test(id)) notFound();
+    const gov = await govdaoProposal(chain, Number(id)).catch(() => null);
+    if (!gov) notFound();
+    return <GovdaoProposalView chain={chain} proposal={gov} tab={sp.tab} />;
+  }
 
   const adapter = getAdapter(chain);
   if (!adapter.capabilities.governance) notFound();

@@ -47,7 +47,8 @@ export default function RootLayout({
     symbol: symbolFor(chain),
     logo: logoFor(chain),
     accent: accentFor(chain),
-    governance: getAdapter(chain).capabilities.governance,
+    // gno.land's governance is a realm (GovDAO), read by the proposals pages.
+    governance: getAdapter(chain).capabilities.governance || chain.kind === "gno",
     // gno.land has no IBC module; every Cosmos SDK chain here does.
     ibc: chain.kind === "cosmos",
     network: chain.network,
