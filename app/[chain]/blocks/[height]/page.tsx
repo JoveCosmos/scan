@@ -11,7 +11,7 @@ import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 import { blockFromIndexer, blockTxsFromIndexer } from "@/lib/indexer-db";
-import { operatorsForHex } from "@/lib/indexer-validator";
+import { absentAt, operatorsForHex } from "@/lib/indexer-validator";
 import { indexedTxToSummary } from "@/lib/txs";
 import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
 import type { BlockDetail } from "@/lib/blocks";
@@ -146,7 +146,29 @@ export default async function BlockDetailPage({
               : {}),
           },
         ]
-      : []),
+      : block.absentValidators
+        ? [
+            // An old block from the index: who signed is not recorded, who
+            // missed is (missed_signature), so the tile lists the misses.
+            {
+              key: "signatures",
+              label: "Missed previous",
+              value: String(block.absentValidators.length),
+              sub: block.absentValidators.length ? "absent" : "none absent",
+              tone: block.absentValidators.length ? ("bad" as const) : undefined,
+              ...(block.absentValidators.length > 0
+                ? {
+                    count: block.absentValidators.length,
+                    rows: block.absentValidators.map((v) => ({
+                      label: "Absent",
+                      value: v.moniker,
+                      href: `/${chainId}/validators/${v.operator}`,
+                    })),
+                  }
+                : {}),
+            },
+          ]
+        : []),
     {
       key: "txs",
       label: "Transactions",
@@ -272,13 +294,23 @@ async function indexedBlockDetail(chain: ChainConfig, height: number): Promise<B
   const b = await blockFromIndexer(chain.chainId, height);
   if (!b) return null;
   const hex = b.proposerCons?.toUpperCase() ?? null;
+  // Block N's commit covers N-1, which is the height missed_signature records.
+  const absent = height > 1 ? await absentAt(chain.chainId, height - 1).catch(() => null) : null;
   const [operators, active, inactive] = await Promise.all([
-    hex ? operatorsForHex(chain.chainId, [hex]) : Promise.resolve(new Map<string, string>()),
+    operatorsForHex(chain.chainId, [...(hex ? [hex] : []), ...(absent ?? [])]),
     getValidatorsCached(chain).catch(() => []),
     getInactiveValidators(chain).catch(() => []),
   ]);
+  const all = [...active, ...inactive];
+  const nameOf = (op: string) => all.find((v) => v.operatorAddress === op)?.moniker ?? truncateMiddle(op, 12, 6);
   const operator = hex ? (operators.get(hex) ?? null) : null;
-  const validator = operator ? [...active, ...inactive].find((v) => v.operatorAddress === operator) : undefined;
+  const validator = operator ? all.find((v) => v.operatorAddress === operator) : undefined;
+  const absentValidators = absent
+    ? absent.flatMap((h) => {
+        const op = operators.get(h);
+        return op ? [{ moniker: nameOf(op), operator: op }] : [];
+      })
+    : null;
   let valcons: string | null = null;
   if (hex && /^[0-9A-F]{40}$/.test(hex)) {
     valcons = bech32.encode(`${chain.bech32Prefix}valcons`, bech32.toWords(Buffer.from(hex, "hex")));
@@ -296,8 +328,10 @@ async function indexedBlockDetail(chain: ChainConfig, height: number): Promise<B
     lastCommitHash: null,
     signatureCount: null,
     signedCount: null,
-    absentCount: null,
-    absentValidators: null,
+    absentCount: absentValidators ? absentValidators.length : null,
+    // Only when every miss resolved to a validator: a partial list would read
+    // as the whole story.
+    absentValidators: absentValidators && absent && absentValidators.length === absent.length ? absentValidators : null,
     rawTxs: [],
     proposerMoniker: validator?.moniker ?? null,
     proposerOperator: operator,

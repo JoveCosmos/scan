@@ -1,4 +1,5 @@
 import { cached } from "@/lib/cache";
+import { decodeRawMessage } from "@/lib/proto-decode";
 import { coverage, indexerPool, poolFor } from "@/lib/indexer-db";
 import { getChain } from "@/lib/chains";
 import {
@@ -1295,6 +1296,74 @@ export async function voterRecasts(
     const out = new Map<number, string[]>();
     for (const [key, options] of byKey) out.set(Number(key.split(":")[0]), options);
     return out;
+  } catch {
+    return null;
+  }
+}
+
+export interface CommissionChange {
+  height: number;
+  time: string;
+  /** The rate set, as a fraction (0.05 = 5%). */
+  rate: number;
+  txHash: string;
+  kind: "create" | "edit";
+}
+
+/**
+ * Every commission rate a validator set: its creation and each edit that
+ * changed the rate, newest first, read from the messages' own bytes
+ * (tx_msg.raw). Only as far back as tx_msg_raw covers; `from` says where that
+ * is, so a partial history is never shown as the whole one.
+ */
+export async function commissionHistory(
+  chainId: string,
+  operator: string,
+  account: string | null
+): Promise<{ changes: CommissionChange[]; from: number } | null> {
+  const pool = poolFor(chainId);
+  if (!pool) return null;
+  const cov = await coverageOf(chainId, "tx_msg_raw");
+  if (!cov) return null;
+  try {
+    return await cached(`idx:commission-hist:${chainId}:${operator}`, 10 * 60_000, async () => {
+      const { rows } = await pool.query<{
+        tx_hash: string;
+        type_url: string;
+        height: string;
+        time: string;
+        raw: Buffer | null;
+      }>(
+        `SELECT m.tx_hash, m.type_url, m.height::text, t.time::text, m.raw
+           FROM tx_msg m
+           JOIN tx t ON t.chain_id = m.chain_id AND t.hash = m.tx_hash
+          WHERE m.chain_id = $1
+            AND m.type_url IN ('/cosmos.staking.v1beta1.MsgEditValidator', '/cosmos.staking.v1beta1.MsgCreateValidator')
+            AND m.sender = ANY($2::text[])
+            AND m.height BETWEEN $3 AND $4
+            AND COALESCE(t.code, 0) = 0
+          ORDER BY m.height DESC`,
+        [chainId, [operator, ...(account ? [account] : [])], cov.lo, cov.hi]
+      );
+      const changes: CommissionChange[] = [];
+      for (const r of rows) {
+        const body = decodeRawMessage(r.type_url, r.raw);
+        if (!body || body.validator_address !== operator) continue;
+        const create = r.type_url.endsWith("MsgCreateValidator");
+        const rate = create
+          ? (body.commission as { rate?: string } | null)?.rate
+          : (body.commission_rate as string | null);
+        if (rate == null) continue; // an edit that left the rate alone
+        changes.push({
+          height: Number(r.height),
+          time: r.time,
+          rate: Number(rate),
+          txHash: r.tx_hash,
+          kind: create ? "create" : "edit",
+        });
+      }
+      return { changes, from: cov.lo };
+    });
   } catch {
     return null;
   }

@@ -9,7 +9,7 @@ import { decodeParam, truncateMiddle } from "@/lib/format";
 import { accountFromOperator, convertAddress, decodePrefix, linkedAddresses } from "@/lib/bech32";
 import { resolveGnoValidatorAddress } from "@/lib/gno";
 import { emptyUptime, consensusIdsFromPubkey, jailedNow, longestMissStreak, missBudget } from "@/lib/uptime";
-import { indexBehind } from "@/lib/indexer-validator";
+import { commissionHistory, indexBehind } from "@/lib/indexer-validator";
 import { getSelfBond } from "@/lib/staking";
 import { getChainAprCached } from "@/lib/params";
 import { withinBudget } from "@/lib/cache";
@@ -134,7 +134,7 @@ export default async function ValidatorDetailPage({
     : null;
   const keys: ValidatorKeys = { chain, accent, addr, account, ids };
 
-  const [uptime, selfBond, chainApr, aprModel, keybase, logos] = await Promise.all([
+  const [uptime, selfBond, chainApr, aprModel, keybase, logos, commissions] = await Promise.all([
     withinBudget(loadUptime(chainId, addr), BUDGET, emptyUptime()),
     withinBudget(getSelfBond(chain, addr, validator.tokens).catch(() => null), BUDGET, null),
     withinBudget(getChainAprCached(chain).catch(() => null), BUDGET, null),
@@ -143,6 +143,7 @@ export default async function ValidatorDetailPage({
       ? withinBudget(keybaseUsername(validator.identity).catch(() => null), BUDGET, null)
       : null,
     withinBudget(validatorLogoMap(chain, [validator]), BUDGET, new Map<string, string[]>()),
+    withinBudget(commissionHistory(chainId, addr, account).catch(() => null), BUDGET, null),
   ]);
 
   const known = new Map(chainDenoms(chain).map((d) => [d.denom, d]));
@@ -284,6 +285,16 @@ export default async function ValidatorDetailPage({
               : "-",
           mono: true,
         },
+        // Every rate it set, newest first, from the messages themselves.
+        ...(commissions?.changes ?? []).map((c) => ({
+          label: `${c.kind === "create" ? "Created" : "Changed"} ${new Date(c.time).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`,
+          value: pct(c.rate),
+          mono: true,
+          href: `/${chainId}/txs/${c.txHash}`,
+        })),
+        ...(commissions && commissions.from > 1
+          ? [{ label: "History since", value: `block ${commissions.from.toLocaleString()}`, mono: true }]
+          : []),
       ]),
     },
     {

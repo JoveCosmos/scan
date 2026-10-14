@@ -8,6 +8,7 @@ import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 import type { ValidatorSummary } from "@/lib/validators";
 import { txFromIndex } from "@/lib/indexer-tx";
+import { getGovernors, type Governor } from "@/lib/governors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
@@ -376,6 +377,23 @@ export default async function GlobalSearchPage({
             exact: v.moniker.toLowerCase() === needle,
           })),
       );
+      // AtomOne governors, by name, on the chains that have them.
+      const governorSets = await Promise.all(
+        all
+          .filter((c) => c.governors)
+          .map(async (chain) => ({ chain, governors: await within(getGovernors(chain), 8000, [] as Governor[]) })),
+      );
+      for (const { chain, governors } of governorSets) {
+        for (const g of governors) {
+          if (!g.moniker.toLowerCase().includes(needle)) continue;
+          matches.push({
+            chain,
+            href: `/${chain.chainId}/governors/${g.address}`,
+            note: `${g.moniker}, governor`,
+            exact: g.moniker.toLowerCase() === needle,
+          });
+        }
+      }
       const exact = matches.filter((m) => m.exact);
       const list = (exact.length > 0 ? exact : matches).slice(0, 40);
       if (list.length === 0) break;
