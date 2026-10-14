@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   getAllChains,
   getChain,
@@ -314,6 +315,16 @@ export default async function ChainOverviewPage({
       title={chain.prettyName}
       sub={chain.chainId}
       accent={accent}
+      actions={
+        chain.indexed ? (
+          <Link
+            href={`/${chain.chainId}/charts`}
+            className="rounded-md border border-border bg-[var(--gata-card)] px-2.5 py-1 text-[12px] font-medium text-foreground transition-colors hover:border-[var(--gata-border-hi)]"
+          >
+            Charts
+          </Link>
+        ) : undefined
+      }
       emblem={
         logoFor(chain) ? (
           <Image

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getChain, accentFor, symbolFor } from "@/lib/chains";
-import { getPhotonHistory, getPhotonState, type PhotonHistory } from "@/lib/photon";
+import { getPhotonHistory, getPhotonState } from "@/lib/photon";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
 import { timeAgo, truncateMiddle } from "@/lib/format";
@@ -9,6 +9,7 @@ import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { PairPanels } from "@/components/pair-panels";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { DayBars } from "@/components/day-bars";
 
 export const dynamic = "force-dynamic";
 
@@ -119,7 +120,12 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
           <BrickBoard accent={accent} bricks={bricks} size="lg" />
         </div>
         {history && history.daily.length > 0 ? (
-          <BurnChart daily={history.daily} exponent={chain.exponent} symbol={symbol} accent={accent} />
+          <DayBars
+            title={`${symbol} burned per day, 90 days`}
+            points={history.daily.map((d) => ({ day: d.day, v: Number(d.burned) }))}
+            format={(v) => `${formatToken(String(Math.round(v)), chain.exponent)} ${symbol}`}
+            accent={accent}
+          />
         ) : null}
         <div className="shrink-0 lg:min-h-0 lg:flex-1">
           <PairPanels
@@ -163,53 +169,5 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
         </div>
       </div>
     </PageFrame>
-  );
-}
-
-/** ATONE burned per day, last 90 days: one bar a day, the scale from the largest. */
-function BurnChart({
-  daily,
-  exponent,
-  symbol,
-  accent,
-}: {
-  daily: PhotonHistory["daily"];
-  exponent: number;
-  symbol: string;
-  accent: string;
-}) {
-  // Fill the days without mints, so the bars line up with the calendar.
-  const byDay = new Map(daily.map((d) => [d.day, Number(d.burned)]));
-  const days: { day: string; v: number }[] = [];
-  const today = new Date();
-  for (let i = 89; i >= 0; i--) {
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
-    const key = d.toISOString().slice(0, 10);
-    days.push({ day: key, v: byDay.get(key) ?? 0 });
-  }
-  const max = Math.max(1, ...days.map((d) => d.v));
-  const total = days.reduce((s, d) => s + d.v, 0);
-  const W = 900;
-  const H = 70;
-  const bw = W / days.length;
-  return (
-    <section className="gata-surface shrink-0 px-4 py-3">
-      <div className="mb-2 flex items-baseline justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="font-medium uppercase tracking-[0.1em]">{symbol} burned per day, 90 days</span>
-        <span className="font-mono">
-          {formatToken(String(total), exponent)} {symbol}
-        </span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-[70px] w-full" preserveAspectRatio="none" role="img" aria-label={`${symbol} burned per day over 90 days`}>
-        {days.map((d, i) => {
-          const h = d.v > 0 ? Math.max(1.5, (d.v / max) * (H - 2)) : 0;
-          return (
-            <rect key={d.day} x={i * bw + 0.5} y={H - h} width={Math.max(1, bw - 1.5)} height={h} rx={1} fill={accent} opacity={0.85}>
-              <title>{`${d.day}: ${formatToken(String(d.v), exponent)} ${symbol}`}</title>
-            </rect>
-          );
-        })}
-      </svg>
-    </section>
   );
 }

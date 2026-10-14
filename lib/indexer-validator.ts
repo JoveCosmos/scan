@@ -664,7 +664,7 @@ export async function consHexOf(chainId: string, operator: string): Promise<stri
  * chain, so cached per chain; the cutoff is rounded to the hour so the key holds
  * still for that long.
  */
-function heightDaysAgo(chainId: string, days: number): Promise<number | null> {
+export function heightDaysAgo(chainId: string, days: number): Promise<number | null> {
   const pool = signingPool(chainId);
   if (!pool) return Promise.resolve(null);
   const hour = Math.floor(Date.now() / 3_600_000) * 3_600_000;
