@@ -138,9 +138,9 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
                     accent={accent}
                     columns={[
                       { label: "Minter" },
-                      { label: "Burned", align: "right", width: "26%" },
+                      { label: "Burned", align: "right", width: "26%", phoneWidth: "38%" },
                       { label: "Minted", align: "right", width: "26%", phoneHide: true },
-                      { label: "Age", align: "right", width: "16%" },
+                      { label: "Age", align: "right", width: "16%", phoneWidth: "22%" },
                     ]}
                     rows={recentRows}
                     empty={history ? "None" : "N/A"}
@@ -156,7 +156,7 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
                     columns={[
                       { label: "#", align: "right", width: "10%" },
                       { label: "Minter" },
-                      { label: "Burned", align: "right", width: "30%" },
+                      { label: "Burned", align: "right", width: "30%", phoneWidth: "42%" },
                       { label: "Mints", align: "right", width: "14%", phoneHide: true },
                     ]}
                     rows={topRows}

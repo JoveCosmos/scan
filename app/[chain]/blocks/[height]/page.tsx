@@ -133,7 +133,8 @@ export default async function BlockDetailPage({
             label: "Signed previous",
             value: `${block.signedCount ?? block.signatureCount} of ${block.signatureCount}`,
             sub: block.absentCount ? `${block.absentCount} absent` : "none absent",
-            tone: block.absentCount ? ("bad" as const) : undefined,
+            // Red only when a third or more were absent: the share that stalls consensus.
+            tone: block.absentCount && block.absentCount * 3 >= block.signatureCount ? ("bad" as const) : undefined,
             ...(block.absentCount && block.absentValidators && block.absentValidators.length > 0
               ? {
                   count: block.absentValidators.length,

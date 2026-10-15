@@ -6,6 +6,7 @@ import { GovdaoProposalView } from "../govdao";
 import { getChain, accentFor, chainDenoms } from "@/lib/chains";
 import type { ChainConfig } from "@/lib/chains";
 import { formatCoins, formatCoinsExact } from "@/lib/coin";
+import { formatToken } from "@/lib/overview";
 import { getAdapter } from "@/lib/adapter";
 import { formatDate, formatDateTime, timeAgo, timeUntil, truncateMiddle } from "@/lib/format";
 import { cached, withinBudget } from "@/lib/cache";
@@ -732,7 +733,15 @@ async function IndexedOnlyProposal({
     {
       key: "deposit",
       label: "Deposit",
-      value: totalCoins.length ? formatCoins(totalCoins, denoms) : "N/A",
+      // Whole tokens on the tile ("52 ATONE"); the exact amounts are in its rows.
+      value: totalCoins.length
+        ? totalCoins
+            .map((c) => {
+              const d = denoms.find((x) => x.denom === c.denom);
+              return d ? `${formatToken(c.amount, d.exponent)} ${d.symbol}` : formatCoins([c], denoms);
+            })
+            .join(", ")
+        : "N/A",
       sub: deposits ? `${deposits.length} depositor${deposits.length === 1 ? "" : "s"}` : undefined,
       rows: (deposits ?? []).map((d) => ({
         label: truncateMiddle(d.depositor, 10, 6),
