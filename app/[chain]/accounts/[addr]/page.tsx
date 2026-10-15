@@ -20,6 +20,7 @@ import { withinBudget } from "@/lib/cache";
 import { getGovernors, governorOf } from "@/lib/governors";
 import { decodeBech32, gnoPathHref, packageHref, routeAddress } from "@/lib/address-route";
 import { balancesOf, gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { atName, gnoNames } from "@/lib/gno-users";
 import { gnoDeploys, gnoPackagePaths, isRealm, realmByAddress, shortPath } from "@/lib/gno-packages";
 import { isUserKey, type AddressKind } from "@/lib/address-kind";
 import { resolveAssets, type AssetInfo } from "@/lib/ibc";
@@ -692,10 +693,13 @@ function kindTile(kind: AddressKind | null, chainId: string): BrickSpec | null {
  */
 export default async function AccountPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ chain: string; addr: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { chain: chainId, addr: rawAddr } = await params;
+  const { tab } = await searchParams;
   const chain = getChain(chainId);
   if (!chain) notFound();
 
@@ -1025,15 +1029,18 @@ export default async function AccountPage({
 
   // gno.land: GRC20 tokens held, from the token state kept in memory (never
   // waited on long: it is built at boot).
-  const [tokens, realms, deploys, livePaths] =
+  const [tokens, realms, deploys, livePaths, names] =
     chain.kind === "gno"
       ? await Promise.all([
           withinBudget(gnoTokens(chain), 1500, null),
           withinBudget(realmByAddress(chain), 1500, null),
           withinBudget(gnoDeploys(chain), 1500, null),
           withinBudget(gnoPackagePaths(chain), 1500, null),
+          withinBudget(gnoNames(chain), 1500, null),
         ])
-      : [null, null, null, null];
+      : [null, null, null, null, null];
+  // gno.land: the name registered in r/sys/users, if any.
+  const userName = atName(names, address);
   // Realms and packages this account deployed that the chain still has.
   const live = livePaths ? new Set(livePaths) : null;
   const deployed = [...(deploys?.values() ?? [])]
@@ -1209,7 +1216,7 @@ export default async function AccountPage({
     ? operated.moniker
     : kind?.kind === "module"
       ? `Module ${kind.name}`
-      : "Account";
+      : (userName ?? "Account");
 
   return (
     <PageFrame
@@ -1248,7 +1255,7 @@ export default async function AccountPage({
         )}
 
         <div className="min-h-[18rem] flex-1 lg:min-h-0">
-          <SectionTabs sections={sections} />
+          <SectionTabs sections={sections} initial={tab} param="tab" />
         </div>
       </div>
     </PageFrame>

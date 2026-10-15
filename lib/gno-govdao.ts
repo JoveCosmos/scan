@@ -1,6 +1,7 @@
 import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
-import { gnoEval, gnoRender, gnoTxTimes } from "@/lib/gno-packages";
+import { gnoRender, gnoTxTimes } from "@/lib/gno-packages";
+import { gnoNames } from "@/lib/gno-users";
 import { gnoHashToHex, gql } from "@/lib/gno";
 
 /**
@@ -222,19 +223,6 @@ export function parseTiers(md: string): GovTier[] {
   }));
 }
 
-/** A g1 address's registered name, from gno.land/r/sys/users. */
-export function gnoUserName(chain: ChainConfig, address: string): Promise<string | null> {
-  return cached(
-    `gno-user:${chain.chainId}:${address}`,
-    60 * 60_000,
-    async () => {
-      const out = await gnoEval(chain, `gno.land/r/sys/users.ResolveAddress("${address}").Name()`);
-      return out?.match(/^\("([^"]+)" string\)/)?.[1] ?? null;
-    },
-    { group: { name: "gno-user", max: 500 } }
-  ).catch(() => null);
-}
-
 /** GovDAO's members with their tier and name, and the power of each tier. */
 export function govdaoMembers(chain: ChainConfig): Promise<{ members: GovMember[]; tiers: GovTier[] } | null> {
   return cached(
@@ -247,9 +235,9 @@ export function govdaoMembers(chain: ChainConfig): Promise<{ members: GovMember[
       ]);
       if (!list) throw new Error("memberstore unavailable");
       const rows = parseMembers(list);
-      const names = await Promise.all(rows.map((r) => gnoUserName(chain, r.address)));
+      const names = await gnoNames(chain).catch(() => null);
       return {
-        members: rows.map((r, i) => ({ ...r, name: names[i] })),
+        members: rows.map((r) => ({ ...r, name: names?.byAddress.get(r.address) ?? null })),
         tiers: summary ? parseTiers(summary) : [],
       };
     },

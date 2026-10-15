@@ -38,6 +38,7 @@ import {
   TokenTransferList,
 } from "./tx-view";
 import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { atName, gnoNames } from "@/lib/gno-users";
 import { formatUnits } from "@/lib/format";
 import type { GnoTxExtras } from "@/lib/gno";
 
@@ -207,7 +208,9 @@ export default async function TxDetailPage({
   // gno.land: GRC20 transfers, named from the token state (built at boot).
   const gnoExtras = (tx as TxView & { gno?: GnoTxExtras }).gno;
   const grc20 = gnoExtras?.tokenTransfers ?? [];
-  const tokenState = grc20.length ? await withinBudget(gnoTokens(chain), 1500, null) : null;
+  const [tokenState, names] = grc20.length
+    ? await Promise.all([withinBudget(gnoTokens(chain), 1500, null), withinBudget(gnoNames(chain), 1500, null)])
+    : [null, null];
   const tokenRows = grc20.map((t) => {
     const token = tokenState?.get(t.token) ?? null;
     const symbol = token?.symbol ?? t.token.split(".").slice(-2, -1)[0] ?? t.token;
@@ -216,6 +219,8 @@ export default async function TxDetailPage({
       href: token ? tokenHref(chainId, token) : null,
       from: t.from || null,
       to: t.to || null,
+      fromName: atName(names, t.from),
+      toName: atName(names, t.to),
       amount: token ? formatUnits(t.value, token.decimals) : t.value,
     };
   });

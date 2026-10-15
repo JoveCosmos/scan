@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getChain, accentFor, symbolFor } from "@/lib/chains";
+import { getChain, accentFor, symbolFor, type ChainConfig } from "@/lib/chains";
 import {
   gnoDeploys,
   gnoDoc,
@@ -13,6 +13,7 @@ import {
   gnoSources,
   gnoStorage,
   isPackagePath,
+  callsPage,
   isRealm,
   realmAddress,
   shortPath,
@@ -20,13 +21,16 @@ import {
 } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
 import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { atName, gnoNames } from "@/lib/gno-users";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, formatDate, timeAgo, truncateMiddle } from "@/lib/format";
+import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 import { SourceView } from "@/components/source-view";
+import { OlderDeck } from "@/components/older-deck";
+import { CALL_COLUMNS, callRows } from "../rows";
 import { BrickLoading } from "@/components/brick-loading";
 import { LoadingPanel } from "@/components/loading-panel";
 import { Prose } from "@/components/prose";
@@ -104,6 +108,7 @@ export default async function PackagePage({
     withinBudget(gnoStorage(chain, path), BUDGET, null),
     realm ? withinBudget(gnoRender(chain, path, arg), BUDGET, null) : null,
   ]);
+  const names = await withinBudget(gnoNames(chain), 1500, null);
   // Tokens this realm created, from the in-memory token state (built at boot).
   const tokens = realm ? await withinBudget(gnoTokens(chain), 1000, null) : null;
   const ownTokens = [...(tokens?.values() ?? [])].filter((t) => t.realm === path);
@@ -169,7 +174,7 @@ export default async function PackagePage({
           ) : null}
           {deploy?.creator ? (
             <DetailRow label="Deployer" copy={deploy.creator}>
-              <AddressLink address={deploy.creator} head={12} tail={8} />
+              <AddressLink address={deploy.creator} label={atName(names, deploy.creator)} head={12} tail={8} />
             </DetailRow>
           ) : null}
           {deploy && deploy.height > 0 ? (
@@ -212,6 +217,11 @@ export default async function PackagePage({
     };
   });
 
+  // Every file's name; the text of the one shown first only (see SourceView).
+  const ordered = [...(sources ?? [])].sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  const firstFile = ordered.find((f) => f.name === file)?.name ?? ordered[0]?.name;
+  const shownFiles = ordered.map((f) => (f.name === firstFile ? f : { name: f.name }));
+
   const sections = [
     {
       key: "overview",
@@ -236,8 +246,10 @@ export default async function PackagePage({
       label: `Source${pkg ? ` (${pkg.files.length})` : ""}`,
       content: sources ? (
         <SourceView
-          files={[...sources].sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name))}
-          initial={file}
+          chainId={chainId}
+          path={path}
+          files={shownFiles}
+          initial={firstFile}
         />
       ) : (
         <p className="text-sm text-muted-foreground">N/A</p>
@@ -282,7 +294,7 @@ export default async function PackagePage({
             label: "Calls",
             content: (
               <Suspense fallback={<LoadingPanel label="Loading calls…" rows={8} />}>
-                <CallsDeck calls={calls!} chainId={chainId} accent={accent} />
+                <CallsDeck calls={calls!} chain={chain} path={path} accent={accent} />
               </Suspense>
             ),
           },
@@ -325,38 +337,33 @@ async function CallsBrick({ calls, accent }: { calls: Calls; accent: string }) {
   return <BrickBoard accent={accent} bricks={[callsBrick(await calls)]} bare />;
 }
 
-async function CallsDeck({ calls: pending, chainId, accent }: { calls: Calls; chainId: string; accent: string }) {
-  const calls = await pending;
-  const rows: DeckRow[] = (calls?.calls ?? []).map((c, i) => ({
-    key: `${c.txHash}-${i}`,
-    search: `${c.func} ${c.caller}`,
-    cells: [
-      { v: c.func, mono: true, tone: "accent" },
-      { v: truncateMiddle(c.caller, 8, 6), mono: true, address: c.caller },
-      { v: c.success ? "Success" : "Failed", tone: c.success ? "ok" : "bad" },
-      { v: c.height.toLocaleString(), mono: true, align: "right", href: `/${chainId}/blocks/${c.height}` },
-      { v: c.time ? timeAgo(c.time) : "-", dim: true, align: "right" },
-    ],
-    detail: {
-      title: c.func,
-      sub: truncateMiddle(c.txHash, 10, 8),
-      rows: [],
-      action: { label: "Transaction", href: `/${chainId}/txs/${c.txHash}` },
-    },
-  }));
+async function CallsDeck({
+  calls: pending,
+  chain,
+  path,
+  accent,
+}: {
+  calls: Calls;
+  chain: ChainConfig;
+  path: string;
+  accent: string;
+}) {
+  const chainId = chain.chainId;
+  const [calls, names] = await Promise.all([pending, withinBudget(gnoNames(chain), 1500, null)]);
+  if (!calls) return <RowDeck accent={accent} columns={CALL_COLUMNS} rows={[]} empty="N/A" />;
+  // The newest page; older ones come from the API, a page at a time.
+  const first = callsPage(calls.calls);
+  const last = first.at(-1);
+  const more = calls.total > first.length;
   return (
-    <RowDeck
+    <OlderDeck
+      endpoint={`/api/chains/${chainId}/packages/calls?path=${encodeURIComponent(path)}`}
+      columns={CALL_COLUMNS}
+      initialRows={callRows(chainId, first, names)}
+      initialNext={more && last ? String(last.height) : null}
       accent={accent}
-      columns={[
-        { label: "Function", width: "24%" },
-        { label: "Caller" },
-        { label: "Status", width: "11%", phoneHide: true },
-        { label: "Block", align: "right", width: "12%", optional: true },
-        { label: "Age", align: "right", width: "12%" },
-      ]}
-      rows={rows}
+      empty="None"
       filter={{ placeholder: "Filter by function or caller…" }}
-      empty={calls ? "None" : "N/A"}
     />
   );
 }

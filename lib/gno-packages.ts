@@ -270,12 +270,6 @@ export function gnoStorage(chain: ChainConfig, path: string): Promise<{ bytes: n
   ).catch(() => null);
 }
 
-/** A read-only expression evaluated by vm/qeval, e.g. `path.Func("x")`. Null on error. */
-export async function gnoEval(chain: ChainConfig, expr: string): Promise<string | null> {
-  const r = await vmQuery(chain, "vm/qeval", expr);
-  return r.ok ? r.data : null;
-}
-
 /** A realm's Render(args) output, Markdown. Null when it has none. */
 export function gnoRender(chain: ChainConfig, path: string, args = ""): Promise<string | null> {
   return cached(
@@ -308,6 +302,22 @@ type CallTx = {
 
 /** Calls kept per realm, newest first. */
 const MAX_CALLS = 500;
+
+/** Calls on one page of a realm's Calls tab. */
+export const CALLS_PAGE = 100;
+
+/**
+ * The first `limit` calls of a newest-first list, extended to the end of the
+ * last block they reach, so that the next page can start below that height
+ * without skipping a call.
+ */
+export function callsPage(calls: GnoCall[], limit = CALLS_PAGE): GnoCall[] {
+  if (calls.length <= limit) return calls;
+  const last = calls[limit - 1].height;
+  let end = limit;
+  while (end < calls.length && calls[end].height === last) end += 1;
+  return calls.slice(0, end);
+}
 
 /** The indexer returns at most this many transactions a query, silently or with an error. */
 const INDEXER_CAP = 10_000;
@@ -378,4 +388,56 @@ export function gnoRealmCalls(
     },
     { staleMs: 30 * 60_000, group: { name: "gno-calls", max: 30 } }
   ).catch(() => null);
+}
+
+/**
+ * A page of a realm's calls older than block `before`, newest first: read
+ * down from there in height windows (widened while empty, halved when one
+ * comes back full) until a page is filled. `next` is the height to continue
+ * below, or null once genesis is reached.
+ */
+export async function gnoRealmCallsBefore(
+  chain: ChainConfig,
+  path: string,
+  before: number,
+  limit = CALLS_PAGE
+): Promise<{ calls: GnoCall[]; next: number | null } | null> {
+  try {
+    const found: GnoCall[] = [];
+    let hi = before;
+    let window = 20_000;
+    while (hi > 0 && found.length < limit) {
+      const lo = Math.max(0, hi - window);
+      const data = await gql<{ getTransactions: CallTx[] | null }>(
+        chain,
+        callQuery(lo > 0),
+        lo > 0 ? { p: path, a: lo - 1, b: hi } : { p: path, b: hi },
+        30_000
+      );
+      const txs = data.getTransactions ?? [];
+      if (txs.length >= INDEXER_CAP && hi - lo > 1) {
+        window = Math.max(1, Math.floor((hi - lo) / 2));
+        continue;
+      }
+      for (const tx of txs) {
+        const txHash = gnoHashToHex(tx.hash);
+        if (!txHash) continue;
+        for (const m of tx.messages) {
+          const v = m.value;
+          if (v?.__typename !== "MsgCall" || v.pkg_path !== path) continue;
+          found.push({ txHash, height: tx.block_height, success: tx.success, caller: v.caller ?? "", func: v.func ?? "", time: null });
+        }
+      }
+      hi = lo;
+      if (txs.length === 0) window = Math.min(window * 4, 400_000);
+    }
+    const calls = callsPage(found, limit);
+    const times = await gnoTxTimes(chain.chainId, [...new Set(calls.map((c) => c.txHash))]);
+    for (const c of calls) c.time = times.get(c.txHash) ?? null;
+    const last = calls.at(-1);
+    const more = found.length > calls.length || hi > 0;
+    return { calls, next: more && last ? last.height : null };
+  } catch {
+    return null;
+  }
 }

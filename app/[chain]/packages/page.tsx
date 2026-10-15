@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { gnoDeploys, gnoPackagePaths, isRealm, packageHref, shortPath, type GnoDeploy } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
-import { formatDate, truncateMiddle } from "@/lib/format";
+import { addressCell, atName, gnoNames } from "@/lib/gno-users";
+import { formatDate } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
@@ -35,9 +36,10 @@ export default async function PackagesPage({
   if (!chain || chain.kind !== "gno") notFound();
   const accent = accentFor(chain);
 
-  const [paths, deploys] = await Promise.all([
+  const [paths, deploys, names] = await Promise.all([
     gnoPackagePaths(chain),
     withinBudget(gnoDeploys(chain), 8000, null),
+    withinBudget(gnoNames(chain), 1500, null),
   ]);
 
   // Newest deploy first; genesis packages (height 0) by path after them.
@@ -49,12 +51,10 @@ export default async function PackagesPage({
   const deck = (list: { path: string; deploy: GnoDeploy | null }[]): DeckRow[] =>
     list.map(({ path, deploy }) => ({
       key: path,
-      search: `${path} ${deploy?.creator ?? ""}`,
+      search: `${path} ${deploy?.creator ?? ""} ${atName(names, deploy?.creator) ?? ""}`,
       cells: [
         { v: shortPath(path), mono: true, href: packageHref(chainId, path) },
-        deploy?.creator
-          ? { v: truncateMiddle(deploy.creator, 8, 6), mono: true, address: deploy.creator }
-          : { v: "-", dim: true },
+        deploy?.creator ? addressCell(names, deploy.creator) : { v: "-", dim: true },
         deploy
           ? deploy.height === 0
             ? { v: "Genesis", dim: true, align: "right" }

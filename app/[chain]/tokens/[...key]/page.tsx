@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { findToken, gnoTokens, holderCount, holdersOf, transferTimes } from "@/lib/gno-tokens";
 import { packageHref, shortPath } from "@/lib/gno-packages";
+import { addressCell, gnoNames } from "@/lib/gno-users";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
 import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
@@ -53,7 +54,10 @@ export default async function TokenPage({
   if (!k) notFound();
   const accent = accentFor(chain);
 
-  const tokens = await withinBudget(gnoTokens(chain), 20_000, null);
+  const [tokens, names] = await Promise.all([
+    withinBudget(gnoTokens(chain), 20_000, null),
+    withinBudget(gnoNames(chain), 1500, null),
+  ]);
   const token = tokens ? findToken(tokens, k.realm, k.symbol) : null;
   if (tokens && !token) notFound();
 
@@ -114,7 +118,7 @@ export default async function TokenPage({
     search: h.address,
     cells: [
       { v: String(i + 1), mono: true, dim: true, align: "right" },
-      { v: truncateMiddle(h.address, 12, 8), mono: true, address: h.address },
+      addressCell(names, h.address, 12, 8),
       {
         v: amount(h.balance),
         mono: true,
@@ -130,8 +134,8 @@ export default async function TokenPage({
     },
   }));
 
-  const party = (a: string, none: string) =>
-    a ? { v: truncateMiddle(a, 8, 6), mono: true, address: a } : { v: none, tone: "accent" as const };
+  const party = (a: string, none: string): DeckRow["cells"][number] =>
+    a ? addressCell(names, a) : { v: none, tone: "accent" };
   const transferDeck: DeckRow[] = (token?.recent ?? []).map((t, i) => {
     const when = times.get(t.txHash) ?? null;
     return {

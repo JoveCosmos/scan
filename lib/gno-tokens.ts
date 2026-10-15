@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
-import { gnoHashToHex, gql } from "@/lib/gno";
+import { gnoHashToHex } from "@/lib/gno";
+import { followEvents, type EventTx } from "@/lib/gno-follow";
 import { gnoTxTimes } from "@/lib/gno-packages";
 
 /**
@@ -8,19 +9,14 @@ import { gnoTxTimes } from "@/lib/gno-packages";
  * Transfer (token, from, to, value; a mint has an empty from, a burn an empty
  * to) and Approval.
  *
- * The tx-indexer returns at most 10,000 transactions a query and has no
- * paging, so history is read in height windows (halved when one comes back
- * full) from genesis to its head, then followed from where the last read
- * stopped. Balances are each address's transfers in minus out, so they are
- * exact as long as every event since genesis is read; supply is mints minus
- * burns.
+ * Read from genesis and followed by followEvents. Balances are each
+ * address's transfers in minus out, so they are exact as long as every event
+ * since genesis is read; supply is mints minus burns.
  */
 
 const GRC20 = "gno.land/p/nt/grc20/v0";
 /** Transfers kept per token for its list, newest first. */
 const RECENT = 300;
-/** Refresh at most this often; a read in between gets the last state. */
-const FRESH_MS = 60_000;
 
 export interface TokenTransfer {
   /** Uppercase hex. */
@@ -51,37 +47,8 @@ export interface GnoToken {
   recent: TokenTransfer[];
 }
 
-interface ChainTokens {
-  /** Every height up to and including this one has been read; -1 before any. */
-  height: number;
-  tokens: Map<string, GnoToken>;
-  syncing: Promise<void> | null;
-  checkedAt: number;
-}
+export type { EventTx };
 
-const STATE_KEY = Symbol.for("gata.gnoTokens");
-const states: Map<string, ChainTokens> =
-  ((globalThis as Record<symbol, unknown>)[STATE_KEY] as Map<string, ChainTokens>) ??
-  ((globalThis as Record<symbol, unknown>)[STATE_KEY] = new Map());
-
-export type EventTx = {
-  hash: string;
-  block_height: number;
-  response: { events: { type?: string; pkg_path?: string; attrs?: { key: string; value: string }[] | null }[] | null } | null;
-};
-
-/**
- * Transactions with grc20 events in a height range. The indexer has no
- * "greater or equal" and answers a negative bound with nothing, so the first
- * window, which must include genesis (height 0), has only its upper bound.
- */
-const query = (first: boolean) => `query(${first ? "" : "$a: Int!, "}$b: Int!) {
-  getTransactions(where: { success: { eq: true }, block_height: { ${first ? "" : "gt: $a, "}lt: $b },
-    response: { events: { GnoEvent: { pkg_path: { eq: "${GRC20}" } } } } }, order: { heightAndIndex: ASC }) {
-    hash block_height
-    response { events { ... on GnoEvent { type pkg_path attrs { key value } } } }
-  }
-}`;
 /** The token's realm and symbol from its key ("<realm>.<SYMBOL>.<seq>"). */
 function splitKey(key: string): { realm: string; symbol: string } | null {
   const m = key.match(/^(gno\.land\/.+)\.([^./]+)\.([0-9a-f]+)$/);
@@ -97,7 +64,7 @@ function amountOf(v: string | undefined): bigint {
 }
 
 /** Fold one window's transactions into the state. Exported for tests. */
-export function applyGrc20(state: Pick<ChainTokens, "tokens">, txs: EventTx[]) {
+export function applyGrc20(state: { tokens: Map<string, GnoToken> }, txs: EventTx[]) {
   for (const tx of txs) {
     const txHash = gnoHashToHex(tx.hash) ?? tx.hash;
     for (const e of tx.response?.events ?? []) {
@@ -143,63 +110,13 @@ export function applyGrc20(state: Pick<ChainTokens, "tokens">, txs: EventTx[]) {
   }
 }
 
-/** Read every height after the last one read, up to the indexer's head. */
-async function sync(chain: ChainConfig, state: ChainTokens): Promise<void> {
-  const { latestBlockHeight: head } = await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }");
-  let window = 200_000;
-  while (state.height < head) {
-    const from = state.height;
-    const to = Math.min(head, from + window);
-    const data = await gql<{ getTransactions: EventTx[] | null }>(chain,
-      query(from < 0),
-      from < 0 ? { b: to + 1 } : { a: from, b: to + 1 },
-      30_000
-    );
-    const txs = data.getTransactions ?? [];
-    // A full answer may have been cut at the cap: read the window in halves.
-    if (txs.length >= 10_000 && to > from + 1) {
-      window = Math.max(1, Math.floor((to - from) / 2));
-      continue;
-    }
-    applyGrc20(state, txs);
-    state.height = to;
-    window = Math.min(window * 2, 200_000);
-  }
-}
-
 /**
  * Every token on the chain with its holders and recent transfers, brought up
- * to the indexer's head at most once a minute. The first read of a chain waits
- * for its whole history (seconds); later ones get the last state at once while
- * a refresh runs behind them.
+ * to the indexer's head at most once a minute (see followEvents).
  */
 export async function gnoTokens(chain: ChainConfig): Promise<Map<string, GnoToken> | null> {
-  if (chain.kind !== "gno" || chain.indexerEndpoints.length === 0) return null;
-  let state = states.get(chain.chainId);
-  if (!state) {
-    state = { height: -1, tokens: new Map(), syncing: null, checkedAt: 0 };
-    states.set(chain.chainId, state);
-  }
-  const s = state;
-  if (!s.syncing && Date.now() - s.checkedAt > FRESH_MS) {
-    s.syncing = sync(chain, s)
-      .then(() => {
-        s.checkedAt = Date.now();
-      })
-      .catch((err) => {
-        // Keep what was read; the next read retries from there.
-        s.checkedAt = Date.now() - FRESH_MS / 2;
-        console.warn(`[tokens] ${chain.chainId}:`, err instanceof Error ? err.message : err);
-      })
-      .finally(() => {
-        s.syncing = null;
-      });
-  }
-  if (s.height < 0 || s.tokens.size === 0) {
-    await s.syncing;
-    if (s.height < 0) return null;
-  }
-  return s.tokens;
+  const state = await followEvents("tokens", chain, GRC20, () => ({ tokens: new Map<string, GnoToken>() }), applyGrc20);
+  return state?.tokens ?? null;
 }
 
 /** The URL key for a token: its realm path without gno.land/, then its symbol. */

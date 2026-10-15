@@ -10,9 +10,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * genuinely has more than one answer to give, they take turns rather than
  * queue up.
  *
- * Every panel is rendered and the others hidden, not unmounted: the content is
- * already fetched by the time it gets here, and remounting would throw away the
- * paging position of whichever deck you just left.
+ * A panel is drawn the first time it is opened and then kept, hidden, not
+ * unmounted: remounting would throw away the paging position of whichever deck
+ * you just left. Panels nobody opens are never drawn, so a page's HTML carries
+ * its open tab only (a realm's 1,300-line source file was 336 KB of a page
+ * whose Overview was showing).
  *
  * The strip stays one line at every width. When it runs past the edge it fades
  * there, so the tabs out of view read as more to scroll to.
@@ -41,9 +43,11 @@ export function SectionTabs({
   const [active, setActiveState] = useState(
     initial && sections.some((s) => s.key === initial) ? initial : first
   );
+  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set([active]));
 
   function setActive(key: string) {
     setActiveState(key);
+    setOpened((prev) => (prev.has(key) ? prev : new Set([...prev, key])));
     if (!param) return;
     const url = new URL(window.location.href);
     if (key === first) url.searchParams.delete(param);
@@ -117,7 +121,7 @@ export function SectionTabs({
           hidden={section.key !== active}
           className={section.key === active ? "min-h-0 flex-1 pt-2.5 sm:pt-3" : "hidden"}
         >
-          {section.content}
+          {opened.has(section.key) ? section.content : null}
         </div>
       ))}
     </div>

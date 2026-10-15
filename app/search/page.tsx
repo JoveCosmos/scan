@@ -6,6 +6,7 @@ import { getAdapter } from "@/lib/adapter";
 import { classifySearch, secpKeyToAddress } from "@/lib/search";
 import { gnoPackagePaths, packageHref, shortPath } from "@/lib/gno-packages";
 import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { gnoNames } from "@/lib/gno-users";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
 import type { ValidatorSummary } from "@/lib/validators";
@@ -402,6 +403,26 @@ export default async function GlobalSearchPage({
             href: `/${chain.chainId}/governors/${g.address}`,
             note: `${g.moniker}, governor`,
             exact: g.moniker.toLowerCase() === needle,
+          });
+        }
+      }
+      // gno.land accounts by registered name ("@moul" or "moul").
+      const bare = needle.replace(/^@/, "");
+      const nameSets = await Promise.all(
+        all
+          .filter((c) => c.kind === "gno")
+          .map(async (chain) => ({ chain, names: await within(gnoNames(chain), 1500, null) })),
+      );
+      for (const { chain, names } of nameSets) {
+        for (const [name, address] of names?.byName ?? []) {
+          if (!name.includes(bare)) continue;
+          // Old names still resolve; the account is listed under its current one.
+          if (names!.byAddress.get(address) !== name && name !== bare) continue;
+          matches.push({
+            chain,
+            href: `/${chain.chainId}/accounts/${address}`,
+            note: `@${name}`,
+            exact: name === bare,
           });
         }
       }

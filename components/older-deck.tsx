@@ -16,6 +16,7 @@ export function OlderDeck({
   accent,
   empty,
   extra,
+  filter,
 }: {
   endpoint: string;
   columns: DeckColumn[];
@@ -25,6 +26,8 @@ export function OlderDeck({
   empty: string;
   /** Chips shown beside the control. */
   extra?: React.ReactNode;
+  /** The deck's own filter, over the rows loaded so far. */
+  filter?: { placeholder: string };
 }) {
   const [rows, setRows] = useState(initialRows);
   const [next, setNext] = useState(initialNext);
@@ -34,7 +37,7 @@ export function OlderDeck({
     if (!next) return;
     setState("loading");
     try {
-      const res = await fetch(`${endpoint}?before=${encodeURIComponent(next)}`);
+      const res = await fetch(`${endpoint}${endpoint.includes("?") ? "&" : "?"}before=${encodeURIComponent(next)}`);
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as { rows: DeckRow[]; next: string | null };
       setRows((prev) => {
@@ -66,5 +69,5 @@ export function OlderDeck({
       </div>
     ) : undefined;
 
-  return <RowDeck columns={columns} rows={rows} accent={accent} toolbar={toolbar} empty={empty} />;
+  return <RowDeck columns={columns} rows={rows} accent={accent} toolbar={toolbar} empty={empty} filter={filter} />;
 }

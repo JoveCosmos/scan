@@ -423,7 +423,16 @@ export function MovementList({
 export function TokenTransferList({
   transfers,
 }: {
-  transfers: { symbol: string; href: string | null; from: string | null; to: string | null; amount: string }[];
+  transfers: {
+    symbol: string;
+    href: string | null;
+    from: string | null;
+    to: string | null;
+    /** "@moul" where the address has a registered name. */
+    fromName?: string | null;
+    toName?: string | null;
+    amount: string;
+  }[];
 }) {
   return (
     <div className="gata-surface overflow-x-auto">
@@ -449,10 +458,10 @@ export function TokenTransferList({
                 )}
               </td>
               <td className="whitespace-nowrap px-2 sm:px-3 py-1.5">
-                {t.from ? <AddressLink address={t.from} head={6} tail={3} /> : <span className="text-muted-foreground">Mint</span>}
+                {t.from ? <AddressLink address={t.from} label={t.fromName} head={6} tail={3} /> : <span className="text-muted-foreground">Mint</span>}
               </td>
               <td className="whitespace-nowrap px-2 sm:px-3 py-1.5">
-                {t.to ? <AddressLink address={t.to} head={6} tail={3} /> : <span className="text-muted-foreground">Burn</span>}
+                {t.to ? <AddressLink address={t.to} label={t.toName} head={6} tail={3} /> : <span className="text-muted-foreground">Burn</span>}
               </td>
               <td className="whitespace-nowrap px-2 sm:px-3 py-1.5 text-right font-mono">{t.amount}</td>
             </tr>

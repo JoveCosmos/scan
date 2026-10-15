@@ -14,6 +14,7 @@ import {
   type GovStatus,
 } from "@/lib/gno-govdao";
 import { packageHref, shortPath } from "@/lib/gno-packages";
+import { addressCell, gnoNames, type GnoNames } from "@/lib/gno-users";
 import { withinBudget } from "@/lib/cache";
 import { formatDate, formatDateTime, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
@@ -41,19 +42,23 @@ function executorLabel(path: string | null): string {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-/** "@moul" as text; a g1 address as a link to its account. */
-function authorCell(author: string): DeckCell {
-  return /^g1[a-z0-9]{38}$/.test(author)
-    ? { v: truncateMiddle(author, 8, 5), mono: true, address: author }
-    : { v: author || "-", dim: !author };
+/**
+ * A member as the realm writes them, "@moul" or a g1 address: linked to its
+ * account either way, by the name registry, and named where it has a name.
+ */
+function authorCell(names: GnoNames | null, author: string): DeckCell {
+  if (/^g1[a-z0-9]{38}$/.test(author)) return addressCell(names, author, 8, 5);
+  const address = author.startsWith("@") ? names?.byName.get(author.slice(1)) : undefined;
+  return address ? { v: author, address } : { v: author || "-", dim: !author };
 }
 
 export async function GovdaoList({ chain }: { chain: ChainConfig }) {
   const accent = accentFor(chain);
-  const [list, timeline] = await Promise.all([
+  const [list, timeline, names] = await Promise.all([
     withinBudget(govdaoProposals(chain), 8000, null),
     // Built at boot; never waited on long.
     withinBudget(govdaoTimeline(chain), 1500, null),
+    withinBudget(gnoNames(chain), 1500, null),
   ]);
   // Each proposal's page holds its executor and tally; read for the newest 60.
   const details = new Map(
@@ -78,7 +83,7 @@ export async function GovdaoList({ chain }: { chain: ChainConfig }) {
         { v: p.tiers.join(", ") || "-", mono: true, dim: true },
         { v: formatDate(timeline?.get(p.id)?.created.time), mono: true, dim: true, align: "right" },
         { v: d?.yes != null ? `${d.yes.toFixed(1)}%` : "-", mono: true, align: "right", dim: d?.yes == null },
-        authorCell(p.author),
+        authorCell(names, p.author),
       ],
       detail: { title: `#${p.id}`, rows: [], action: { label: "Proposal", href } },
     };
@@ -127,7 +132,11 @@ export async function GovdaoProposalView({
 }) {
   const accent = accentFor(chain);
   const pct = (v: number | null) => (v == null ? "N/A" : `${v.toFixed(2)}%`);
-  const when = (await withinBudget(govdaoTimeline(chain), 1500, null))?.get(p.id) ?? null;
+  const [timeline, names] = await Promise.all([
+    withinBudget(govdaoTimeline(chain), 1500, null),
+    withinBudget(gnoNames(chain), 1500, null),
+  ]);
+  const when = timeline?.get(p.id) ?? null;
   const voters = p.voters ?? [];
 
   const bricks: BrickSpec[] = [
@@ -152,9 +161,13 @@ export async function GovdaoProposalView({
     },
   ];
 
-  const author = /^g1[a-z0-9]{38}$/.test(p.author) ? (
-    <Link href={`/${chain.chainId}/accounts/${p.author}`} className="font-mono text-primary hover:underline">
-      {p.author}
+  const authorAt = authorCell(names, p.author);
+  const author = authorAt.address ? (
+    <Link
+      href={`/${chain.chainId}/accounts/${authorAt.address}`}
+      className={`text-primary hover:underline ${authorAt.mono ? "font-mono" : ""}`}
+    >
+      {authorAt.mono ? p.author : authorAt.v}
     </Link>
   ) : (
     <span>{p.author || "-"}</span>
@@ -166,7 +179,7 @@ export async function GovdaoProposalView({
     cells: [
       { v: v.option === "YES" ? "Yes" : v.option === "NO" ? "No" : "Abstain", tone: v.option === "YES" ? "ok" : v.option === "NO" ? "bad" : undefined },
       { v: v.tier, mono: true, dim: true },
-      authorCell(v.voter),
+      authorCell(names, v.voter),
     ],
     detail: { title: v.voter, rows: [{ label: "Vote", value: v.option }, { label: "Tier", value: v.tier }] },
   }));

@@ -1,25 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CopyButton } from "@/components/copy-button";
 
 /**
  * A package's files: a file strip (a column beside the code from lg up), and
  * the chosen file with line numbers. Only the code scrolls.
+ *
+ * The page sends the first file's text only; any other is fetched when it is
+ * opened (a realm's files run to thousands of lines, and most visitors read
+ * one).
  */
 export function SourceView({
+  chainId,
+  path,
   files,
   initial,
 }: {
-  files: { name: string; source: string | null }[];
+  chainId: string;
+  path: string;
+  /** Every file, with the text of the one shown first. */
+  files: { name: string; source?: string | null }[];
   initial?: string;
 }) {
-  const [name, setName] = useState(
-    files.find((f) => f.name === initial)?.name ?? files[0]?.name ?? ""
+  const [name, setName] = useState(files.find((f) => f.name === initial)?.name ?? files[0]?.name ?? "");
+  const [texts, setTexts] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(files.filter((f) => f.source !== undefined).map((f) => [f.name, f.source ?? null]))
   );
-  const file = files.find((f) => f.name === name);
-  if (!file) return <p className="text-sm text-muted-foreground">N/A</p>;
-  const lines = (file.source ?? "").replace(/\n$/, "").split("\n");
+  const loaded = name in texts;
+
+  useEffect(() => {
+    if (!name || name in texts) return;
+    let live = true;
+    fetch(`/api/chains/${chainId}/packages/file?path=${encodeURIComponent(path)}&file=${encodeURIComponent(name)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { source: string }) => live && setTexts((t) => ({ ...t, [name]: d.source })))
+      .catch(() => live && setTexts((t) => ({ ...t, [name]: null })));
+    return () => {
+      live = false;
+    };
+  }, [chainId, path, name, texts]);
+
+  if (!name) return <p className="text-sm text-muted-foreground">N/A</p>;
+  const source = loaded ? texts[name] : undefined;
+  const lines = (source ?? "").replace(/\n$/, "").split("\n");
 
   return (
     <div className="gata-surface flex h-full min-h-0 flex-col overflow-hidden lg:flex-row">
@@ -45,14 +69,20 @@ export function SourceView({
       </nav>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-[11.5px] text-muted-foreground">
-          <span className="truncate font-mono">{file.name}</span>
+          <span className="truncate font-mono">{name}</span>
           <span className="flex shrink-0 items-center gap-2">
-            <span className="font-mono tabular-nums">{file.source === null ? "N/A" : `${lines.length} lines`}</span>
-            {file.source ? <CopyButton value={file.source} label="file" /> : null}
+            <span className="font-mono tabular-nums">
+              {source === undefined ? "" : source === null ? "N/A" : `${lines.length} lines`}
+            </span>
+            {source ? <CopyButton value={source} label="file" /> : null}
           </span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
-          {file.source === null ? (
+          {source === undefined ? (
+            <p className="p-3 font-mono text-[12px] text-muted-foreground" role="status">
+              Loading…
+            </p>
+          ) : source === null ? (
             <p className="p-3 text-sm text-muted-foreground">N/A</p>
           ) : (
             <table className="w-full border-collapse font-mono text-[12px] leading-[1.6]">
