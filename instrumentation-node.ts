@@ -2,6 +2,7 @@ import { getAllChains } from "@/lib/chains";
 import { getValoperIndex } from "@/lib/gno-valopers";
 import { gnoDeploys, gnoPackagePaths } from "@/lib/gno-packages";
 import { gnoTokens } from "@/lib/gno-tokens";
+import { govdaoTimeline } from "@/lib/gno-govdao";
 import { warmValidators } from "@/lib/warm";
 
 /**
@@ -30,6 +31,8 @@ export function warm() {
     void gnoDeploys(chain);
     // GRC20 tokens: their whole history, read once, then followed.
     void gnoTokens(chain);
+    // When each GovDAO proposal was created and executed (two indexer scans).
+    void govdaoTimeline(chain);
 
     // Fire-and-forget: startup must never block on a remote node.
     const startedAt = Date.now();

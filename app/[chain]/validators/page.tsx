@@ -9,6 +9,7 @@ import { getAdapter } from "@/lib/adapter";
 import { formatToken } from "@/lib/overview";
 import { ValidatorsTable, type ValidatorRow } from "@/components/validators-table";
 import { emptyUptime, consensusIdsFromPubkey } from "@/lib/uptime";
+import { jailingsOf } from "@/lib/validator-rows";
 import { getChainParams } from "@/lib/params";
 import { jailCounts } from "@/lib/indexer-db";
 import { missedLast30d } from "@/lib/indexer-validator";
@@ -135,19 +136,11 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       : Promise.resolve(null),
   ]);
 
-  /** Slashing events carry the consensus address, so rows are matched on that. */
-  const jailingsFor = (consensusPubkey: string | null) => {
-    if (!jailings || !consensusPubkey) return null;
-    const ids = consensusIdsFromPubkey(consensusPubkey, chain.bech32Prefix);
-    if (!ids) return null;
-    return {
-      count: jailings.byConsAddr.get(ids.valcons) ?? 0,
-      tombstoned: jailings.tombstoned.has(ids.valcons),
-    };
-  };
+  const jailingsFor = (consensusPubkey: string | null) => jailingsOf(chain, jailings, consensusPubkey);
 
-  // Logos for both sets: chainlist images now, Keybase pictures once cached.
-  const logos = await validatorLogoMap(chain, [...validators, ...inactive]);
+  // Chainlist images now, Keybase pictures once cached. The inactive set's
+  // come with its rows, when that view is opened.
+  const logos = await validatorLogoMap(chain, validators);
 
   // Flattened for the client table: it sorts and renders, but owns no fetching.
   const rows: ValidatorRow[] = validators.map((v) => ({
@@ -173,26 +166,6 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
     selfBond: selfBonds.get(v.operatorAddress) ?? null,
   }));
 
-  // Outside the set there is no signing to measure and no 24h baseline, and a
-  // self-bond read per inactive validator would be hundreds of requests for a
-  // column few would sort by - so those stay empty. Jail records do apply.
-  const inactiveRows: ValidatorRow[] = inactive.map((v) => ({
-    rank: v.rank,
-    operatorAddress: v.operatorAddress,
-    moniker: v.moniker,
-    logos: logos.get(v.operatorAddress) ?? [],
-    votingPower: 0,
-    cumulativePower: 0,
-    tokens: v.tokens,
-    tokensLabel: formatToken(v.tokens, chain.exponent),
-    commissionRate: v.commissionRate,
-    jailed: v.jailed,
-    status: v.status,
-    uptime: emptyUptime(),
-    delta: null,
-    jailings: jailingsFor(v.consensusPubkey),
-    selfBond: null,
-  }));
   const { staking } = adapter.capabilities;
 
   // How far back the jailing counts reach. Zero jailings means nothing without
@@ -261,7 +234,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
       <ValidatorsTable
         chainId={chainId}
         rows={rows}
-        inactiveRows={inactiveRows}
+        inactiveCount={inactive.length}
         accent={accent}
         symbol={symbol}
         staking={staking}

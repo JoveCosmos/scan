@@ -49,20 +49,14 @@ const pct = formatPercent;
  * full-height mark in a contrasting colour, because the gaps are the point.
  */
 function MiniBars({ bars }: { bars: boolean[] }) {
-  const shown = bars;
+  // Styled by .mini-bars in globals.css: a hundred validators times twenty bars
+  // is two thousand elements, so each carries one letter of class, not a style.
   return (
-    <div className="flex h-[10px] w-full items-end gap-px">
-      {shown.map((signed, i) => (
-        <span
-          key={i}
-          className="h-full flex-1 rounded-[1px]"
-          style={{
-            background: signed ? "var(--gata-green)" : "var(--destructive)",
-            opacity: signed ? 0.55 : 1,
-          }}
-        />
+    <span className="mini-bars">
+      {bars.map((signed, i) => (
+        <i key={i} className={signed ? undefined : "x"} />
       ))}
-    </div>
+    </span>
   );
 }
 
@@ -99,7 +93,7 @@ export function ValidatorsTable({
   chainId,
   accent,
   rows,
-  inactiveRows = [],
+  inactiveCount,
   symbol,
   staking,
   hasUptime,
@@ -120,8 +114,8 @@ export function ValidatorsTable({
   chainId: string;
   accent: string;
   rows: ValidatorRow[];
-  /** Unbonding and unbonded validators, shown when the selector says so. */
-  inactiveRows?: ValidatorRow[];
+  /** How many validators are outside the set; their rows load when that view opens. */
+  inactiveCount: number;
   symbol: string;
   /** Chains with no staking module rank by assigned consensus weight. */
   staking: boolean;
@@ -140,7 +134,20 @@ export function ValidatorsTable({
     dir: "asc",
   });
 
-  const source = set === "active" ? rows : inactiveRows;
+  // The inactive set is fetched the first time its view is opened.
+  const [inactiveRows, setInactiveRows] = useState<ValidatorRow[] | null>(null);
+  const [inactiveFailed, setInactiveFailed] = useState(false);
+  function openSet(key: "active" | "inactive") {
+    setSet(key);
+    if (key !== "inactive" || inactiveRows !== null || inactiveCount === 0) return;
+    fetch(`/api/chains/${chainId}/validators/inactive`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: { rows: ValidatorRow[] }) => setInactiveRows(d.rows))
+      .catch(() => setInactiveFailed(true));
+  }
+  const loadingInactive = set === "inactive" && inactiveRows === null && inactiveCount > 0 && !inactiveFailed;
+
+  const source = useMemo(() => (set === "active" ? rows : (inactiveRows ?? [])), [set, rows, inactiveRows]);
 
   const visible = useMemo(
     // Sorted before filtering so ranks stay the chain's, not the filtered list's.
@@ -453,7 +460,7 @@ export function ValidatorsTable({
           {(
             [
               ["active", "Active", rows.length],
-              ["inactive", "Inactive", inactiveRows.length],
+              ["inactive", "Inactive", inactiveRows?.length ?? inactiveCount],
             ] as const
           ).map(([key, label, count]) => (
             <button
@@ -461,7 +468,7 @@ export function ValidatorsTable({
               type="button"
               role="tab"
               aria-selected={set === key}
-              onClick={() => setSet(key)}
+              onClick={() => openSet(key)}
               className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${
                 set === key
                   ? "bg-[var(--gata-card-hi)] text-foreground shadow-[inset_0_0_0_1px_var(--gata-border-hi)]"
@@ -582,11 +589,15 @@ export function ValidatorsTable({
               widen it (see RowDeck). */}
           {visible.length === 0 ? (
             <p className="grid h-24 place-items-center text-center text-[13px] text-muted-foreground">
-              {query
-                ? `No validator matches "${query}".`
-                : set === "inactive"
-                  ? "No inactive validators"
-                  : "No validators"}
+              {loadingInactive
+                ? "Loading…"
+                : inactiveFailed && set === "inactive"
+                  ? "N/A"
+                  : query
+                    ? `No validator matches "${query}".`
+                    : set === "inactive"
+                      ? "No inactive validators"
+                      : "No validators"}
             </p>
           ) : null}
         </div>

@@ -1,6 +1,7 @@
 import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
-import { gnoEval, gnoRender } from "@/lib/gno-packages";
+import { gnoEval, gnoRender, gnoTxTimes } from "@/lib/gno-packages";
+import { gnoHashToHex, gql } from "@/lib/gno";
 
 /**
  * gno.land's governance: GovDAO, a realm (gno.land/r/gov/dao) rather than a
@@ -253,5 +254,100 @@ export function govdaoMembers(chain: ChainConfig): Promise<{ members: GovMember[
       };
     },
     { staleMs: 60 * 60_000 }
+  ).catch(() => null);
+}
+
+export interface GovMoment {
+  height: number;
+  /** Uppercase hex. */
+  txHash: string;
+  time: string | null;
+}
+
+export interface GovTimeline {
+  created: GovMoment;
+  executed: GovMoment | null;
+}
+
+type TimelineTx = {
+  hash: string;
+  block_height: number;
+  success: boolean;
+  messages: { value: { __typename: string; func?: string; args?: string[] | null; pkg_path?: string } | null }[];
+  response: { events: { type?: string; pkg_path?: string; attrs?: { key: string; value: string }[] | null }[] | null } | null;
+};
+
+/**
+ * When each proposal was created and executed, which the realm's pages do not
+ * say: its ProposalCreated events (attr `id`) and the successful
+ * ExecuteProposal / ExecuteOrRejectProposal calls naming that id.
+ */
+export function govdaoTimeline(chain: ChainConfig): Promise<Map<number, GovTimeline> | null> {
+  return cached(
+    `govdao-timeline:${chain.chainId}`,
+    10 * 60_000,
+    async () => {
+      const fields = `hash block_height success
+        messages { value { __typename ... on MsgCall { func args pkg_path } } }
+        response { events { ... on GnoEvent { type pkg_path attrs { key value } } } }`;
+      const [created, calls] = await Promise.all([
+        gql<{ getTransactions: TimelineTx[] | null }>(
+          chain,
+          `{ getTransactions(where: { success: { eq: true }, response: { events: { GnoEvent: { pkg_path: { eq: "${GOVDAO}" }, type: { eq: "ProposalCreated" } } } } }) { ${fields} } }`,
+          {},
+          30_000
+        ),
+        gql<{ getTransactions: TimelineTx[] | null }>(
+          chain,
+          `{ getTransactions(where: { success: { eq: true }, messages: { value: { MsgCall: { pkg_path: { eq: "${GOVDAO}" } } } } }) { ${fields} } }`,
+          {},
+          30_000
+        ),
+      ]);
+      const out = new Map<number, GovTimeline>();
+      for (const tx of created.getTransactions ?? []) {
+        const txHash = gnoHashToHex(tx.hash);
+        if (!txHash) continue;
+        for (const e of tx.response?.events ?? []) {
+          if (e.type !== "ProposalCreated" || e.pkg_path !== GOVDAO) continue;
+          const id = Number(e.attrs?.find((a) => a.key === "id")?.value);
+          if (Number.isInteger(id) && !out.has(id)) {
+            out.set(id, { created: { height: tx.block_height, txHash, time: null }, executed: null });
+          }
+        }
+      }
+      for (const tx of calls.getTransactions ?? []) {
+        const txHash = gnoHashToHex(tx.hash);
+        if (!txHash || !tx.success) continue;
+        for (const m of tx.messages) {
+          const v = m.value;
+          if (v?.__typename !== "MsgCall" || v.pkg_path !== GOVDAO) continue;
+          if (v.func !== "ExecuteProposal" && v.func !== "ExecuteOrRejectProposal") continue;
+          const id = Number(v.args?.[0]);
+          const entry = out.get(id);
+          if (entry && (!entry.executed || tx.block_height < entry.executed.height)) {
+            entry.executed = { height: tx.block_height, txHash, time: null };
+          }
+        }
+      }
+      const moments = [...out.values()].flatMap((t) => (t.executed ? [t.created, t.executed] : [t.created]));
+      const times = await gnoTxTimes(chain.chainId, moments.map((m) => m.txHash));
+      for (const m of moments) m.time = times.get(m.txHash) ?? null;
+      // Where our index has no time, the tx-indexer's block has one.
+      await Promise.all(
+        moments
+          .filter((m) => m.time === null)
+          .map(async (m) => {
+            const b = await gql<{ getBlocks: { time: string }[] | null }>(
+              chain,
+              `query($h: Int!) { getBlocks(where: { height: { eq: $h } }) { time } }`,
+              { h: m.height }
+            ).catch(() => null);
+            m.time = b?.getBlocks?.[0]?.time ?? null;
+          })
+      );
+      return out;
+    },
+    { staleMs: 6 * 60 * 60_000 }
   ).catch(() => null);
 }

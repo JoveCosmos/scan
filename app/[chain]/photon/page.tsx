@@ -4,6 +4,7 @@ import { getChain, accentFor, symbolFor } from "@/lib/chains";
 import { getPhotonHistory, getPhotonState } from "@/lib/photon";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
+import { formatUsdPrice, getMarketDataById } from "@/lib/market";
 import { timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
@@ -40,10 +41,14 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
   const accent = accentFor(chain);
   const symbol = symbolFor(chain);
 
-  const [state, history] = await Promise.all([
+  const [state, history, photonUsd, atoneUsd] = await Promise.all([
     withinBudget(getPhotonState(chain), 3000, null),
     withinBudget(getPhotonHistory(chain), 8000, null),
+    withinBudget(getMarketDataById(chain.feeCoingeckoId), 2000, null),
+    withinBudget(getMarketDataById(chain.coingeckoId), 2000, null),
   ]);
+  // What minting one PHOTON costs in dollars: ATONE's price over the mint rate.
+  const mintCost = atoneUsd && state?.rate ? atoneUsd.usd / state.rate : null;
 
   // The cap is configured in whole PHOTON; supply is in base units.
   const capBase = chain.feeSupplyCap ? chain.feeSupplyCap * 10 ** PHOTON_EXPONENT : null;
@@ -75,6 +80,23 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
       label: "Minters",
       value: history ? history.minters.toLocaleString() : "N/A",
       sub: "accounts",
+    },
+    {
+      key: "price",
+      label: "Price",
+      value: photonUsd ? formatUsdPrice(photonUsd.usd) : "N/A",
+      sub: mintCost !== null ? `mint at ${formatUsdPrice(mintCost)}` : "CoinGecko",
+      rows: photonUsd
+        ? [
+            { label: "PHOTON", value: formatUsdPrice(photonUsd.usd), mono: true },
+            ...(photonUsd.change24h !== null
+              ? [{ label: "24h", value: `${photonUsd.change24h >= 0 ? "+" : ""}${photonUsd.change24h.toFixed(2)}%`, mono: true }]
+              : []),
+            ...(mintCost !== null ? [{ label: "Cost to mint one", value: formatUsdPrice(mintCost), mono: true }] : []),
+            ...(atoneUsd ? [{ label: symbol, value: formatUsdPrice(atoneUsd.usd), mono: true }] : []),
+            { label: "Source", value: "CoinGecko" },
+          ]
+        : undefined,
     },
     {
       key: "status",
@@ -117,7 +139,7 @@ export default async function PhotonPage({ params }: { params: Promise<{ chain: 
     <PageFrame title="PHOTON" sub={facts.length ? facts.join(" · ") : chain.prettyName} accent={accent}>
       <div className="flex h-full min-h-0 flex-col gap-2.5 overflow-y-auto pb-3 sm:gap-3 lg:overflow-hidden lg:pb-0">
         <div className="brick-dense shrink-0">
-          <BrickBoard accent={accent} bricks={bricks} size="lg" />
+          <BrickBoard accent={accent} bricks={bricks} size="lg" className={bricks.length === 6 ? "lg:!grid-cols-6" : undefined} />
         </div>
         {history && history.daily.length > 0 ? (
           <DayBars

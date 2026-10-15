@@ -5,15 +5,17 @@ import {
   govdaoMembers,
   govdaoProposal,
   govdaoProposals,
+  govdaoTimeline,
   statusLabel,
   type GovMember,
+  type GovMoment,
   type GovProposal,
   type GovProposalSummary,
   type GovStatus,
 } from "@/lib/gno-govdao";
 import { packageHref, shortPath } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
-import { truncateMiddle } from "@/lib/format";
+import { formatDate, formatDateTime, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
@@ -48,7 +50,11 @@ function authorCell(author: string): DeckCell {
 
 export async function GovdaoList({ chain }: { chain: ChainConfig }) {
   const accent = accentFor(chain);
-  const list = await withinBudget(govdaoProposals(chain), 8000, null);
+  const [list, timeline] = await Promise.all([
+    withinBudget(govdaoProposals(chain), 8000, null),
+    // Built at boot; never waited on long.
+    withinBudget(govdaoTimeline(chain), 1500, null),
+  ]);
   // Each proposal's page holds its executor and tally; read for the newest 60.
   const details = new Map(
     (
@@ -70,6 +76,7 @@ export async function GovdaoList({ chain }: { chain: ChainConfig }) {
         { v: d ? executorLabel(d.executor) : "-", dim: true },
         { v: statusLabel(p.status, p.statusText), tone: tone(p.status) },
         { v: p.tiers.join(", ") || "-", mono: true, dim: true },
+        { v: formatDate(timeline?.get(p.id)?.created.time), mono: true, dim: true, align: "right" },
         { v: d?.yes != null ? `${d.yes.toFixed(1)}%` : "-", mono: true, align: "right", dim: d?.yes == null },
         authorCell(p.author),
       ],
@@ -97,6 +104,7 @@ export async function GovdaoList({ chain }: { chain: ChainConfig }) {
           { label: "Type", width: "12%", phoneHide: true },
           { label: "Status", width: "7rem" },
           { label: "Tiers", width: "8rem", optional: true },
+          { label: "Created", align: "right", width: "7rem", phoneHide: true },
           { label: "Yes", align: "right", width: "5rem", optional: true },
           { label: "Author", width: "12%", optional: true },
         ]}
@@ -119,6 +127,7 @@ export async function GovdaoProposalView({
 }) {
   const accent = accentFor(chain);
   const pct = (v: number | null) => (v == null ? "N/A" : `${v.toFixed(2)}%`);
+  const when = (await withinBudget(govdaoTimeline(chain), 1500, null))?.get(p.id) ?? null;
   const voters = p.voters ?? [];
 
   const bricks: BrickSpec[] = [
@@ -172,9 +181,13 @@ export async function GovdaoProposalView({
             <BrickBoard accent={accent} bricks={bricks} bare />
           </div>
           <div className="gata-surface flex shrink-0 flex-col gap-3 px-4 py-3.5">
-            <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
-              <span className="text-muted-foreground">Author</span>
-              {author}
+            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[12px]">
+              <span className="flex items-baseline gap-2">
+                <span className="text-muted-foreground">Author</span>
+                {author}
+              </span>
+              {when ? <Moment chainId={chain.chainId} label="Created" at={when.created} /> : null}
+              {when?.executed ? <Moment chainId={chain.chainId} label="Executed" at={when.executed} /> : null}
             </div>
             {p.body ? <Prose text={p.body} gnoChain={chain.chainId} /> : null}
           </div>
@@ -290,5 +303,17 @@ export async function GovdaoMembers({ chain }: { chain: ChainConfig }) {
         empty={data ? "None" : "N/A"}
       />
     </PageFrame>
+  );
+}
+
+/** "Created 11 Oct 2026, 06:10 UTC", linked to its transaction. */
+function Moment({ chainId, label, at }: { chainId: string; label: string; at: GovMoment }) {
+  return (
+    <span className="flex items-baseline gap-2">
+      <span className="text-muted-foreground">{label}</span>
+      <Link href={`/${chainId}/txs/${at.txHash}`} className="font-mono text-primary hover:underline">
+        {at.time ? formatDateTime(at.time) : `block ${at.height.toLocaleString()}`}
+      </Link>
+    </span>
   );
 }

@@ -550,6 +550,25 @@
 
   /* A clickable row: tinted on hover, with a lit leading edge in the page's
      accent, so it reads as something you can open. */
+  /* The validators list's last-20-blocks marks (MiniBars). */
+  .mini-bars {
+    display: flex;
+    height: 10px;
+    width: 100%;
+    align-items: flex-end;
+    gap: 1px;
+  }
+  .mini-bars > i {
+    height: 100%;
+    flex: 1 1 0%;
+    border-radius: 1px;
+    background: var(--gata-green);
+    opacity: 0.55;
+  }
+  .mini-bars > i.x {
+    background: var(--destructive);
+    opacity: 1;
+  }
   .deck-row {
     transition: background-color 0.14s ease;
   }

@@ -69,6 +69,12 @@ export async function getMarketDataById(
   }
 }
 
+/** "$1.35", or "$0.01432" for a price under a dollar: four significant figures. */
+export function formatUsdPrice(value: number): string {
+  if (value >= 1) return `$${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `$${Number(value.toPrecision(4))}`;
+}
+
 /** "$705.4M" - market caps are read at a glance, not to the dollar. */
 export function formatUsdCompact(value: number): string {
   if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
