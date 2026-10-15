@@ -11,7 +11,7 @@ import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
-import { CopyButton } from "@/components/copy-button";
+import { DetailRow } from "@/components/detail-row";
 
 export const dynamic = "force-dynamic";
 
@@ -89,20 +89,20 @@ export default async function TokenPage({
     <div className="gata-surface flex shrink-0 flex-col gap-1.5 px-4 py-3.5">
       <h2 className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Token</h2>
       <div className="flex flex-col divide-y divide-border/50">
-        <Row label="Realm" copy={token.realm}>
+        <DetailRow label="Realm" copy={token.realm}>
           <Link href={packageHref(chainId, token.realm)} className="font-mono text-primary hover:underline">
             {token.realm}
           </Link>
-        </Row>
-        <Row label="Key" copy={token.key}>
+        </DetailRow>
+        <DetailRow label="Key" copy={token.key}>
           <span className="font-mono">{token.key}</span>
-        </Row>
+        </DetailRow>
         {token.createdTx ? (
-          <Row label="Created in" copy={token.createdTx}>
+          <DetailRow label="Created in" copy={token.createdTx}>
             <Link href={`/${chainId}/txs/${token.createdTx}`} className="font-mono text-primary hover:underline">
               {truncateMiddle(token.createdTx, 10, 8)}
             </Link>
-          </Row>
+          </DetailRow>
         ) : null}
       </div>
     </div>
@@ -217,17 +217,5 @@ export default async function TokenPage({
     >
       <SectionTabs sections={sections} initial={tab && TABS.includes(tab) ? tab : undefined} param="tab" />
     </PageFrame>
-  );
-}
-
-function Row({ label, copy, children }: { label: string; copy: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="flex min-w-0 items-center gap-1">
-        <span className="truncate">{children}</span>
-        <CopyButton value={copy} label={label.toLowerCase()} />
-      </span>
-    </div>
   );
 }

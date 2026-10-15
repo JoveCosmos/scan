@@ -30,7 +30,7 @@ import { SourceView } from "@/components/source-view";
 import { BrickLoading } from "@/components/brick-loading";
 import { LoadingPanel } from "@/components/loading-panel";
 import { Prose } from "@/components/prose";
-import { CopyButton } from "@/components/copy-button";
+import { DetailRow } from "@/components/detail-row";
 import { AddressLink } from "@/components/address-link";
 
 export const dynamic = "force-dynamic";
@@ -147,13 +147,13 @@ export default async function PackagePage({
           {realm ? "Realm" : "Package"}
         </h2>
         <div className="flex flex-col divide-y divide-border/50">
-          <Row label="Path" copy={path}>
+          <DetailRow label="Path" copy={path}>
             <span className="font-mono">{path}</span>
-          </Row>
+          </DetailRow>
           {realm ? (
-            <Row label="Account" copy={realmAddress(path)}>
+            <DetailRow label="Account" copy={realmAddress(path)}>
               <AddressLink address={realmAddress(path)} head={12} tail={8} />
-            </Row>
+            </DetailRow>
           ) : null}
           {ownTokens.length ? (
             <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
@@ -168,16 +168,16 @@ export default async function PackagePage({
             </div>
           ) : null}
           {deploy?.creator ? (
-            <Row label="Deployer" copy={deploy.creator}>
+            <DetailRow label="Deployer" copy={deploy.creator}>
               <AddressLink address={deploy.creator} head={12} tail={8} />
-            </Row>
+            </DetailRow>
           ) : null}
           {deploy && deploy.height > 0 ? (
-            <Row label="Transaction" copy={deploy.txHash}>
+            <DetailRow label="Transaction" copy={deploy.txHash}>
               <Link href={`/${chainId}/txs/${deploy.txHash}`} className="font-mono text-primary hover:underline">
                 {truncateMiddle(deploy.txHash, 10, 8)}
               </Link>
-            </Row>
+            </DetailRow>
           ) : null}
         </div>
       </section>
@@ -366,16 +366,4 @@ function rank(name: string): number {
   if (/_(test|filetest)\.gno$/.test(name)) return 2;
   if (name.endsWith(".gno")) return 0;
   return 1;
-}
-
-function Row({ label, copy, children }: { label: string; copy: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="flex min-w-0 items-center gap-1">
-        <span className="truncate">{children}</span>
-        <CopyButton value={copy} label={label.toLowerCase()} />
-      </span>
-    </div>
-  );
 }

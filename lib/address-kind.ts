@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import { cached } from "@/lib/cache";
+import { hashedAddress } from "@/lib/hashed-address";
 
 /**
  * What an address is, beyond "an account".
@@ -159,11 +159,7 @@ const escrowIndex = new Map<string, Map<string, string>>();
  * first few thousand channel ids are hashed once per prefix and looked up.
  */
 export function escrowAddress(prefix: string, channel: string): string {
-  const digest = createHash("sha256")
-    .update(Buffer.concat([Buffer.from("ics20-1"), Buffer.from([0]), Buffer.from(`transfer/${channel}`)]))
-    .digest()
-    .subarray(0, 20);
-  return bech32.encode(prefix, bech32.toWords(digest));
+  return hashedAddress(prefix, Buffer.concat([Buffer.from("ics20-1"), Buffer.from([0]), Buffer.from(`transfer/${channel}`)]));
 }
 
 export function escrowChannel(address: string, prefix: string): string | null {

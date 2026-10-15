@@ -261,7 +261,7 @@ export default async function ValidatorDetailPage({
             { label: "Tombstoned", value: uptime.tombstoned ? "Yes" : "No" },
           ]),
         }
-      : { key: "signing", label: "Signing", value: "N/A" },
+      : { key: "signing", label: "Signing", value: "N/A", sub: "slashing window" },
     {
       key: "commission",
       label: "Commission",
@@ -378,7 +378,7 @@ export default async function ValidatorDetailPage({
     </>
   );
 
-  const sections = [
+  const allSections = [
     {
       // The validator's figures, in a tab of their own so every list tab gets
       // the full height. Below lg the profile follows them here, since it has
@@ -387,11 +387,18 @@ export default async function ValidatorDetailPage({
       label: "Overview",
       content: (
         <div className="flex h-full flex-col gap-3 overflow-y-auto">
-          <div className="brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:grid-cols-4 sm:gap-2 2xl:grid-cols-8">
+          <div
+            className={`brick-fill grid shrink-0 grid-cols-3 gap-1.5 sm:gap-2 ${
+              // Eight tiles with the index's three, five without: one full row.
+              chain.indexed ? "sm:grid-cols-4 2xl:grid-cols-8" : "sm:grid-cols-5"
+            }`}
+          >
             <BrickBoard accent={accent} bricks={bricks} bare />
-            <Suspense fallback={<BrickLoading count={3} />}>
-              <IndexedBricks {...keys} />
-            </Suspense>
+            {chain.indexed ? (
+              <Suspense fallback={<BrickLoading count={3} />}>
+                <IndexedBricks {...keys} />
+              </Suspense>
+            ) : null}
           </div>
           <div className="gata-surface flex shrink-0 flex-col gap-4 px-4 py-3.5 lg:hidden">{profile}</div>
         </div>
@@ -474,6 +481,12 @@ export default async function ValidatorDetailPage({
       ),
     },
   ];
+
+  // Without our index a chain's nodes only answer for now: its history tabs
+  // (proposed blocks, votes, power, events, jailings) would all read N/A.
+  const sections = chain.indexed
+    ? allSections
+    : allSections.filter((sec) => ["overview", "delegators", "signing"].includes(sec.key));
 
   const initialTab = tab && TABS.includes(tab) ? tab : undefined;
 

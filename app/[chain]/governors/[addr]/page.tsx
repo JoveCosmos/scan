@@ -19,7 +19,7 @@ import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 import { ValidatorAvatar } from "@/components/validator-avatar";
-import { CopyButton } from "@/components/copy-button";
+import { DetailRow } from "@/components/detail-row";
 import { AddressLink } from "@/components/address-link";
 
 export const dynamic = "force-dynamic";
@@ -160,13 +160,13 @@ export default async function GovernorPage({
       <section className="flex flex-col gap-1.5">
         <h2 className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">Addresses</h2>
         <div className="flex flex-col divide-y divide-border/50">
-          <Row label="Governor" copy={governor.address}>
+          <DetailRow label="Governor" copy={governor.address}>
             <span className="font-mono">{truncateMiddle(governor.address, 16, 8)}</span>
-          </Row>
+          </DetailRow>
           {account ? (
-            <Row label="Account" copy={account}>
+            <DetailRow label="Account" copy={account}>
               <AddressLink address={account} head={12} tail={8} />
-            </Row>
+            </DetailRow>
           ) : null}
         </div>
       </section>
@@ -337,17 +337,5 @@ export default async function GovernorPage({
     >
       <SectionTabs sections={sections} initial={tab && TABS.includes(tab) ? tab : undefined} param="tab" />
     </PageFrame>
-  );
-}
-
-function Row({ label, copy, children }: { label: string; copy: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 items-center justify-between gap-2 py-1.5 text-[12px]">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="flex min-w-0 items-center gap-1">
-        <span className="truncate">{children}</span>
-        <CopyButton value={copy} label={label.toLowerCase()} />
-      </span>
-    </div>
   );
 }

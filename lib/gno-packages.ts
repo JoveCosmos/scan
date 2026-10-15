@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
-import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
 import { packageHref } from "@/lib/address-route";
 import { cached } from "@/lib/cache";
+import { hashedAddress } from "@/lib/hashed-address";
+import { abciQuery } from "@/lib/gno-abci";
 import { gnoHashToHex, gql } from "@/lib/gno";
 import { coverageOf } from "@/lib/indexer-coverage";
 import { indexerPool } from "@/lib/indexer-db";
@@ -37,43 +37,9 @@ export function shortPath(path: string): string {
 
 export const isRealm = (path: string) => path.startsWith("gno.land/r/");
 
-type VmResult = { ok: true; data: string } | { ok: false; missing: boolean };
-
-/**
- * One vm/* query. `missing` tells "the node answered: no such package" from
- * "no node answered", so a page can 404 only on the first.
- */
-async function vmQuery(chain: ChainConfig, path: string, data: string, timeoutMs = 8000): Promise<VmResult> {
-  for (const endpoint of [...chain.rpcEndpoints, ...chain.fallbackRpcEndpoints]) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        cache: "no-store",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "abci_query",
-          params: { path, data: Buffer.from(data).toString("base64") },
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!res.ok) continue;
-      const json = (await res.json()) as {
-        error?: unknown;
-        result?: { response?: { ResponseBase?: { Data?: string | null; Error?: unknown } } };
-      };
-      if (json.error) continue;
-      const base = json.result?.response?.ResponseBase;
-      if (!base) continue;
-      if (base.Error) return { ok: false, missing: true };
-      return { ok: true, data: Buffer.from(base.Data ?? "", "base64").toString() };
-    } catch {
-      continue;
-    }
-  }
-  return { ok: false, missing: false };
-}
+/** One vm/* query; see abciQuery for what `missing` means. */
+const vmQuery = (chain: ChainConfig, path: string, data: string, timeoutMs = 8000) =>
+  abciQuery(chain, path, data, timeoutMs);
 
 /** Every package path on the chain, sorted. Null when no node answered. */
 export function gnoPackagePaths(chain: ChainConfig): Promise<string[] | null> {
@@ -98,8 +64,7 @@ export function gnoPackagePaths(chain: ChainConfig): Promise<string[] | null> {
  * sha256("pkgPath:" + path), as gno derives it.
  */
 export function realmAddress(path: string): string {
-  const bytes = createHash("sha256").update(`pkgPath:${path}`).digest().subarray(0, 20);
-  return bech32.encode("g", bech32.toWords(bytes));
+  return hashedAddress("g", `pkgPath:${path}`);
 }
 
 /** Every realm's account address to its path. Null when no node answered. */

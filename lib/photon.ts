@@ -1,7 +1,6 @@
-import { createHash } from "node:crypto";
-import { bech32 } from "bech32";
 import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
+import { hashedAddress } from "@/lib/hashed-address";
 import { fetchLcd } from "@/lib/lcd";
 import { coverage, poolFor } from "@/lib/indexer-db";
 
@@ -24,8 +23,7 @@ export const PHOTON_DENOM = "uphoton";
  */
 export function photonModule(chain: ChainConfig): string | null {
   if (!chain.photon) return null;
-  const bytes = createHash("sha256").update("photon").digest().subarray(0, 20);
-  return bech32.encode(chain.bech32Prefix, bech32.toWords(bytes));
+  return hashedAddress(chain.bech32Prefix, "photon");
 }
 
 export interface PhotonState {

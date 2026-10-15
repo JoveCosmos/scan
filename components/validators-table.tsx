@@ -10,7 +10,7 @@ import {
   type SortKey,
   type ValidatorRow,
 } from "@/lib/validator-sort";
-import { jailRecord } from "@/lib/format";
+import { formatPercent, jailRecord } from "@/lib/format";
 import { ValidatorAvatar } from "@/components/validator-avatar";
 import { ink } from "@/lib/utils";
 
@@ -42,8 +42,7 @@ const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = {
   jailings: "desc",
 };
 
-const pct = (v: number | null | undefined, d = 2) =>
-  v === null || v === undefined ? "-" : `${(v * 100).toFixed(d)}%`;
+const pct = formatPercent;
 
 /**
  * Signing history at row height. Newest on the right; a missed block is a

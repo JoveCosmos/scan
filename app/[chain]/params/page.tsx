@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { formatPercent } from "@/lib/format";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -45,8 +46,7 @@ export async function generateMetadata({
   return { title: getChain(chainId)?.prettyName ?? "Chain" };
 }
 
-const pct = (value: number | null | undefined, decimals = 2) =>
-  value === null || value === undefined ? "-" : `${(value * 100).toFixed(decimals)}%`;
+const pct = formatPercent;
 
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
 const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" && r.value !== "");

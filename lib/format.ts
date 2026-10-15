@@ -128,3 +128,8 @@ export function sumUnits(amounts: (string | null | undefined)[]): string {
   for (const a of amounts) if (a && /^\d+$/.test(a)) total += BigInt(a);
   return total.toString();
 }
+
+/** A fraction as a percentage, "0.0721" -> "7.21%"; "-" when unknown. */
+export function formatPercent(value: number | null | undefined, decimals = 2): string {
+  return value === null || value === undefined ? "-" : `${(value * 100).toFixed(decimals)}%`;
+}

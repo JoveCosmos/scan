@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ChainConfig } from "@/lib/chains";
+import { abciQuery } from "@/lib/gno-abci";
 
 /*
  * gno.land has no staking module, so validator identity lives in a realm:
@@ -26,47 +27,14 @@ export interface ValoperProfile {
 
 const VALOPERS_REALM = "gno.land/r/gnops/valopers";
 
-interface RpcEnvelope {
-  result?: { response?: { ResponseBase?: { Data?: string; Error?: unknown } } };
-  error?: { data?: string; message?: string };
-}
-
 /** Query a realm's Render() over vm/qrender. Returns null on any failure. */
 export async function renderRealm(
   chain: ChainConfig,
   fullPath: string,
   timeoutMs = 10_000
 ): Promise<string | null> {
-  const data = Buffer.from(fullPath).toString("base64");
-
-  for (const endpoint of chain.rpcEndpoints) {
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        cache: "no-store",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "abci_query",
-          params: { path: "vm/qrender", data },
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!res.ok) continue;
-
-      const json = (await res.json()) as RpcEnvelope;
-      if (json.error) continue;
-
-      const base = json.result?.response?.ResponseBase;
-      if (!base || base.Error) continue;
-
-      return Buffer.from(base.Data ?? "", "base64").toString();
-    } catch {
-      continue;
-    }
-  }
-  return null;
+  const res = await abciQuery(chain, "vm/qrender", fullPath, timeoutMs);
+  return res.ok ? res.data : null;
 }
 
 /** The realm answers with this literal string rather than an error. */
