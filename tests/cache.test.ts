@@ -109,13 +109,25 @@ describe("cached bounds", () => {
     }
   });
 
-  it("never holds more than its cap, dropping the oldest-written first", async () => {
+  it("never holds more than its cap, dropping the least recently used first", async () => {
     for (let i = 0; i < 5100; i++) await cached(`k:${i}`, 3_600_000, async () => i);
     expect(cacheSize()).toBe(5000);
     // The newest survive; the first written were evicted and reload.
     const load = vi.fn(async () => "again");
     expect(await cached("k:5099", 3_600_000, load)).toBe(5099);
     expect(await cached("k:0", 3_600_000, load)).toBe("again");
+  });
+
+  it("evicts the least recently used: a read keeps an entry", async () => {
+    await cached("hot", 3_600_000, async () => "hot");
+    for (let i = 0; i < 5100; i++) {
+      await cached(`k:${i}`, 3_600_000, async () => i);
+      // Read on every page, like gno.land's package list.
+      if (i % 100 === 0) await cached("hot", 3_600_000, async () => "reloaded");
+    }
+    const load = vi.fn(async () => "reloaded");
+    expect(await cached("hot", 3_600_000, load)).toBe("hot");
+    expect(load).not.toHaveBeenCalled();
   });
 
   it("holds a group to its size, most recently read kept", async () => {

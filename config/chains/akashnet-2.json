@@ -16,7 +16,6 @@
     "https://rpc.cosmos.directory/akash",
     "https://akash-rpc.publicnode.com"
   ],
-  "featuredValidator": null,
   "accent": "#FF7A45",
   "coingeckoId": "akash-network",
   "website": "https://akash.network",

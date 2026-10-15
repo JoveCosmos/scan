@@ -156,31 +156,6 @@ export async function getChainParams(chain: ChainConfig): Promise<ChainParams> {
   };
 }
 
-/** "1814400s" -> "21 days". Cosmos expresses durations as second strings. */
-export function humanDuration(value: string | null): string {
-  if (!value) return "-";
-  const seconds = Number(value.replace(/s$/, ""));
-  if (!Number.isFinite(seconds)) return value;
-
-  const day = 86_400;
-  const hour = 3_600;
-  const minute = 60;
-
-  if (seconds >= day) {
-    const days = seconds / day;
-    return `${Number.isInteger(days) ? days : days.toFixed(1)} day${days === 1 ? "" : "s"}`;
-  }
-  if (seconds >= hour) {
-    const hours = seconds / hour;
-    return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hour${hours === 1 ? "" : "s"}`;
-  }
-  if (seconds >= minute) {
-    const minutes = seconds / minute;
-    return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min`;
-  }
-  return `${seconds}s`;
-}
-
 export interface ChainEconomics {
   /** Community pool, native denom only. Pools also hold IBC dust. */
   communityPool: string | null;
@@ -203,7 +178,22 @@ export interface ChainEconomics {
  * which is why the commission-adjusted figure is given alongside it - a
  * headline APR nobody actually receives is worse than no APR.
  */
-export async function getChainEconomics(
+export function getChainEconomics(
+  chain: ChainConfig,
+  communityTax: number | null,
+  minCommission: number | null
+): Promise<ChainEconomics> {
+  // Pool, provisions and bonded stake move slowly; every Overview view asked
+  // the LCD again before.
+  return cached(
+    `economics:${chain.chainId}:${communityTax}:${minCommission}`,
+    60_000,
+    () => loadChainEconomics(chain, communityTax, minCommission),
+    { staleMs: 15 * 60_000 }
+  );
+}
+
+async function loadChainEconomics(
   chain: ChainConfig,
   communityTax: number | null,
   minCommission: number | null

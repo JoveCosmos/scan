@@ -3,7 +3,14 @@ import type { ChainConfig } from "@/lib/chains";
 import type { ValidatorUptime } from "@/lib/uptime";
 import { accentFor } from "@/lib/chains";
 import { gnoValidatorDetail, gnoUptime } from "@/lib/gno";
-import { gnoPathHref } from "@/lib/address-route";
+import { packageHref } from "@/lib/address-route";
+
+/** "gno.land/r/gnops/valopers:g1…": the realm's page here, rendered at that path. */
+function profileHref(chainId: string, path: string): string | null {
+  const m = path.match(/^(gno\.land\/[rp]\/[\w\-./]+?)(?::(.*))?$/);
+  if (!m) return null;
+  return m[2] ? `${packageHref(chainId, m[1])}?tab=render&render=${encodeURIComponent(m[2])}` : packageHref(chainId, m[1]);
+}
 import { cached } from "@/lib/cache";
 import { UptimeBars } from "@/components/uptime-bars";
 import { ValidatorSigningHistory } from "@/components/validator-signing-history";
@@ -68,9 +75,7 @@ async function ValoperProfileBoard({
             label: "Realm profile",
             value: profile.profilePath,
             mono: true,
-            ...(gnoPathHref(profile.profilePath)
-              ? { href: gnoPathHref(profile.profilePath) as string }
-              : {}),
+            ...(profileHref(chain.chainId, profile.profilePath) ? { href: profileHref(chain.chainId, profile.profilePath)! } : {}),
           },
         ]
       : []),

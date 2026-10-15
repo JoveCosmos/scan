@@ -21,7 +21,7 @@ import {
 import { withinBudget } from "@/lib/cache";
 import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
+import { decodeParam, formatDate, timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
@@ -56,8 +56,7 @@ export async function generateMetadata({
   return { title: pkg && chain ? `${shortPath(pkg)} on ${chain.prettyName}` : "Package" };
 }
 
-const day = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "-";
+const day = formatDate;
 
 const TABS = ["overview", "source", "functions", "render", "calls"];
 
@@ -122,7 +121,7 @@ export default async function PackagePage({
       sub: pkg && tests ? `${tests} test${tests === 1 ? "" : "s"}` : undefined,
       lead: true,
     },
-    { key: "lines", label: "Lines of code", value: lines !== null ? lines.toLocaleString() : "N/A", sub: "excluding tests" },
+    { key: "lines", label: "Lines of code", value: lines !== null ? lines.toLocaleString() : "N/A", sub: "gno code" },
     { key: "funcs", label: "Functions", value: funcs ? funcs.length.toLocaleString() : "N/A", sub: "exported" },
     {
       key: "storage",

@@ -95,7 +95,7 @@ export default async function ProposalsPage({
     await Promise.all(
       proposals
         .filter((p) => isVoting(p.status))
-        .map(async (p) => [p.id, await getLiveTally(chain, p.id)] as const)
+        .map(async (p) => [p.id, await withinBudget(getLiveTally(chain, p.id), 2500, null)] as const)
     )
   );
   const byAccount = indexValidatorAccounts(validators, chain.bech32Prefix);

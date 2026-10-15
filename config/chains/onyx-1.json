@@ -17,7 +17,6 @@
   "indexerEndpoints": [
     "http://127.0.0.1:8546/graphql/query"
   ],
-  "featuredValidator": null,
   "accent": "#62D9FF",
   "website": "https://gno.land",
   "repo": "https://github.com/gnolang/gno"

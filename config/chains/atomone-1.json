@@ -20,7 +20,6 @@
   "fallbackLcdEndpoints": [
     "https://atomone-api.gatadao.com"
   ],
-  "featuredValidator": null,
   "accent": "#F5C66B",
   "coingeckoId": "atomone",
   "website": "https://atom.one",

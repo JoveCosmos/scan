@@ -94,14 +94,17 @@ export default async function ChainOverviewPage({
       policy.txs ? adapter.getRecentTxs().catch(() => null) : null,
     ]);
 
-  // Three more LCD reads, and the only ones here that are not either config or
-  // already on the overview. Bounded and independently catchable.
+  // Three more LCD reads, cached, and never waited on past the budget.
   const economics = caps.staking
-    ? await getChainEconomics(
-        chain,
-        chainParams?.distribution?.communityTax ?? null,
-        chainParams?.staking?.minCommissionRate ?? null
-      ).catch(() => null)
+    ? await withinBudget(
+        getChainEconomics(
+          chain,
+          chainParams?.distribution?.communityTax ?? null,
+          chainParams?.staking?.minCommissionRate ?? null
+        ).catch(() => null),
+        3000,
+        null
+      )
     : null;
 
   // AtomOne-style APR range (null on chains with plain proportional rewards),

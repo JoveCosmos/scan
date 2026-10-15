@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ChainConfig } from "@/lib/chains";
 import { symbolForDenom, accentFor } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
-import { truncateMiddle, timeAgo } from "@/lib/format";
+import { formatDate, timeAgo, truncateMiddle } from "@/lib/format";
 import { relayerStats } from "@/lib/indexer-db";
 import { relayerPackets } from "@/lib/indexer-validator";
 import { RELAYER_MSG_TYPES } from "@/lib/relayers";
@@ -42,11 +42,7 @@ export async function RelayerOperators({ chain }: { chain: ChainConfig }) {
   const feeSymbol = symbolForDenom(chain.feeDenom ?? chain.denom);
   const since = stats.fromGenesis
     ? null
-    : new Date(stats.since).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
+    : formatDate(stats.since);
 
   return (
     <div className="flex flex-col gap-2">

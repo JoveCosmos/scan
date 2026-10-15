@@ -84,14 +84,17 @@ function toFacts(res: BlockResponse): BlockFacts {
 const BLOCK_TTL = 30 * 60_000;
 
 export function blockFacts(chain: ChainConfig, height: number | string): Promise<BlockFacts> {
-  return cached(`blockfacts:${chain.chainId}:${height}`, BLOCK_TTL, async () =>
-    toFacts(
-      await fetchLcd<BlockResponse>(
-        chain,
-        `/cosmos/base/tendermint/v1beta1/blocks/${height}`,
-        { cache: "no-store", timeoutMs: 8000 }
-      )
-    )
+  return cached(
+    `blockfacts:${chain.chainId}:${height}`,
+    BLOCK_TTL,
+    async () =>
+      toFacts(
+        await fetchLcd<BlockResponse>(chain, `/cosmos/base/tendermint/v1beta1/blocks/${height}`, {
+          cache: "no-store",
+          timeoutMs: 8000,
+        })
+      ),
+    { group: { name: "block-facts", max: 500 } }
   );
 }
 

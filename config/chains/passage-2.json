@@ -15,7 +15,6 @@
     "https://rpc.cosmos.directory/passage",
     "http://127.0.0.1:27857"
   ],
-  "featuredValidator": null,
   "accent": "#7DD3FC",
   "coingeckoId": "passage",
   "website": "https://passage.io",

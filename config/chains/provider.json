@@ -25,7 +25,6 @@
   "fallbackRpcEndpoints": [
     "https://provider-rpc.gatadao.com"
   ],
-  "featuredValidator": null,
   "accent": "#36D399",
   "website": "https://cosmos.network",
   "repo": "https://github.com/cosmos/gaia"

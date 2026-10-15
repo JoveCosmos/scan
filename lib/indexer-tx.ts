@@ -782,7 +782,7 @@ export async function txFromIndex(chainId: string, hash: string): Promise<Indexe
       movements,
       hasMeta,
     };
-  }).catch(() => null);
+  }, { group: { name: "idx-tx", max: 500 } }).catch(() => null);
 }
 
 // ── gno.land history and per-address counts (migration 011) ─────────────────

@@ -13,7 +13,7 @@ import { voteOptionLabel } from "@/lib/proposals";
 import { keybasePicture, validatorLogoMap } from "@/lib/validator-logos";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, truncateMiddle } from "@/lib/format";
+import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
@@ -38,10 +38,7 @@ export async function generateMetadata({
   return { title: g ? g.moniker : "Governor" };
 }
 
-const day = (iso: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-    : "-";
+const day = formatDate;
 
 const TABS = ["overview", "power", "delegators", "votes"];
 

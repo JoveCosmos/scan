@@ -16,7 +16,6 @@
     "https://cosmos-rpc.publicnode.com",
     "https://rpc.cosmos.directory/cosmoshub"
   ],
-  "featuredValidator": null,
   "accent": "#3B9EFF",
   "coingeckoId": "cosmos",
   "website": "https://cosmos.network",

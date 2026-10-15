@@ -11,24 +11,19 @@ import { NextResponse, type NextRequest } from "next/server";
  * (chain short names, retired testnets) run before this.
  */
 
-const CHAINS = new Set((process.env.SCAN_CHAIN_IDS ?? "").split(",").filter(Boolean));
+/** Chain id to the sections only some chains have (see next.config.ts). */
+const CHAINS = new Map(
+  (process.env.SCAN_CHAIN_SECTIONS ?? "")
+    .split(";")
+    .filter(Boolean)
+    .map((entry) => {
+      const [id, extra = ""] = entry.split(":");
+      return [id, new Set(extra.split(",").filter(Boolean))] as const;
+    })
+);
 
-const SECTIONS = new Set([
-  "params",
-  "validators",
-  "proposals",
-  "governors",
-  "relayers",
-  "infra",
-  "blocks",
-  "txs",
-  "accounts",
-  "photon",
-  "charts",
-  "packages",
-  "tokens",
-  "members",
-]);
+/** Sections every chain has. */
+const SECTIONS = new Set(["params", "validators", "proposals", "relayers", "infra", "blocks", "txs", "accounts"]);
 
 const BECH32 = /^[a-z0-9]{1,83}1[02-9ac-hj-np-z]{6,}$/i;
 
@@ -59,7 +54,7 @@ export function middleware(req: NextRequest) {
   if (!chain) return NextResponse.next();
   if (!CHAINS.has(chain)) return notFound(req);
   if (!section) return NextResponse.next();
-  if (!SECTIONS.has(section)) return notFound(req);
+  if (!SECTIONS.has(section) && !CHAINS.get(chain)?.has(section)) return notFound(req);
   if (id !== undefined && ID[section]) {
     let value = id;
     try {

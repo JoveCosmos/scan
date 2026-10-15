@@ -79,7 +79,9 @@ export async function proposedBlocks(
         since: c.from,
         fromGenesis: c.lowest <= 1,
       };
-    });
+    },
+      { staleMs: 30 * 60_000, group: { name: "val-proposed", max: 100 } }
+    );
   } catch {
     return null;
   }
@@ -191,7 +193,9 @@ export async function proposerFairness(
         fromHeight: window.from,
         toHeight: window.to,
       };
-    });
+    },
+      { staleMs: 60 * 60_000, group: { name: "val-fairness", max: 200 } }
+    );
   } catch {
     return null;
   }
@@ -278,7 +282,9 @@ export async function validatorEvents(
           },
         ];
       });
-    });
+    },
+      { staleMs: 30 * 60_000, group: { name: "val-events", max: 100 } }
+    );
   } catch {
     return null;
   }
@@ -403,53 +409,9 @@ export async function validatorVotes(
         voted: Math.max(0, totalN - skippedIds.length),
         since: from,
       };
-    });
-  } catch {
-    return null;
-  }
-}
-
-// ── Overview: recent jailings ───────────────────────────────────────────────
-
-export interface RecentJailing {
-  height: number;
-  time: string;
-  consAddr: string;
-  kind: "jailed" | "tombstoned";
-  reason: string | null;
-}
-
-export async function recentJailings(
-  chainId: string,
-  limit = 10
-): Promise<RecentJailing[] | null> {
-  const pool = poolFor(chainId);
-  if (!pool) return null;
-
-  try {
-    return await cached(`idx:recentjail:${chainId}`, 60_000, async () => {
-      const { rows } = await pool.query<{
-        height: string;
-        time: string;
-        cons_addr: string;
-        kind: "jailed" | "tombstoned";
-        reason: string | null;
-      }>(
-        `SELECT height::text, time::text, cons_addr, kind, reason
-           FROM slash_event
-          WHERE chain_id = $1 AND kind IN ('jailed', 'tombstoned')
-          ORDER BY slash_event.height DESC
-          LIMIT $2`,
-        [chainId, limit]
-      );
-      return rows.map((r) => ({
-        height: Number(r.height),
-        time: r.time,
-        consAddr: r.cons_addr,
-        kind: r.kind,
-        reason: r.reason,
-      }));
-    });
+    },
+      { staleMs: 30 * 60_000, group: { name: "val-votes", max: 200 } }
+    );
   } catch {
     return null;
   }
@@ -821,7 +783,7 @@ export async function signingHistory(
           recent,
         };
       },
-      { staleMs: 600_000 }
+      { staleMs: 600_000, group: { name: "val-signing", max: 200 } }
     );
   } catch {
     return null;
@@ -966,7 +928,9 @@ export async function powerEvents(chainId: string, operator: string): Promise<Po
             : null,
         since: cov.loTime,
       };
-    });
+    },
+      { staleMs: 30 * 60_000, group: { name: "val-powerev", max: 100 } }
+    );
   } catch {
     return null;
   }
@@ -1022,7 +986,9 @@ export async function powerEventsBefore(
         VALIDATOR_PAGE,
       ]);
       return rows.map(toPowerEvent);
-    });
+    },
+      { staleMs: 30 * 60_000, group: { name: "val-powerev-page", max: 100 } }
+    );
   } catch {
     return null;
   }
@@ -1065,7 +1031,9 @@ export async function powerHistory(chainId: string, consHex: string): Promise<Po
         points.unshift({ height: cov.lo, time: cov.loTime, power: opening });
       }
       return points;
-    });
+    },
+      { staleMs: 60 * 60_000, group: { name: "val-powerhist", max: 100 } }
+    );
   } catch {
     return null;
   }
@@ -1363,7 +1331,9 @@ export async function commissionHistory(
         });
       }
       return { changes, from: cov.lo };
-    });
+    },
+      { staleMs: 60 * 60_000, group: { name: "val-commission-hist", max: 200 } }
+    );
   } catch {
     return null;
   }

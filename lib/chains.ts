@@ -102,7 +102,6 @@ const chainConfigSchema = z
      * cannot list blocks or transactions; ours runs on this box.
      */
     indexerEndpoints: z.array(z.string().url()).default([]),
-    featuredValidator: z.string().nullable(),
     /** Per-chain accent, drawn from the GATA ramp. Falls back to brand blue. */
     accent: z.string().optional(),
   })

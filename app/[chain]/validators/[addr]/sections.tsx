@@ -1,7 +1,7 @@
 import { cache } from "react";
 import type { ChainConfig } from "@/lib/chains";
 import { getChain } from "@/lib/chains";
-import { timeAgo, truncateMiddle } from "@/lib/format";
+import { formatDate, timeAgo, truncateMiddle } from "@/lib/format";
 import { getAdapter } from "@/lib/adapter";
 import { getValidator, getValidatorsCached } from "@/lib/validators";
 import { cached } from "@/lib/cache";
@@ -159,8 +159,7 @@ export const pct = (value: number | null, decimals = 2) =>
 /** Drops rows whose value is a dash, so a popup never lists absent facts. */
 export const kept = (rows: DetailRow[]) => rows.filter((r) => r.value !== "-" && r.value !== "");
 
-const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const day = formatDate;
 
 function NotAvailable() {
   return (

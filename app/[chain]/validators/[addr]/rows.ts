@@ -2,7 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import { chainDenoms } from "@/lib/chains";
 import { formatToken } from "@/lib/overview";
 import { shortDenom } from "@/lib/coin";
-import { timeAgo, truncateMiddle } from "@/lib/format";
+import { formatDate, timeAgo, truncateMiddle } from "@/lib/format";
 import type { DeckColumn, DeckRow } from "@/components/row-deck";
 
 /**
@@ -11,8 +11,7 @@ import type { DeckColumn, DeckRow } from "@/components/row-deck";
  * page the routes beside this file serve, so the two can never differ.
  */
 
-export const day = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+export const day = formatDate;
 
 /** The chain's own denoms scaled and named; anything else (an IBC hash) as-is. */
 export function coinFormatter(chain: ChainConfig) {

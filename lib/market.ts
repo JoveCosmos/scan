@@ -69,12 +69,6 @@ export async function getMarketDataById(
   }
 }
 
-/** "$1.35", or "$0.146510" when a cent-scale price would round to nothing. */
-export function formatUsd(value: number): string {
-  if (value >= 1) return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-  return `$${value.toFixed(6).replace(/0+$/, "").replace(/\.$/, "")}`;
-}
-
 /** "$705.4M" - market caps are read at a glance, not to the dollar. */
 export function formatUsdCompact(value: number): string {
   if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;

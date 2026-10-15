@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { formatDate } from "@/lib/format";
 import { notFound } from "next/navigation";
 import { getChain, symbolFor, accentFor, type ChainConfig } from "@/lib/chains";
 import { policyFor } from "@/lib/tiers";
@@ -201,11 +202,7 @@ async function ValidatorsContent({ chain }: { chain: ChainConfig }) {
   // browser's locale and disagrees with the server's markup.
   const jailingsSince =
     jailings && !jailings.fromGenesis
-      ? new Date(jailings.since).toLocaleDateString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
+      ? formatDate(jailings.since)
       : null;
   const symbol = symbolFor(chain);
   const accent = accentFor(chain);

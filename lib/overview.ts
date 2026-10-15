@@ -97,6 +97,7 @@ export function formatToken(raw: string | null, exponent: number, maxFrac = 2): 
   if (raw === null) return "-";
   const n = Number(raw) / 10 ** exponent;
   if (!Number.isFinite(n)) return "-";
+  if (n >= 1_000_000_000_000) return `${(n / 1_000_000_000_000).toFixed(maxFrac)}T`;
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(maxFrac)}B`;
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(maxFrac)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(maxFrac)}K`;

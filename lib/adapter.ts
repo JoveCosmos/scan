@@ -108,20 +108,8 @@ export interface RecentTxs {
  */
 export interface ChainCapabilities {
   staking: boolean;
-  gas: boolean;
-  /** Whether tx hashes are hex (Cosmos) or base64 (gno) - affects URL encoding. */
-  hexHashes: boolean;
-  /**
-   * Voting power is assigned rather than staked, so power-share metrics measure
-   * consensus weight, not economic stake.
-   */
-  stakeWeighted: boolean;
-  /** Chain has a validator registry separate from the active set. */
-  registry: boolean;
   /** Chain has an on-chain governance module. */
   governance: boolean;
-  /** Uptime comes from a slashing window, not just recent blocks. */
-  slashingWindow: boolean;
 }
 
 export interface ChainAdapter {
@@ -186,13 +174,8 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     return {
       capabilities: {
         staking: false,
-        gas: false,
-        hexHashes: false,
-        stakeWeighted: false,
-        registry: true,
         // gno.land governance lives in realms (GovDAO), not a gov module.
         governance: false,
-        slashingWindow: false,
       },
       getOverview: () => gnoOverview(chain),
       getRecentBlocks: (count) => gnoRecentBlocks(chain, count),
@@ -236,12 +219,7 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
   return {
     capabilities: {
       staking: true,
-      gas: true,
-      hexHashes: true,
-      stakeWeighted: true,
-      registry: false,
       governance: true,
-      slashingWindow: true,
     },
     getOverview: () => getChainOverview(chain),
     getRecentBlocks: (count) => getRecentBlocks(chain, count),
@@ -276,9 +254,9 @@ export function getAdapter(chain: ChainConfig): ChainAdapter {
     // paged tx-search requests, and without this every viewer repeats all of
     // them. Votes only change while voting is open, so 60s is conservative.
     getProposalVotes: (id, window) =>
-      cached(`votes:${chain.chainId}:${id}`, 60_000, () =>
-        getProposalVotes(chain, id, undefined, window)
-      ),
+      cached(`votes:${chain.chainId}:${id}`, 60_000, () => getProposalVotes(chain, id, undefined, window), {
+        group: { name: "proposal-votes", max: 20 },
+      }),
     getGovParams: () => getGovParams(chain),
   };
 }

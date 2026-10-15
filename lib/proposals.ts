@@ -1,3 +1,4 @@
+import { cached } from "@/lib/cache";
 import type { ChainConfig } from "@/lib/chains";
 import { fetchLcd } from "@/lib/lcd";
 import type { Coin } from "@/lib/accounts";
@@ -37,7 +38,7 @@ export interface ProposalSummary {
 
 export interface ProposalMessage {
   typeUrl: string;
-  /** "Software Upgrade", "Community Pool Spend", "Update Params · staking". */
+  /** "Software Upgrade", "Community Pool Spend", "Update Params, staking". */
   label: string;
   raw: Record<string, unknown>;
 }
@@ -231,16 +232,20 @@ export async function getAllProposals(chain: ChainConfig): Promise<ProposalSumma
  */
 export async function getLiveTally(chain: ChainConfig, id: string): Promise<Tally | null> {
   if (!isNumericId(id)) return null;
-  try {
-    const live = await fetchLcd<{ tally?: RawTally }>(
-      chain,
-      `/cosmos/gov/v1/proposals/${id}/tally`,
-      { cache: "no-store", timeoutMs: 10_000 }
-    );
-    return live.tally ? toTally(live.tally) : null;
-  } catch {
-    return null;
-  }
+  // A tally moves with each vote; half a minute old is live enough, and the
+  // proposals list asks for every open proposal on every view.
+  return cached(
+    `tally:${chain.chainId}:${id}`,
+    30_000,
+    async () => {
+      const live = await fetchLcd<{ tally?: RawTally }>(chain, `/cosmos/gov/v1/proposals/${id}/tally`, {
+        cache: "no-store",
+        timeoutMs: 10_000,
+      });
+      return live.tally ? toTally(live.tally) : null;
+    },
+    { staleMs: 10 * 60_000, group: { name: "tally", max: 100 } }
+  ).catch(() => null);
 }
 
 export interface Deposit {

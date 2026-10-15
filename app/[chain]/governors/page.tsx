@@ -5,7 +5,7 @@ import { getGovernorTable, type GovernorRow } from "@/lib/governors";
 import { keybasePicture } from "@/lib/validator-logos";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
-import { truncateMiddle } from "@/lib/format";
+import { formatDate, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { GovernanceSwitch } from "@/components/governance-switch";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
@@ -22,10 +22,7 @@ export async function generateMetadata({
   return { title: chain ? `${chain.prettyName} governors` : "Governors" };
 }
 
-const day = (iso: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-    : "-";
+const day = formatDate;
 
 /**
  * AtomOne's governors, largest first: the accounts that vote for whoever hands

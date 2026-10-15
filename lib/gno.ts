@@ -841,7 +841,7 @@ function indexedTxsAt(chain: ChainConfig, height: number): Promise<IdxTx[]> {
       { h: height }
     );
     return data.getTransactions ?? [];
-  });
+  }, { group: { name: "gno-block-txs", max: 300 } });
 }
 
 /** Only successful node reads are cached; a miss is retried next time. */

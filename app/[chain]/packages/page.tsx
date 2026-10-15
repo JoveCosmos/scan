@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { gnoDeploys, gnoPackagePaths, isRealm, packageHref, shortPath, type GnoDeploy } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
-import { truncateMiddle } from "@/lib/format";
+import { formatDate, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
@@ -16,8 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
   return { title: chain ? `${chain.prettyName} packages` : "Packages" };
 }
 
-const day = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "-";
+const day = formatDate;
 
 /**
  * gno.land's code: realms (stateful, callable) and packages (libraries),

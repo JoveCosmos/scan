@@ -4,7 +4,6 @@ import {
   expectedProposals,
   proposedBlocks,
   proposerFairness,
-  recentJailings,
   relayerPackets,
   validatorEvents,
   validatorVotes,
@@ -104,7 +103,6 @@ describe("indexed reads without an index", () => {
     expect(await proposerFairness("atomone-1", "atonevaloper1x", "ABC")).toBeNull();
     expect(await validatorEvents("atomone-1", "atone1x")).toBeNull();
     expect(await validatorVotes("atomone-1", "atone1x", null)).toBeNull();
-    expect(await recentJailings("atomone-1")).toBeNull();
     expect(await relayerPackets("atomone-1", ["/ibc.core.channel.v1.MsgRecvPacket"])).toBeNull();
   });
 });

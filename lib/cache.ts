@@ -38,7 +38,9 @@ const groups: Map<string, string[]> = (store[GROUPS_KEY] ??= new Map());
  * opened left its whole delegator ranking behind.
  *
  * Now expired entries go at least once a minute, and past MAX_ENTRIES the
- * oldest-written go too, expired or not.
+ * least recently used go too, expired or not: a read moves its entry to the
+ * back, so a list every page reads (gno.land's packages) outlives a crawl of
+ * one-off block pages.
  */
 const SWEEP_EVERY_MS = 60_000;
 const MAX_ENTRIES = 5000;
@@ -51,7 +53,8 @@ function sweep(now: number) {
       if (!entry.inflight && now - entry.at > entry.keepMs) cache.delete(key);
     }
   }
-  // Map order is write order (see put()), so the first keys are the stalest.
+  // Map order is use order (see put() and the read in cached()), so the first
+  // keys are the least recently used.
   for (const [key, entry] of cache) {
     if (cache.size <= MAX_ENTRIES) break;
     if (!entry.inflight) cache.delete(key);
@@ -143,6 +146,9 @@ export async function cached<T>(
 
   if (entry?.value !== undefined) {
     const age = now - entry.at;
+    // A read keeps the entry: to the back of the eviction order.
+    cache.delete(key);
+    cache.set(key, entry);
     if (age < ttlMs) return entry.value;
     if (age < staleMs) {
       if (!entry.inflight) void load(key, ttlMs, keepMs, loader, options.group).catch(() => {});

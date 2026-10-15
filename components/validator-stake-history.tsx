@@ -1,4 +1,5 @@
 import type { StakePoint } from "@/lib/indexer-db";
+import { formatDate } from "@/lib/format";
 import { formatToken } from "@/lib/overview";
 
 const WIDTH = 640;
@@ -110,9 +111,9 @@ export function ValidatorStakeChart({
       </svg>
 
       <div className="mt-1 flex shrink-0 justify-between text-[11px] text-muted-foreground">
-        <span>{new Date(points[0].time).toLocaleDateString()}</span>
+        <span>{formatDate(points[0].time)}</span>
         <span>90 days</span>
-        <span>{new Date(points[points.length - 1].time).toLocaleDateString()}</span>
+        <span>{formatDate(points[points.length - 1].time)}</span>
       </div>
     </div>
   );

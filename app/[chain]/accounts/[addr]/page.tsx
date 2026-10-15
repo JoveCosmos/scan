@@ -78,7 +78,7 @@ const STATE_LABEL: Record<Exclude<ValidatorState, null>, string> = {
   unbonding: "unbonding",
 };
 
-/** "12 Oct 2026 · in 11d 4h" for a completion time. */
+/** "12 Oct 2026, in 11d 4h" for a completion time. */
 function completes(iso: string): string {
   const until = timeUntil(iso);
   return until && until !== "ended" ? `${formatDate(iso)}, ${until}` : formatDate(iso);
@@ -700,8 +700,8 @@ export default async function AccountPage({
   if (!chain) notFound();
 
   const raw = decodeParam(rawAddr).trim();
-  const realm = gnoPathHref(raw);
-  if (realm) redirect(chain.kind === "gno" ? packageHref(chainId, raw) : realm);
+  // A package path in an account URL: that package's page.
+  if (chain.kind === "gno" && gnoPathHref(raw)) redirect(packageHref(chainId, raw));
 
   const decoded = decodeBech32(raw);
   if (!decoded) notFound();

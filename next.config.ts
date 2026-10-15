@@ -42,16 +42,35 @@ function chainNameAliases(): { name: string; chainId: string }[] {
   return [...byName].map(([name, { chainId }]) => ({ name, chainId }));
 }
 
-/** Every chain id, for middleware.ts, which cannot read config/ at runtime. */
-function chainIds(): string[] {
+/**
+ * Every chain id with the sections only some chains have, for middleware.ts,
+ * which cannot read config/ at runtime: "atomone-1:governors,photon,charts".
+ */
+function chainSections(): string {
   const dir = join(process.cwd(), "config", "chains");
   return readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
-    .map((f) => (JSON.parse(readFileSync(join(dir, f), "utf8")) as { chainId: string }).chainId);
+    .map((f) => {
+      const c = JSON.parse(readFileSync(join(dir, f), "utf8")) as {
+        chainId: string;
+        kind?: string;
+        indexed?: boolean;
+        governors?: boolean;
+        photon?: boolean;
+      };
+      const extra = [
+        ...(c.kind === "gno" ? ["packages", "tokens", "members", "charts"] : []),
+        ...(c.indexed ? ["charts"] : []),
+        ...(c.governors ? ["governors"] : []),
+        ...(c.photon ? ["photon"] : []),
+      ];
+      return `${c.chainId}:${[...new Set(extra)].join(",")}`;
+    })
+    .join(";");
 }
 
 const nextConfig: NextConfig = {
-  env: { SCAN_CHAIN_IDS: chainIds().join(",") },
+  env: { SCAN_CHAIN_SECTIONS: chainSections() },
   async redirects() {
     return [
       // An address is the same key on every testnet, so its page carries over.

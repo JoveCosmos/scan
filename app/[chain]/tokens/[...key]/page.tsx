@@ -74,7 +74,7 @@ export default async function TokenPage({
       lead: true,
     },
     { key: "holders", label: "Holders", value: token ? count.toLocaleString() : "N/A", sub: "with a balance" },
-    { key: "transfers", label: "Transfers", value: token ? token.transfers.toLocaleString() : "N/A", sub: "mints and burns included" },
+    { key: "transfers", label: "Transfers", value: token ? token.transfers.toLocaleString() : "N/A", sub: "all time" },
     { key: "top10", label: "Top 10", value: token ? share(top10) : "N/A", sub: "of the supply" },
     { key: "decimals", label: "Decimals", value: token ? String(token.decimals) : "N/A", sub: "places" },
     {

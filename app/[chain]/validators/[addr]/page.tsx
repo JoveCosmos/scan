@@ -5,7 +5,7 @@ import { getChain, symbolFor, accentFor, chainDenoms } from "@/lib/chains";
 import { findValidator, getValidator, keybaseUsername, statusLabel } from "@/lib/validators";
 import { formatToken } from "@/lib/overview";
 import { shortDenom } from "@/lib/coin";
-import { decodeParam, truncateMiddle } from "@/lib/format";
+import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
 import { accountFromOperator, convertAddress, decodePrefix, linkedAddresses } from "@/lib/bech32";
 import { resolveGnoValidatorAddress } from "@/lib/gno";
 import { emptyUptime, consensusIdsFromPubkey, jailedNow, longestMissStreak, missBudget } from "@/lib/uptime";
@@ -287,7 +287,7 @@ export default async function ValidatorDetailPage({
         },
         // Every rate it set, newest first, from the messages themselves.
         ...(commissions?.changes ?? []).map((c) => ({
-          label: `${c.kind === "create" ? "Created" : "Changed"} ${new Date(c.time).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}`,
+          label: `${c.kind === "create" ? "Created" : "Changed"} ${formatDate(c.time)}`,
           value: pct(c.rate),
           mono: true,
           href: `/${chainId}/txs/${c.txHash}`,

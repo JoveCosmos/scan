@@ -25,7 +25,6 @@
   "fallbackRpcEndpoints": [
     "https://atomone-testnet-rpc.gatadao.com"
   ],
-  "featuredValidator": null,
   "accent": "#FFB155",
   "website": "https://atom.one",
   "repo": "https://github.com/atomone-hub/atomone",

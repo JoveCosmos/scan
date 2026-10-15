@@ -17,7 +17,6 @@
     "https://rpc.cosmos.directory/osmosis",
     "http://127.0.0.1:26757"
   ],
-  "featuredValidator": null,
   "accent": "#A78BFA",
   "coingeckoId": "osmosis",
   "website": "https://osmosis.zone",

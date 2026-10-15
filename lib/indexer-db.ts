@@ -389,7 +389,9 @@ export async function proposerStats(
           [chainId, proposerCons, c.lowest, c.highest]
         );
         return res.rows[0];
-      }),
+      },
+        { staleMs: 30 * 60_000, group: { name: "val-proposer", max: 200 } }
+      ),
       blockCount(chainId, c.lowest, c.highest),
     ]);
 
@@ -864,17 +866,6 @@ export async function votesFromIndexer(
   }
 }
 
-export interface GovParticipation {
-  /** Proposals this account voted on. */
-  voted: number;
-  /** Proposals with any recorded vote, which is the fair denominator. */
-  total: number;
-  /** Count per option, heaviest option for split votes. */
-  byOption: { option: string; count: number }[];
-  /** When they last voted. */
-  lastVote: string | null;
-}
-
 export interface CommissionEarned {
   /** One entry per denom - AtomOne pays commission in ATONE and PHOTON. */
   byDenom: { denom: string; amount: string }[];
@@ -946,7 +937,9 @@ export async function commissionEarned(
         null
       ),
     };
-  });
+  },
+    { staleMs: 60 * 60_000, group: { name: "val-commission", max: 200 } }
+  );
 }
 
 export interface StakePoint {
@@ -999,7 +992,9 @@ export async function stakeHistory(
       [chainId, operator, days, points]
     );
     return rows.length >= 2 ? rows : [];
-  });
+  },
+    { staleMs: 60 * 60_000, group: { name: "val-stakehist", max: 100 } }
+  );
 }
 
 export interface IndexedBlock {
@@ -1037,7 +1032,9 @@ export async function blockFromIndexer(chainId: string, height: number): Promise
     return r
       ? { height: r.height, time: r.time, proposerCons: r.proposer_cons, hash: r.hash, txCount: Number(r.tx_count ?? 0) }
       : null;
-  }).catch(() => null);
+  },
+    { group: { name: "block", max: 500 } }
+  ).catch(() => null);
 }
 
 /** A block's transactions from the index, one row each, as the account lists show them. */
@@ -1090,5 +1087,7 @@ export async function blockTxsFromIndexer(chainId: string, height: number): Prom
       transfer:
         r.denom && r.amount ? { from: r.from_addr, to: r.to_addr, denom: r.denom, amount: r.amount } : null,
     }));
-  }).catch(() => null);
+  },
+    { group: { name: "block-txs", max: 300 } }
+  ).catch(() => null);
 }

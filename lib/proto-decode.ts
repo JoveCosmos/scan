@@ -379,7 +379,3 @@ export function decodeRawMessage(typeUrl: string, raw: Uint8Array | null | undef
   }
 }
 
-/** Test seam: whether a type has a layout. */
-export function hasLayout(typeUrl: string): boolean {
-  return typeUrl in SCHEMAS;
-}

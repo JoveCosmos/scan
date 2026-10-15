@@ -17,7 +17,6 @@
     "https://rpc.cosmos.directory/juno",
     "http://127.0.0.1:27257"
   ],
-  "featuredValidator": null,
   "accent": "#F0827D",
   "coingeckoId": "juno-network",
   "website": "https://junonetwork.io",
