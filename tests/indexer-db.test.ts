@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createPool, commitBatch, readCursor, resolveUnjails, recordGaps, heartbeat } from "../indexer/src/db";
-import { extractBlock, type ExtractedBlock } from "../indexer/src/extract";
+import { extractBlock, EXTRACT_VERSION, type ExtractedBlock } from "../indexer/src/extract";
 import type { Pool } from "pg";
 
 /**
@@ -361,8 +361,8 @@ describe.skipIf(!url)("extract version 4 writes", () => {
 
     await commitBatch(pool, CH, [good]);
     await commitBatch(pool, CH, [hollow]);
-    const v4 = await pool.query("SELECT extract_version FROM block WHERE chain_id = $1 AND height = 9515610", [CH]);
-    expect(v4.rows[0].extract_version).toBe(4);
+    const kept = await pool.query("SELECT extract_version FROM block WHERE chain_id = $1 AND height = 9515610", [CH]);
+    expect(kept.rows[0].extract_version).toBe(EXTRACT_VERSION);
     const t = await pool.query(
       "SELECT kind FROM transfer WHERE chain_id = $1 AND height = 9515610 ORDER BY event_seq", [CH]
     );
