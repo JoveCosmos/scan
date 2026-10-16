@@ -14,13 +14,20 @@ export function SummaryRow({
   label,
   children,
   wide = false,
+  phoneWide = false,
 }: {
   label: string;
   children: React.ReactNode;
   wide?: boolean;
+  /** A whole row on a phone, where two columns leave an address or a figure pair no room. */
+  phoneWide?: boolean;
 }) {
   return (
-    <div className={`flex min-w-0 flex-col gap-0.5 ${wide ? "col-span-2 lg:col-span-4" : ""}`}>
+    <div
+      className={`flex min-w-0 flex-col gap-0.5 ${
+        wide ? "col-span-2 lg:col-span-4" : phoneWide ? "col-span-2 sm:col-span-1" : ""
+      }`}
+    >
       <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-muted-foreground">{label}</dt>
       <dd className="min-w-0 text-[13px] [overflow-wrap:anywhere]">{children}</dd>
     </div>

@@ -355,7 +355,7 @@ export default async function TxDetailPage({
               <span className="font-mono">{formatCoinsExact(tx.fee, denoms)}</span>
             </SummaryRow>
             {tx.gasUsed || tx.gasWanted ? (
-              <SummaryRow label="Gas used / wanted">
+              <SummaryRow label="Gas used / wanted" phoneWide>
                 <span className="whitespace-nowrap font-mono">
                   {tx.gasUsed ? Number(tx.gasUsed).toLocaleString() : "-"} /{" "}
                   {tx.gasWanted ? Number(tx.gasWanted).toLocaleString() : "-"}
@@ -368,7 +368,7 @@ export default async function TxDetailPage({
               </SummaryRow>
             ) : null}
             {signers.length > 0 ? (
-              <SummaryRow label={signers.length === 1 ? "Signer" : "Signers"}>
+              <SummaryRow label={signers.length === 1 ? "Signer" : "Signers"} phoneWide>
                 <span className="flex flex-col">
                   {signers.map((s) => (
                     <AddressLink key={s} address={s} head={14} tail={8} />
@@ -377,12 +377,12 @@ export default async function TxDetailPage({
               </SummaryRow>
             ) : null}
             {feePayer ? (
-              <SummaryRow label="Fee payer">
+              <SummaryRow label="Fee payer" phoneWide>
                 <AddressLink address={feePayer} head={14} tail={8} />
               </SummaryRow>
             ) : null}
             {tx.feeGranter ? (
-              <SummaryRow label="Fee granter">
+              <SummaryRow label="Fee granter" phoneWide>
                 <AddressLink address={tx.feeGranter} head={14} tail={8} />
               </SummaryRow>
             ) : null}

@@ -93,7 +93,7 @@ export default function RootLayout({
                   pinned to the viewport every row the footer takes is a row the
                   page does not get.
                 */}
-                <div className="mx-auto flex h-8 max-w-[90rem] items-center justify-end px-4 text-[11px] text-muted-foreground">
+                <div className="mx-auto flex h-8 max-w-[90rem] items-center justify-center px-4 text-[11px] text-muted-foreground sm:justify-end">
                   <span>
                     powered by{" "}
                     <a
