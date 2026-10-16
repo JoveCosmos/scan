@@ -203,6 +203,9 @@ covered throughout.
 | gno_tx | 4 | `gno_tx` (gno chains) |
 | gno_tx_party | 4 | `gno_tx_party` (gno chains) |
 | address_tx_count | 4 | `address_tx_count` — see its section for what "covered" means |
+| proposer_count | 0 | `proposer_blocks()` over `block_proposer_count` (migration 013) |
+| commission_signer | 4 | `transfer.signer` on commission rows (migration 013) |
+| validator_power_time | 4 | `validator_power.time` (migration 013) |
 
 The list lives in `extract_capability` (migration 008) and in `CAPABILITIES` in
 `indexer/src/extract.ts`; they must agree.
@@ -234,7 +237,8 @@ before the upgrade too. Zero-amount rows (the SDK's `0stake` empty reward) are
 no longer written. A transaction's rows are replaced as a set, so a reader never
 sees a half-rewritten transaction. Order a transaction's rows by `event_seq`.
 Rows below the `transfers` coverage floor are version 3 and have
-`event_seq IS NULL`.
+`event_seq IS NULL`. Since migration 013, `signer` is set on `commission` rows: the signer of the
+withdrawing transaction (NULL on every other kind).
 
 **`tx_party`** — who a transaction touched. PK
 `(chain_id, address, height, tx_hash)`, `roles int` bitmask: 1 signer,
@@ -276,7 +280,8 @@ delegator (each with `height DESC`).
 
 **`validator_power`** — PK `(chain_id, height, cons_addr)`; every
 `validator_update`. `cons_addr` is uppercase hex like `block.proposer_cons` and
-`missed_signature`; `power` 0 means the validator left the active set.
+`missed_signature`; `power` 0 means the validator left the active set. Since
+migration 013, `time` is the block's time.
 
 **`validator_key`** — PK `(chain_id, operator)`: `cons_hex` (uppercase hex),
 `cons_valcons` (bech32, as `slash_event.cons_addr`). From MsgCreateValidator and
@@ -456,6 +461,138 @@ with `kind = 'transfer'`: those columns and that meaning are unchanged, and
 before 9,550,000 it now finds transfers that were stored as fees.
 `app_ro`, `monitor` and `scan_ro` see new tables through default privileges;
 `atomone_app_ro` has explicit grants only and gets none of them.
+
+### Validator page reads (migration 013)
+
+Scan's request of 2026-10-16, part A: every read of an AtomOne validator page
+under about 100 ms, measured on production (atomone-1, 10.8M blocks) for DKCMC
+(`atonevaloper144xw…`, 913,000 blocks proposed, 62 transactions signed) and
+NodesHub (`atonevaloper1d3ha…`, a restake service: 47,187 transactions signed).
+
+| read | before (first / warm) | after: the indexes alone, same query (first / warm) | after 013's rollup and columns |
+|---|---|---|---|
+| proposerStats | 2.8 s / 1.4 s | 0.33 s / 0.21 s DKCMC, 0.13 s / 83 ms NodesHub | `proposer_blocks()`: to be measured once 013 is applied |
+| blockCount (chain-wide) | 1.1 s | | no query: `hi - lo + 1` |
+| commissionEarned (NodesHub) | 14.4 s | 0.78 s / 0.15 s | `transfer.signer`: to be measured once 013 is applied |
+| validatorEvents (NodesHub) | 5.2 s / 0.9 s | 7.7 ms / 7.0 ms | |
+| validatorCreatedAt (NodesHub) | 1.1 s / 0.17 s | 0.4 ms / 0.2 ms | |
+| powerEvents, 30-day flow (NodesHub) | 2.1 s | 74 ms / 69 ms (17 ms of it JIT) | JIT off for `scan_ro` |
+| powerEvents, list | 0.57 s / 26 ms | the UNION ALL form below: 1.2 ms | |
+| powerHistory | 0.17 s / 42 ms | 0.31 s / 52 ms DKCMC (plan unchanged) | `validator_power.time`: to be measured once 013 is applied |
+| signing counts (NodesHub) | 0.13 s / 5 ms | 6.4 ms / 3.6 ms | |
+
+"After: the indexes alone" was measured on production on 2026-10-16 at 22:28 UTC,
+after the six new indexes were built (22:24 UTC), with Scan's queries unchanged.
+First reads vary with what the cache holds; the warm figures are the comparable
+ones. The rollup, the two copied columns and the role setting arrive with the
+rest of migration 013.
+
+Everything else measured under 35 ms: votes, recasts, commissionHistory,
+slashHistory, stakeHistory, proposedBlocks.
+
+**Indexes** (all built `CONCURRENTLY`; a replacement is built before the index it
+replaces is dropped):
+
+| index | serves | replaces |
+|---|---|---|
+| `block_proposer_time_idx` `(chain_id, proposer_cons, height DESC) INCLUDE (time)` | proposedBlocks, `proposer_blocks()`, the fairness window | `block_proposer_idx` |
+| `tx_signer_height_idx` `(chain_id, signer, height DESC) INCLUDE (msg_types)` | validatorEvents, validatorCreatedAt, any read by signer | `tx_signer_idx` |
+| `transfer_commission_idx` `(chain_id, tx_hash) INCLUDE (denom, amount, time)`, commission rows | validatorEvents' amounts | |
+| `transfer_commission_signer_idx` `(chain_id, signer) INCLUDE (denom, amount, time)`, commission rows | commissionEarned | |
+| `staking_event_validator_time_idx`, `staking_event_validator_dst_time_idx` `(…, time DESC)` | powerEvents' 30-day flow | |
+| `missed_signature_cons_flag_idx` `(chain_id, cons_addr, height DESC) INCLUDE (flag)` | signing counts, days and runs | `missed_signature_validator_idx` |
+| `validator_power_cons_time_idx` `(chain_id, cons_addr, height DESC) INCLUDE (power, time)` | powerHistory, the power before the window | `validator_power_cons_idx` |
+
+**`block_proposer_count`**: PK `(chain_id, proposer_cons, bucket)`, `blocks int`,
+where `bucket = height / 10000`. Blocks per proposer per 10,000 heights, kept by
+statement-level triggers on `block` in the writer's own transaction: an insert
+adds, an update that changes the proposer moves the count, a delete takes it
+off, and a refill rewriting a block counts nothing twice. A bucket row exists
+only while it counts at least one block. Read it through the function, which is
+exact for any window: whole buckets from the table, the two partial ends from
+`block_proposer_time_idx`.
+
+```sql
+-- blocks proposed by $cons (uppercase hex) with lo <= height <= hi, and the newest one
+SELECT blocks, last_height, last_time FROM proposer_blocks($chain, $cons, $lo, $hi);
+```
+
+- **proposerStats**: `proposed, last_height, last_time` =
+  `proposer_blocks(chain, cons, lo, hi)` with `lo`/`hi` from
+  `indexer_coverage(chain, 'blocks')`.
+- **blockCount**: no query. Coverage has no holes (no recorded gap, every height
+  in `lo..hi` has its row), so the blocks in the run number `hi - lo + 1`
+  (checked against `count(*)` on every chain, 2026-10-16).
+- **proposerFairness**: a window `[lo, hi)` inside coverage holds `hi - lo`
+  blocks, of which `proposer_blocks(chain, cons, lo, hi - 1).blocks` are the
+  validator's. (`validator_stake` is empty on production today, so the window
+  never forms.)
+
+**`transfer.signer`**: on `commission` rows, the signer of the transaction
+(`tx.signer`), set by a trigger from `tx` when the row is written (`tx` is written
+first, and a transaction's transfers are always replaced together after it) and
+filled by the migration for older rows. NULL on every other kind, and where the
+transaction has no signer (the join matched nothing there either).
+
+```sql
+-- commissionEarned: same rows as the join on tx.signer, from one index
+SELECT denom, sum(amount)::text AS total, count(*) AS n,
+       min(time)::text AS first, max(time)::text AS last
+  FROM transfer
+ WHERE chain_id = $1 AND kind = 'commission' AND signer = $2
+ GROUP BY denom
+ ORDER BY sum(amount) DESC;
+```
+
+**`validator_power.time`**: the block's time, set by a trigger from `block` when
+the row is written, filled by the migration for older rows.
+
+```sql
+-- powerHistory, without the join to block
+SELECT height::text, power::text, time::text
+  FROM validator_power
+ WHERE chain_id = $1 AND cons_addr = $2 AND height BETWEEN $3 AND $4
+ ORDER BY validator_power.height DESC
+ LIMIT 2000;
+```
+
+**powerEvents**: `validator = $2 OR validator_dst = $2` cannot walk an index in
+order, so the planner reads every event the validator ever had and sorts them.
+As two ordered branches it reads at most 200 from each:
+
+```sql
+SELECT e.height::text AS height, e.tx_hash, e.time::text AS time, e.kind, e.validator,
+       e.validator_dst, e.delegator, e.amount::text AS amount, e.denom,
+       e.completion_time::text AS completion_time
+  FROM ((SELECT * FROM staking_event
+          WHERE chain_id = $1 AND validator = $2 AND height BETWEEN $3 AND $4
+            AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
+          ORDER BY staking_event.height DESC, event_seq DESC LIMIT $5)
+        UNION ALL
+        (SELECT * FROM staking_event
+          WHERE chain_id = $1 AND validator_dst = $2 AND validator IS DISTINCT FROM $2
+            AND height BETWEEN $3 AND $4
+            AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
+          ORDER BY staking_event.height DESC, event_seq DESC LIMIT $5)) e
+ ORDER BY e.height DESC, e.event_seq DESC
+ LIMIT $5;
+```
+
+The second branch's `validator IS DISTINCT FROM $2` keeps an event that names
+the validator on both sides from being returned twice. Order by `e.height` (the
+bigint), not by the `height` text output column. Same 200 rows in the same order
+as the OR form for DKCMC and NodesHub, 1.2 ms against 13-26 ms warm and
+0.2-0.6 s cold. The 30-day flow keeps its OR form: the two time indexes serve it.
+
+**Scan's role**: `scan_ro` has `jit = off` in this database (set per database, as
+a role is cluster-wide). Scan's reads are short index lookups, and when the
+planner overestimates one its cost crosses `jit_above_cost` and LLVM compiles the
+plan first: 16 to 290 ms before a 5 ms read. New connections pick it up.
+
+**Capabilities** `proposer_count` (0), `commission_signer` (4),
+`validator_power_time` (4) cover what their sources cover (`blocks`,
+`transfers`, `validator_power`); until migration 013 has run they return no row,
+so a reader gating on them keeps its old query.
 
 ## Schema
 
