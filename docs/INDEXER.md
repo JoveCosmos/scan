@@ -206,6 +206,8 @@ covered throughout.
 | proposer_count | 0 | `proposer_blocks()` over `block_proposer_count` (migration 013) |
 | commission_signer | 4 | `transfer.signer` on commission rows (migration 013) |
 | validator_power_time | 4 | `validator_power.time` (migration 013) |
+| gno_tx_msg | 5 (gno) | `gno_tx_msg` (migration 014) |
+| gno_grc20 | 5 (gno) | `gno_grc20_token`, `gno_grc20_transfer`, `gno_grc20_balance` (migration 014) |
 
 The list lives in `extract_capability` (migration 008) and in `CAPABILITIES` in
 `indexer/src/extract.ts`; they must agree.
@@ -370,7 +372,8 @@ session; Scan owns that file. Each read gates on its capability.
 
 Read from each chain's own tx-indexer (GraphQL: gnoland-1 on 127.0.0.1:8547,
 onyx-1 on 8546; pearl-1, retired 2026-09-28, keeps its rows) by height range, from genesis, by the same `indexer.service`
-(`INDEXER_GNO`). Blocks are written into `block` at version 4. A block whose
+(`INDEXER_GNO`). Blocks are written into `block` at the gno extract version: 4, and 5 since
+migration 014 (messages and GRC20). A block whose
 transaction count (`num_txs`) differs from what the tx-indexer returns for it is
 written **hollow** (version 0): present, never covered.
 
@@ -593,6 +596,196 @@ plan first: 16 to 290 ms before a 5 ms read. New connections pick it up.
 `validator_power_time` (4) cover what their sources cover (`blocks`,
 `transfers`, `validator_power`); until migration 013 has run they return no row,
 so a reader gating on them keeps its old query.
+
+### gno.land messages and GRC20 tokens (migration 014)
+
+Scan's request of 2026-10-16, part B. Scan read both from the tx-indexer's
+GraphQL: 1-6 s a query, capped at 10,000 transactions, and every token's state
+rebuilt in memory at each boot. Written by the gno follower at **gno extract
+version 5**; history is rewritten by the gno refill (below). Gate on
+`indexer_coverage(chain, 'gno_tx_msg')` and `indexer_coverage(chain,
+'gno_grc20')`, and ask these only for gno chains: gno and Cosmos versions are
+numbered separately, so a Cosmos chain at version 5 answers too.
+
+**Genesis.** Height 0 holds the genesis transactions (gnoland-1: 96, onyx-1:
+93; wugnot is created there). The tx-indexer answers nothing at all to a
+negative `gt` bound, so a window that starts at 0 is bounded above only
+(`{lt: hi + 1}`), and a chain with no cursor now starts at 0. gnoland-1 already
+held block 0; onyx-1's arrives with the refill, and its coverage then starts at 0.
+
+**The 10,000 cap.** The tx-indexer now refuses a window over 10,000 rows with an
+error ("max elements per query reached", plus the first 10,000) where it used to
+cut the list short silently. The follower took the error for a failure and would
+have retried that window forever; blocks and transactions now split the window
+until each part fits.
+
+**`gno_tx_msg`**: PK `(chain_id, tx_hash, msg_index)`, one row per message:
+`height`, `success`, `kind`, `pkg_path`, `func`, `caller`, `args text[]`.
+`msg_index` is the message's place in the transaction.
+
+| kind | message | caller | pkg_path |
+|---|---|---|---|
+| `call` | MsgCall | `caller` | the realm called; `func` and `args` too |
+| `run` | MsgRun | `caller` | NULL: the chain assigns a run's path, its transaction names none |
+| `addpkg` | MsgAddPackage | `creator` | the package deployed |
+| `enable` | MsgEnablePackage (an approval) | `approver` | the package approved |
+| `reject` | MsgRejectPackage | `sender` | the package rejected |
+| `send` | BankMsgSend | `from_address` | NULL |
+
+Failed transactions are included (`success` false). Session messages
+(`create_session`, `revoke_session`, typed `UnexpectedMessage` by the
+tx-indexer) have no row, although the tx-indexer's MsgCall `pkg_path` filter
+matches them. An approval is `enable`, never `call`. Each argument is cut to 200
+characters, an ellipsis marking the cut. Indexes:
+`(chain_id, pkg_path, height DESC, tx_hash DESC, msg_index DESC) INCLUDE (kind)`,
+`(chain_id, caller, height DESC)`, and the `addpkg` rows by `(chain_id, pkg_path)`
+with `caller, height, tx_hash, success`.
+
+```sql
+-- a realm's calls, newest first, keyset-paged (omit the tuple on page 1)
+SELECT tx_hash, msg_index, height, success, func, caller, args
+  FROM gno_tx_msg
+ WHERE chain_id = $1 AND pkg_path = $2 AND kind = 'call'
+   AND (height, tx_hash, msg_index) < ($h, $t, $i)
+ ORDER BY height DESC, tx_hash DESC, msg_index DESC
+ LIMIT $n;
+
+-- how many calls a realm has had
+SELECT count(*) FROM gno_tx_msg WHERE chain_id = $1 AND pkg_path = $2 AND kind = 'call';
+
+-- the deployer of a package (of every package: drop the pkg_path condition)
+SELECT pkg_path, caller AS deployer, height, tx_hash
+  FROM gno_tx_msg
+ WHERE chain_id = $1 AND kind = 'addpkg' AND success AND pkg_path = $2;
+
+-- approvals
+SELECT pkg_path, caller AS approver, height, tx_hash, success
+  FROM gno_tx_msg
+ WHERE chain_id = $1 AND kind = 'enable'
+ ORDER BY height DESC;
+```
+
+**GRC20.** From the `GnoEvent`s whose `pkg_path` is `gno.land/p/nt/grc20/v0`:
+every GRC20 token is built on that package and it emits on the token's behalf,
+so the event names the package, not the realm. GRC721 collections emit a
+`NewToken` too, from their own packages (on gnoland-1, 19 from
+`gno.land/p/nt/grc721/v0` and 2 from a user's), and are not here. Successful
+transactions only.
+
+**`gno_grc20_token`**: PK `(chain_id, token)`. `token` is the key the events
+carry, `<realm>.<SYMBOL>.<sequence in hex>` (`gno.land/r/gnoswap/gns.GNS.0000000`);
+`realm` is the key less symbol and sequence; `name`, `symbol`, `decimals`,
+`created_height`, `created_tx`.
+
+**`gno_grc20_transfer`**: PK `(chain_id, tx_hash, event_index)`: `height`,
+`token`, `from_addr` (`''` for a mint), `to_addr` (`''` for a burn), `amount`
+numeric. `event_index` is the event's place among all the transaction's events.
+Indexes `(chain_id, token | from_addr | to_addr, height DESC, tx_hash DESC,
+event_index DESC)`.
+
+**`gno_grc20_balance`**: PK `(chain_id, token, address)`, `balance`: what came
+in minus what went out over the stored transfers, kept by statement-level
+triggers in the writer's transaction (an insert adds, an update moves the
+difference, a delete takes it off; re-reading an unchanged event changes no row
+and moves nothing). A row exists only while its balance is not zero, so a
+token's holders are its rows. Exact when `gno_grc20` coverage starts at the
+chain's first block; while the refill is still descending, a balance can be
+partial, even negative.
+
+```sql
+-- the token list: holders and supply
+SELECT t.token, t.realm, t.name, t.symbol, t.decimals, t.created_height,
+       count(b.address) AS holders, COALESCE(sum(b.balance), 0) AS supply
+  FROM gno_grc20_token t
+  LEFT JOIN gno_grc20_balance b ON b.chain_id = t.chain_id AND b.token = t.token
+ WHERE t.chain_id = $1
+ GROUP BY t.chain_id, t.token;
+
+-- transfers per token
+SELECT token, count(*) AS transfers FROM gno_grc20_transfer WHERE chain_id = $1 GROUP BY token;
+
+-- holders, ranked
+SELECT address, balance FROM gno_grc20_balance
+ WHERE chain_id = $1 AND token = $2
+ ORDER BY balance DESC
+ LIMIT $n;
+
+-- a token's transfers, keyset-paged
+SELECT height, tx_hash, event_index, from_addr, to_addr, amount
+  FROM gno_grc20_transfer
+ WHERE chain_id = $1 AND token = $2 AND (height, tx_hash, event_index) < ($h, $t, $e)
+ ORDER BY height DESC, tx_hash DESC, event_index DESC
+ LIMIT $n;
+
+-- an account's balances
+SELECT token, balance FROM gno_grc20_balance WHERE chain_id = $1 AND address = $2;
+
+-- an account's transfers, both sides, keyset-paged
+SELECT e.* FROM (
+  (SELECT height, tx_hash, event_index, token, from_addr, to_addr, amount FROM gno_grc20_transfer
+    WHERE chain_id = $1 AND from_addr = $2 AND (height, tx_hash, event_index) < ($h, $t, $e)
+    ORDER BY height DESC, tx_hash DESC, event_index DESC LIMIT $n)
+  UNION ALL
+  (SELECT height, tx_hash, event_index, token, from_addr, to_addr, amount FROM gno_grc20_transfer
+    WHERE chain_id = $1 AND to_addr = $2 AND from_addr <> $2 AND (height, tx_hash, event_index) < ($h, $t, $e)
+    ORDER BY height DESC, tx_hash DESC, event_index DESC LIMIT $n)) e
+ ORDER BY e.height DESC, e.tx_hash DESC, e.event_index DESC
+ LIMIT $n;
+```
+
+The second branch's `from_addr <> $2` keeps a transfer to oneself from coming
+back twice.
+
+**Checked against the chain** (gnoland-1: every height from 0 to 856,672
+written by the refill into a scratch database, 2026-10-16):
+
+- 32 tokens, 31 of them created by the end of 2026-10-14 (FISH followed on
+  10-15): Scan's count that day.
+- GNS supply 118,737,756,333,652, wugnot supply 5,558,432,268,709 and the GNS
+  of the pool `g1dexaf6aqkkyr9yfy9d5up69lsn7ra80af34g5v`, 30,585,601,489,055:
+  each equal to the chain's own `TotalSupply()` / `BalanceOf()` at the same head,
+  checked twice.
+- Scan's 2026-10-14 figures are running totals of this history: GNS supply
+  117,228,231,546,427, the pool's 29,379,944,283,881 and wugnot's
+  5,079,879,553,812 all held at block 798,302 (12:05 UTC).
+- The 27 tokens Onbloc lists match on holders and on supply, all 27. The 5 more
+  here are ones Onbloc does not list (FISH, two demo FOOs, PRB, abt).
+- No negative balance, and no transfer of a token without its `NewToken`.
+
+Measured on that copy (busiest realm: 13,215 calls; busiest token account:
+35,928 transfers): a realm's calls 0.3 ms (any page), their count 12 ms, every
+package's deployer 1 ms, approvals 18 ms (a scan of `gno_tx_msg`), the token list
+2 ms, transfers per token 40 ms, holders ranked 0.2 ms, a token's or an account's
+transfers 0.3 ms (page 1 or 20,000 deep), an account's balances 0.1 ms. For
+gnoland-1, `gno_tx_msg` is 185,549 rows (39 MB, 95 MB of indexes) and
+`gno_grc20_transfer` 87,074 (21 MB, 79 MB); 1,041 of 80,676 calls (1.3%) have an
+argument cut, and no call had more than 14 arguments.
+
+**The gno refill** (`npm run indexer:gno-refill`, `indexer/src/gno-refill-cli.ts`)
+rewrites a chain's stored history at the current gno version, downwards from the
+cursor to genesis, beside the follower. One request at a time with a pause after
+each; a range whose blocks all carry the current version is skipped without a
+read, so a stopped refill resumes where it left off; heights the tx-indexer has
+no block for are recorded as gaps, as the follower does; the cursor is never
+touched.
+
+| variable | meaning |
+|---|---|
+| `DATABASE_URL` | the database |
+| `GNO_REFILL_CHAIN` | `gnoland-1` or `onyx-1` |
+| `GNO_REFILL_GRAPHQL` | the chain's tx-indexer, the one the follower reads (8547, 8546) |
+| `GNO_REFILL_FROM` | highest height (default: the chain's cursor) |
+| `GNO_REFILL_FLOOR` | lowest height (default 0, genesis) |
+| `GNO_REFILL_BATCH` | heights per range (default 1000; up to 5000 keeps each read under the cap) |
+| `GNO_REFILL_THROTTLE_MS` | pause after each request (default 500) |
+
+Deploy order: apply 013 and 014, deploy the release (the follower then writes
+version 5 from the head), then run the refill once per gno chain.
+
+The whole of gnoland-1 (856,593 heights, 161,885 transactions) took 4.5 minutes
+at 10,000-height ranges with a 600 ms pause after each request. Run it like the
+Cosmos backfill: a one-off job beside the follower, with the follower's
+`DATABASE_URL`.
 
 ## Schema
 

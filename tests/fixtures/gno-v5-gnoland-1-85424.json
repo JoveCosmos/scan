@@ -1,0 +1,79 @@
+{
+ "blocks": [
+  {
+   "hash": "igxjJEOOIl+jBKARdYLeU4knzhZ9gg9QLp1MWBl5HAk=",
+   "height": 85424,
+   "time": "2026-09-16T12:08:43.616585465Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "88S2MovilX16fHWwM01AxRLjzNo34PVCjKfRSvI6deU=",
+   "success": true,
+   "block_height": 85424,
+   "gas_wanted": 9970618,
+   "gas_used": 9064879,
+   "memo": "Executed through gnoswap.io",
+   "gas_fee": {
+    "amount": 9971,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1pp6rhcqgeag6vd5swugznclk49284kxuhx6qq6",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoland/wugnot",
+      "func": "Withdraw",
+      "args": [
+       "2973101272"
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g15vj5q08amlvyd0nx6zjgcvwq2d0gt9fcchrvum",
+      "to": "g1pp6rhcqgeag6vd5swugznclk49284kxuhx6qq6",
+      "coins": "2973101272ugnot"
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "from",
+        "value": "g1pp6rhcqgeag6vd5swugznclk49284kxuhx6qq6"
+       },
+       {
+        "key": "to",
+        "value": ""
+       },
+       {
+        "key": "value",
+        "value": "2973101272"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageUnlockEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

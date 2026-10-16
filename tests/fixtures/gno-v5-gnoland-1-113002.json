@@ -1,0 +1,147 @@
+{
+ "blocks": [
+  {
+   "hash": "6m1rGzhfric2epQ1zEWMbgcWjKqFNnpwoApdqwE/jEs=",
+   "height": 113002,
+   "time": "2026-09-17T13:24:11.236291309Z",
+   "num_txs": 4,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "wlFx0brmjHa0aRZaCWSFpH0tQZs9MHPPSLuicFYnyAw=",
+   "success": true,
+   "block_height": 113002,
+   "gas_wanted": 2000000,
+   "gas_used": 936183,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "send",
+     "route": "bank",
+     "value": {
+      "__typename": "BankMsgSend",
+      "from_address": "g15zetuthld0er5jrm3xtx3u4ucssjvd3ylmvce3",
+      "to_address": "g1279zrl88kuzjz5u8huzmulky9e3akqwaz0dt8e",
+      "amount": "3297800400ugnot"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g15zetuthld0er5jrm3xtx3u4ucssjvd3ylmvce3",
+      "to": "g1279zrl88kuzjz5u8huzmulky9e3akqwaz0dt8e",
+      "coins": "3297800400ugnot"
+     }
+    ]
+   }
+  },
+  {
+   "index": 1,
+   "hash": "bJVi54iNvWXnwTvORcDQHBbVkAA0cXxe3MXPjTOwDug=",
+   "success": true,
+   "block_height": 113002,
+   "gas_wanted": 1027227,
+   "gas_used": 933853,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1028,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "send",
+     "route": "bank",
+     "value": {
+      "__typename": "BankMsgSend",
+      "from_address": "g1ymwa24k5zxv7p3uny2grq97ykv2ncaeyjrfclx",
+      "to_address": "g1yda5lr9t2xh38nsn8t6n8zrgrexyj53q7yeqa7",
+      "amount": "292000000ugnot"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g1ymwa24k5zxv7p3uny2grq97ykv2ncaeyjrfclx",
+      "to": "g1yda5lr9t2xh38nsn8t6n8zrgrexyj53q7yeqa7",
+      "coins": "292000000ugnot"
+     }
+    ]
+   }
+  },
+  {
+   "index": 2,
+   "hash": "ZKbYjHeolUkTsJUTGNqogCnTBiqdR0DVVKhoHbgXTuo=",
+   "success": true,
+   "block_height": 113002,
+   "gas_wanted": 1100000,
+   "gas_used": 935104,
+   "memo": "",
+   "gas_fee": {
+    "amount": 11000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "send",
+     "route": "bank",
+     "value": {
+      "__typename": "BankMsgSend",
+      "from_address": "g1ayzkvh7dlmkqet9ccyfgkxmeg36f2sjj82w7sm",
+      "to_address": "g1arpgqtq9q3emx6mfhuz7xuwd6qptcwynedzlk2",
+      "amount": "99989000ugnot"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "TransferEvent",
+      "from": "g1ayzkvh7dlmkqet9ccyfgkxmeg36f2sjj82w7sm",
+      "to": "g1arpgqtq9q3emx6mfhuz7xuwd6qptcwynedzlk2",
+      "coins": "99989000ugnot"
+     }
+    ]
+   }
+  },
+  {
+   "index": 3,
+   "hash": "Gd+wgMCbLWCvKkcMkG1DOdfgkAo5d8DV7mlYx4bCXq0=",
+   "success": true,
+   "block_height": 113002,
+   "gas_wanted": 2000000,
+   "gas_used": 1361660,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "create_session",
+     "route": "auth",
+     "value": {
+      "__typename": "UnexpectedMessage"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": []
+   }
+  }
+ ]
+}

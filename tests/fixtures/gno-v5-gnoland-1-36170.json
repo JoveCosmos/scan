@@ -1,0 +1,83 @@
+{
+ "blocks": [
+  {
+   "hash": "DPjplX1mfuAWhLXhULDMskgQJMPpIYKiZgMTMRO525E=",
+   "height": 36170,
+   "time": "2026-09-14T09:08:15.175624903Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "HaJkymmrrlcSsNsijAT9KcLayBcSvAFEp90v8tTfG5s=",
+   "success": true,
+   "block_height": 36170,
+   "gas_wanted": 90000000,
+   "gas_used": 33115074,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "run",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgRun",
+      "caller": "g1aeddlftlfk27ret5rf750d7w5dume3kcsm8r8m",
+      "send": "",
+      "package": {
+       "path": ""
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "ProposalCreated",
+      "pkg_path": "gno.land/r/gov/dao",
+      "attrs": [
+       {
+        "key": "id",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "set_halt",
+      "pkg_path": "gno.land/r/sys/params",
+      "attrs": [
+       {
+        "key": "height",
+        "value": "36300"
+       },
+       {
+        "key": "min_version",
+        "value": ""
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

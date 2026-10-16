@@ -1,0 +1,3642 @@
+{
+ "blocks": [
+  {
+   "hash": "",
+   "height": 0,
+   "time": "2026-09-12T15:00:00Z",
+   "num_txs": 96,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "gXg+iir2gkGL/8eB1SDhJQX4P+9M48UBy8W+B4sUw8o=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 38584843,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/ufmt/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 1,
+   "hash": "JrgLWQwxqcw87axbatzpdvz09jSgr7TkvuO24I2POLo=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 16146903,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/onbloc/diff/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 2,
+   "hash": "RslsIQ9wiZ2OBzNVV0qz6O0AD1JE7S/WmmTMH5vjYNQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 7237871,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/nestedpkg/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 3,
+   "hash": "vgLUNu5RFSVa1czWfYDqF/E2tGWzMTgMek+BqmnXEn4=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 6077245,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/testutils/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 4,
+   "hash": "0BfwiSeFttC+jfFY1SR0D99svKuGyVdaaXqYPrJZk5o=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 3302965,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/tests/vm/subtests"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 5,
+   "hash": "2uQZfo5XYCxEgamesXyg2KWNBiGjC6yInPCwae6Ro04=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 22428708,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/tests/vm"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 6,
+   "hash": "DZwVCHtmsFiOGxN/nGvZNeRhTAfv05qVFn2sTIVilz0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 50263195,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/uassert/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 7,
+   "hash": "AtSQlarwRMcsabPESDU661weTJIcVs7UNRZofTxSb/w=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 130522257,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/markdown/sanitize/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 8,
+   "hash": "lifSU9Ze38wUP6CHn3hYumqHmJve+LGq4Y7NTT6fOxQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 45495031,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/md/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 9,
+   "hash": "ZKDqv87dGBlfcryXgfc3/cTcGzORMu7PKXbKYEER7oc=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 54371659,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/avl/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 10,
+   "hash": "Nqs1C3kJCje4ZH2KWNBPMSizo+FzcrkmtniH1hTbBeU=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 19721987,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/avl/rotree/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 11,
+   "hash": "R4/idNNkyXIxAOj30lnvd7Otp81znZ+IaBE6r+ACJeI=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 54843609,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/cford32/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 12,
+   "hash": "Uy1bDRQsAcq/zDcyEtgdt2N9UTseZxvNUfk1zSf6a7I=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 9504732,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/seqid/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 13,
+   "hash": "+VGh83tF0lu+mXuyIi0fJAyS3BbR7ngSf5oBaTthhBs=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 13362914,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/urequire/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 14,
+   "hash": "M6wZP4GEapOjWl/xR8Qw6epFGnT96Udemtwg5UwqPB4=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 27819543,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/avl/pager/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 15,
+   "hash": "VVaw+68i0kSx29tjkiMLfvVrsVKoJ4gkRDCEHo1wkns=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 78239638,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/grc20/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 16,
+   "hash": "mG+EHcjaOPEzwfNW/68W3p9qTJ/kn5ttXjepSGC4O9E=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 22038288,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/mux/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 17,
+   "hash": "OMeC3LnaDOGsKLwHczHdFSB0mGNilJwyZjN9f9tRwWA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11326450,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/ownable/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 18,
+   "hash": "zL81GhQRRLWXm6yArZokvSzcQQbOZ4Sgn6tJcjATTxo=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 9742780,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/fqname/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 19,
+   "hash": "7nfdcfWDqthIm+cF3tCOv9XBX+ZgudILQv4wWPjLpW8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 37575014,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/nt/grc20reg/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 20,
+   "hash": "cwKT3vXOEBDwkPZV5TSVa/z1BmW4gi5sW/fc/QtVGII=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 26362210,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/demo/defi/grc20factory"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 21,
+   "hash": "uq2Jx1bOUMqSMjjAck4KHgo44FXd8mVk5wKIlep5Uto=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 9741546,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/aeddi/panictoerr/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 22,
+   "hash": "UHaQdJgwJCzb/HJQTLn60kdAGAUCdj6WUcPXsvRr16w=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 20044266,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/gnoland/blog/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 23,
+   "hash": "FXctaOyp1L96c0Wf1Kt5DTBoew+gBf2//X/7dVBAhOE=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 123440407,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/bptree/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 24,
+   "hash": "t+fjbzTtG5xhlkCGFfn0ZVpM3Syf0CvDd4v25KgDVkw=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 89801196,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/gnoland/boards/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 25,
+   "hash": "g++6O4CZQGNBnEL453NqjtX2/6bryJ3GxGgzsqpei6M=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 18453088,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/addrset/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 26,
+   "hash": "uj/WFanVoBw5Q7o/9Sg90pM6rlSebtiajfEJNk/Vy9I=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 49801722,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g15ge0ae9077eh40erwrn2eq0xw6wupwqthpv34l",
+      "package": {
+       "path": "gno.land/p/nt/groups/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 27,
+   "hash": "ubLRbMuE4M6wUp/uzMsIzUZlDTENomDsViz9qYR+4ME=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 51255849,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/gnoland/boards/exts/permissions/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 28,
+   "hash": "DeolUstNKflFe6hc9AzctkEU5nLMwfY28yatPqdPBNE=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 39803897,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/gnoland/boards/exts/hub/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 29,
+   "hash": "1hbxKAM3S9P8mFqltfvEQIIoPaxhKAjAJ1os3sUJKyA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 24165855,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/jeronimoalbi/mdform/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 30,
+   "hash": "ktKGlhCqsgR4rdHOS1i+v3mDcYHb5b4c87EfAPswjM0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 16943237,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/jeronimoalbi/pager/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 31,
+   "hash": "TNNZh/LCEwaScFq1+c+ILOjpxqkYxgWnBZrvelogrwM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 7642931,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g125em6arxsnj49vx35f0n0z34putv5ty3376fg5",
+      "package": {
+       "path": "gno.land/p/leon/coinsort/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 32,
+   "hash": "WVNR7pogyLSesBF+hAThl8sClNAZJql3zqquGoGyLTY=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11046375,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g125em6arxsnj49vx35f0n0z34putv5ty3376fg5",
+      "package": {
+       "path": "gno.land/p/leon/ctg/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 33,
+   "hash": "VIrJZTmpH16wABui7wbLUqS4cE3pACSDuvJeTUUwUCQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 17847923,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/svg/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 34,
+   "hash": "2SQsy08rtM05ZO3TQX7rB6q8B4qpA6r60v3U2rXxAIE=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11877516,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g125em6arxsnj49vx35f0n0z34putv5ty3376fg5",
+      "package": {
+       "path": "gno.land/p/leon/svgbtn/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 35,
+   "hash": "SBgYDZtC25UbsrZuGm74TvjWVzotzoZ73LxZWq1/BPM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 3954416,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/mason/md/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 36,
+   "hash": "urUThWujxHGZzPbGbLTtWSyKg/7meXmIiEsJ7RWBZMk=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11597029,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/once/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 37,
+   "hash": "Yn6iV3BxQ/ojUGA0V2uqbMT63f68mFptCL5gEAvsWKQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 106295937,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/authz/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 38,
+   "hash": "qDNQreaxhJl1Op/dtF7LW8E8PWlbLQuUAxu6iTgyxD0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 17920725,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/fifo/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 39,
+   "hash": "QFfQDavpnxkIauWRLS/5jip8p+hOk7IYUOUf2O/FWEM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 18048814,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/txlink/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 40,
+   "hash": "Ef0552/Jo/SB7hgqrqJDoy9QfNK4TuTmGtw0aX6DBoo=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11980148,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/helplink/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 41,
+   "hash": "gKsQ+wak00Ce32tnme7vk6j3GBIDZS0exPaKGdp8mL8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 10007753,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/mdtable/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 42,
+   "hash": "07CBSZ1lZ1uP+I3y5l8CY1fDkdsxo4q69/gXhx8w88Q=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 14964826,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1manfred47kzduec920z88wfr64ylksmdcedlf5",
+      "package": {
+       "path": "gno.land/p/moul/realmpath/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 43,
+   "hash": "82o95ne424MmFHqbqiOONYlduOmPch1N+Ett5FNr47U=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 18738847,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/bptree/rotree/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 44,
+   "hash": "pfGo+P8rIfyj4e9Kkhib7DVJNop/ep/wbeg7uU3rAsY=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 29026572,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/bptree/list/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 45,
+   "hash": "ebziyQopNIavvciPSYH0Hk6LlOuDBywHGvTLHs5YX1g=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 28670772,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/bptree/pager/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 46,
+   "hash": "3+6jAVhNlQ6G+/A3404X0nVP9No8mXXPq5W/jrdsOco=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 3721999,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/combinederr/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 47,
+   "hash": "J6ye6GRGlvGQdqHRJbTyLb7d3af3BwxcFz90sNm2Pf8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 81680774,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/grc721/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 48,
+   "hash": "zWrL/evGETRoRwMI6kM+Hgz8D3FMENAzQvsgEY9pzog=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 24840737,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/grc721/enumerable/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 49,
+   "hash": "gySvk2JWKEn6Tit2KuWFGRexcZRgue8Er6teEG97Hzs=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 22111643,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/grc721/metadata/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 50,
+   "hash": "t6U5RcxYRmyjkzOb5aKZWv+v/nfrCO65qE9QXLqSjoU=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 29160573,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/grc721/royalty/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 51,
+   "hash": "2NmWsVZG+MWVMpXAbTZBx3HGFfaemUQe0R9XPrAmM3U=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 30999069,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/markdown/foreign/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 52,
+   "hash": "c7/Q7Aaq3T3BViFCpugUEEt9TvakwkliYCq1U05nVrY=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 17568606,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/mdalert/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 53,
+   "hash": "8VHvBfkBk17Xi44Kx7Xma9uhpViozqUEzNVagU06qHA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 15832686,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/ownable/exts/authorizable/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 54,
+   "hash": "dhZC6d1wgMWnGkE6WbhsSTYLh3ITJH2sesDsWrdu0Xo=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 4762653,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/p/sys/validators/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 55,
+   "hash": "r9jDGYmF7uQ/dg8g9t77gyAvUSarRhh9k4ccAMB7LaM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 16830095,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g15ge0ae9077eh40erwrn2eq0xw6wupwqthpv34l",
+      "package": {
+       "path": "gno.land/p/nt/poa/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 56,
+   "hash": "FwHQ28pCfj1aY8ff9xJwXci6Ff5iqNWUXKwNRAqj3Mc=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 68657260,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/nt/treasury/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 57,
+   "hash": "zBzg9jjvpzfD3ptR6+XzqH769Q8izxWqGfx1uMRLr3A=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 154511645,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/onbloc/uint256/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 58,
+   "hash": "/bMxwwa3BQANeu85E9iXKQyAe8IiI7Vc92+MNqxGqP4=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 73834814,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/onbloc/int256/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 59,
+   "hash": "TJO9DfBgD8VqIuG9U/8ohYYxf7Bkf0QGqbXaA6yQslw=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 211316139,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/onbloc/json/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 60,
+   "hash": "1fOu0noj8/TYMEKNBUnddUhNIk2UYQJOYgdYSEpnL4s=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11431830,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/sunspirit/table/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 61,
+   "hash": "vfk04ZyGyry3v/uj9RhsNNlN1fAHuT93FgMbThzYII0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 16022769,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/p/sunspirit/md/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 62,
+   "hash": "Ymx7SN4A3OHJBsmqgEiFvaWJJPRNoNWbUTQ1g1MZTz0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 12351651,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1kfd9f5zlvcvy6aammcmqswa7cyjpu2nyt9qfen",
+      "package": {
+       "path": "gno.land/p/samcrew/piechart/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 63,
+   "hash": "oS2mm8LxHHvbQLz3avt79Ck9+G0ejx6zb+69J6SvzVg=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 12547934,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1kfd9f5zlvcvy6aammcmqswa7cyjpu2nyt9qfen",
+      "package": {
+       "path": "gno.land/p/samcrew/tablesort/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 64,
+   "hash": "jQ6lfl6USQQ/3GskFpk+cmF/Xk8ZrkrOLCKs+Ll8Re4=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 15659074,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1kfd9f5zlvcvy6aammcmqswa7cyjpu2nyt9qfen",
+      "package": {
+       "path": "gno.land/p/samcrew/urlfilter/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 65,
+   "hash": "GkYgQiyqP5e1/uXpWys5yUfH/AmF0ptVVMlwjjU1boI=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 21674321,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/demo/profile"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 66,
+   "hash": "OVmpHxdS72QG9QQ5eYhzzuFNNHd5afEfA40cE/wdL20=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 46530488,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da",
+      "package": {
+       "path": "gno.land/r/gov/dao"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 67,
+   "hash": "cQy77KTkmW6aL26SzUKcXzyZdej226lnMCJGSJsk/Kc=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 33718863,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g3lsfxhvaqgdv4ccemwpnms4fv6t3aq3p5z6u7",
+      "package": {
+       "path": "gno.land/r/gnoland/blog"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 68,
+   "hash": "dtwASmMzoUC8+C97zthtuoynfvgt0lsiWM8pI1SFwk8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 129004497,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/users"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 69,
+   "hash": "joTj2UOQoSQ7tNkylokQs5/ng5aTbPfukglgkfx17LQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 11163883,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/sys/users/init"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 70,
+   "hash": "81a4YUXiQlse33lnfToKjZ87l0hqoycRh7d73bL3aps=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 495731449,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/gnoland/boards2/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 71,
+   "hash": "m3f8SOMX10xX1uFCToH0CrlDyWDhgWjQDfkQgYyYdGk=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 31001665,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g3lsfxhvaqgdv4ccemwpnms4fv6t3aq3p5z6u7",
+      "package": {
+       "path": "gno.land/r/gnoland/coins"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 72,
+   "hash": "BQ8snBoB1xeP9tdGrylP9wOudLm1m/uSjSiDP5sjChA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 22121679,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/gnoland/wugnot"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "NewToken",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoland/wugnot.wugnot.0000000"
+       },
+       {
+        "key": "name",
+        "value": "wrapped GNOT"
+       },
+       {
+        "key": "symbol",
+        "value": "wugnot"
+       },
+       {
+        "key": "decimals",
+        "value": "0"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "register",
+      "pkg_path": "gno.land/r/nt/grc20reg/v0",
+      "attrs": [
+       {
+        "key": "token_path",
+        "value": "gno.land/r/gnoland/wugnot.wugnot"
+       },
+       {
+        "key": "pkgpath",
+        "value": "gno.land/r/gnoland/wugnot"
+       },
+       {
+        "key": "slug",
+        "value": ""
+       },
+       {
+        "key": "symbol",
+        "value": "wugnot"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 73,
+   "hash": "gnUNBaehczSpX64MwvgSwg8xU0jT7/OD0dM6NmP5ro8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 47537876,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da",
+      "package": {
+       "path": "gno.land/r/gov/dao/memberstore/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 74,
+   "hash": "oq5ZOy0lChnhdp8d9fM57iR7DS0d0CP5rAO+JhyqkB0=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 28195031,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/gov/dao/treasury/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 75,
+   "hash": "pUtX4J+Mm6PQjMBDer0fTIn7PbAfQduXF8kvCdEe660=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 173945437,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da",
+      "package": {
+       "path": "gno.land/r/gov/dao/impl/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 76,
+   "hash": "IVRvdtqbf1qh/4Wvtd2LZ5Cg4XIzLtDNnGrfFYea9/U=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 21168502,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da",
+      "package": {
+       "path": "gno.land/r/gov/dao/init/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 77,
+   "hash": "XlrDCUtGJ/f4g0+AB1Wm+nXSpiHE2tbh+Q5nlJlGnhI=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 110576742,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/params"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 78,
+   "hash": "3C1nffxWs0XM2IgBTmzk+PDOsfvKGwDmz4szhubtvGI=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 77760576,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/validators/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 79,
+   "hash": "wtXySNxkTPPJ2rxz3reLDgUeyYdE2yy5oNuzksEq3go=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 166568952,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g3lsfxhvaqgdv4ccemwpnms4fv6t3aq3p5z6u7",
+      "package": {
+       "path": "gno.land/r/gnops/valopers"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 80,
+   "hash": "mmLMqwp4vdgKKIn39Ly6DtqbfTEg/CLTZk7JD9KQEGw=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 40969161,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g3lsfxhvaqgdv4ccemwpnms4fv6t3aq3p5z6u7",
+      "package": {
+       "path": "gno.land/r/gnops/valopers/proposal"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 81,
+   "hash": "KEDxZmoenfjeyk10hSTsR1yn4Ei6Ek2CyDHV2IQqp7g=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 27901259,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da",
+      "package": {
+       "path": "gno.land/r/gov/dao/loader/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 82,
+   "hash": "ZYQ/YGFJnNQYSfh8HPL1zqr040mer7Wx3/K4HK6hQiQ=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 21586195,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/gov/dao/treasury/test/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 83,
+   "hash": "TRpjpELZRtUIO5KR6zcDhtIJjdvachXHENt25ofOWsA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 22211437,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "package": {
+       "path": "gno.land/r/sys/cla"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 84,
+   "hash": "LPwMAntTgLrmFhJwWXrEA7Ef/kYIuXhAc75iymWppSM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 153543375,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/namereg/v0"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "archive"
+       },
+       {
+        "key": "address",
+        "value": "g1xlnyjrnf03ju82v0f98ruhpgnquk28knmjfe5k"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "demo"
+       },
+       {
+        "key": "address",
+        "value": "g13ek2zz9qurzynzvssyc4sthwppnruhnp0gdz8n"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "gno"
+       },
+       {
+        "key": "address",
+        "value": "g19602kd9tfxrfd60sgreadt9zvdyyuudcyxsz8a"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "gnoland"
+       },
+       {
+        "key": "address",
+        "value": "g1g3lsfxhvaqgdv4ccemwpnms4fv6t3aq3p5z6u7"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "gnolang"
+       },
+       {
+        "key": "address",
+        "value": "g1yjlnm3z2630gg5mryjd79907e0zx658wxs9hnd"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "gov"
+       },
+       {
+        "key": "address",
+        "value": "g1g73v2anukg4ej7axwqpthsatzrxjsh0wk797da"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "nt"
+       },
+       {
+        "key": "address",
+        "value": "g15ge0ae9077eh40erwrn2eq0xw6wupwqthpv34l"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "sys"
+       },
+       {
+        "key": "address",
+        "value": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "x"
+       },
+       {
+        "key": "address",
+        "value": "g164sdpew3c2t3rvxj3kmfv7c7ujlvcw2punzzuz"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "test1"
+       },
+       {
+        "key": "address",
+        "value": "g1jg8mtutu9khhfwc4nxmuhcpftf0pajdhfvsqf5"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 85,
+   "hash": "o4mWysttd763UhOHmFsOtoevbFn4HKL47FEgHpN0VZk=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 46089777,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/names"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 86,
+   "hash": "k8wgoE69HJmFMKEE4GBtKoEDjoj2tTr/vANaxR6m2/w=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 3688651,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/rewards"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 87,
+   "hash": "nT3lfgc1PG6wLDg9ez/5NOxjjQx13P5m3hNgpbTjYuw=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 4687230,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/txfees"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 88,
+   "hash": "v5tGhIsoD9Y+HUXFIV7nbCyfkF7+WXANycmYX55RG7c=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 50000,
+   "gas_used": 29957577,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1r929wt2qplfawe4lvqv9zuwfdcz4vxdun7qh8l",
+      "package": {
+       "path": "gno.land/r/sys/validators/v2"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 89,
+   "hash": "dniEdAd9jo1ze1CqDcZhG3WOoELtQMHazYrrrvRhFv4=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 100000000,
+   "gas_used": 35384458,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "run",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgRun",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "package": {
+       "path": ""
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 90,
+   "hash": "DuotHYihdxToLoVrtJewAZZT05LFz+ZfDyH2wpRuOPU=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 100000000,
+   "gas_used": 32495452,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "run",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgRun",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "package": {
+       "path": ""
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "gnoswap"
+       },
+       {
+        "key": "address",
+        "value": "g1q5tjjv3kkslzwf2na9y9wk7e5a8ugph8xfsk04"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "onbloc"
+       },
+       {
+        "key": "address",
+        "value": "g18839tls6c4w9kkxtzthjst4qdcm4lgyntvtqvs"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "moul"
+       },
+       {
+        "key": "address",
+        "value": "g1manfred47kzduec920z88wfr64ylksmdcedlf5"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "aeddi"
+       },
+       {
+        "key": "address",
+        "value": "g1aeddlftlfk27ret5rf750d7w5dume3kcsm8r8m"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "aib"
+       },
+       {
+        "key": "address",
+        "value": "g1gkqe9c90tfuk2a7f07ygs8t826aff03vxasjsl"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "samcrew"
+       },
+       {
+        "key": "address",
+        "value": "g136j0m08pkm2lwwde9dmlx8uee26llent9s5cpf"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Registered",
+      "pkg_path": "gno.land/r/sys/users",
+      "attrs": [
+       {
+        "key": "name",
+        "value": "howl"
+       },
+       {
+        "key": "address",
+        "value": "g1m0rgan0rla00ygmdmp55f5m0unvsvknluyg2a4"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 91,
+   "hash": "HVk9xvrc+h+d7Y8iQvssxZs3c02qfC1yX33YTpOz4yA=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 100000000,
+   "gas_used": 4177822,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1skl80cuz8zq3lul9pgz5pc35l2pfzgxgfpsqkx",
+      "send": "",
+      "pkg_path": "gno.land/r/sys/names",
+      "func": "Enable",
+      "args": null
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 92,
+   "hash": "lzLqu6IqchDbinciavb+6focv662R3a2ERWcqIMaDuM=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 60000000,
+   "gas_used": 39657259,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "pkg_path": "gno.land/r/gnops/valopers",
+      "func": "Register",
+      "args": [
+       "onbloc-validator-1",
+       "mainnet founding validator (onbloc-validator-1)",
+       "cloud",
+       "g12gtvlcexzgax49nvvkvhp2u0v6eejhunq0074p",
+       "gpub1pggj7ard9eg82cjtv4u52epjx56nzwgjyg9zp95ay40jg2pc0cpn432z5fny390tfpeycf4hf8msznu9tthulswqhwtucx"
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 93,
+   "hash": "Gf/W43rm7LMZsvh/F4T2g8qpj2+NOrFBcGe0Cf2a9fI=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 60000000,
+   "gas_used": 42201768,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "pkg_path": "gno.land/r/gnops/valopers",
+      "func": "Register",
+      "args": [
+       "gno-core-validator-1",
+       "mainnet founding validator (gno-core-validator-1)",
+       "cloud",
+       "g1aeddlftlfk27ret5rf750d7w5dume3kcsm8r8m",
+       "gpub1pggj7ard9eg82cjtv4u52epjx56nzwgjyg9zqzlmd56sl6gyam3u4sht0fnpvddxl2cf6rdx76rnz7ufcsz8lyh073fcxm"
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 94,
+   "hash": "LnaXHLDk8vp8nxmZpF5OR9SHD8qtfHzDVzH3pBCBVgs=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 60000000,
+   "gas_used": 43665371,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "pkg_path": "gno.land/r/gnops/valopers",
+      "func": "Register",
+      "args": [
+       "samourai-crew-validator-1",
+       "mainnet founding validator (samourai-crew-validator-1)",
+       "cloud",
+       "g1n9y62agq998jt8w59az60xcqlftjknjg2grhn4",
+       "gpub1pggj7ard9eg82cjtv4u52epjx56nzwgjyg9zpdkjpdaqsm9gxnw90ac6a78gvnquttl4kr64zxughl87sek7xgx60gfntd"
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  },
+  {
+   "index": 95,
+   "hash": "ZSl9Uh1Kf5QaRVDbZafRIlEicwpugFhb4TVMG2zCBm8=",
+   "success": true,
+   "block_height": 0,
+   "gas_wanted": 60000000,
+   "gas_used": 41782528,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1edq4dugw0sgat4zxcw9xardvuydqf6cgleuc8p",
+      "send": "",
+      "pkg_path": "gno.land/r/gnops/valopers",
+      "func": "Register",
+      "args": [
+       "berty-validator-1",
+       "mainnet founding validator (berty-validator-1)",
+       "cloud",
+       "g1qynsu9dwj9lq0m5fkje7jh6qy3md80ztqnshhm",
+       "gpub1pggj7ard9eg82cjtv4u52epjx56nzwgjyg9zqn8u6cc4dgrzu9u8hztvlmqrvqt7mzju577xjdxjqxf8m5gjypaz798f5d"
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

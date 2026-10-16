@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { Pool } from "pg";
 import { createPool, commitBatch, clearGaps, recordGaps, staleHeights } from "../indexer/src/db";
 import { commitGno } from "../indexer/src/gno-worker";
-import { extractGno, type GnoBlockIn, type GnoTxIn } from "../indexer/src/gno";
+import { extractGno, GNO_EXTRACT_VERSION, type GnoBlockIn, type GnoTxIn } from "../indexer/src/gno";
 import { extractBlock } from "../indexer/src/extract";
 
 /**
@@ -36,7 +36,7 @@ describe.skipIf(!url)("gno projection and address_tx_count", () => {
     expect(tx).toHaveLength(1);
     expect(tx[0]).toMatchObject({ height: "337001", success: true, msg_types: ["BankMsgSend"], fee_amount: "1027", fee_denom: "ugnot" });
     const b = (await pool.query("SELECT extract_version FROM block WHERE chain_id=$1 AND height=337001", [G])).rows[0];
-    expect(b.extract_version).toBe(4);
+    expect(b.extract_version).toBe(GNO_EXTRACT_VERSION);
     const c = (await pool.query("SELECT last_height, head_height FROM indexer_cursor WHERE chain_id=$1", [G])).rows[0];
     expect(c).toEqual({ last_height: "337001", head_height: "337010" });
   });

@@ -1,0 +1,94 @@
+{
+ "blocks": [
+  {
+   "hash": "YTv2i7FVAjxzMSZBLc4kSbajsmMeqhyZEfhjj/eiXJA=",
+   "height": 77261,
+   "time": "2026-09-16T04:34:28.719005267Z",
+   "num_txs": 2,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "O6Hz0OCqrLzSZjR39Kq4pX1N/NfYgRR3LzsU00NE2OY=",
+   "success": true,
+   "block_height": 77261,
+   "gas_wanted": 197909674,
+   "gas_used": 164924778,
+   "memo": "",
+   "gas_fee": {
+    "amount": 197910,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1q5tjjv3kkslzwf2na9y9wk7e5a8ugph8xfsk04",
+      "package": {
+       "path": "gno.land/r/gnoswap/gov/governance"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": []
+   }
+  },
+  {
+   "index": 1,
+   "hash": "/7gsLDlbpFMoSeOtzG3k+zI0HPVuF91ZnFb+RTHRHVk=",
+   "success": true,
+   "block_height": 77261,
+   "gas_wanted": 32579544,
+   "gas_used": 27149610,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "enable_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgEnablePackage",
+      "approver": "g1yaaa6rcp4ew5yjzdj4yms596wx2dtrj3a86704",
+      "pkg_path": "gno.land/r/gnoswap/gnft"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "NewToken",
+      "pkg_path": "gno.land/p/nt/grc721/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gnft.GNFT.0000000"
+       },
+       {
+        "key": "name",
+        "value": "GNOSWAP NFT"
+       },
+       {
+        "key": "symbol",
+        "value": "GNFT"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

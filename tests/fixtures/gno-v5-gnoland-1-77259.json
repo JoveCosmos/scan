@@ -1,0 +1,170 @@
+{
+ "blocks": [
+  {
+   "hash": "bSILvZm3qTiprPhtuoGS41Tq9POLK6up7LHJrO/hcj4=",
+   "height": 77259,
+   "time": "2026-09-16T04:34:21.805961824Z",
+   "num_txs": 2,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "tHma6trm/vn6e0CZMQNln3GdXtU5YCreBBFb2KBJUvE=",
+   "success": true,
+   "block_height": 77259,
+   "gas_wanted": 13613441,
+   "gas_used": 11344564,
+   "memo": "",
+   "gas_fee": {
+    "amount": 13614,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "add_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgAddPackage",
+      "creator": "g1q5tjjv3kkslzwf2na9y9wk7e5a8ugph8xfsk04",
+      "package": {
+       "path": "gno.land/r/gnoswap/community_pool/v1"
+      }
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": []
+   }
+  },
+  {
+   "index": 1,
+   "hash": "A2GYKAzoCNSAALyi9LopEQc9twdeZGpGwOsN08m/M+s=",
+   "success": true,
+   "block_height": 77259,
+   "gas_wanted": 46590552,
+   "gas_used": 38825450,
+   "memo": "",
+   "gas_fee": {
+    "amount": 1000000,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "enable_package",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgEnablePackage",
+      "approver": "g1yaaa6rcp4ew5yjzdj4yms596wx2dtrj3a86704",
+      "pkg_path": "gno.land/r/gnoswap/gns"
+     }
+    }
+   ],
+   "response": {
+    "error": "",
+    "events": [
+     {
+      "__typename": "GnoEvent",
+      "type": "NewToken",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "name",
+        "value": "Gnoswap"
+       },
+       {
+        "key": "symbol",
+        "value": "GNS"
+       },
+       {
+        "key": "decimals",
+        "value": "6"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "register",
+      "pkg_path": "gno.land/r/nt/grc20reg/v0",
+      "attrs": [
+       {
+        "key": "token_path",
+        "value": "gno.land/r/gnoswap/gns.GNS"
+       },
+       {
+        "key": "pkgpath",
+        "value": "gno.land/r/gnoswap/gns"
+       },
+       {
+        "key": "slug",
+        "value": ""
+       },
+       {
+        "key": "symbol",
+        "value": "GNS"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": ""
+       },
+       {
+        "key": "to",
+        "value": "g1y7h659patawdy99mlufj9lp3t9cwpt8fq852zq"
+       },
+       {
+        "key": "value",
+        "value": "50000000000000"
+       }
+      ]
+     },
+     {
+      "__typename": "GnoEvent",
+      "type": "Transfer",
+      "pkg_path": "gno.land/p/nt/grc20/v0",
+      "attrs": [
+       {
+        "key": "token",
+        "value": "gno.land/r/gnoswap/gns.GNS.0000000"
+       },
+       {
+        "key": "from",
+        "value": ""
+       },
+       {
+        "key": "to",
+        "value": "g1plxd74hnxyjvh309nfcndp53ypvv93yp5rd7dk"
+       },
+       {
+        "key": "value",
+        "value": "50000000000000"
+       }
+      ]
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     },
+     {
+      "__typename": "StorageDepositEvent"
+     }
+    ]
+   }
+  }
+ ]
+}

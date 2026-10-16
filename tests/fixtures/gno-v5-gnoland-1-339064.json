@@ -1,0 +1,80 @@
+{
+ "blocks": [
+  {
+   "hash": "3R0ImoupaKbfNSDqsZ6xwZ9FI6QKzbUGmNCeJSUnCc0=",
+   "height": 339064,
+   "time": "2026-09-26T05:06:34.638646997Z",
+   "num_txs": 1,
+   "chain_id": "gnoland-1"
+  }
+ ],
+ "txs": [
+  {
+   "index": 0,
+   "hash": "CTJ9xLH/FisM0Axfyw35oMxJS5J41BFXefm9AixY+xQ=",
+   "success": false,
+   "block_height": 339064,
+   "gas_wanted": 187583686,
+   "gas_used": 10215148,
+   "memo": "Executed through gnoswap.io",
+   "gas_fee": {
+    "amount": 187584,
+    "denom": "ugnot"
+   },
+   "messages": [
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1m4gtwqpjytattfakq9e67d46gdxcra5a007jgh",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoland/wugnot",
+      "func": "Approve",
+      "args": [
+       "g1vc883gshu5z7ytk5cdynhc8c2dh67pdp4cszkp",
+       "3540000"
+      ]
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1m4gtwqpjytattfakq9e67d46gdxcra5a007jgh",
+      "send": "3540000ugnot",
+      "pkg_path": "gno.land/r/gnoland/wugnot",
+      "func": "Deposit",
+      "args": null
+     }
+    },
+    {
+     "typeUrl": "exec",
+     "route": "vm",
+     "value": {
+      "__typename": "MsgCall",
+      "caller": "g1m4gtwqpjytattfakq9e67d46gdxcra5a007jgh",
+      "send": "",
+      "pkg_path": "gno.land/r/gnoswap/router",
+      "func": "ExactInSwapRoute",
+      "args": [
+       "gno.land/r/gnoland/wugnot.wugnot",
+       "gno.land/r/gnoswap/gns.GNS",
+       "3540000",
+       "gno.land/r/gnoland/wugnot.wugnot:gno.land/r/gnoswap/gns.GNS:3000",
+       "100",
+       "10141230",
+       "1790399477",
+       ""
+      ]
+     }
+    }
+   ],
+   "response": {
+    "error": "vesting locked coins error",
+    "events": []
+   }
+  }
+ ]
+}
