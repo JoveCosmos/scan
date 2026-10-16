@@ -1,5 +1,6 @@
 import type { ChainConfig } from "@/lib/chains";
-import { gnoHashToHex } from "@/lib/gno";
+import { gnoHashToHex, gql } from "@/lib/gno";
+import { cached } from "@/lib/cache";
 import { followEvents, type EventTx } from "@/lib/gno-follow";
 import { gnoTxTimes } from "@/lib/gno-packages";
 
@@ -159,4 +160,96 @@ export function balancesOf(tokens: Map<string, GnoToken>, address: string): { to
 /** Block times for a token's recent transfers, from the index. */
 export function transferTimes(chainId: string, transfers: TokenTransfer[]): Promise<Map<string, string>> {
   return gnoTxTimes(chainId, [...new Set(transfers.map((t) => t.txHash))]);
+}
+
+export interface AccountTransfer {
+  /** Uppercase hex. */
+  txHash: string;
+  height: number;
+  /** The token's key, "<realm>.<SYMBOL>.<seq>". */
+  token: string;
+  /** "" for a mint. */
+  from: string;
+  /** "" for a burn. */
+  to: string;
+  /** Base units, as a decimal string. */
+  amount: string;
+}
+
+/** Transfers on one page of an account's Token transfers tab. */
+export const ACCOUNT_TRANSFERS_PAGE = 100;
+
+/** GRC20 transfers naming an address, in a height range, newest first. */
+const accountQuery = (bounded: boolean) => `query(${bounded ? "$a: Int!, " : ""}$b: Int!, $x: String!) {
+  getTransactions(where: { success: { eq: true }, block_height: { ${bounded ? "gt: $a, " : ""}lt: $b },
+    response: { events: { GnoEvent: { pkg_path: { eq: "${GRC20}" }, type: { eq: "Transfer" }, attrs: { value: { eq: $x } } } } } },
+    order: { heightAndIndex: DESC }) {
+    hash block_height
+    response { events { ... on GnoEvent { type pkg_path attrs { key value } } } }
+  }
+}`;
+
+/**
+ * A page of an account's GRC20 transfers below block `before` (from the
+ * chain's head when absent), newest first: read down in height windows
+ * (widened while empty, halved when one comes back full) until a page is
+ * filled, and ended on a whole block so the next page can start below it.
+ * `next` is the height to continue below, or null once genesis is reached.
+ */
+export async function gnoAccountTransfers(
+  chain: ChainConfig,
+  address: string,
+  before?: number
+): Promise<{ transfers: AccountTransfer[]; next: number | null } | null> {
+  const load = async () => {
+    const start = before ?? (await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }")).latestBlockHeight + 1;
+    const found: AccountTransfer[] = [];
+    let hi = start;
+    let window = 100_000;
+    while (hi > 0 && found.length < ACCOUNT_TRANSFERS_PAGE) {
+      const lo = Math.max(0, hi - window);
+      const data = await gql<{ getTransactions: EventTx[] | null }>(
+        chain,
+        accountQuery(lo > 0),
+        lo > 0 ? { a: lo - 1, b: hi, x: address } : { b: hi, x: address },
+        30_000
+      );
+      const txs = data.getTransactions ?? [];
+      if (txs.length >= 10_000 && hi - lo > 1) {
+        window = Math.max(1, Math.floor((hi - lo) / 2));
+        continue;
+      }
+      for (const tx of txs) {
+        const txHash = gnoHashToHex(tx.hash) ?? tx.hash;
+        for (const e of tx.response?.events ?? []) {
+          if (e.pkg_path !== GRC20 || e.type !== "Transfer") continue;
+          const attr = (k: string) => e.attrs?.find((a) => a.key === k)?.value ?? "";
+          const from = attr("from");
+          const to = attr("to");
+          if (from !== address && to !== address) continue;
+          found.push({ txHash, height: tx.block_height, token: attr("token"), from, to, amount: attr("value") });
+        }
+      }
+      hi = lo;
+      if (txs.length === 0) window = Math.min(window * 4, 400_000);
+    }
+    // End the page on a whole block.
+    let end = Math.min(found.length, ACCOUNT_TRANSFERS_PAGE);
+    while (end > 0 && end < found.length && found[end].height === found[end - 1].height) end += 1;
+    const transfers = found.slice(0, end);
+    const last = transfers.at(-1);
+    const more = found.length > transfers.length || hi > 0;
+    return { transfers, next: more && last ? last.height : null };
+  };
+  try {
+    // The first page is what every visit opens; older pages are each read once.
+    return before === undefined
+      ? await cached(`gno-acct-transfers:${chain.chainId}:${address}`, 60_000, load, {
+          staleMs: 10 * 60_000,
+          group: { name: "gno-acct-transfers", max: 200 },
+        })
+      : await load();
+  } catch {
+    return null;
+  }
 }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
 import { findToken, gnoTokens, holderCount, holdersOf, transferTimes } from "@/lib/gno-tokens";
-import { packageHref, shortPath } from "@/lib/gno-packages";
+import { packageHref, realmByAddress, shortPath } from "@/lib/gno-packages";
 import { addressCell, gnoNames } from "@/lib/gno-users";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
@@ -54,9 +54,10 @@ export default async function TokenPage({
   if (!k) notFound();
   const accent = accentFor(chain);
 
-  const [tokens, names] = await Promise.all([
+  const [tokens, names, realms] = await Promise.all([
     withinBudget(gnoTokens(chain), 20_000, null),
     withinBudget(gnoNames(chain), 1500, null),
+    withinBudget(realmByAddress(chain), 1500, null),
   ]);
   const token = tokens ? findToken(tokens, k.realm, k.symbol) : null;
   if (tokens && !token) notFound();
@@ -115,10 +116,10 @@ export default async function TokenPage({
   const top = holders[0]?.balance ?? BigInt(0);
   const holderDeck: DeckRow[] = holders.map((h, i) => ({
     key: h.address,
-    search: h.address,
+    search: `${h.address} ${names?.byAddress.get(h.address) ?? ""} ${realms?.get(h.address) ?? ""}`,
     cells: [
       { v: String(i + 1), mono: true, dim: true, align: "right" },
-      addressCell(names, h.address, 12, 8),
+      addressCell(names, h.address, 12, 8, realms),
       {
         v: amount(h.balance),
         mono: true,
@@ -135,12 +136,12 @@ export default async function TokenPage({
   }));
 
   const party = (a: string, none: string): DeckRow["cells"][number] =>
-    a ? addressCell(names, a) : { v: none, tone: "accent" };
+    a ? addressCell(names, a, 8, 6, realms) : { v: none, tone: "accent" };
   const transferDeck: DeckRow[] = (token?.recent ?? []).map((t, i) => {
     const when = times.get(t.txHash) ?? null;
     return {
       key: `${t.txHash}-${i}`,
-      search: `${t.from} ${t.to}`,
+      search: [t.from, t.to].map((a) => `${a} ${names?.byAddress.get(a) ?? ""} ${realms?.get(a) ?? ""}`).join(" "),
       cells: [
         party(t.from, "Mint"),
         party(t.to, "Burn"),

@@ -30,7 +30,9 @@ import {
   BrickLoading,
   EventsTab,
   getAprModelCached,
-  IndexedBricks,
+  EarnedBrick,
+  GovernanceBrick,
+  ProposedBrick,
   JailingsTab,
   kept,
   loadUptime,
@@ -395,9 +397,17 @@ export default async function ValidatorDetailPage({
           >
             <BrickBoard accent={accent} bricks={bricks} bare />
             {chain.indexed ? (
-              <Suspense fallback={<BrickLoading count={3} />}>
-                <IndexedBricks {...keys} />
-              </Suspense>
+              <>
+                <Suspense fallback={<BrickLoading count={1} />}>
+                  <EarnedBrick {...keys} />
+                </Suspense>
+                <Suspense fallback={<BrickLoading count={1} />}>
+                  <ProposedBrick {...keys} />
+                </Suspense>
+                <Suspense fallback={<BrickLoading count={1} />}>
+                  <GovernanceBrick {...keys} />
+                </Suspense>
+              </>
             ) : null}
           </div>
           <div className="gata-surface flex shrink-0 flex-col gap-4 px-4 py-3.5 lg:hidden">{profile}</div>

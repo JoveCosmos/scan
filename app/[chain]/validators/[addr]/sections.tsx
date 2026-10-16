@@ -14,27 +14,23 @@ import {
   missBudget,
   type ValidatorUptime,
 } from "@/lib/uptime";
+import { type SlashKind } from "@/lib/indexer-db";
+import { VALIDATOR_PAGE, type ValidatorEventKind } from "@/lib/indexer-validator";
 import {
-  commissionEarned,
-  proposerStats,
-  slashHistory,
-  stakeHistory,
-  type SlashKind,
-} from "@/lib/indexer-db";
-import {
-  consHexOf,
-  powerEvents,
-  powerHistory,
-  proposedBlocks,
-  proposerFairness,
-  signingHistory,
-  VALIDATOR_PAGE,
-  validatorCreatedAt,
-  validatorEvents,
-  validatorVotes,
-  voterRecasts,
-  type ValidatorEventKind,
-} from "@/lib/indexer-validator";
+  readConsHex,
+  readEarned,
+  readEvents,
+  readFairness,
+  readPowerEvents,
+  readPowerHistAt,
+  readProposed,
+  readProposer,
+  readRecasts,
+  readSigningHistAt,
+  readSlashes,
+  readStake,
+  readVotes,
+} from "@/lib/validator-index-reads";
 import { formatDuration, jailSpells } from "@/lib/signing-stats";
 import { voteOptionLabel } from "@/lib/proposals";
 import { BrickBoard, type BrickSpec, type DetailRow } from "@/components/brick-board";
@@ -63,8 +59,6 @@ import { ValidatorStakeChart } from "@/components/validator-stake-history";
 
 // ── Loaders ──────────────────────────────────────────────────────────────────
 
-const soft = <T,>(p: Promise<T>): Promise<T | null> => p.catch(() => null);
-
 export const loadUptime = cache(
   async (chainId: string, addr: string): Promise<ValidatorUptime> => {
     const chain = getChain(chainId);
@@ -77,25 +71,15 @@ export const loadUptime = cache(
   }
 );
 
-const loadEvents = cache((chainId: string, account: string) =>
-  soft(validatorEvents(chainId, account))
-);
-const loadSlashes = cache((chainId: string, valcons: string, addr: string) =>
-  soft(slashHistory(chainId, valcons, addr))
-);
-const loadProposer = cache((chainId: string, hex: string) => soft(proposerStats(chainId, hex)));
-const loadFairness = cache((chainId: string, addr: string, hex: string) =>
-  soft(proposerFairness(chainId, addr, hex))
-);
-const loadProposed = cache((chainId: string, hex: string) => soft(proposedBlocks(chainId, hex)));
-const loadEarned = cache((chainId: string, account: string) =>
-  soft(commissionEarned(chainId, account))
-);
-const loadPowerEvents = cache((chainId: string, addr: string) => soft(powerEvents(chainId, addr)));
-const loadStake = cache((chainId: string, addr: string) => soft(stakeHistory(chainId, addr)));
-const loadRecasts = cache((chainId: string, account: string) =>
-  soft(voterRecasts(chainId, account))
-);
+const loadEvents = cache(readEvents);
+const loadSlashes = cache(readSlashes);
+const loadProposer = cache(readProposer);
+const loadFairness = cache(readFairness);
+const loadProposed = cache(readProposed);
+const loadEarned = cache(readEarned);
+const loadPowerEvents = cache(readPowerEvents);
+const loadStake = cache(readStake);
+const loadRecasts = cache(readRecasts);
 
 /**
  * The chain's APR model over its bonded set, so this validator's APR comes from
@@ -121,24 +105,16 @@ export function getAprModelCached(chain: ChainConfig): Promise<AprModel | null> 
   );
 }
 
-/** The key the index files signing under: derived from the pubkey, else looked up. */
-const loadConsHex = cache(async (chainId: string, addr: string, hex: string | null) =>
-  hex ?? soft(consHexOf(chainId, addr))
-);
+const loadConsHex = cache(readConsHex);
 const loadSigningHist = cache(async (chainId: string, addr: string, hex: string | null) => {
   const h = await loadConsHex(chainId, addr, hex);
-  return h ? soft(signingHistory(chainId, h)) : null;
+  return h ? readSigningHistAt(chainId, h) : null;
 });
 const loadPowerHist = cache(async (chainId: string, addr: string, hex: string | null) => {
   const h = await loadConsHex(chainId, addr, hex);
-  return h ? soft(powerHistory(chainId, h)) : null;
+  return h ? readPowerHistAt(chainId, h) : null;
 });
-
-/** Votes are counted from the validator's creation, where the index holds it. */
-const loadVotes = cache(async (chainId: string, account: string) => {
-  const created = await soft(validatorCreatedAt(chainId, account));
-  return soft(validatorVotes(chainId, account, created));
-});
+const loadVotes = cache(readVotes);
 
 // ── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -198,20 +174,14 @@ function verdict(ratio: number): string {
   return "under";
 }
 
-/** Commission taken, blocks proposed and governance: always three tiles, N/A when unknown. */
-export async function IndexedBricks({ chain, accent, addr, account, ids }: ValidatorKeys) {
-  const chainId = chain.chainId;
+/**
+ * Commission taken, blocks proposed and governance: three tiles, each streamed
+ * on its own so a fast one never waits for a slow one, N/A when unknown.
+ */
+export async function EarnedBrick({ chain, accent, account }: ValidatorKeys) {
   const { coin, symbolOf } = coinFormatter(chain);
-  const [earned, proposer, fairness, votes] = await Promise.all([
-    account ? loadEarned(chainId, account) : null,
-    ids ? loadProposer(chainId, ids.hex) : null,
-    ids ? loadFairness(chainId, addr, ids.hex) : null,
-    account ? loadVotes(chainId, account) : null,
-  ]);
-
-  const bricks: BrickSpec[] = [];
-
-  bricks.push(
+  const earned = account ? await loadEarned(chain.chainId, account) : null;
+  const brick: BrickSpec =
     earned && earned.byDenom.length > 0
       ? {
           key: "earned",
@@ -230,97 +200,99 @@ export async function IndexedBricks({ chain, accent, addr, account, ids }: Valid
             { label: "Last", value: earned.last ? timeAgo(earned.last) : "-" },
           ]),
         }
-      : { key: "earned", label: "Commission taken", short: "Comm. earned", value: "N/A" }
-  );
+      : { key: "earned", label: "Commission taken", short: "Comm. earned", value: "N/A" };
+  return <BrickBoard accent={accent} bricks={[brick]} bare />;
+}
 
-  if (proposer && proposer.totalBlocks > 0) {
-    const share = proposer.proposed / proposer.totalBlocks;
-    bricks.push({
-      key: "proposed",
-      label: "Blocks proposed",
-      short: "Proposed",
-      value: proposer.proposed.toLocaleString(),
-      sub: fairness
-        ? `${fairness.ratio.toFixed(2)}× expected, ${verdict(fairness.ratio)}`
-        : `${pct(share)} of the chain's`,
-      tone: fairness
-        ? fairness.ratio >= 0.95
-          ? "ok"
-          : fairness.ratio < 0.85
-            ? "bad"
-            : undefined
-        : undefined,
-      rows: kept([
-        { label: "Proposed", value: proposer.proposed.toLocaleString(), mono: true },
-        { label: "Share of blocks", value: pct(share), mono: true },
-        ...(fairness
-          ? [
-              {
-                label: "Expected from stake",
-                value: Math.round(fairness.expected).toLocaleString(),
-                mono: true,
-              },
-              {
-                label: "Proposed in that window",
-                value: fairness.proposed.toLocaleString(),
-                mono: true,
-              },
-              {
-                label: "Versus stake",
-                value: `${fairness.ratio.toFixed(2)}×, ${verdict(fairness.ratio)}`,
-              },
-              {
-                label: "Window",
-                value: `#${fairness.fromHeight.toLocaleString()} – #${fairness.toHeight.toLocaleString()}`,
-                mono: true,
-              },
-            ]
-          : []),
-        {
-          label: "Last proposed",
-          value: proposer.lastHeight
-            ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? `, ${timeAgo(proposer.lastTime)}` : ""}`
-            : "Never",
-          mono: true,
-          ...(proposer.lastHeight ? { href: `/${chainId}/blocks/${proposer.lastHeight}` } : {}),
-        },
-        {
-          label: "Measured over",
-          value: proposer.fromGenesis
-            ? `${proposer.totalBlocks.toLocaleString()} blocks`
-            : `${proposer.totalBlocks.toLocaleString()} blocks since ${day(proposer.since)}`,
-        },
-      ]),
-    });
-  } else {
-    bricks.push({ key: "proposed", label: "Blocks proposed", short: "Proposed", value: "N/A" });
+export async function ProposedBrick({ chain, accent, addr, ids }: ValidatorKeys) {
+  const chainId = chain.chainId;
+  const [proposer, fairness] = await Promise.all([
+    ids ? loadProposer(chainId, ids.hex) : null,
+    ids ? loadFairness(chainId, addr, ids.hex) : null,
+  ]);
+  if (!proposer || proposer.totalBlocks <= 0) {
+    return <BrickBoard accent={accent} bricks={[{ key: "proposed", label: "Blocks proposed", short: "Proposed", value: "N/A" }]} bare />;
   }
+  const share = proposer.proposed / proposer.totalBlocks;
+  const brick: BrickSpec = {
+    key: "proposed",
+    label: "Blocks proposed",
+    short: "Proposed",
+    value: proposer.proposed.toLocaleString(),
+    sub: fairness
+      ? `${fairness.ratio.toFixed(2)}× expected, ${verdict(fairness.ratio)}`
+      : `${pct(share)} of the chain's`,
+    tone: fairness ? (fairness.ratio >= 0.95 ? "ok" : fairness.ratio < 0.85 ? "bad" : undefined) : undefined,
+    rows: kept([
+      { label: "Proposed", value: proposer.proposed.toLocaleString(), mono: true },
+      { label: "Share of blocks", value: pct(share), mono: true },
+      ...(fairness
+        ? [
+            {
+              label: "Expected from stake",
+              value: Math.round(fairness.expected).toLocaleString(),
+              mono: true,
+            },
+            {
+              label: "Proposed in that window",
+              value: fairness.proposed.toLocaleString(),
+              mono: true,
+            },
+            {
+              label: "Versus stake",
+              value: `${fairness.ratio.toFixed(2)}×, ${verdict(fairness.ratio)}`,
+            },
+            {
+              label: "Window",
+              value: `#${fairness.fromHeight.toLocaleString()} – #${fairness.toHeight.toLocaleString()}`,
+              mono: true,
+            },
+          ]
+        : []),
+      {
+        label: "Last proposed",
+        value: proposer.lastHeight
+          ? `#${proposer.lastHeight.toLocaleString()}${proposer.lastTime ? `, ${timeAgo(proposer.lastTime)}` : ""}`
+          : "Never",
+        mono: true,
+        ...(proposer.lastHeight ? { href: `/${chainId}/blocks/${proposer.lastHeight}` } : {}),
+      },
+      {
+        label: "Measured over",
+        value: proposer.fromGenesis
+          ? `${proposer.totalBlocks.toLocaleString()} blocks`
+          : `${proposer.totalBlocks.toLocaleString()} blocks since ${day(proposer.since)}`,
+      },
+    ]),
+  };
+  return <BrickBoard accent={accent} bricks={[brick]} bare />;
+}
 
-  if (votes && votes.total > 0) {
-    const byOption = new Map<string, number>();
-    for (const v of votes.votes) byOption.set(v.option, (byOption.get(v.option) ?? 0) + 1);
-    const last = votes.votes.reduce<string | null>((m, v) => (m === null || v.time > m ? v.time : m), null);
-    bricks.push({
-      key: "governance",
-      label: "Governance",
-      value: pct(votes.voted / votes.total, 0),
-      sub: `voted on ${votes.voted} of ${votes.total}`,
-      tone: votes.voted === votes.total ? "ok" : undefined,
-      rows: kept([
-        { label: "Participation", value: `${votes.voted} of ${votes.total} proposals`, mono: true },
-        { label: "Skipped", value: String(votes.skipped.length), mono: true },
-        ...[...byOption.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .map(([option, n]) => ({ label: voteOptionLabel(option), value: String(n), mono: true })),
-        { label: "Counted since", value: day(votes.since) },
-        { label: "Last voted", value: last ? timeAgo(last) : "-" },
-      ]),
-    });
-  } else {
-    bricks.push({ key: "governance", label: "Governance", value: "N/A" });
+export async function GovernanceBrick({ chain, accent, account }: ValidatorKeys) {
+  const votes = account ? await loadVotes(chain.chainId, account) : null;
+  if (!votes || votes.total <= 0) {
+    return <BrickBoard accent={accent} bricks={[{ key: "governance", label: "Governance", value: "N/A" }]} bare />;
   }
-
-  return <BrickBoard accent={accent} bricks={bricks} bare />;
+  const byOption = new Map<string, number>();
+  for (const v of votes.votes) byOption.set(v.option, (byOption.get(v.option) ?? 0) + 1);
+  const last = votes.votes.reduce<string | null>((m, v) => (m === null || v.time > m ? v.time : m), null);
+  const brick: BrickSpec = {
+    key: "governance",
+    label: "Governance",
+    value: pct(votes.voted / votes.total, 0),
+    sub: `voted on ${votes.voted} of ${votes.total}`,
+    tone: votes.voted === votes.total ? "ok" : undefined,
+    rows: kept([
+      { label: "Participation", value: `${votes.voted} of ${votes.total} proposals`, mono: true },
+      { label: "Skipped", value: String(votes.skipped.length), mono: true },
+      ...[...byOption.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([option, n]) => ({ label: voteOptionLabel(option), value: String(n), mono: true })),
+      { label: "Counted since", value: day(votes.since) },
+      { label: "Last voted", value: last ? timeAgo(last) : "-" },
+    ]),
+  };
+  return <BrickBoard accent={accent} bricks={[brick]} bare />;
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────

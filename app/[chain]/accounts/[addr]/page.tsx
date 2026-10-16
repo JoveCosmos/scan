@@ -51,6 +51,8 @@ import { counterpartyChainOf } from "@/lib/txs";
 import { denomInfoFromTrace, formatCoin, type DenomInfo } from "@/lib/coin";
 import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
 import { AccountHistory } from "./history";
+import { OlderDeck } from "@/components/older-deck";
+import { TOKEN_TRANSFER_COLUMNS } from "./token-rows";
 import { buildHistoryRows } from "./history-rows";
 
 export const dynamic = "force-dynamic";
@@ -58,10 +60,27 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ addr: string }>;
+  params: Promise<{ chain: string; addr: string }>;
 }): Promise<Metadata> {
-  const { addr } = await params;
-  return { title: `Account ${decodeParam(addr).slice(0, 12)}…` };
+  const { chain: chainId, addr } = await params;
+  const raw = decodeParam(addr).trim();
+  const fallback = { title: `Account ${raw.slice(0, 12)}…` };
+  const chain = getChain(chainId);
+  if (!chain) return fallback;
+  // The tab says whose account it is, as the heading does: a gno.land name,
+  // else the validator it operates. Only what is already in memory is asked.
+  if (chain.kind === "gno") {
+    const name = atName(await withinBudget(gnoNames(chain), 300, null), raw);
+    if (name) return { title: name };
+    const index = await withinBudget(getValoperIndexNow(chain).catch(() => null), 300, null);
+    const moniker = index?.byOperator.get(raw)?.moniker;
+    return moniker ? { title: moniker } : fallback;
+  }
+  const valoper = convertAddress(raw.toLowerCase(), `${chain.bech32Prefix}valoper`);
+  if (!valoper) return fallback;
+  const set = await withinBudget(getValidatorsCached(chain).catch(() => []), 300, []);
+  const operated = set.find((v) => v.operatorAddress === valoper);
+  return operated ? { title: operated.moniker } : fallback;
 }
 
 const prefixes = () =>
@@ -1114,27 +1133,6 @@ export default async function AccountPage({
           },
         ]
       : []),
-    ...(deployedRows.length > 0
-      ? [
-          {
-            key: "packages",
-            label: `Packages (${deployedRows.length})`,
-            content: (
-              <RowDeck
-                columns={[
-                  { label: "Path" },
-                  { label: "Kind", width: "16%", phoneHide: true },
-                  { label: "Block", align: "right", width: "18%" },
-                ]}
-                rows={deployedRows}
-                accent={accent}
-                filter={deployedRows.length > 12 ? { placeholder: "Filter by path…" } : undefined}
-                empty="None"
-              />
-            ),
-          },
-        ]
-      : []),
     ...(tokenRows.length > 0
       ? [
           {
@@ -1150,6 +1148,48 @@ export default async function AccountPage({
                 rows={tokenRows}
                 accent={accent}
                 filter={tokenRows.length > 12 ? { placeholder: "Filter tokens…" } : undefined}
+                empty="None"
+              />
+            ),
+          },
+        ]
+      : []),
+    // gno.land: every GRC20 transfer this account sent or received, read from
+    // the tx-indexer when the tab is first opened.
+    ...(chain.kind === "gno"
+      ? [
+          {
+            key: "token-transfers",
+            label: "Token transfers",
+            content: (
+              <OlderDeck
+                endpoint={`/${chainId}/accounts/${address}/tokens`}
+                columns={TOKEN_TRANSFER_COLUMNS}
+                initialRows={null}
+                initialNext={null}
+                accent={accent}
+                empty="None"
+                filter={{ placeholder: "Filter by token or address…" }}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(deployedRows.length > 0
+      ? [
+          {
+            key: "packages",
+            label: `Packages (${deployedRows.length})`,
+            content: (
+              <RowDeck
+                columns={[
+                  { label: "Path" },
+                  { label: "Kind", width: "16%", phoneHide: true },
+                  { label: "Block", align: "right", width: "18%" },
+                ]}
+                rows={deployedRows}
+                accent={accent}
+                filter={deployedRows.length > 12 ? { placeholder: "Filter by path…" } : undefined}
                 empty="None"
               />
             ),

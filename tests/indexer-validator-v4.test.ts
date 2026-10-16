@@ -6,6 +6,7 @@ let respond: (text: string, params: unknown[]) => unknown[] = () => [];
 let poolPresent = true;
 
 vi.mock("@/lib/cache", () => ({
+  VALIDATOR_HISTORY_CACHE: () => ({}),
   cached: async (_k: string, _ttl: number, loader: () => Promise<unknown>) => loader(),
 }));
 

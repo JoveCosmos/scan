@@ -1,4 +1,4 @@
-import { cached } from "@/lib/cache";
+import { cached, VALIDATOR_HISTORY_CACHE } from "@/lib/cache";
 import { decodeRawMessage } from "@/lib/proto-decode";
 import { coverage, indexerPool, poolFor } from "@/lib/indexer-db";
 import { getChain } from "@/lib/chains";
@@ -80,7 +80,7 @@ export async function proposedBlocks(
         fromGenesis: c.lowest <= 1,
       };
     },
-      { staleMs: 30 * 60_000, group: { name: "val-proposed", max: 100 } }
+      VALIDATOR_HISTORY_CACHE("val-proposed")
     );
   } catch {
     return null;
@@ -194,7 +194,7 @@ export async function proposerFairness(
         toHeight: window.to,
       };
     },
-      { staleMs: 60 * 60_000, group: { name: "val-fairness", max: 200 } }
+      VALIDATOR_HISTORY_CACHE("val-fairness")
     );
   } catch {
     return null;
@@ -283,7 +283,7 @@ export async function validatorEvents(
         ];
       });
     },
-      { staleMs: 30 * 60_000, group: { name: "val-events", max: 100 } }
+      VALIDATOR_HISTORY_CACHE("val-events")
     );
   } catch {
     return null;
@@ -314,7 +314,7 @@ export async function validatorCreatedAt(chainId: string, account: string): Prom
         [chainId, account]
       );
       return rows[0]?.time ?? null;
-    });
+    }, VALIDATOR_HISTORY_CACHE("val-created"));
   } catch {
     return null;
   }
@@ -410,7 +410,7 @@ export async function validatorVotes(
         since: from,
       };
     },
-      { staleMs: 30 * 60_000, group: { name: "val-votes", max: 200 } }
+      VALIDATOR_HISTORY_CACHE("val-votes")
     );
   } catch {
     return null;
@@ -783,7 +783,7 @@ export async function signingHistory(
           recent,
         };
       },
-      { staleMs: 600_000, group: { name: "val-signing", max: 200 } }
+      VALIDATOR_HISTORY_CACHE("val-signing")
     );
   } catch {
     return null;
@@ -929,7 +929,7 @@ export async function powerEvents(chainId: string, operator: string): Promise<Po
         since: cov.loTime,
       };
     },
-      { staleMs: 30 * 60_000, group: { name: "val-powerev", max: 100 } }
+      VALIDATOR_HISTORY_CACHE("val-powerev")
     );
   } catch {
     return null;
@@ -987,7 +987,7 @@ export async function powerEventsBefore(
       ]);
       return rows.map(toPowerEvent);
     },
-      { staleMs: 30 * 60_000, group: { name: "val-powerev-page", max: 100 } }
+      VALIDATOR_HISTORY_CACHE("val-powerev-page")
     );
   } catch {
     return null;
@@ -1032,7 +1032,7 @@ export async function powerHistory(chainId: string, consHex: string): Promise<Po
       }
       return points;
     },
-      { staleMs: 60 * 60_000, group: { name: "val-powerhist", max: 100 } }
+      VALIDATOR_HISTORY_CACHE("val-powerhist")
     );
   } catch {
     return null;
@@ -1332,7 +1332,7 @@ export async function commissionHistory(
       }
       return { changes, from: cov.lo };
     },
-      { staleMs: 60 * 60_000, group: { name: "val-commission-hist", max: 200 } }
+      VALIDATOR_HISTORY_CACHE("val-commission-hist")
     );
   } catch {
     return null;

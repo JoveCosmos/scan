@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RowDeck, type DeckColumn, type DeckRow } from "@/components/row-deck";
 
 /**
  * A newest-first list with an "Older" control that appends the next page from
  * `endpoint?before=<cursor>`. The server builds the rows, so this only keeps
  * the cursor and asks for more (the account history works the same way).
+ * With `initialRows` null, the first page too is fetched, when the deck is
+ * first drawn: for a tab whose rows are costly and often not looked at.
  */
 export function OlderDeck({
   endpoint,
@@ -20,7 +22,7 @@ export function OlderDeck({
 }: {
   endpoint: string;
   columns: DeckColumn[];
-  initialRows: DeckRow[];
+  initialRows: DeckRow[] | null;
   initialNext: string | null;
   accent: string;
   empty: string;
@@ -29,9 +31,27 @@ export function OlderDeck({
   /** The deck's own filter, over the rows loaded so far. */
   filter?: { placeholder: string };
 }) {
-  const [rows, setRows] = useState(initialRows);
+  const [rows, setRows] = useState<DeckRow[] | null>(initialRows);
   const [next, setNext] = useState(initialNext);
   const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+
+  // A lazy deck's first page.
+  const lazy = initialRows === null;
+  useEffect(() => {
+    if (!lazy) return;
+    let live = true;
+    fetch(endpoint)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((body: { rows: DeckRow[]; next: string | null }) => {
+        if (!live) return;
+        setRows(body.rows);
+        setNext(body.next);
+      })
+      .catch(() => live && setState("failed"));
+    return () => {
+      live = false;
+    };
+  }, [lazy, endpoint]);
 
   async function loadOlder() {
     if (!next) return;
@@ -41,8 +61,8 @@ export function OlderDeck({
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as { rows: DeckRow[]; next: string | null };
       setRows((prev) => {
-        const seen = new Set(prev.map((r) => r.key));
-        return [...prev, ...body.rows.filter((r) => !seen.has(r.key))];
+        const seen = new Set((prev ?? []).map((r) => r.key));
+        return [...(prev ?? []), ...body.rows.filter((r) => !seen.has(r.key))];
       });
       setNext(body.next);
       setState("idle");
@@ -54,7 +74,7 @@ export function OlderDeck({
   const toolbar =
     extra || next ? (
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span className="font-mono text-muted-foreground">{rows.length.toLocaleString("en-US")} shown</span>
+        <span className="font-mono text-muted-foreground">{(rows ?? []).length.toLocaleString("en-US")} shown</span>
         {extra}
         {next ? (
           <button
@@ -69,5 +89,14 @@ export function OlderDeck({
       </div>
     ) : undefined;
 
-  return <RowDeck columns={columns} rows={rows} accent={accent} toolbar={toolbar} empty={empty} filter={filter} />;
+  return (
+    <RowDeck
+      columns={columns}
+      rows={rows ?? []}
+      accent={accent}
+      toolbar={rows === null ? undefined : toolbar}
+      empty={rows === null ? (state === "failed" ? "N/A" : "Loading…") : empty}
+      filter={filter}
+    />
+  );
 }

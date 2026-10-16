@@ -7,6 +7,9 @@ import { govdaoTimeline } from "@/lib/gno-govdao";
 import { warmValidators } from "@/lib/warm";
 import { getAdapter } from "@/lib/adapter";
 import type { ChainConfig } from "@/lib/chains";
+import { accountFromOperator } from "@/lib/bech32";
+import { consensusIdsFromPubkey } from "@/lib/uptime";
+import { warmValidatorIndex } from "@/lib/validator-index-reads";
 
 /**
  * The Node-only half of instrumentation.ts: warms the slow caches at boot.
@@ -120,5 +123,51 @@ function warmPages() {
       })
     );
     console.log(`[warm] ${ok} of ${paths.length} pages in ${Math.round((Date.now() - startedAt) / 1000)}s`);
+
+    // Then every validator's index figures, and again each time they would
+    // have gone stale.
+    await warmIndexFigures();
+    setInterval(() => void warmIndexFigures(), INDEX_WARM_EVERY_MS).unref();
   }, 20_000);
+}
+
+/**
+ * Just past VALIDATOR_HISTORY_CACHE's stale window: by then each figure is too
+ * old to serve, so each read here waits for its own query and the run goes
+ * one query at a time, rather than firing every refresh in the background at
+ * once.
+ */
+const INDEX_WARM_EVERY_MS = 6 * 60 * 60_000 + 5 * 60_000;
+let indexWarmRunning = false;
+
+/**
+ * Every active validator's figures from the index, on each indexed chain
+ * (AtomOne): the first view of a validator outside the most visited took 2-16
+ * s while its blocks-proposed, commission and governance figures were read.
+ * Database only: no delegations, so nothing on the public nodes.
+ */
+async function warmIndexFigures() {
+  if (indexWarmRunning) return;
+  indexWarmRunning = true;
+  try {
+    for (const chain of getAllChains()) {
+      if (chain.kind !== "cosmos" || !chain.indexed) continue;
+      const startedAt = Date.now();
+      const set = await getAdapter(chain)
+        .getValidators()
+        .catch(() => []);
+      for (const v of set) {
+        const addr = v.operatorAddress.toLowerCase();
+        const ids = v.consensusPubkey ? consensusIdsFromPubkey(v.consensusPubkey, chain.bech32Prefix) : null;
+        await warmValidatorIndex(chain.chainId, addr, accountFromOperator(addr, chain.bech32Prefix), ids).catch(
+          () => {}
+        );
+      }
+      console.log(
+        `[warm] ${chain.chainId} index figures for ${set.length} validators in ${Math.round((Date.now() - startedAt) / 1000)}s`
+      );
+    }
+  } finally {
+    indexWarmRunning = false;
+  }
 }

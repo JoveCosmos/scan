@@ -57,8 +57,21 @@ export function atName(names: GnoNames | null | undefined, address: string | nul
   return name ? `@${name}` : null;
 }
 
-/** A list cell for an address: its name where it has one, else the address shortened. */
-export function addressCell(names: GnoNames | null | undefined, address: string, head = 8, tail = 6): DeckCell {
+/**
+ * A list cell for an address: its registered name, else the realm it belongs
+ * to ("r/gnoswap/pool", from `realms`, see realmByAddress), else the address
+ * shortened.
+ */
+export function addressCell(
+  names: GnoNames | null | undefined,
+  address: string,
+  head = 8,
+  tail = 6,
+  realms?: Map<string, string> | null
+): DeckCell {
   const name = atName(names, address);
-  return name ? { v: name, address } : { v: truncateMiddle(address, head, tail), mono: true, address };
+  if (name) return { v: name, address };
+  const realm = realms?.get(address);
+  if (realm) return { v: realm.replace(/^gno\.land\//, ""), mono: true, address };
+  return { v: truncateMiddle(address, head, tail), mono: true, address };
 }

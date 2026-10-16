@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { cached } from "@/lib/cache";
+import { cached, VALIDATOR_HISTORY_CACHE } from "@/lib/cache";
 import { getChain } from "@/lib/chains";
 
 /**
@@ -244,34 +244,40 @@ export async function slashHistory(
   if (!c) return null;
 
   try {
-    const res = await pool.query<{
-      height: string;
-      time: string;
-      kind: SlashKind;
-      reason: string | null;
-      burned: string | null;
-    }>(
-      `SELECT height::text, time::text, kind, reason, burned::text
-         FROM slash_event
-        WHERE chain_id = $1
-          AND (cons_addr = $2 OR ($5::text IS NOT NULL AND operator = $5))
-          AND height BETWEEN $3 AND $4
-        ORDER BY slash_event.height DESC
-        LIMIT 200`,
-      [chainId, consAddr, c.lowest, c.highest, operator]
+    return await cached(
+      `idx:slashes:${chainId}:${consAddr}:${operator ?? ""}`,
+      10 * 60_000,
+      async () => {
+        const res = await pool.query<{
+          height: string;
+          time: string;
+          kind: SlashKind;
+          reason: string | null;
+          burned: string | null;
+        }>(
+          `SELECT height::text, time::text, kind, reason, burned::text
+             FROM slash_event
+            WHERE chain_id = $1
+              AND (cons_addr = $2 OR ($5::text IS NOT NULL AND operator = $5))
+              AND height BETWEEN $3 AND $4
+            ORDER BY slash_event.height DESC
+            LIMIT 200`,
+          [chainId, consAddr, c.lowest, c.highest, operator]
+        );
+        return {
+          events: res.rows.map((r) => ({
+            height: Number(r.height),
+            time: r.time,
+            kind: r.kind,
+            reason: r.reason,
+            burned: r.burned,
+          })),
+          since: c.from,
+          fromGenesis: c.lowest <= 1,
+        };
+      },
+      VALIDATOR_HISTORY_CACHE("val-slashes")
     );
-
-    return {
-      events: res.rows.map((r) => ({
-        height: Number(r.height),
-        time: r.time,
-        kind: r.kind,
-        reason: r.reason,
-        burned: r.burned,
-      })),
-      since: c.from,
-      fromGenesis: c.lowest <= 1,
-    };
   } catch {
     return null;
   }
@@ -390,7 +396,7 @@ export async function proposerStats(
         );
         return res.rows[0];
       },
-        { staleMs: 30 * 60_000, group: { name: "val-proposer", max: 200 } }
+        VALIDATOR_HISTORY_CACHE("val-proposer")
       ),
       blockCount(chainId, c.lowest, c.highest),
     ]);
@@ -938,7 +944,7 @@ export async function commissionEarned(
       ),
     };
   },
-    { staleMs: 60 * 60_000, group: { name: "val-commission", max: 200 } }
+    VALIDATOR_HISTORY_CACHE("val-commission")
   );
 }
 
@@ -993,7 +999,7 @@ export async function stakeHistory(
     );
     return rows.length >= 2 ? rows : [];
   },
-    { staleMs: 60 * 60_000, group: { name: "val-stakehist", max: 100 } }
+    VALIDATOR_HISTORY_CACHE("val-stakehist")
   );
 }
 
