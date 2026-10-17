@@ -47,6 +47,12 @@ const pool = {
           height: String(700 - i), tx_hash: `A${i.toString(16).toUpperCase()}`, event_index: 3, from_addr: i === 0 ? "" : "g1a", to_addr: "g1b", amount: "1000000",
         })),
       };
+    if (text.includes("count(*) FILTER (WHERE m.kind = 'call')"))
+      return { rows: [{ day: "2026-10-15", calls: 900, packages: 2 }, { day: "2026-10-16", calls: 1200, packages: 0 }] };
+    if (text.includes("FROM gno_grc20_transfer g"))
+      return { rows: [{ day: "2026-10-14", transfers: 40 }, { day: "2026-10-16", transfers: 310 }] };
+    if (text.includes("FROM block") && text.includes("time >="))
+      return { rows: [{ h: "700000" }] };
     if (text.includes("count(DISTINCT caller)")) return { rows: [{ total: 13215, callers: 41 }] };
     if (text.includes("FROM gno_tx_msg m") && text.includes("kind = 'call'"))
       return {
@@ -65,6 +71,7 @@ const { getChain } = await import("@/lib/chains");
 const index = await import("@/lib/gno-index");
 const data = await import("@/lib/gno-token-data");
 const packages = await import("@/lib/gno-packages");
+const stats = await import("@/lib/stats");
 const chain = getChain("gnoland-1")!;
 
 beforeEach(() => {
@@ -185,5 +192,25 @@ describe("a token's transfers, paged", () => {
   test("nothing until the index covers genesis", async () => {
     caps.gno_grc20 = { lo: "500000", hi: "856783" };
     expect(await data.tokenTransfersPage(chain, "gno.land/r/gnoswap/gns.GNS.0000000")).toBeNull();
+  });
+});
+
+describe("gno.land charts from the index", () => {
+  test("realm calls, token transfers and packages per day, from 90 days back", async () => {
+    caps.gno_tx_msg = { lo: "0", hi: "856783" };
+    caps.gno_grc20 = { lo: "0", hi: "856783" };
+    expect(await stats.gnoDailyIndexed(chain)).toEqual([
+      { day: "2026-10-14", calls: 0, transfers: 40, packages: 0 },
+      { day: "2026-10-15", calls: 900, transfers: 0, packages: 2 },
+      { day: "2026-10-16", calls: 1200, transfers: 310, packages: 0 },
+    ]);
+    const reads = queries.filter((q) => q.text.includes("gno_tx_msg m") || q.text.includes("gno_grc20_transfer g"));
+    expect(reads.map((q) => q.params[1])).toEqual([700000, 700000]);
+  });
+
+  test("none while either is short of genesis", async () => {
+    caps.gno_tx_msg = { lo: "0", hi: "856783" };
+    caps.gno_grc20 = { lo: "1", hi: "856783" };
+    expect(await stats.gnoDailyIndexed(chain)).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getChain, accentFor, chainDenoms } from "@/lib/chains";
-import { dailyActivity } from "@/lib/stats";
+import { dailyActivity, gnoDailyIndexed } from "@/lib/stats";
 import { getPhotonHistory } from "@/lib/photon";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
@@ -23,9 +23,10 @@ export default async function ChartsPage({ params }: { params: Promise<{ chain: 
   if (!chain || !(chain.indexed || chain.kind === "gno")) notFound();
   const accent = accentFor(chain);
 
-  const [daily, photon] = await Promise.all([
+  const [daily, photon, gno] = await Promise.all([
     withinBudget(dailyActivity(chain), 10_000, null),
     chain.photon ? withinBudget(getPhotonHistory(chain), 8000, null) : null,
+    chain.kind === "gno" ? withinBudget(gnoDailyIndexed(chain), 10_000, null) : null,
   ]);
 
   const feeInfo = chainDenoms(chain).find((d) => d.denom === (chain.feeDenom ?? chain.denom));
@@ -72,9 +73,30 @@ export default async function ChartsPage({ params }: { params: Promise<{ chain: 
               />
             ) : null}
           </>
-        ) : (
-          <p className="text-sm text-muted-foreground">N/A</p>
-        )}
+        ) : null}
+        {gno ? (
+          <>
+            <DayBars
+              title="Realm calls per day"
+              points={gno.map((d) => ({ day: d.day, v: d.calls }))}
+              format={n}
+              accent={accent}
+            />
+            <DayBars
+              title="Token transfers per day"
+              points={gno.map((d) => ({ day: d.day, v: d.transfers }))}
+              format={n}
+              accent={accent}
+            />
+            <DayBars
+              title="Packages deployed per day"
+              points={gno.map((d) => ({ day: d.day, v: d.packages }))}
+              format={n}
+              accent={accent}
+            />
+          </>
+        ) : null}
+        {!daily && !gno ? <p className="text-sm text-muted-foreground">N/A</p> : null}
       </div>
     </PageFrame>
   );

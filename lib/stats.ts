@@ -2,6 +2,7 @@ import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
 import { coverage, indexerPool, poolFor } from "@/lib/indexer-db";
 import { coverageOf } from "@/lib/indexer-coverage";
+import { gnoIndexed } from "@/lib/gno-index";
 import { heightDaysAgo } from "@/lib/indexer-validator";
 
 export interface DayActivity {
@@ -85,6 +86,66 @@ function gnoDailyActivity(chain: ChainConfig, days: number): Promise<DayActivity
       ]);
       const signersOn = new Map(signers.rows.map((r) => [r.day, r.signers]));
       return txs.rows.map((r) => ({ day: r.day, txs: r.txs, signers: signersOn.get(r.day) ?? 0, fees: r.fees ?? "0" }));
+    },
+    { staleMs: 6 * 60 * 60_000 }
+  ).catch(() => null);
+}
+
+export interface GnoDayCounts {
+  day: string;
+  calls: number;
+  transfers: number;
+  packages: number;
+}
+
+/**
+ * gno.land's realm calls (failed ones too), GRC20 transfers and packages
+ * deployed per UTC day for the last `days` days, from our index (migration
+ * 014), each dated by its transaction. Null until the index covers genesis.
+ */
+export function gnoDailyIndexed(chain: ChainConfig, days = 90): Promise<GnoDayCounts[] | null> {
+  return cached(
+    `stats-gno-index:${chain.chainId}:${days}`,
+    30 * 60_000,
+    async () => {
+      const [msgs, grc20, from] = await Promise.all([
+        gnoIndexed(chain.chainId, "gno_tx_msg"),
+        gnoIndexed(chain.chainId, "gno_grc20"),
+        heightDaysAgo(chain.chainId, days),
+      ]);
+      if (!msgs || !grc20 || from === null) return null;
+      const [messages, transfers] = await Promise.all([
+        msgs.query<{ day: string; calls: number; packages: number }>(
+          `SELECT to_char(date_trunc('day', t.time AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+                  count(*) FILTER (WHERE m.kind = 'call')::int AS calls,
+                  count(*) FILTER (WHERE m.kind = 'addpkg' AND m.success)::int AS packages
+             FROM gno_tx_msg m
+             JOIN gno_tx t ON t.chain_id = m.chain_id AND t.hash = m.tx_hash
+            WHERE m.chain_id = $1 AND m.height >= $2 AND m.kind IN ('call', 'addpkg') AND t.time IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1`,
+          [chain.chainId, from]
+        ),
+        grc20.query<{ day: string; transfers: number }>(
+          `SELECT to_char(date_trunc('day', t.time AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+                  count(*)::int AS transfers
+             FROM gno_grc20_transfer g
+             JOIN gno_tx t ON t.chain_id = g.chain_id AND t.hash = g.tx_hash
+            WHERE g.chain_id = $1 AND g.height >= $2 AND t.time IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1`,
+          [chain.chainId, from]
+        ),
+      ]);
+      const out = new Map<string, GnoDayCounts>();
+      const on = (day: string) => {
+        let d = out.get(day);
+        if (!d) out.set(day, (d = { day, calls: 0, transfers: 0, packages: 0 }));
+        return d;
+      };
+      for (const r of messages.rows) Object.assign(on(r.day), { calls: r.calls, packages: r.packages });
+      for (const r of transfers.rows) on(r.day).transfers = r.transfers;
+      return [...out.values()].sort((a, b) => a.day.localeCompare(b.day));
     },
     { staleMs: 6 * 60 * 60_000 }
   ).catch(() => null);
