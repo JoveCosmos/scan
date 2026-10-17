@@ -420,7 +420,7 @@ function toSummary(v: RawValidator, rank: number, power: number, running: number
   };
 }
 
-export async function getValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
+async function getValidators(chain: ChainConfig): Promise<ValidatorSummary[]> {
   const ranked = (await readSet(chain, "BOND_STATUS_BONDED"))
     .slice()
     .sort((a, b) => Number(b.tokens) - Number(a.tokens));

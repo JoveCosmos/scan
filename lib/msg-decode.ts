@@ -102,7 +102,7 @@ export function labelForType(typeUrl: string): string {
   return name.replace(/^Msg/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
-export function typeName(typeUrl: string): string {
+function typeName(typeUrl: string): string {
   return typeUrl.split(".").pop() ?? typeUrl;
 }
 
@@ -114,7 +114,7 @@ export function isBookkeeping(typeUrl: string): boolean {
 // ---------------------------------------------------------------- helpers
 
 /** Base64 to UTF-8 text, in Node and the browser alike. Throws on bad input. */
-export function b64utf8(s: string): string {
+function b64utf8(s: string): string {
   if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(s)) throw new Error("not base64");
   const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
   const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
@@ -261,7 +261,7 @@ export function mergeCoins(coins: Coin[]): Coin[] {
 }
 
 /** ICS-20 packet data, base64 JSON inside a relayed packet. */
-export function decodePacketData(
+function decodePacketData(
   data: unknown
 ): { sender?: string; receiver?: string; amount?: string; denom?: string; memo?: string } | null {
   const s = str(data);
@@ -638,7 +638,7 @@ export function decodeMessage(
 }
 
 /** Fields as plain rows for PopupRows / BrickBoard detail rows. */
-export function fieldsToRows(
+function fieldsToRows(
   fields: DecodedField[],
   formatCoins?: (coins: Coin[]) => string
 ): DecodedRow[] {

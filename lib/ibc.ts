@@ -78,7 +78,7 @@ export function inferExponent(base: string): number | null {
  *
  * Traces are immutable, so this is cached for an hour, "unknown" included.
  */
-export async function resolveIbcDenom(
+async function resolveIbcDenom(
   chain: ChainConfig,
   denom: string
 ): Promise<DenomTrace | null> {

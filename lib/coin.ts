@@ -75,7 +75,7 @@ export function formatCoins(
 }
 
 /** Exact coin: all decimals of a known denom, base units otherwise. */
-export function formatCoinExact(coin: { denom: string; amount: string }, known: DenomInfo[]): string {
+function formatCoinExact(coin: { denom: string; amount: string }, known: DenomInfo[]): string {
   const hit = known.find((k) => k.denom === coin.denom);
   if (hit) return `${exactAmount(coin.amount, hit.exponent)} ${hit.symbol}`;
   return `${exactAmount(coin.amount, 0)} ${shortDenom(coin.denom)}`;

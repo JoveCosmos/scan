@@ -13,7 +13,7 @@ import type { DeckRow } from "@/components/row-deck";
  */
 
 /** What this transaction moved for this address, not for its first party. */
-export function movementFor(tx: TxSummary, address: string): AddressMovement | null {
+function movementFor(tx: TxSummary, address: string): AddressMovement | null {
   const own = transferForAddress(tx.messages, address);
   if (own) return own;
   // Indexed rows carry only the transfer this account was party to.

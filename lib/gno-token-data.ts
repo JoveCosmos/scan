@@ -202,7 +202,7 @@ export async function accountTransfersPage(
 }
 
 /** Holders and transfers on one page of a token's tabs. */
-export const TOKEN_PAGE = 100;
+const TOKEN_PAGE = 100;
 
 export interface RankedHolder {
   rank: number;

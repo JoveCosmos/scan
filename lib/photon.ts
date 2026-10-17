@@ -15,13 +15,13 @@ import { coverage, poolFor } from "@/lib/indexer-db";
  * address, and `transfers` covers it from genesis.
  */
 
-export const PHOTON_DENOM = "uphoton";
+const PHOTON_DENOM = "uphoton";
 
 /**
  * The photon module account: like every module account, the first 20 bytes of
  * sha256 of its name (atone1mdzd4uhfvherp7tf8zqwusfetd6txaseqzfssq on AtomOne).
  */
-export function photonModule(chain: ChainConfig): string | null {
+function photonModule(chain: ChainConfig): string | null {
   if (!chain.photon) return null;
   return hashedAddress(chain.bech32Prefix, "photon");
 }

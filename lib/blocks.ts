@@ -14,7 +14,7 @@ import { absentAt, operatorsForHex } from "@/lib/indexer-validator";
 
 export type { BlockSummary } from "@/lib/block-facts";
 
-export const RECENT_BLOCK_COUNT = 30;
+const RECENT_BLOCK_COUNT = 30;
 
 /** A block summary with its proposer resolved to a validator, where possible. */
 export interface NamedBlock extends BlockSummary {

@@ -13,8 +13,8 @@ import { indexerPool } from "@/lib/indexer-db";
  *
  * The node is the truth for what exists and what it contains (vm/qpaths,
  * vm/qfile, vm/qfuncs, vm/qdoc, vm/qstorage, vm/qrender); a package the node
- * rejected is not there even if its deploy succeeded. The tx-indexer says who
- * deployed each one, when, and who has called a realm since.
+ * rejected is not there even if its deploy succeeded. Our index (gno_tx_msg)
+ * says who deployed each one, when, and who has called a realm since.
  */
 
 /** A package path as gno.land writes it: gno.land/r/… or gno.land/p/…. */

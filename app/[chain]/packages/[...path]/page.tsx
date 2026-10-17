@@ -98,8 +98,7 @@ export default async function PackagePage({
   }
 
   const arg = typeof renderArg === "string" && renderArg.length <= 200 ? renderArg : "";
-  // A realm's calls take the indexer a full scan (seconds), so they stream in
-  // behind the rest of the page.
+  // A realm's calls stream in behind the rest of the page.
   const calls = realm ? gnoRealmCalls(chain, path) : null;
   const [sources, deploys, funcs, doc, storage, rendered] = await Promise.all([
     pkg ? withinBudget(gnoSources(chain, pkg), BUDGET * 2, null) : null,

@@ -8,9 +8,9 @@ import { indexerPool } from "@/lib/indexer-db";
  * gno.land's messages and GRC20 tokens in our own database (migration 014,
  * docs/INDEXER.md "gno.land messages and GRC20 tokens"), read once their
  * coverage reaches genesis. Until then (before the migration, or while the
- * refill descends) every read here answers null and the callers keep reading
- * the tx-indexer: a partial table would count calls short and give partial,
- * even negative, balances.
+ * refill descends) every read here answers null and the pages show N/A: a
+ * partial table would count calls short and give partial, even negative,
+ * balances.
  */
 
 export type GnoIndexCapability = "gno_tx_msg" | "gno_grc20";
@@ -40,7 +40,7 @@ export interface IndexedCall {
 }
 
 /** "k:<height>:<HEX>:<msg index>", the keyset cursor of a realm's calls. */
-export function callCursor(c: Pick<IndexedCall, "height" | "txHash" | "msgIndex">): string {
+function callCursor(c: Pick<IndexedCall, "height" | "txHash" | "msgIndex">): string {
   return `k:${c.height}:${c.txHash}:${c.msgIndex}`;
 }
 

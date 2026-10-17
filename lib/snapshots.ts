@@ -49,7 +49,7 @@ let cache: { at: number; index: SnapshotIndex } | null = null;
  * week's height sends someone to a URL that 404s after they have already
  * stopped their node.
  */
-export async function getSnapshotIndex(): Promise<SnapshotIndex> {
+async function getSnapshotIndex(): Promise<SnapshotIndex> {
   const now = Date.now();
   if (cache && now - cache.at < 60_000) return cache.index;
 

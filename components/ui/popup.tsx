@@ -118,7 +118,7 @@ export interface PopupRow {
 }
 
 /** A row's value, as a link when it has somewhere to go. */
-export function RowValue({ row }: { row: PopupRow }) {
+function RowValue({ row }: { row: PopupRow }) {
   if (row.address) return <AddressLink address={row.address} full />;
   if (!row.href) return <>{row.value}</>;
   const cls =

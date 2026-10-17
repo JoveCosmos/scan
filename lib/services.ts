@@ -97,7 +97,7 @@ export type Services = z.infer<typeof servicesSchema>;
 
 let cache: Services | null = null;
 
-export function getServices(): Services {
+function getServices(): Services {
   if (cache) return cache;
 
   const file = path.join(process.cwd(), "config", "services.json");

@@ -554,7 +554,7 @@ export async function getRecentTxs(
 }
 
 /** The node answered, but not with the transaction: not found, not failed. */
-export class TxLookupError extends Error {}
+class TxLookupError extends Error {}
 
 export async function getTx(
   chain: ChainConfig,

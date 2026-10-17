@@ -8,7 +8,7 @@ import { truncateMiddle } from "@/lib/format";
 import { RowDeck, type DeckRow } from "@/components/row-deck";
 
 /** Delegators per server page. The deck pages these to fit the frame. */
-export const DELEGATOR_PAGE = 100;
+const DELEGATOR_PAGE = 100;
 
 /**
  * Delegators, largest first, every one of them reachable.

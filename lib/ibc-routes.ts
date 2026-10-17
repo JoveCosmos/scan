@@ -82,7 +82,7 @@ function load(): { a: RouteSide; b: RouteSide }[] {
 }
 
 /** Routes with at least one end on the given chain. */
-export function routesFor(chainId: string): { a: RouteSide; b: RouteSide }[] {
+function routesFor(chainId: string): { a: RouteSide; b: RouteSide }[] {
   return load()
     .filter((r) => r.a.chainId === chainId || r.b.chainId === chainId)
     // Always render the chain being viewed on the left, so the table reads

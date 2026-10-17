@@ -103,7 +103,7 @@ export function blockFacts(chain: ChainConfig, height: number | string): Promise
  * (and every viewer polling the feed) share a single request; the result is
  * also filed under its own height for the readers above.
  */
-export function latestFacts(chain: ChainConfig): Promise<BlockFacts> {
+function latestFacts(chain: ChainConfig): Promise<BlockFacts> {
   return cached(`blockfacts:${chain.chainId}:latest`, 1000, async () => {
     const facts = toFacts(
       await fetchLcd<BlockResponse>(chain, "/cosmos/base/tendermint/v1beta1/blocks/latest", {

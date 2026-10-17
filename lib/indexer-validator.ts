@@ -1194,7 +1194,7 @@ export async function govDeposits(
   }
 }
 
-export function sumDeposits(
+function sumDeposits(
   rows: readonly { depositor: string | null; coins: { denom: string; amount: string }[] | null }[]
 ): IndexedDeposit[] {
   const by = new Map<string, Map<string, bigint>>();

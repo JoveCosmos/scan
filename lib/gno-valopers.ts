@@ -28,7 +28,7 @@ export interface ValoperProfile {
 const VALOPERS_REALM = "gno.land/r/gnops/valopers";
 
 /** Query a realm's Render() over vm/qrender. Returns null on any failure. */
-export async function renderRealm(
+async function renderRealm(
   chain: ChainConfig,
   fullPath: string,
   timeoutMs = 10_000
@@ -93,7 +93,7 @@ export function parseValoperDetail(
   };
 }
 
-export async function getValoperByOperator(
+async function getValoperByOperator(
   chain: ChainConfig,
   operatorAddress: string
 ): Promise<ValoperProfile | null> {

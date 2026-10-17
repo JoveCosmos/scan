@@ -17,7 +17,7 @@ import { gnoIndexed, indexedCallsTo } from "@/lib/gno-index";
  * guessed.
  */
 
-export const GOVDAO = "gno.land/r/gov/dao";
+const GOVDAO = "gno.land/r/gov/dao";
 
 export type GovStatus = "accepted" | "rejected" | "active" | "executed" | "other";
 
@@ -196,7 +196,7 @@ export function statusLabel(s: GovStatus, text: string): string {
   }
 }
 
-export const MEMBERSTORE = "gno.land/r/gov/dao/memberstore/v0";
+const MEMBERSTORE = "gno.land/r/gov/dao/memberstore/v0";
 
 export interface GovMember {
   address: string;

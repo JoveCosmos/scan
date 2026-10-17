@@ -25,7 +25,7 @@ const CHAINLIST_DIR: Record<string, string> = {
   "onyx-1": "gno-testnet",
 };
 
-export function chainlistLogo(chainId: string, operator: string): string | null {
+function chainlistLogo(chainId: string, operator: string): string | null {
   const dir = CHAINLIST_DIR[chainId];
   return dir ? `${CHAINLIST}/${dir}/moniker/${operator}.png` : null;
 }

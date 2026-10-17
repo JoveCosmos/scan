@@ -1,7 +1,7 @@
 import { freshEndpoints } from "@/lib/endpoint-health";
 import type { ChainConfig } from "@/lib/chains";
 
-export class LcdError extends Error {
+class LcdError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message);
     this.name = "LcdError";

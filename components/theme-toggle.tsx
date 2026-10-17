@@ -12,7 +12,7 @@ import { Moon, Sun } from "lucide-react";
  * never flashes the other theme first.
  */
 
-export const THEME_KEY = "gata-scan-theme";
+const THEME_KEY = "gata-scan-theme";
 
 type Theme = "light" | "dark";
 

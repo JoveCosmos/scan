@@ -631,7 +631,7 @@ export type GnoTxSummary = TxSummary & { messages: GnoTxMessage[]; gno: GnoTxExt
  * what, or the package deployed. A plain send keeps the shared From, To and
  * Amount rows.
  */
-export function gnoMessageFields(chainId: string, m: GnoMessageValue): DecodedField[] {
+function gnoMessageFields(chainId: string, m: GnoMessageValue): DecodedField[] {
   const coins = (label: string, c?: GnoCoin[]): DecodedField[] =>
     c && c.length ? [{ label, value: { kind: "coins", coins: c } }] : [];
   const pkg = (label: string): DecodedField[] =>

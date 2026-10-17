@@ -175,7 +175,7 @@ export function getChain(chainId: string): ChainConfig | undefined {
   return loadChains().find((c) => c.chainId === chainId);
 }
 
-export const GATA_BLUE = "#3B9EFF";
+const GATA_BLUE = "#3B9EFF";
 
 export function accentFor(chain: ChainConfig): string {
   return chain.accent ?? GATA_BLUE;

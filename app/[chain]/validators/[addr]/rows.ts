@@ -11,7 +11,7 @@ import type { DeckColumn, DeckRow } from "@/components/row-deck";
  * page the routes beside this file serve, so the two can never differ.
  */
 
-export const day = formatDate;
+const day = formatDate;
 
 /** The chain's own denoms scaled and named; anything else (an IBC hash) as-is. */
 export function coinFormatter(chain: ChainConfig) {
@@ -51,7 +51,7 @@ export function proposedRows(
 }
 
 /** Stake moving in and out, signed from this validator's side. */
-export function powerKind(e: { kind: string; validatorDst: string | null }, addr: string) {
+function powerKind(e: { kind: string; validatorDst: string | null }, addr: string) {
   switch (e.kind) {
     case "delegate":
       return { label: "Delegate", sign: 1 };

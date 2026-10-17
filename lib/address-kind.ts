@@ -183,7 +183,7 @@ interface SmartResponse {
 }
 
 /** CosmWasm contract info plus CW20 token info where the contract is one. */
-export async function contractKind(
+async function contractKind(
   chain: ChainConfig,
   address: string
 ): Promise<AddressKind | null> {
