@@ -197,19 +197,25 @@ export async function getProposals(
 }
 
 /** Pages of proposals per request, and a ceiling far above any chain here. */
-const ALL_PAGE = 200;
-const ALL_MAX_PAGES = 10;
+const ALL_PAGE = 100;
+const ALL_MAX_PAGES = 20;
 
 /**
  * Every proposal, newest first. The list page used to stop at 60, which left
  * most of Cosmos Hub's governance history unreachable from it.
+ *
+ * A node fails a whole page when it cannot decode one proposal in it: the ICS
+ * provider testnet's cannot decode 117 of its old ones (types its software no
+ * longer knows). From the first page that fails, the rest are read one by one
+ * and the ones the node cannot read are left out.
  */
 export async function getAllProposals(chain: ChainConfig): Promise<ProposalSummary[]> {
   const out: ProposalSummary[] = [];
   let key: string | null = null;
   for (let page = 0; page < ALL_MAX_PAGES; page++) {
-    const res: ProposalsResponse & { pagination?: { next_key?: string | null } } =
-      await fetchLcd(chain, "/cosmos/gov/v1/proposals", {
+    let res: ProposalsResponse & { pagination?: { next_key?: string | null } };
+    try {
+      res = await fetchLcd(chain, "/cosmos/gov/v1/proposals", {
         cache: "no-store",
         timeoutMs: 20_000,
         searchParams: {
@@ -218,11 +224,51 @@ export async function getAllProposals(chain: ChainConfig): Promise<ProposalSumma
           ...(key ? { "pagination.key": key } : {}),
         },
       });
+    } catch (err) {
+      const below = out.length > 0 ? Number(out[out.length - 1].id) - 1 : await newestProposalId(chain);
+      if (below === null) throw err;
+      out.push(...(await proposalsOneByOne(chain, below)));
+      break;
+    }
     out.push(...(res.proposals ?? []).map(toSummary));
     key = res.pagination?.next_key || null;
     if (!key) break;
   }
   return out;
+}
+
+/** The newest proposal's id, or null when even that cannot be read. */
+async function newestProposalId(chain: ChainConfig): Promise<number | null> {
+  try {
+    const res = await fetchLcd<ProposalsResponse>(chain, "/cosmos/gov/v1/proposals", {
+      cache: "no-store",
+      searchParams: { "pagination.limit": 1, "pagination.reverse": true },
+    });
+    const id = Number(res.proposals?.[0]?.id);
+    return Number.isFinite(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Proposals `from` down to 1, each on its own, eight at a time; unreadable and missing ids skipped. */
+async function proposalsOneByOne(chain: ChainConfig, from: number): Promise<ProposalSummary[]> {
+  const ids = Array.from({ length: Math.min(from, 2000) }, (_, i) => from - i).filter((id) => id >= 1);
+  const found: ProposalSummary[] = [];
+  for (let i = 0; i < ids.length; i += 8) {
+    const batch = await Promise.all(
+      ids.slice(i, i + 8).map((id) =>
+        fetchLcd<{ proposal?: RawProposal }>(chain, `/cosmos/gov/v1/proposals/${id}`, {
+          cache: "no-store",
+          timeoutMs: 8000,
+        })
+          .then((r) => (r.proposal ? toSummary(r.proposal) : null))
+          .catch(() => null)
+      )
+    );
+    for (const p of batch) if (p) found.push(p);
+  }
+  return found;
 }
 
 /**
