@@ -25,7 +25,7 @@ export function tokenTransferRows(
   times: Map<string, string>,
   realms: Map<string, string> | null = null
 ): DeckRow[] {
-  return transfers.map((t, i) => {
+  return transfers.map((t) => {
     const token = tokens?.get(t.token) ?? null;
     const symbol = token?.symbol ?? t.token.split(".").slice(-2, -1)[0] ?? t.token;
     const incoming = t.to === address;
@@ -34,7 +34,7 @@ export function tokenTransferRows(
     const amount = token ? formatUnits(t.amount, token.decimals) : t.amount;
     const when = times.get(t.txHash) ?? null;
     return {
-      key: `${t.txHash}-${t.token}-${i}`,
+      key: `${t.txHash}-${t.eventIndex}`,
       search: `${symbol} ${other} ${names?.byAddress.get(other) ?? ""} ${realms?.get(other) ?? ""}`,
       cells: [
         token ? { v: symbol, tone: "accent", href: tokenHref(chainId, token) } : { v: symbol, mono: true },

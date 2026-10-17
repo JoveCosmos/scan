@@ -54,6 +54,7 @@ import { getInactiveValidators, getValidatorsCached } from "@/lib/validators";
 import { AccountHistory } from "./history";
 import { OlderDeck } from "@/components/older-deck";
 import { TOKEN_TRANSFER_COLUMNS } from "./token-rows";
+import { ACCOUNT_CALL_COLUMNS } from "./call-rows";
 import { buildHistoryRows } from "./history-rows";
 
 export const dynamic = "force-dynamic";
@@ -1155,8 +1156,29 @@ export default async function AccountPage({
           },
         ]
       : []),
-    // gno.land: every GRC20 transfer this account sent or received, read from
-    // the tx-indexer when the tab is first opened.
+    // gno.land: every realm call and run this account made, from our index
+    // when the tab is first opened.
+    ...(chain.kind === "gno"
+      ? [
+          {
+            key: "calls",
+            label: "Calls",
+            content: (
+              <OlderDeck
+                endpoint={`/${chainId}/accounts/${address}/calls`}
+                columns={ACCOUNT_CALL_COLUMNS}
+                initialRows={null}
+                initialNext={null}
+                accent={accent}
+                empty="None"
+                filter={{ placeholder: "Filter by realm or function…" }}
+              />
+            ),
+          },
+        ]
+      : []),
+    // gno.land: every GRC20 transfer this account sent or received, from our
+    // index when the tab is first opened.
     ...(chain.kind === "gno"
       ? [
           {

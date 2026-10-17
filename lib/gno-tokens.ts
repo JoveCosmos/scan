@@ -7,6 +7,8 @@
 export interface TokenTransfer {
   /** Uppercase hex. */
   txHash: string;
+  /** The event's place among the transaction's events: with txHash, unique. */
+  eventIndex: number;
   height: number;
   /** "" for a mint. */
   from: string;
@@ -18,6 +20,8 @@ export interface TokenTransfer {
 export interface AccountTransfer {
   /** Uppercase hex. */
   txHash: string;
+  /** The event's place among the transaction's events: with txHash, unique. */
+  eventIndex: number;
   height: number;
   /** The token's key, "<realm>.<SYMBOL>.<seq>". */
   token: string;

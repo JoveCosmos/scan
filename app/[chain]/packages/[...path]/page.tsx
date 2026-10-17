@@ -21,7 +21,8 @@ import {
 import { withinBudget } from "@/lib/cache";
 import { tokenHref } from "@/lib/gno-tokens";
 import { tokenList } from "@/lib/gno-token-data";
-import { atName, gnoNames } from "@/lib/gno-users";
+import { addressCell, atName, gnoNames } from "@/lib/gno-users";
+import { gnoIndexed, indexedApprovals, indexedTopCallers } from "@/lib/gno-index";
 import { formatToken } from "@/lib/overview";
 import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
@@ -62,7 +63,7 @@ export async function generateMetadata({
 
 const day = formatDate;
 
-const TABS = ["overview", "source", "functions", "render", "calls"];
+const TABS = ["overview", "source", "functions", "render", "calls", "callers"];
 
 /**
  * One gno.land realm or package: who deployed it and when, its source, its
@@ -108,7 +109,14 @@ export default async function PackagePage({
     withinBudget(gnoStorage(chain, path), BUDGET, null),
     realm ? withinBudget(gnoRender(chain, path, arg), BUDGET, null) : null,
   ]);
-  const names = await withinBudget(gnoNames(chain), 1500, null);
+  // Names, approvals (MsgEnablePackage / MsgRejectPackage) and, for a realm,
+  // who calls it most: all from our index.
+  const indexed = await withinBudget(gnoIndexed(chainId, "gno_tx_msg"), BUDGET, null);
+  const [names, approvals, callers] = await Promise.all([
+    withinBudget(gnoNames(chain), 1500, null),
+    indexed ? withinBudget(indexedApprovals(indexed, chainId, path).catch(() => null), BUDGET, null) : null,
+    indexed && realm ? withinBudget(indexedTopCallers(indexed, chainId, path).catch(() => null), BUDGET, null) : null,
+  ]);
   // Tokens this realm created.
   const tokens = realm ? await withinBudget(tokenList(chain), 1000, null) : null;
   const ownTokens = (tokens ?? []).filter((t) => t.realm === path);
@@ -184,6 +192,18 @@ export default async function PackagePage({
               </Link>
             </DetailRow>
           ) : null}
+          {(approvals ?? [])
+            .filter((a) => a.success)
+            .map((a) => (
+              <DetailRow key={a.txHash} label={a.kind === "enable" ? "Approved" : "Rejected"} copy={a.txHash}>
+                <span className="flex items-baseline gap-2">
+                  <AddressLink address={a.by} label={atName(names, a.by)} head={10} tail={6} />
+                  <Link href={`/${chainId}/txs/${a.txHash}`} className="font-mono text-primary hover:underline">
+                    {a.time ? formatDate(a.time) : `block ${a.height.toLocaleString()}`}
+                  </Link>
+                </span>
+              </DetailRow>
+            ))}
         </div>
       </section>
       {doc ? (
@@ -296,6 +316,41 @@ export default async function PackagePage({
               <Suspense fallback={<LoadingPanel label="Loading calls…" rows={8} />}>
                 <CallsDeck calls={calls!} chain={chain} path={path} accent={accent} />
               </Suspense>
+            ),
+          },
+          {
+            key: "callers",
+            label: "Callers",
+            content: (
+              <RowDeck
+                accent={accent}
+                columns={[
+                  { label: "#", align: "right", width: "8%", phoneWidth: "12%" },
+                  { label: "Caller" },
+                  { label: "Calls", align: "right", width: "16%", phoneWidth: "24%" },
+                  { label: "Last block", align: "right", width: "16%", phoneHide: true },
+                ]}
+                rows={(callers ?? []).map((c, i) => {
+                  const top = callers?.[0]?.calls ?? 1;
+                  return {
+                    key: c.caller,
+                    search: `${c.caller} ${names?.byAddress.get(c.caller) ?? ""}`,
+                    cells: [
+                      { v: String(i + 1), mono: true, dim: true, align: "right" as const },
+                      addressCell(names, c.caller),
+                      { v: c.calls.toLocaleString(), mono: true, align: "right" as const, bar: c.calls / top },
+                      { v: c.lastHeight.toLocaleString(), mono: true, align: "right" as const, href: `/${chainId}/blocks/${c.lastHeight}` },
+                    ],
+                    detail: {
+                      title: atName(names, c.caller) ?? truncateMiddle(c.caller, 14, 8),
+                      rows: [],
+                      action: { label: "Account", href: `/${chainId}/accounts/${c.caller}` },
+                    },
+                  };
+                })}
+                filter={{ placeholder: "Filter by caller…" }}
+                empty={callers ? "None" : "N/A"}
+              />
             ),
           },
         ]

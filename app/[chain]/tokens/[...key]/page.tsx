@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
-import { findSummary, tokenHolders, tokenList, tokenRecent } from "@/lib/gno-token-data";
+import { findSummary, tokenHoldersPage, tokenList, tokenTransfersPage } from "@/lib/gno-token-data";
+import { OlderDeck } from "@/components/older-deck";
+import { HOLDER_COLUMNS, holderRows, TRANSFER_COLUMNS, transferRows } from "../rows";
 import { gnoTxTimes, packageHref, realmByAddress, shortPath } from "@/lib/gno-packages";
-import { addressCell, gnoNames } from "@/lib/gno-users";
+import { gnoNames } from "@/lib/gno-users";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, timeAgo, truncateMiddle } from "@/lib/format";
+import { decodeParam, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
-import { RowDeck, type DeckRow } from "@/components/row-deck";
+import { RowDeck } from "@/components/row-deck";
 import { DetailRow } from "@/components/detail-row";
 
 export const dynamic = "force-dynamic";
@@ -62,13 +64,18 @@ export default async function TokenPage({
   const token = tokens ? findSummary(tokens, k.realm, k.symbol) : null;
   if (tokens && !token) notFound();
 
-  const [holderList, recent] = token
-    ? await Promise.all([tokenHolders(chain, token.key), tokenRecent(chain, token.key)])
+  // The first page of each list; older ones come from the API by keyset.
+  const [holderPage, transferPage] = token
+    ? await Promise.all([tokenHoldersPage(chain, token.key), tokenTransfersPage(chain, token.key)])
     : [null, null];
-  const holders = holderList ?? [];
+  const holders = holderPage?.holders ?? [];
   const count = token ? token.holders : 0;
-  const times = recent
-    ? await withinBudget(gnoTxTimes(chainId, [...new Set(recent.map((t) => t.txHash))]), 2000, new Map<string, string>())
+  const times = transferPage
+    ? await withinBudget(
+        gnoTxTimes(chainId, [...new Set(transferPage.transfers.map((t) => t.txHash))]),
+        2000,
+        new Map<string, string>()
+      )
     : new Map<string, string>();
   const amount = (v: bigint) => (token ? formatToken(v.toString(), token.decimals) : "-");
   const top10 = holders.slice(0, 10).reduce((s, h) => s + h.balance, BigInt(0));
@@ -118,50 +125,6 @@ export default async function TokenPage({
     </div>
   ) : null;
 
-  const top = holders[0]?.balance ?? BigInt(0);
-  const holderDeck: DeckRow[] = holders.map((h, i) => ({
-    key: h.address,
-    search: `${h.address} ${names?.byAddress.get(h.address) ?? ""} ${realms?.get(h.address) ?? ""}`,
-    cells: [
-      { v: String(i + 1), mono: true, dim: true, align: "right" },
-      addressCell(names, h.address, 12, 8, realms),
-      {
-        v: amount(h.balance),
-        mono: true,
-        align: "right",
-        bar: top > BigInt(0) ? Number((h.balance * BigInt(1000)) / top) / 1000 : 0,
-      },
-      { v: share(h.balance), mono: true, align: "right" },
-    ],
-    detail: {
-      title: truncateMiddle(h.address, 14, 8),
-      rows: [],
-      action: { label: "Account", href: `/${chainId}/accounts/${h.address}` },
-    },
-  }));
-
-  const party = (a: string, none: string): DeckRow["cells"][number] =>
-    a ? addressCell(names, a, 8, 6, realms) : { v: none, tone: "accent" };
-  const transferDeck: DeckRow[] = (recent ?? []).map((t, i) => {
-    const when = times.get(t.txHash) ?? null;
-    return {
-      key: `${t.txHash}-${i}`,
-      search: [t.from, t.to].map((a) => `${a} ${names?.byAddress.get(a) ?? ""} ${realms?.get(a) ?? ""}`).join(" "),
-      cells: [
-        party(t.from, "Mint"),
-        party(t.to, "Burn"),
-        { v: amount(t.amount), mono: true, align: "right" },
-        { v: t.height.toLocaleString(), mono: true, align: "right", href: `/${chainId}/blocks/${t.height}` },
-        { v: when ? timeAgo(when) : "-", dim: true, align: "right" },
-      ],
-      detail: {
-        title: `${amount(t.amount)} ${token?.symbol ?? ""}`,
-        rows: [],
-        action: { label: "Transaction", href: `/${chainId}/txs/${t.txHash}` },
-      },
-    };
-  });
-
   const sections = [
     {
       key: "overview",
@@ -178,38 +141,35 @@ export default async function TokenPage({
     {
       key: "holders",
       label: `Holders${token ? ` (${count.toLocaleString()})` : ""}`,
-      content: (
-        <RowDeck
+      content: token ? (
+        <OlderDeck
+          endpoint={`/api/chains/${chainId}/tokens/holders?token=${encodeURIComponent(token.key)}`}
+          columns={HOLDER_COLUMNS}
+          initialRows={holderPage ? holderRows(chainId, token, holderPage.holders, names, realms) : []}
+          initialNext={holderPage?.next ?? null}
           accent={accent}
-          columns={[
-            { label: "#", align: "right", width: "8%", phoneWidth: "12%" },
-            { label: "Holder" },
-            { label: "Balance", align: "right", width: "24%", phoneWidth: "34%" },
-            { label: "Share", align: "right", width: "12%", phoneHide: true },
-          ]}
-          rows={holderDeck}
+          empty={holderPage ? "None" : "N/A"}
           filter={{ placeholder: "Filter by address…" }}
-          empty={token ? "None" : "N/A"}
         />
+      ) : (
+        <RowDeck accent={accent} columns={HOLDER_COLUMNS} rows={[]} empty="N/A" />
       ),
     },
     {
       key: "transfers",
       label: "Transfers",
-      content: (
-        <RowDeck
+      content: token ? (
+        <OlderDeck
+          endpoint={`/api/chains/${chainId}/tokens/transfers?token=${encodeURIComponent(token.key)}`}
+          columns={TRANSFER_COLUMNS}
+          initialRows={transferPage ? transferRows(chainId, token, transferPage.transfers, names, realms, times) : []}
+          initialNext={transferPage?.next ?? null}
           accent={accent}
-          columns={[
-            { label: "From" },
-            { label: "To" },
-            { label: "Amount", align: "right", width: "18%" },
-            { label: "Block", align: "right", width: "12%", optional: true },
-            { label: "Age", align: "right", width: "12%", phoneHide: true },
-          ]}
-          rows={transferDeck}
+          empty={transferPage ? "None" : "N/A"}
           filter={{ placeholder: "Filter by address…" }}
-          empty={token ? "None" : "N/A"}
         />
+      ) : (
+        <RowDeck accent={accent} columns={TRANSFER_COLUMNS} rows={[]} empty="N/A" />
       ),
     },
   ];

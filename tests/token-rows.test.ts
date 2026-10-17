@@ -10,7 +10,8 @@ const token = {
   decimals: 6,
 } as TokenSummary;
 const tokens = new Map([[token.key, token]]);
-const t = (from: string, to: string, amount: string) => ({ txHash: "AB", height: 7, token: token.key, from, to, amount });
+let event = 0;
+const t = (from: string, to: string, amount: string) => ({ txHash: "AB", eventIndex: event++, height: 7, token: token.key, from, to, amount });
 
 describe("an account's token transfers", () => {
   test("direction and sign from the account's side", () => {
