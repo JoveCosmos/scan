@@ -9,16 +9,16 @@ import { tokenTransferRows } from "../token-rows";
 
 export const dynamic = "force-dynamic";
 
-/** A page of a gno.land account's GRC20 transfers: the newest, or those below ?before=<height>. */
+/** A page of a gno.land account's GRC20 transfers: the newest, or those below ?before=<keyset cursor>. */
 export async function GET(req: Request, { params }: { params: Promise<{ chain: string; addr: string }> }) {
   const { chain: chainId, addr } = await params;
   const chain = getChain(chainId);
   if (!chain || chain.kind !== "gno") return NextResponse.json({ error: "unknown chain" }, { status: 404 });
   const address = decodeParam(addr).trim().toLowerCase();
   if (!/^g1[a-z0-9]{38}$/.test(address)) return NextResponse.json({ error: "bad address" }, { status: 400 });
-  // Our index's keyset cursor, or a block height for the tx-indexer's windows.
+  // The keyset cursor the previous page handed out.
   const cursor = new URL(req.url).searchParams.get("before") ?? undefined;
-  if (cursor !== undefined && !/^(\d+|k:\d+:[0-9A-Fa-f]+:\d+)$/.test(cursor)) {
+  if (cursor !== undefined && !/^k:\d+:[0-9A-Fa-f]+:\d+$/.test(cursor)) {
     return NextResponse.json({ error: "bad cursor" }, { status: 400 });
   }
   const [page, tokens, names, realms] = await Promise.all([

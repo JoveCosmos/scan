@@ -3,8 +3,8 @@ import { gql } from "@/lib/gno";
 
 /**
  * State folded from every event one gno.land package has emitted, kept in
- * memory and brought up to the tx-indexer's head at most once a minute: GRC20
- * tokens (gno.land/p/nt/grc20/v0) and registered names (gno.land/r/sys/users).
+ * memory and brought up to the tx-indexer's head at most once a minute:
+ * registered names (gno.land/r/sys/users), which our index does not hold.
  *
  * The tx-indexer returns at most 10,000 transactions a query and has no
  * paging, so history is read in height windows (halved when one comes back

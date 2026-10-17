@@ -13,7 +13,6 @@ import {
   gnoSources,
   gnoStorage,
   isPackagePath,
-  callsPage,
   isRealm,
   realmAddress,
   shortPath,
@@ -352,13 +351,9 @@ async function CallsDeck({
   const chainId = chain.chainId;
   const [calls, names] = await Promise.all([pending, withinBudget(gnoNames(chain), 1500, null)]);
   if (!calls) return <RowDeck accent={accent} columns={CALL_COLUMNS} rows={[]} empty="N/A" />;
-  // The newest page; older ones come from the API, a page at a time. Read from
-  // our index, the page comes with its keyset cursor (`next`); from the
-  // tx-indexer, the next page starts below the last block shown.
-  const first = calls.next !== undefined ? calls.calls : callsPage(calls.calls);
-  const last = first.at(-1);
-  const initialNext =
-    calls.next !== undefined ? calls.next : calls.total > first.length && last ? String(last.height) : null;
+  // The newest page; older ones come from the API by keyset, a page at a time.
+  const first = calls.calls;
+  const initialNext = calls.next;
   return (
     <OlderDeck
       endpoint={`/api/chains/${chainId}/packages/calls?path=${encodeURIComponent(path)}`}

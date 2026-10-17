@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { callsPage, isPackagePath, packageHref, realmAddress, shortPath } from "@/lib/gno-packages";
+import { isPackagePath, packageHref, realmAddress, shortPath } from "@/lib/gno-packages";
 import { classifySearch } from "@/lib/search";
 
 describe("gno.land package paths", () => {
@@ -27,15 +27,5 @@ describe("gno.land package paths", () => {
     expect(classifySearch("gno.land/r/gov/dao")).toEqual({ kind: "gnoPath", value: "gno.land/r/gov/dao", render: undefined });
     expect(classifySearch("https://gno.land/r/gov/dao/")).toEqual({ kind: "gnoPath", value: "gno.land/r/gov/dao", render: undefined });
     expect(classifySearch("gno.land/r/gov/dao:13")).toEqual({ kind: "gnoPath", value: "gno.land/r/gov/dao", render: "13" });
-  });
-});
-
-describe("realm call pages", () => {
-  const call = (height: number, i: number) => ({ txHash: `H${height}-${i}`, height, success: true, caller: "g1x", func: "F", time: null });
-  test("a page ends on a whole block, so the next can start below it", () => {
-    const calls = [call(10, 0), call(9, 0), call(9, 1), call(9, 2), call(8, 0)];
-    expect(callsPage(calls, 2).map((c) => c.txHash)).toEqual(["H10-0", "H9-0", "H9-1", "H9-2"]);
-    expect(callsPage(calls, 4)).toHaveLength(4);
-    expect(callsPage(calls, 10)).toHaveLength(5);
   });
 });

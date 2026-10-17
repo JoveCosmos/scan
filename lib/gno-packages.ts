@@ -4,7 +4,6 @@ import { cached } from "@/lib/cache";
 import { hashedAddress } from "@/lib/hashed-address";
 import { abciQuery } from "@/lib/gno-abci";
 import { gnoIndexed, indexedCalls, indexedCallStats, indexedDeploys } from "@/lib/gno-index";
-import { gnoHashToHex, gql } from "@/lib/gno";
 import { coverageOf } from "@/lib/indexer-coverage";
 import { indexerPool } from "@/lib/indexer-db";
 
@@ -89,58 +88,22 @@ export interface GnoDeploy {
   time: string | null;
 }
 
-type DeployTx = {
-  hash: string;
-  block_height: number;
-  success: boolean;
-  messages: { value: { __typename: string; creator?: string; package?: { path: string } | null } | null }[];
-};
-
 /**
- * Who deployed each package, from the tx-indexer: every successful
- * MsgAddPackage, the first deploy of a path winning. One query for the
- * whole chain (the indexer scans every transaction for any message filter,
- * so per-package queries cost as much as this one), refreshed in the
- * background.
+ * Who deployed each package: every successful MsgAddPackage in our index
+ * (gno_tx_msg, migration 014), the first deploy of a path winning. One query
+ * for the whole chain. Null until the index covers every message.
  */
 export function gnoDeploys(chain: ChainConfig): Promise<Map<string, GnoDeploy> | null> {
   return cached(
     `gno-deploys:${chain.chainId}`,
     10 * 60_000,
     async () => {
-      // Our index once it covers every message: one query, a millisecond.
       const pool = await gnoIndexed(chain.chainId, "gno_tx_msg");
-      if (pool) {
-        const rows = await indexedDeploys(pool, chain.chainId).catch(() => null);
-        if (rows) {
-          return new Map(
-            [...rows].map(([path, d]) => [path, { path, creator: d.creator, height: d.height, txHash: d.txHash, time: d.time }])
-          );
-        }
-      }
-      const data = await gql<{ getTransactions: DeployTx[] | null }>(
-        chain,
-        `{ getTransactions(where: { success: { eq: true }, messages: { value: { MsgAddPackage: { package: { path: { like: "gno.land/" } } } } } }, order: { heightAndIndex: ASC }) {
-            hash block_height success
-            messages { value { __typename ... on MsgAddPackage { creator package { path } } } }
-          } }`,
-        {},
-        30_000
+      if (!pool) return null;
+      const rows = await indexedDeploys(pool, chain.chainId);
+      return new Map(
+        [...rows].map(([path, d]) => [path, { path, creator: d.creator, height: d.height, txHash: d.txHash, time: d.time }])
       );
-      const byPath = new Map<string, GnoDeploy>();
-      for (const tx of data.getTransactions ?? []) {
-        if (!tx.success) continue;
-        const txHash = gnoHashToHex(tx.hash);
-        if (!txHash) continue;
-        for (const m of tx.messages) {
-          const path = m.value?.__typename === "MsgAddPackage" ? m.value.package?.path : null;
-          if (!path || byPath.has(path)) continue;
-          byPath.set(path, { path, creator: m.value!.creator ?? "", height: tx.block_height, txHash, time: null });
-        }
-      }
-      const times = await gnoTxTimes(chain.chainId, [...new Set([...byPath.values()].map((d) => d.txHash))]);
-      for (const d of byPath.values()) d.time = times.get(d.txHash) ?? null;
-      return byPath;
     },
     { staleMs: 24 * 60 * 60_000 }
   ).catch(() => null);
@@ -306,172 +269,26 @@ export interface GnoCall {
   args?: string[] | null;
 }
 
-type CallTx = {
-  hash: string;
-  block_height: number;
-  success: boolean;
-  messages: { value: { __typename: string; caller?: string; func?: string; pkg_path?: string } | null }[];
-};
-
-/** Calls kept per realm, newest first. */
-const MAX_CALLS = 500;
-
 /** Calls on one page of a realm's Calls tab. */
 export const CALLS_PAGE = 100;
 
 /**
- * The first `limit` calls of a newest-first list, extended to the end of the
- * last block they reach, so that the next page can start below that height
- * without skipping a call.
- */
-export function callsPage(calls: GnoCall[], limit = CALLS_PAGE): GnoCall[] {
-  if (calls.length <= limit) return calls;
-  const last = calls[limit - 1].height;
-  let end = limit;
-  while (end < calls.length && calls[end].height === last) end += 1;
-  return calls.slice(0, end);
-}
-
-/** The indexer returns at most this many transactions a query, silently or with an error. */
-const INDEXER_CAP = 10_000;
-
-/** MsgCall transactions to a realm in a height range; the lowest window has no lower bound (see gno-tokens). */
-const callQuery = (bounded: boolean) => `query($p: String!, ${bounded ? "$a: Int!, " : ""}$b: Int!) {
-  getTransactions(where: { block_height: { ${bounded ? "gt: $a, " : ""}lt: $b },
-    messages: { value: { MsgCall: { pkg_path: { eq: $p } } } } }, order: { heightAndIndex: DESC }) {
-    hash block_height success
-    messages { value { __typename ... on MsgCall { caller func pkg_path } } }
-  }
-}`;
-
-/**
- * Calls made to a realm (MsgCall), newest first, with the total. Read from
- * the chain's head down in height windows, each halved when it comes back
- * full, since the indexer caps a query at 10,000 transactions and a busy
- * realm has more. The indexer's message filter also returns transactions
- * with messages it cannot type, so each message's own package path is
- * checked here.
+ * Calls made to a realm (MsgCall) from our index (gno_tx_msg, migration 014):
+ * the newest page with its keyset cursor (`next`), the total and the distinct
+ * callers. Null until the index covers every message.
  */
 export async function gnoRealmCalls(
   chain: ChainConfig,
   path: string
-): Promise<{ calls: GnoCall[]; total: number; callers: number; next?: string | null } | null> {
-  // Our index, once it holds every message from genesis: the newest page and
-  // the counts, in milliseconds. `next` is then its keyset cursor.
+): Promise<{ calls: GnoCall[]; total: number; callers: number; next: string | null } | null> {
   const pool = await gnoIndexed(chain.chainId, "gno_tx_msg");
-  if (pool) {
-    try {
-      const [stats, page] = await Promise.all([
-        indexedCallStats(pool, chain.chainId, path),
-        indexedCalls(pool, chain.chainId, path, CALLS_PAGE),
-      ]);
-      return { calls: page.calls, total: stats.total, callers: stats.callers, next: page.next };
-    } catch {
-      // Fall through to the tx-indexer.
-    }
-  }
-  return gnoRealmCallsFromIndexer(chain, path);
-}
-
-/** The same from the tx-indexer: every call read in height windows, the newest 500 kept. */
-function gnoRealmCallsFromIndexer(
-  chain: ChainConfig,
-  path: string
-): Promise<{ calls: GnoCall[]; total: number; callers: number } | null> {
-  return cached(
-    `gno-calls:${chain.chainId}:${path}`,
-    2 * 60_000,
-    async () => {
-      const { latestBlockHeight: head } = await gql<{ latestBlockHeight: number }>(chain, "{ latestBlockHeight }");
-      const shown: GnoCall[] = [];
-      const callers = new Set<string>();
-      let total = 0;
-      let hi = head + 1;
-      let window = 400_000;
-      while (hi > 0) {
-        const lo = Math.max(0, hi - window);
-        const data = await gql<{ getTransactions: CallTx[] | null }>(
-          chain,
-          callQuery(lo > 0),
-          lo > 0 ? { p: path, a: lo - 1, b: hi } : { p: path, b: hi },
-          30_000
-        );
-        const txs = data.getTransactions ?? [];
-        if (txs.length >= INDEXER_CAP && hi - lo > 1) {
-          window = Math.max(1, Math.floor((hi - lo) / 2));
-          continue;
-        }
-        for (const tx of txs) {
-          const txHash = gnoHashToHex(tx.hash);
-          if (!txHash) continue;
-          for (const m of tx.messages) {
-            const v = m.value;
-            if (v?.__typename !== "MsgCall" || v.pkg_path !== path) continue;
-            if (v.caller) callers.add(v.caller);
-            total += 1;
-            if (shown.length < MAX_CALLS) {
-              shown.push({ txHash, height: tx.block_height, success: tx.success, caller: v.caller ?? "", func: v.func ?? "", time: null });
-            }
-          }
-        }
-        hi = lo;
-        window = Math.min(window * 2, 400_000);
-      }
-      const times = await gnoTxTimes(chain.chainId, [...new Set(shown.map((c) => c.txHash))]);
-      for (const c of shown) c.time = times.get(c.txHash) ?? null;
-      return { calls: shown, total, callers: callers.size };
-    },
-    { staleMs: 30 * 60_000, group: { name: "gno-calls", max: 30 } }
-  ).catch(() => null);
-}
-
-/**
- * A page of a realm's calls older than block `before`, newest first: read
- * down from there in height windows (widened while empty, halved when one
- * comes back full) until a page is filled. `next` is the height to continue
- * below, or null once genesis is reached.
- */
-export async function gnoRealmCallsBefore(
-  chain: ChainConfig,
-  path: string,
-  before: number,
-  limit = CALLS_PAGE
-): Promise<{ calls: GnoCall[]; next: number | null } | null> {
+  if (!pool) return null;
   try {
-    const found: GnoCall[] = [];
-    let hi = before;
-    let window = 20_000;
-    while (hi > 0 && found.length < limit) {
-      const lo = Math.max(0, hi - window);
-      const data = await gql<{ getTransactions: CallTx[] | null }>(
-        chain,
-        callQuery(lo > 0),
-        lo > 0 ? { p: path, a: lo - 1, b: hi } : { p: path, b: hi },
-        30_000
-      );
-      const txs = data.getTransactions ?? [];
-      if (txs.length >= INDEXER_CAP && hi - lo > 1) {
-        window = Math.max(1, Math.floor((hi - lo) / 2));
-        continue;
-      }
-      for (const tx of txs) {
-        const txHash = gnoHashToHex(tx.hash);
-        if (!txHash) continue;
-        for (const m of tx.messages) {
-          const v = m.value;
-          if (v?.__typename !== "MsgCall" || v.pkg_path !== path) continue;
-          found.push({ txHash, height: tx.block_height, success: tx.success, caller: v.caller ?? "", func: v.func ?? "", time: null });
-        }
-      }
-      hi = lo;
-      if (txs.length === 0) window = Math.min(window * 4, 400_000);
-    }
-    const calls = callsPage(found, limit);
-    const times = await gnoTxTimes(chain.chainId, [...new Set(calls.map((c) => c.txHash))]);
-    for (const c of calls) c.time = times.get(c.txHash) ?? null;
-    const last = calls.at(-1);
-    const more = found.length > calls.length || hi > 0;
-    return { calls, next: more && last ? last.height : null };
+    const [stats, page] = await Promise.all([
+      indexedCallStats(pool, chain.chainId, path),
+      indexedCalls(pool, chain.chainId, path, CALLS_PAGE),
+    ]);
+    return { calls: page.calls, total: stats.total, callers: stats.callers, next: page.next };
   } catch {
     return null;
   }
