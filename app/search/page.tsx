@@ -5,7 +5,8 @@ import { getAllChains, accentFor, type ChainConfig } from "@/lib/chains";
 import { getAdapter } from "@/lib/adapter";
 import { classifySearch, secpKeyToAddress } from "@/lib/search";
 import { gnoPackagePaths, packageHref, shortPath } from "@/lib/gno-packages";
-import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { tokenHref } from "@/lib/gno-tokens";
+import { tokenList } from "@/lib/gno-token-data";
 import { gnoNames } from "@/lib/gno-users";
 import { consensusIdsFromPubkey } from "@/lib/uptime";
 import { normalizeGnoHash, resolveGnoValidatorAddress } from "@/lib/gno";
@@ -430,10 +431,10 @@ export default async function GlobalSearchPage({
       const tokenSets = await Promise.all(
         all
           .filter((c) => c.kind === "gno")
-          .map(async (chain) => ({ chain, tokens: await within(gnoTokens(chain), 1500, null) })),
+          .map(async (chain) => ({ chain, tokens: await within(tokenList(chain), 1500, null) })),
       );
       for (const { chain, tokens } of tokenSets) {
-        for (const t of tokens?.values() ?? []) {
+        for (const t of tokens ?? []) {
           const symbol = t.symbol.toLowerCase();
           if (!symbol.includes(needle) && !t.name.toLowerCase().includes(needle)) continue;
           matches.push({

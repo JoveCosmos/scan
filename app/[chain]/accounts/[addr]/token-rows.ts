@@ -1,5 +1,6 @@
 import type { DeckColumn, DeckRow } from "@/components/row-deck";
-import type { AccountTransfer, GnoToken } from "@/lib/gno-tokens";
+import type { AccountTransfer } from "@/lib/gno-tokens";
+import type { TokenSummary } from "@/lib/gno-token-data";
 import { tokenHref } from "@/lib/gno-tokens";
 import { addressCell, type GnoNames } from "@/lib/gno-users";
 import { formatUnits, timeAgo } from "@/lib/format";
@@ -19,7 +20,7 @@ export function tokenTransferRows(
   chainId: string,
   address: string,
   transfers: AccountTransfer[],
-  tokens: Map<string, GnoToken> | null,
+  tokens: Map<string, TokenSummary> | null,
   names: GnoNames | null,
   times: Map<string, string>,
   realms: Map<string, string> | null = null

@@ -20,7 +20,8 @@ import {
   type GnoPackage,
 } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
-import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { tokenHref } from "@/lib/gno-tokens";
+import { tokenList } from "@/lib/gno-token-data";
 import { atName, gnoNames } from "@/lib/gno-users";
 import { formatToken } from "@/lib/overview";
 import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
@@ -109,9 +110,9 @@ export default async function PackagePage({
     realm ? withinBudget(gnoRender(chain, path, arg), BUDGET, null) : null,
   ]);
   const names = await withinBudget(gnoNames(chain), 1500, null);
-  // Tokens this realm created, from the in-memory token state (built at boot).
-  const tokens = realm ? await withinBudget(gnoTokens(chain), 1000, null) : null;
-  const ownTokens = [...(tokens?.values() ?? [])].filter((t) => t.realm === path);
+  // Tokens this realm created.
+  const tokens = realm ? await withinBudget(tokenList(chain), 1000, null) : null;
+  const ownTokens = (tokens ?? []).filter((t) => t.realm === path);
   const deploy = deploys?.get(path) ?? null;
 
   const code = (sources ?? []).filter((f) => f.name.endsWith(".gno") && !f.name.endsWith("_test.gno"));
@@ -351,16 +352,19 @@ async function CallsDeck({
   const chainId = chain.chainId;
   const [calls, names] = await Promise.all([pending, withinBudget(gnoNames(chain), 1500, null)]);
   if (!calls) return <RowDeck accent={accent} columns={CALL_COLUMNS} rows={[]} empty="N/A" />;
-  // The newest page; older ones come from the API, a page at a time.
-  const first = callsPage(calls.calls);
+  // The newest page; older ones come from the API, a page at a time. Read from
+  // our index, the page comes with its keyset cursor (`next`); from the
+  // tx-indexer, the next page starts below the last block shown.
+  const first = calls.next !== undefined ? calls.calls : callsPage(calls.calls);
   const last = first.at(-1);
-  const more = calls.total > first.length;
+  const initialNext =
+    calls.next !== undefined ? calls.next : calls.total > first.length && last ? String(last.height) : null;
   return (
     <OlderDeck
       endpoint={`/api/chains/${chainId}/packages/calls?path=${encodeURIComponent(path)}`}
       columns={CALL_COLUMNS}
       initialRows={callRows(chainId, first, names)}
-      initialNext={more && last ? String(last.height) : null}
+      initialNext={initialNext}
       accent={accent}
       empty="None"
       filter={{ placeholder: "Filter by function or caller…" }}

@@ -3,6 +3,7 @@ import { packageHref } from "@/lib/address-route";
 import { cached } from "@/lib/cache";
 import { hashedAddress } from "@/lib/hashed-address";
 import { abciQuery } from "@/lib/gno-abci";
+import { gnoIndexed, indexedCalls, indexedCallStats, indexedDeploys } from "@/lib/gno-index";
 import { gnoHashToHex, gql } from "@/lib/gno";
 import { coverageOf } from "@/lib/indexer-coverage";
 import { indexerPool } from "@/lib/indexer-db";
@@ -107,6 +108,16 @@ export function gnoDeploys(chain: ChainConfig): Promise<Map<string, GnoDeploy> |
     `gno-deploys:${chain.chainId}`,
     10 * 60_000,
     async () => {
+      // Our index once it covers every message: one query, a millisecond.
+      const pool = await gnoIndexed(chain.chainId, "gno_tx_msg");
+      if (pool) {
+        const rows = await indexedDeploys(pool, chain.chainId).catch(() => null);
+        if (rows) {
+          return new Map(
+            [...rows].map(([path, d]) => [path, { path, creator: d.creator, height: d.height, txHash: d.txHash, time: d.time }])
+          );
+        }
+      }
       const data = await gql<{ getTransactions: DeployTx[] | null }>(
         chain,
         `{ getTransactions(where: { success: { eq: true }, messages: { value: { MsgAddPackage: { package: { path: { like: "gno.land/" } } } } } }, order: { heightAndIndex: ASC }) {
@@ -291,6 +302,8 @@ export interface GnoCall {
   caller: string;
   func: string;
   time: string | null;
+  /** The call's arguments, where our index has them (each cut at 200 characters). */
+  args?: string[] | null;
 }
 
 type CallTx = {
@@ -339,7 +352,29 @@ const callQuery = (bounded: boolean) => `query($p: String!, ${bounded ? "$a: Int
  * with messages it cannot type, so each message's own package path is
  * checked here.
  */
-export function gnoRealmCalls(
+export async function gnoRealmCalls(
+  chain: ChainConfig,
+  path: string
+): Promise<{ calls: GnoCall[]; total: number; callers: number; next?: string | null } | null> {
+  // Our index, once it holds every message from genesis: the newest page and
+  // the counts, in milliseconds. `next` is then its keyset cursor.
+  const pool = await gnoIndexed(chain.chainId, "gno_tx_msg");
+  if (pool) {
+    try {
+      const [stats, page] = await Promise.all([
+        indexedCallStats(pool, chain.chainId, path),
+        indexedCalls(pool, chain.chainId, path, CALLS_PAGE),
+      ]);
+      return { calls: page.calls, total: stats.total, callers: stats.callers, next: page.next };
+    } catch {
+      // Fall through to the tx-indexer.
+    }
+  }
+  return gnoRealmCallsFromIndexer(chain, path);
+}
+
+/** The same from the tx-indexer: every call read in height windows, the newest 500 kept. */
+function gnoRealmCallsFromIndexer(
   chain: ChainConfig,
   path: string
 ): Promise<{ calls: GnoCall[]; total: number; callers: number } | null> {

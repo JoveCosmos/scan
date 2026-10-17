@@ -87,7 +87,8 @@ export async function coverageOf(
       [chainId, capability]
     );
     const row = res.rows[0];
-    if (!row) return null;
+    // A row without bounds covers nothing; Number(null) would read as height 0.
+    if (!row || row.lo === null || row.hi === null) return null;
     return {
       lo: Number(row.lo),
       hi: Number(row.hi),

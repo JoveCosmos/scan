@@ -1,7 +1,7 @@
 import { getAllChains } from "@/lib/chains";
 import { getValoperIndex } from "@/lib/gno-valopers";
 import { gnoDeploys, gnoPackagePaths } from "@/lib/gno-packages";
-import { gnoTokens } from "@/lib/gno-tokens";
+import { tokenList } from "@/lib/gno-token-data";
 import { gnoNames } from "@/lib/gno-users";
 import { govdaoTimeline } from "@/lib/gno-govdao";
 import { warmValidators } from "@/lib/warm";
@@ -36,7 +36,7 @@ export function warm() {
     void gnoPackagePaths(chain);
     void gnoDeploys(chain);
     // GRC20 tokens: their whole history, read once, then followed.
-    void gnoTokens(chain);
+    void tokenList(chain);
     // Registered names (r/sys/users), shown in place of addresses.
     void gnoNames(chain);
     // When each GovDAO proposal was created and executed (two indexer scans).

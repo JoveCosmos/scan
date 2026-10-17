@@ -2,7 +2,6 @@ import type { ChainConfig } from "@/lib/chains";
 import { gnoHashToHex, gql } from "@/lib/gno";
 import { cached } from "@/lib/cache";
 import { followEvents, type EventTx } from "@/lib/gno-follow";
-import { gnoTxTimes } from "@/lib/gno-packages";
 
 /**
  * GRC20 tokens on gno.land, from the events of gno.land/p/nt/grc20/v0, the
@@ -125,12 +124,6 @@ export function tokenHref(chainId: string, token: Pick<GnoToken, "realm" | "symb
   return `/${chainId}/tokens/${token.realm.replace(/^gno\.land\//, "")}/${encodeURIComponent(token.symbol)}`;
 }
 
-/** The token a URL names, by realm and symbol. */
-export function findToken(tokens: Map<string, GnoToken>, realm: string, symbol: string): GnoToken | null {
-  for (const t of tokens.values()) if (t.realm === realm && t.symbol === symbol) return t;
-  return null;
-}
-
 /** Holders, largest first. */
 export function holdersOf(token: GnoToken, limit = 500): { address: string; balance: bigint }[] {
   return [...token.balances]
@@ -145,21 +138,6 @@ export function holderCount(token: GnoToken): number {
   let n = 0;
   for (const b of token.balances.values()) if (b > BigInt(0)) n += 1;
   return n;
-}
-
-/** An account's GRC20 balances, largest token first by holders. */
-export function balancesOf(tokens: Map<string, GnoToken>, address: string): { token: GnoToken; balance: bigint }[] {
-  const out: { token: GnoToken; balance: bigint }[] = [];
-  for (const t of tokens.values()) {
-    const b = t.balances.get(address);
-    if (b && b > BigInt(0)) out.push({ token: t, balance: b });
-  }
-  return out;
-}
-
-/** Block times for a token's recent transfers, from the index. */
-export function transferTimes(chainId: string, transfers: TokenTransfer[]): Promise<Map<string, string>> {
-  return gnoTxTimes(chainId, [...new Set(transfers.map((t) => t.txHash))]);
 }
 
 export interface AccountTransfer {

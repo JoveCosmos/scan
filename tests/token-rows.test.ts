@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { tokenTransferRows } from "@/app/[chain]/accounts/[addr]/token-rows";
-import type { GnoToken } from "@/lib/gno-tokens";
+import type { TokenSummary } from "@/lib/gno-token-data";
 
 const token = {
   key: "gno.land/r/gnoswap/gns.GNS.0000000",
@@ -8,7 +8,7 @@ const token = {
   name: "Gnoswap",
   symbol: "GNS",
   decimals: 6,
-} as GnoToken;
+} as TokenSummary;
 const tokens = new Map([[token.key, token]]);
 const t = (from: string, to: string, amount: string) => ({ txHash: "AB", height: 7, token: token.key, from, to, amount });
 

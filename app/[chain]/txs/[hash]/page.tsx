@@ -37,7 +37,8 @@ import {
   type PacketTrace,
   TokenTransferList,
 } from "./tx-view";
-import { gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { tokenHref } from "@/lib/gno-tokens";
+import { tokenMeta } from "@/lib/gno-token-data";
 import { atName, gnoNames } from "@/lib/gno-users";
 import { formatUnits } from "@/lib/format";
 import type { GnoTxExtras } from "@/lib/gno";
@@ -209,7 +210,7 @@ export default async function TxDetailPage({
   const gnoExtras = (tx as TxView & { gno?: GnoTxExtras }).gno;
   const grc20 = gnoExtras?.tokenTransfers ?? [];
   const [tokenState, names] = grc20.length
-    ? await Promise.all([withinBudget(gnoTokens(chain), 1500, null), withinBudget(gnoNames(chain), 1500, null)])
+    ? await Promise.all([withinBudget(tokenMeta(chain), 1500, null), withinBudget(gnoNames(chain), 1500, null)])
     : [null, null];
   const tokenRows = grc20.map((t) => {
     const token = tokenState?.get(t.token) ?? null;

@@ -19,7 +19,8 @@ import { convertAddress, linkedAddresses } from "@/lib/bech32";
 import { withinBudget } from "@/lib/cache";
 import { getGovernors, governorOf } from "@/lib/governors";
 import { decodeBech32, gnoPathHref, packageHref, routeAddress } from "@/lib/address-route";
-import { balancesOf, gnoTokens, tokenHref } from "@/lib/gno-tokens";
+import { tokenHref } from "@/lib/gno-tokens";
+import { accountTokenBalances } from "@/lib/gno-token-data";
 import { atName, gnoNames } from "@/lib/gno-users";
 import { gnoDeploys, gnoPackagePaths, isRealm, realmByAddress, shortPath } from "@/lib/gno-packages";
 import { isUserKey, type AddressKind } from "@/lib/address-kind";
@@ -1046,12 +1047,12 @@ export default async function AccountPage({
     },
   }));
 
-  // gno.land: GRC20 tokens held, from the token state kept in memory (never
-  // waited on long: it is built at boot).
-  const [tokens, realms, deploys, livePaths, names] =
+  // gno.land: GRC20 tokens held (from our index, or the token state Scan
+  // builds at boot; never waited on long).
+  const [grc20Held, realms, deploys, livePaths, names] =
     chain.kind === "gno"
       ? await Promise.all([
-          withinBudget(gnoTokens(chain), 1500, null),
+          withinBudget(accountTokenBalances(chain, address), 1500, null),
           withinBudget(realmByAddress(chain), 1500, null),
           withinBudget(gnoDeploys(chain), 1500, null),
           withinBudget(gnoPackagePaths(chain), 1500, null),
@@ -1086,7 +1087,7 @@ export default async function AccountPage({
   const realmTile: BrickSpec | null = realmPath
     ? { key: "realm", label: "Realm", value: shortPath(realmPath), sub: "realm account", lead: true, href: packageHref(chainId, realmPath) }
     : null;
-  const tokenRows: DeckRow[] = (tokens ? balancesOf(tokens, address) : [])
+  const tokenRows: DeckRow[] = (grc20Held ?? [])
     .sort((a, b) => a.token.symbol.localeCompare(b.token.symbol))
     .map(({ token, balance }) => ({
       key: token.key,

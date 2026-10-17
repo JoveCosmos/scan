@@ -36,7 +36,8 @@ export function callRows(chainId: string, calls: GnoCall[], names: GnoNames | nu
     detail: {
       title: c.func,
       sub: truncateMiddle(c.txHash, 10, 8),
-      rows: [],
+      // Arguments where our index has them.
+      rows: (c.args ?? []).map((a, n) => ({ label: `Argument ${n + 1}`, value: a, mono: true })),
       action: { label: "Transaction", href: `/${chainId}/txs/${c.txHash}` },
     },
   }));

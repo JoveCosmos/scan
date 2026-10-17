@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
-import { findToken, gnoTokens, holderCount, holdersOf, transferTimes } from "@/lib/gno-tokens";
-import { packageHref, realmByAddress, shortPath } from "@/lib/gno-packages";
+import { findSummary, tokenHolders, tokenList, tokenRecent } from "@/lib/gno-token-data";
+import { gnoTxTimes, packageHref, realmByAddress, shortPath } from "@/lib/gno-packages";
 import { addressCell, gnoNames } from "@/lib/gno-users";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
@@ -55,16 +55,21 @@ export default async function TokenPage({
   const accent = accentFor(chain);
 
   const [tokens, names, realms] = await Promise.all([
-    withinBudget(gnoTokens(chain), 20_000, null),
+    withinBudget(tokenList(chain), 20_000, null),
     withinBudget(gnoNames(chain), 1500, null),
     withinBudget(realmByAddress(chain), 1500, null),
   ]);
-  const token = tokens ? findToken(tokens, k.realm, k.symbol) : null;
+  const token = tokens ? findSummary(tokens, k.realm, k.symbol) : null;
   if (tokens && !token) notFound();
 
-  const holders = token ? holdersOf(token) : [];
-  const count = token ? holderCount(token) : 0;
-  const times = token ? await withinBudget(transferTimes(chainId, token.recent), 2000, new Map<string, string>()) : new Map();
+  const [holderList, recent] = token
+    ? await Promise.all([tokenHolders(chain, token.key), tokenRecent(chain, token.key)])
+    : [null, null];
+  const holders = holderList ?? [];
+  const count = token ? token.holders : 0;
+  const times = recent
+    ? await withinBudget(gnoTxTimes(chainId, [...new Set(recent.map((t) => t.txHash))]), 2000, new Map<string, string>())
+    : new Map<string, string>();
   const amount = (v: bigint) => (token ? formatToken(v.toString(), token.decimals) : "-");
   const top10 = holders.slice(0, 10).reduce((s, h) => s + h.balance, BigInt(0));
   const share = (part: bigint) =>
@@ -137,7 +142,7 @@ export default async function TokenPage({
 
   const party = (a: string, none: string): DeckRow["cells"][number] =>
     a ? addressCell(names, a, 8, 6, realms) : { v: none, tone: "accent" };
-  const transferDeck: DeckRow[] = (token?.recent ?? []).map((t, i) => {
+  const transferDeck: DeckRow[] = (recent ?? []).map((t, i) => {
     const when = times.get(t.txHash) ?? null;
     return {
       key: `${t.txHash}-${i}`,

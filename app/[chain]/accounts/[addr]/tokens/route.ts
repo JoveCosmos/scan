@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
 import { withinBudget } from "@/lib/cache";
 import { decodeParam } from "@/lib/format";
-import { gnoAccountTransfers, gnoTokens } from "@/lib/gno-tokens";
+import { accountTransfersPage, tokenMeta } from "@/lib/gno-token-data";
 import { gnoTxTimes, realmByAddress } from "@/lib/gno-packages";
 import { gnoNames } from "@/lib/gno-users";
 import { tokenTransferRows } from "../token-rows";
@@ -16,14 +16,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ chain: s
   if (!chain || chain.kind !== "gno") return NextResponse.json({ error: "unknown chain" }, { status: 404 });
   const address = decodeParam(addr).trim().toLowerCase();
   if (!/^g1[a-z0-9]{38}$/.test(address)) return NextResponse.json({ error: "bad address" }, { status: 400 });
-  const beforeParam = new URL(req.url).searchParams.get("before");
-  const before = beforeParam === null ? undefined : Number(beforeParam);
-  if (before !== undefined && (!Number.isSafeInteger(before) || before < 1)) {
+  // Our index's keyset cursor, or a block height for the tx-indexer's windows.
+  const cursor = new URL(req.url).searchParams.get("before") ?? undefined;
+  if (cursor !== undefined && !/^(\d+|k:\d+:[0-9A-Fa-f]+:\d+)$/.test(cursor)) {
     return NextResponse.json({ error: "bad cursor" }, { status: 400 });
   }
   const [page, tokens, names, realms] = await Promise.all([
-    gnoAccountTransfers(chain, address, before),
-    withinBudget(gnoTokens(chain), 1500, null),
+    accountTransfersPage(chain, address, cursor),
+    withinBudget(tokenMeta(chain), 1500, null),
     withinBudget(gnoNames(chain), 1500, null),
     withinBudget(realmByAddress(chain), 1500, null),
   ]);
@@ -35,6 +35,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ chain: s
   );
   return NextResponse.json({
     rows: tokenTransferRows(chainId, address, page.transfers, tokens, names, times, realms),
-    next: page.next !== null ? String(page.next) : null,
+    next: page.next,
   });
 }

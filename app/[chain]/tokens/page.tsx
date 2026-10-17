@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
-import { gnoTokens, holderCount, tokenHref } from "@/lib/gno-tokens";
+import { tokenHref } from "@/lib/gno-tokens";
+import { tokenList } from "@/lib/gno-token-data";
 import { shortPath } from "@/lib/gno-packages";
 import { withinBudget } from "@/lib/cache";
 import { formatToken } from "@/lib/overview";
@@ -23,9 +24,9 @@ export default async function TokensPage({ params }: { params: Promise<{ chain: 
   if (!chain || chain.kind !== "gno") notFound();
   const accent = accentFor(chain);
 
-  const tokens = await withinBudget(gnoTokens(chain), 20_000, null);
-  const list = [...(tokens?.values() ?? [])]
-    .map((t) => ({ t, holders: holderCount(t) }))
+  const tokens = await withinBudget(tokenList(chain), 20_000, null);
+  const list = [...(tokens ?? [])]
+    .map((t) => ({ t, holders: t.holders }))
     .sort((a, b) => b.holders - a.holders || b.t.transfers - a.t.transfers || a.t.symbol.localeCompare(b.t.symbol));
   const top = list.reduce((m, x) => Math.max(m, x.holders), 0);
 
