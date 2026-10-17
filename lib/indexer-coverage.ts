@@ -38,7 +38,17 @@ export type Capability =
   | "tombstones_unjails"
   | "gno_tx"
   | "gno_tx_party"
-  | "address_tx_count";
+  | "address_tx_count"
+  /** Migration 013: proposer_blocks() over block_proposer_count. */
+  | "proposer_count"
+  /** Migration 013: transfer.signer on commission rows. */
+  | "commission_signer"
+  /** Migration 013: validator_power.time. */
+  | "validator_power_time"
+  /** Migration 014, gno chains only: gno_tx_msg. */
+  | "gno_tx_msg"
+  /** Migration 014, gno chains only: gno_grc20_token, _transfer and _balance. */
+  | "gno_grc20";
 
 export interface CoverageRange {
   lo: number;
@@ -58,6 +68,8 @@ export async function coverageOf(
   const anyChain =
     capability === "gno_tx" ||
     capability === "gno_tx_party" ||
+    capability === "gno_tx_msg" ||
+    capability === "gno_grc20" ||
     capability === "address_tx_count" ||
     // gno.land signing (gno-signatures) is written for gnoland-1 too.
     (capability === "missed_signatures" && getChain(chainId)?.kind === "gno");

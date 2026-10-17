@@ -105,7 +105,11 @@ export type CoverageCapability =
   | "gov_deposit"
   | "gov_proposal"
   | "vote_event"
-  | "tombstones_unjails";
+  | "tombstones_unjails"
+  /** Migration 013: proposer_blocks() over block_proposer_count. */
+  | "proposer_count"
+  /** Migration 013: transfer.signer on commission rows. */
+  | "commission_signer";
 
 export async function coverage(
   chainId: string,
@@ -364,9 +368,9 @@ export interface ProposerStats {
  * alone does not distinguish from healthy operation, since a validator can sign
  * other proposers' blocks reliably while failing to produce its own.
  *
- * Two queries on purpose. The per-validator count is an index range scan over
- * that validator's rows; the chain-wide total would be a full scan, so it is
- * cached once and shared across every validator rather than repeated per page.
+ * The per-validator count is an index range scan over that validator's rows,
+ * or the proposer rollup where the index has it; the chain-wide total is the
+ * coverage run's length.
  */
 export async function proposerStats(
   chainId: string,
@@ -375,33 +379,41 @@ export async function proposerStats(
   const pool = poolFor(chainId);
   if (!pool) return null;
 
-  const c = await coverage(chainId, "blocks");
+  const [c, counted] = await Promise.all([coverage(chainId, "blocks"), coverage(chainId, "proposer_count")]);
   if (!c) return null;
+  // Coverage has no holes (docs/INDEXER.md, "Validator page reads"): the run
+  // holds every height in it, so the chain's blocks need no count.
+  const total = c.highest - c.lowest + 1;
 
   try {
-    const [mine, total] = await Promise.all([
-      cached(`idx:proposed:${chainId}:${proposerCons}`, 60_000, async () => {
+    const mine = await cached(
+      `idx:proposed:${chainId}:${proposerCons}`,
+      60_000,
+      async () => {
         const res = await pool.query<{
           proposed: string;
           last_height: string | null;
           last_time: string | null;
         }>(
-          `SELECT count(*)::text  AS proposed,
-                  max(height)::text AS last_height,
-                  max(time)::text   AS last_time
-             FROM block
-            WHERE chain_id = $1 AND proposer_cons = $2
-              AND height BETWEEN $3 AND $4`,
+          counted
+            ? // Whole buckets from the rollup, the two ends from the index (migration 013).
+              `SELECT blocks::text AS proposed, last_height::text AS last_height,
+                      last_time::text AS last_time
+                 FROM proposer_blocks($1, $2, $3, $4)`
+            : `SELECT count(*)::text  AS proposed,
+                      max(height)::text AS last_height,
+                      max(time)::text   AS last_time
+                 FROM block
+                WHERE chain_id = $1 AND proposer_cons = $2
+                  AND height BETWEEN $3 AND $4`,
           [chainId, proposerCons, c.lowest, c.highest]
         );
         return res.rows[0];
       },
-        VALIDATOR_HISTORY_CACHE("val-proposer")
-      ),
-      blockCount(chainId, c.lowest, c.highest),
-    ]);
+      VALIDATOR_HISTORY_CACHE("val-proposer")
+    );
 
-    if (!mine || total === null) return null;
+    if (!mine) return null;
 
     return {
       proposed: Number(mine.proposed),
@@ -414,28 +426,6 @@ export async function proposerStats(
   } catch {
     return null;
   }
-}
-
-/**
- * Blocks indexed in a range. Cached hard: it is a full scan, and it is the same
- * answer for every validator on the chain.
- */
-function blockCount(
-  chainId: string,
-  lowest: number,
-  highest: number
-): Promise<number | null> {
-  const pool = poolFor(chainId);
-  if (!pool) return Promise.resolve(null);
-
-  return cached(`idx:blockcount:${chainId}:${lowest}:${highest}`, 300_000, async () => {
-    const res = await pool.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM block
-        WHERE chain_id = $1 AND height BETWEEN $2 AND $3`,
-      [chainId, lowest, highest]
-    );
-    return Number(res.rows[0]?.n ?? 0);
-  }).catch(() => null);
 }
 
 export interface RelayerOperator {
@@ -911,6 +901,8 @@ export async function commissionEarned(
   if (!pool) return null;
 
   return cached(`commission:${chainId}:${account}`, 600_000, async () => {
+    // Since migration 013 commission rows carry their signer: one index, no join.
+    const bySigner = await coverage(chainId, "commission_signer");
     const { rows } = await pool.query<{
       denom: string;
       total: string;
@@ -918,13 +910,20 @@ export async function commissionEarned(
       first: string | null;
       last: string | null;
     }>(
-      `SELECT t.denom, sum(t.amount)::text total, count(*) n,
-              min(t.time)::text first, max(t.time)::text last
-       FROM transfer t
-       JOIN tx x ON x.chain_id = t.chain_id AND x.hash = t.tx_hash
-       WHERE t.chain_id = $1 AND t.kind = 'commission' AND x.signer = $2
-       GROUP BY t.denom
-       ORDER BY sum(t.amount) DESC`,
+      bySigner
+        ? `SELECT denom, sum(amount)::text AS total, count(*) AS n,
+                  min(time)::text AS first, max(time)::text AS last
+             FROM transfer
+            WHERE chain_id = $1 AND kind = 'commission' AND signer = $2
+            GROUP BY denom
+            ORDER BY sum(amount) DESC`
+        : `SELECT t.denom, sum(t.amount)::text total, count(*) n,
+                  min(t.time)::text first, max(t.time)::text last
+             FROM transfer t
+             JOIN tx x ON x.chain_id = t.chain_id AND x.hash = t.tx_hash
+            WHERE t.chain_id = $1 AND t.kind = 'commission' AND x.signer = $2
+            GROUP BY t.denom
+            ORDER BY sum(t.amount) DESC`,
       [chainId, account]
     );
     if (rows.length === 0) return null;

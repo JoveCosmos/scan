@@ -249,6 +249,32 @@ describe("powerHistory", () => {
   });
 });
 
+describe("powerHistory after migration 013", () => {
+  it("reads validator_power's own time, without the join, once the capability is there", async () => {
+    coverageFor.validator_power = cov;
+    coverageFor.validator_power_time = cov;
+    respond = (text) => {
+      if (text === mod.SQL.powerHistoryTimed) return [{ height: "1800", power: "20", time: "2026-09-01T00:00:00Z" }];
+      if (text === mod.SQL.powerBefore) return [{ power: "10" }];
+      return [];
+    };
+    const p = await mod.powerHistory("atomone-1", "cd");
+    expect(p!.map((x) => [x.height, x.power])).toEqual([
+      [1000, "10"],
+      [1800, "20"],
+    ]);
+    expect(queries.some((q) => q.text === mod.SQL.powerHistory)).toBe(false);
+  });
+});
+
+describe("stakingEvents", () => {
+  it("reads two ordered branches and orders the union by the bigint height", () => {
+    expect(mod.SQL.stakingEvents).toMatch(/UNION ALL/);
+    expect(mod.SQL.stakingEvents).toMatch(/validator IS DISTINCT FROM \$2/);
+    expect(mod.SQL.stakingEvents).toMatch(/ORDER BY e\.height DESC, e\.event_seq DESC/);
+  });
+});
+
 describe("indexBehind", () => {
   it("reports a stale follower", async () => {
     expect(await mod.indexBehind("atomone-1")).toBe(true);

@@ -516,14 +516,27 @@ export const SQL = {
      WHERE chain_id = $1 AND flag = 'absent' AND height BETWEEN $2 AND $3
      GROUP BY cons_addr`,
   missedAt: `SELECT cons_addr, flag FROM missed_signature WHERE chain_id = $1 AND height = $2`,
+  /**
+   * A validator's staking events as two ordered branches (docs/INDEXER.md,
+   * "Validator page reads"): the OR form cannot walk an index in order and read
+   * every event the validator ever had. The second branch skips an event naming
+   * the validator on both sides; the outer order is on e.height, the bigint.
+   */
   stakingEvents: `
-    SELECT height::text, tx_hash, time::text, kind, validator, validator_dst, delegator,
-           amount::text, denom, completion_time::text
-      FROM staking_event
-     WHERE chain_id = $1 AND (validator = $2 OR validator_dst = $2)
-       AND height BETWEEN $3 AND $4
-       AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
-     ORDER BY staking_event.height DESC, event_seq DESC
+    SELECT e.height::text AS height, e.tx_hash, e.time::text AS time, e.kind, e.validator,
+           e.validator_dst, e.delegator, e.amount::text AS amount, e.denom,
+           e.completion_time::text AS completion_time
+      FROM ((SELECT * FROM staking_event
+              WHERE chain_id = $1 AND validator = $2 AND height BETWEEN $3 AND $4
+                AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
+              ORDER BY staking_event.height DESC, event_seq DESC LIMIT $5)
+            UNION ALL
+            (SELECT * FROM staking_event
+              WHERE chain_id = $1 AND validator_dst = $2 AND validator IS DISTINCT FROM $2
+                AND height BETWEEN $3 AND $4
+                AND kind NOT IN ('complete_unbonding', 'complete_redelegation')
+              ORDER BY staking_event.height DESC, event_seq DESC LIMIT $5)) e
+     ORDER BY e.height DESC, e.event_seq DESC
      LIMIT $5`,
   stakingFlowRows: `
     SELECT kind, validator, validator_dst, amount::text, time::text
@@ -537,6 +550,13 @@ export const SQL = {
       JOIN block b ON b.chain_id = vp.chain_id AND b.height = vp.height
      WHERE vp.chain_id = $1 AND vp.cons_addr = $2 AND vp.height BETWEEN $3 AND $4
      ORDER BY vp.height DESC
+     LIMIT 2000`,
+  /** The same, from validator_power's own time (migration 013, capability validator_power_time). */
+  powerHistoryTimed: `
+    SELECT height::text, power::text, time::text
+      FROM validator_power
+     WHERE chain_id = $1 AND cons_addr = $2 AND height BETWEEN $3 AND $4
+     ORDER BY validator_power.height DESC
      LIMIT 2000`,
   powerBefore: `
     SELECT power::text FROM validator_power
@@ -1009,13 +1029,16 @@ export interface PowerPoint {
 export async function powerHistory(chainId: string, consHex: string): Promise<PowerPoint[] | null> {
   const pool = poolFor(chainId);
   if (!pool) return null;
-  const cov = await coverageOf(chainId, "validator_power");
+  const [cov, timed] = await Promise.all([
+    coverageOf(chainId, "validator_power"),
+    coverageOf(chainId, "validator_power_time"),
+  ]);
   if (!cov) return null;
   const hex = consHex.toUpperCase();
   try {
     return await cached(`idx:powerhist:${chainId}:${hex}`, 300_000, async () => {
       const [{ rows }, before] = await Promise.all([
-        pool.query<{ height: string; power: string; time: string }>(SQL.powerHistory, [
+        pool.query<{ height: string; power: string; time: string }>(timed ? SQL.powerHistoryTimed : SQL.powerHistory, [
           chainId,
           hex,
           cov.lo,
