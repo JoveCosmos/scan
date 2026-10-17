@@ -1,3 +1,4 @@
+import { freshEndpoints } from "@/lib/endpoint-health";
 import type { ChainConfig } from "@/lib/chains";
 
 export class LcdError extends Error {
@@ -86,13 +87,12 @@ export async function fetchLcd<T>(
   requestPath: string,
   opts: FetchLcdOptions = {}
 ): Promise<T> {
-  return fetchFrom<T>(
-    chain.lcdEndpoints,
-    requestPath,
-    opts,
-    chain.chainId,
-    chain.fallbackLcdEndpoints
-  );
+  // Only endpoints that follow the chain: one stuck months behind still answers.
+  const { primaries, fallbacks } = await freshEndpoints("lcd", chain.lcdEndpoints, chain.fallbackLcdEndpoints);
+  if (primaries.length + fallbacks.length === 0) {
+    throw new LcdError(`No current endpoint for ${chain.chainId}, path ${requestPath}`);
+  }
+  return fetchFrom<T>(primaries, requestPath, opts, chain.chainId, fallbacks);
 }
 
 /**

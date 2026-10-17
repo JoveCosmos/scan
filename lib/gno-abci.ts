@@ -1,4 +1,5 @@
 import type { ChainConfig } from "@/lib/chains";
+import { freshEndpoints } from "@/lib/endpoint-health";
 
 export type AbciResult = { ok: true; data: string } | { ok: false; missing: boolean };
 
@@ -15,7 +16,8 @@ export async function abciQuery(
   data = "",
   timeoutMs = 8000
 ): Promise<AbciResult> {
-  for (const endpoint of [...chain.rpcEndpoints, ...chain.fallbackRpcEndpoints]) {
+  const rpc = await freshEndpoints("rpc", chain.rpcEndpoints, chain.fallbackRpcEndpoints);
+  for (const endpoint of [...rpc.primaries, ...rpc.fallbacks]) {
     try {
       const res = await fetch(endpoint, {
         method: "POST",

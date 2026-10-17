@@ -11,11 +11,9 @@
   "exponent": 6,
   "lcdEndpoints": [
     "https://atomone-testnet-api.cogwheel.zone",
-    "https://rest.testcosmos.directory/atomonetestnet",
-    "https://api-testnet-atomone.nodeist.net"
+    "https://rest.testcosmos.directory/atomonetestnet"
   ],
   "rpcEndpoints": [
-    "https://rpc-testnet-atomone.nodeist.net",
     "https://atomone-testnet-rpc.cogwheel.zone",
     "https://rpc.testcosmos.directory/atomonetestnet"
   ],

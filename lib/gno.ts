@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { ChainConfig } from "@/lib/chains";
 import { abciQuery } from "@/lib/gno-abci";
 import { fetchFrom } from "@/lib/lcd";
+import { freshEndpoints } from "@/lib/endpoint-health";
 import { gnoPartyPage } from "@/lib/indexer-tx";
 import { cached } from "@/lib/cache";
 import { isNumericId, isBech32ish } from "@/lib/input";
@@ -49,12 +50,13 @@ async function gnoRpc<T>(
   path: string,
   opts: { timeoutMs?: number } = {}
 ): Promise<T> {
+  const rpc = await freshEndpoints("rpc", chain.rpcEndpoints, chain.fallbackRpcEndpoints);
   const res = await fetchFrom<RpcEnvelope<T>>(
-    chain.rpcEndpoints,
+    rpc.primaries,
     path,
     { cache: "no-store", timeoutMs: opts.timeoutMs ?? 8000 },
     `${chain.chainId} rpc`,
-    chain.fallbackRpcEndpoints
+    rpc.fallbacks
   );
   if (!res.result) {
     throw new Error(res.error?.message ?? `Empty RPC result for ${path}`);
@@ -1474,14 +1476,15 @@ export async function gnoUptime(
     .filter((h) => h > 0)
     .reverse();
 
+  const rpc = await freshEndpoints("rpc", chain.rpcEndpoints, chain.fallbackRpcEndpoints);
   const blocks = await Promise.allSettled(
     heights.map((h) =>
       fetchFrom<GnoBlockCommit>(
-        chain.rpcEndpoints,
+        rpc.primaries,
         `/block?height=${h}`,
         { cache: "no-store", timeoutMs: 8000 },
         `${chain.chainId} rpc`,
-        chain.fallbackRpcEndpoints
+        rpc.fallbacks
       )
     )
   );
