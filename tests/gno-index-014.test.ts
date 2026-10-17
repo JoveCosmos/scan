@@ -15,6 +15,19 @@ const pool = {
       const c = caps[String(params[1])];
       return { rows: c ? [{ lo: c.lo, hi: c.hi, lo_time: "t0", hi_time: "t1" }] : [] };
     }
+    if (text.includes("GROUP BY pkg_path"))
+      return {
+        rows: [
+          { name: "gno.land/r/gnoswap/router", calls: 3988, last_height: "857000", last_time: "2026-10-17 21:00:00+00" },
+          { name: "gno.land/r/gnoland/blog", calls: 137, last_height: "800000", last_time: null },
+        ],
+      };
+    if (text.includes("GROUP BY func"))
+      return { rows: [{ name: "SwapRoute", calls: 3000, last_height: "857000", last_time: "2026-10-17 21:00:00+00" }] };
+    if (text.includes("interval '24 hours'"))
+      return { rows: [{ token: "gno.land/r/gnoswap/gns.GNS.0000000", transfers: 1323 }] };
+    if (text.includes("g.token = $2"))
+      return { rows: [{ day: "2026-10-16", transfers: 410 }, { day: "2026-10-17", transfers: 380 }] };
     if (text.includes("FROM gno_grc20_token t"))
       return {
         rows: [
@@ -212,5 +225,42 @@ describe("gno.land charts from the index", () => {
     caps.gno_tx_msg = { lo: "0", hi: "856783" };
     caps.gno_grc20 = { lo: "1", hi: "856783" };
     expect(await stats.gnoDailyIndexed(chain)).toBeNull();
+  });
+});
+
+describe("call counts and token activity", () => {
+  beforeEach(() => {
+    caps.gno_tx_msg = { lo: "0", hi: "856783" };
+    caps.gno_grc20 = { lo: "0", hi: "856783" };
+  });
+
+  test("every realm's calls and last call, and one realm's per function", async () => {
+    const realms = await index.indexedRealmCallCounts(pool as never, "gnoland-1");
+    expect(realms.get("gno.land/r/gnoswap/router")).toEqual({ calls: 3988, lastHeight: 857000, lastTime: "2026-10-17 21:00:00+00" });
+    expect(realms.get("gno.land/r/gnoland/blog")?.lastTime).toBeNull();
+    const q = queries.find((x) => x.text.includes("GROUP BY pkg_path"))!;
+    expect(q.text).toMatch(/kind = 'call'/);
+    const funcs = await index.indexedFunctionCallCounts(pool as never, "gnoland-1", "gno.land/r/gnoswap/router");
+    expect(funcs.get("SwapRoute")?.calls).toBe(3000);
+    expect(queries.find((x) => x.text.includes("GROUP BY func"))!.params).toEqual(["gnoland-1", "gno.land/r/gnoswap/router"]);
+  });
+
+  test("a token's transfers in 24 hours and per day, bounded by height", async () => {
+    const recent = (await data.tokenTransfers24h(chain))!;
+    expect(recent.get("gno.land/r/gnoswap/gns.GNS.0000000")).toBe(1323);
+    expect(queries.find((x) => x.text.includes("interval '24 hours'"))!.params).toEqual(["gnoland-1", 700000]);
+    const daily = await data.tokenDailyTransfers(chain, "gno.land/r/gnoswap/gns.GNS.0000000");
+    expect(daily).toEqual([{ day: "2026-10-16", transfers: 410 }, { day: "2026-10-17", transfers: 380 }]);
+    expect(queries.find((x) => x.text.includes("g.token = $2"))!.params).toEqual([
+      "gnoland-1",
+      "gno.land/r/gnoswap/gns.GNS.0000000",
+      700000,
+    ]);
+  });
+
+  test("none until the index covers genesis", async () => {
+    caps.gno_grc20 = { lo: "9", hi: "856783" };
+    expect(await data.tokenTransfers24h(chain)).toBeNull();
+    expect(await data.tokenDailyTransfers(chain, "gno.land/r/gnoswap/gns.GNS.0000000")).toBeNull();
   });
 });

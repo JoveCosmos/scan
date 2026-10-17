@@ -264,3 +264,100 @@ export async function indexedAccountCalls(
   const last = calls.at(-1);
   return { calls, next: rows.length > limit && last ? callCursor(last) : null };
 }
+
+// ── Call counts: per realm, per function ────────────────────────────────────
+
+export interface CallCount {
+  /** MsgCall messages, failed ones too. */
+  calls: number;
+  lastHeight: number;
+  /** The last call's block time; null where the index has none. */
+  lastTime: string | null;
+}
+
+type CallCountRow = { name: string; calls: number; last_height: string; last_time: string | null };
+
+function callCounts(rows: CallCountRow[]): Map<string, CallCount> {
+  return new Map(
+    rows.map((r) => [r.name, { calls: r.calls, lastHeight: Number(r.last_height), lastTime: r.last_time }])
+  );
+}
+
+/** Every realm's calls and its last call, by path: one pass over the calls. */
+export function indexedRealmCallCounts(pool: Pool, chainId: string): Promise<Map<string, CallCount>> {
+  return cached(
+    `gno-db-realm-calls:${chainId}`,
+    5 * 60_000,
+    async () => {
+      const { rows } = await pool.query<CallCountRow>(
+        `SELECT c.pkg_path AS name, c.calls, c.last_height::text AS last_height, b.time::text AS last_time
+           FROM (SELECT pkg_path, count(*)::int AS calls, max(height) AS last_height
+                   FROM gno_tx_msg
+                  WHERE chain_id = $1 AND kind = 'call' AND pkg_path IS NOT NULL
+                  GROUP BY pkg_path) c
+           LEFT JOIN block b ON b.chain_id = $1 AND b.height = c.last_height`,
+        [chainId]
+      );
+      return callCounts(rows);
+    },
+    { staleMs: 60 * 60_000 }
+  );
+}
+
+/** A realm's calls per function, and each function's last call. */
+export function indexedFunctionCallCounts(pool: Pool, chainId: string, path: string): Promise<Map<string, CallCount>> {
+  return cached(
+    `gno-db-func-calls:${chainId}:${path}`,
+    5 * 60_000,
+    async () => {
+      const { rows } = await pool.query<CallCountRow>(
+        `SELECT c.func AS name, c.calls, c.last_height::text AS last_height, b.time::text AS last_time
+           FROM (SELECT func, count(*)::int AS calls, max(height) AS last_height
+                   FROM gno_tx_msg
+                  WHERE chain_id = $1 AND pkg_path = $2 AND kind = 'call' AND func IS NOT NULL
+                  GROUP BY func) c
+           LEFT JOIN block b ON b.chain_id = $1 AND b.height = c.last_height`,
+        [chainId, path]
+      );
+      return callCounts(rows);
+    },
+    { staleMs: 30 * 60_000, group: { name: "gno-db-func-calls", max: 200 } }
+  );
+}
+
+export interface RealmCall {
+  func: string;
+  caller: string;
+  args: string[] | null;
+  height: number;
+  /** Uppercase hex. */
+  txHash: string;
+  time: string | null;
+}
+
+/** A realm's successful calls to any of `funcs`, oldest first: GovDAO's votes and executions. */
+export async function indexedCallsTo(pool: Pool, chainId: string, path: string, funcs: string[]): Promise<RealmCall[]> {
+  const { rows } = await pool.query<{
+    func: string;
+    caller: string;
+    args: string[] | null;
+    height: string;
+    tx_hash: string;
+    time: string | null;
+  }>(
+    `SELECT m.func, m.caller, m.args, m.height::text AS height, m.tx_hash, t.time::text AS time
+       FROM gno_tx_msg m
+       LEFT JOIN gno_tx t ON t.chain_id = m.chain_id AND t.hash = m.tx_hash
+      WHERE m.chain_id = $1 AND m.pkg_path = $2 AND m.kind = 'call' AND m.success AND m.func = ANY($3::text[])
+      ORDER BY m.height ASC, m.tx_hash ASC, m.msg_index ASC`,
+    [chainId, path, funcs]
+  );
+  return rows.map((r) => ({
+    func: r.func,
+    caller: r.caller,
+    args: r.args,
+    height: Number(r.height),
+    txHash: r.tx_hash,
+    time: r.time,
+  }));
+}

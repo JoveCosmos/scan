@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type { ChainConfig } from "@/lib/chains";
 import { cached } from "@/lib/cache";
 import { gnoIndexed } from "@/lib/gno-index";
+import { heightDaysAgo } from "@/lib/indexer-validator";
 import { ACCOUNT_TRANSFERS_PAGE, type AccountTransfer, type TokenTransfer } from "@/lib/gno-tokens";
 
 /**
@@ -303,4 +304,56 @@ export async function tokenTransfersPage(
   } catch {
     return null;
   }
+}
+
+// ── Activity ────────────────────────────────────────────────────────────────
+
+/** Each token's transfers in the last 24 hours, by key (a token with none is absent). */
+export function tokenTransfers24h(chain: ChainConfig): Promise<Map<string, number> | null> {
+  return cached(
+    `gno-db-token-24h:${chain.chainId}`,
+    5 * 60_000,
+    async () => {
+      // Two days back by height bounds the scan; the transaction time cuts it to 24 hours.
+      const [pool, from] = await Promise.all([gnoIndexed(chain.chainId, "gno_grc20"), heightDaysAgo(chain.chainId, 2)]);
+      if (!pool || from === null) return null;
+      const { rows } = await pool.query<{ token: string; transfers: number }>(
+        `SELECT g.token, count(*)::int AS transfers
+           FROM gno_grc20_transfer g
+           JOIN gno_tx t ON t.chain_id = g.chain_id AND t.hash = g.tx_hash
+          WHERE g.chain_id = $1 AND g.height >= $2 AND t.time >= now() - interval '24 hours'
+          GROUP BY g.token`,
+        [chain.chainId, from]
+      );
+      return new Map(rows.map((r) => [r.token, r.transfers]));
+    },
+    { staleMs: 30 * 60_000 }
+  ).catch(() => null);
+}
+
+/** One token's transfers per UTC day over the last `days` days. */
+export function tokenDailyTransfers(
+  chain: ChainConfig,
+  key: string,
+  days = 90
+): Promise<{ day: string; transfers: number }[] | null> {
+  return cached(
+    `gno-db-token-daily:${chain.chainId}:${key}:${days}`,
+    30 * 60_000,
+    async () => {
+      const [pool, from] = await Promise.all([gnoIndexed(chain.chainId, "gno_grc20"), heightDaysAgo(chain.chainId, days)]);
+      if (!pool || from === null) return null;
+      const { rows } = await pool.query<{ day: string; transfers: number }>(
+        `SELECT to_char(date_trunc('day', t.time AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day, count(*)::int AS transfers
+           FROM gno_grc20_transfer g
+           JOIN gno_tx t ON t.chain_id = g.chain_id AND t.hash = g.tx_hash
+          WHERE g.chain_id = $1 AND g.token = $2 AND g.height >= $3 AND t.time IS NOT NULL
+          GROUP BY 1
+          ORDER BY 1`,
+        [chain.chainId, key, from]
+      );
+      return rows;
+    },
+    { staleMs: 6 * 60 * 60_000, group: { name: "gno-db-token-daily", max: 100 } }
+  ).catch(() => null);
 }

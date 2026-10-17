@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getChain } from "@/lib/chains";
-import { loadPackageList, packageRows } from "@/app/[chain]/packages/rows";
+import { loadPackageList, packageRows, realmRows } from "@/app/[chain]/packages/rows";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ chain: s
   const list = await loadPackageList(chain);
   if (!list.paths) return NextResponse.json({ error: "unavailable" }, { status: 502 });
   return NextResponse.json(
-    { rows: packageRows(chainId, kind === "realms" ? list.realms : list.libs, list.names) },
+    {
+      rows:
+        kind === "realms"
+          ? realmRows(chainId, list.realms, list.names, list.calls)
+          : packageRows(chainId, list.libs, list.names),
+    },
     { headers: { "cache-control": "public, max-age=60" } }
   );
 }

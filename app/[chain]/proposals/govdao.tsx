@@ -173,16 +173,33 @@ export async function GovdaoProposalView({
     <span>{p.author || "-"}</span>
   );
 
-  const voterRows: DeckRow[] = voters.map((v, i) => ({
-    key: `${v.voter}-${i}`,
-    search: `${v.voter} ${v.option} ${v.tier}`,
-    cells: [
-      { v: v.option === "YES" ? "Yes" : v.option === "NO" ? "No" : "Abstain", tone: v.option === "YES" ? "ok" : v.option === "NO" ? "bad" : undefined },
-      { v: v.tier, mono: true, dim: true },
-      authorCell(names, v.voter),
-    ],
-    detail: { title: v.voter, rows: [{ label: "Vote", value: v.option }, { label: "Tier", value: v.tier }] },
-  }));
+  const voterRows: DeckRow[] = voters.map((v, i) => {
+    const member = authorCell(names, v.voter);
+    // When they voted, where the vote was a call of its own (see GovTimeline).
+    const cast = member.address ? when?.votes.get(member.address) : undefined;
+    return {
+      key: `${v.voter}-${i}`,
+      search: `${v.voter} ${v.option} ${v.tier}`,
+      cells: [
+        { v: v.option === "YES" ? "Yes" : v.option === "NO" ? "No" : "Abstain", tone: v.option === "YES" ? "ok" : v.option === "NO" ? "bad" : undefined },
+        { v: v.tier, mono: true, dim: true },
+        member,
+        cast
+          ? { v: cast.time ? formatDate(cast.time) : `block ${cast.height.toLocaleString()}`, mono: true, align: "right", href: `/${chain.chainId}/txs/${cast.txHash}` }
+          : { v: "N/A", dim: true, align: "right" },
+      ],
+      detail: {
+        title: v.voter,
+        rows: [
+          { label: "Vote", value: v.option },
+          { label: "Tier", value: v.tier },
+          ...(cast
+            ? [{ label: "Cast", value: cast.time ? formatDateTime(cast.time) : `block ${cast.height.toLocaleString()}`, href: `/${chain.chainId}/txs/${cast.txHash}` }]
+            : []),
+        ],
+      },
+    };
+  });
 
   const sections = [
     {
@@ -217,6 +234,7 @@ export async function GovdaoProposalView({
             { label: "Vote", width: "18%" },
             { label: "Tier", width: "14%" },
             { label: "Member" },
+            { label: "When", align: "right", width: "9rem", optional: true },
           ]}
           rows={voterRows}
           empty={p.voters ? "None" : "N/A"}

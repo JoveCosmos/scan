@@ -3,6 +3,7 @@ import { cached } from "@/lib/cache";
 import { gnoRender, gnoTxTimes } from "@/lib/gno-packages";
 import { gnoNames } from "@/lib/gno-users";
 import { gnoHashToHex, gql } from "@/lib/gno";
+import { gnoIndexed, indexedCallsTo } from "@/lib/gno-index";
 
 /**
  * gno.land's governance: GovDAO, a realm (gno.land/r/gov/dao) rather than a
@@ -252,45 +253,51 @@ export interface GovMoment {
   time: string | null;
 }
 
+export interface GovVote extends GovMoment {
+  /** As the call passed it: "YES", "NO" or "ABSTAIN". */
+  option: string;
+}
+
 export interface GovTimeline {
   created: GovMoment;
   executed: GovMoment | null;
+  /**
+   * Each vote cast by a MustVoteOnProposalSimple call, by voter address. A
+   * vote cast from a script (MsgRun) names no realm in its transaction, so it
+   * has none.
+   */
+  votes: Map<string, GovVote>;
 }
 
-type TimelineTx = {
+type CreatedTx = {
   hash: string;
   block_height: number;
-  success: boolean;
-  messages: { value: { __typename: string; func?: string; args?: string[] | null; pkg_path?: string } | null }[];
   response: { events: { type?: string; pkg_path?: string; attrs?: { key: string; value: string }[] | null }[] | null } | null;
 };
 
+const EXECUTE = new Set(["ExecuteProposal", "ExecuteOrRejectProposal"]);
+const VOTE = "MustVoteOnProposalSimple";
+
 /**
- * When each proposal was created and executed, which the realm's pages do not
- * say: its ProposalCreated events (attr `id`) and the successful
- * ExecuteProposal / ExecuteOrRejectProposal calls naming that id.
+ * When each proposal was created, voted on and executed, which the realm's
+ * pages do not say: its ProposalCreated events (attr `id`), from the
+ * tx-indexer, and the successful MustVoteOnProposalSimple (id, option) and
+ * ExecuteProposal / ExecuteOrRejectProposal (id) calls, from our index.
  */
 export function govdaoTimeline(chain: ChainConfig): Promise<Map<number, GovTimeline> | null> {
   return cached(
     `govdao-timeline:${chain.chainId}`,
     10 * 60_000,
     async () => {
-      const fields = `hash block_height success
-        messages { value { __typename ... on MsgCall { func args pkg_path } } }
-        response { events { ... on GnoEvent { type pkg_path attrs { key value } } } }`;
-      const [created, calls] = await Promise.all([
-        gql<{ getTransactions: TimelineTx[] | null }>(
+      const [created, pool] = await Promise.all([
+        gql<{ getTransactions: CreatedTx[] | null }>(
           chain,
-          `{ getTransactions(where: { success: { eq: true }, response: { events: { GnoEvent: { pkg_path: { eq: "${GOVDAO}" }, type: { eq: "ProposalCreated" } } } } }) { ${fields} } }`,
+          `{ getTransactions(where: { success: { eq: true }, response: { events: { GnoEvent: { pkg_path: { eq: "${GOVDAO}" }, type: { eq: "ProposalCreated" } } } } }) {
+            hash block_height response { events { ... on GnoEvent { type pkg_path attrs { key value } } } } } }`,
           {},
           30_000
         ),
-        gql<{ getTransactions: TimelineTx[] | null }>(
-          chain,
-          `{ getTransactions(where: { success: { eq: true }, messages: { value: { MsgCall: { pkg_path: { eq: "${GOVDAO}" } } } } }) { ${fields} } }`,
-          {},
-          30_000
-        ),
+        gnoIndexed(chain.chainId, "gno_tx_msg"),
       ]);
       const out = new Map<number, GovTimeline>();
       for (const tx of created.getTransactions ?? []) {
@@ -300,27 +307,25 @@ export function govdaoTimeline(chain: ChainConfig): Promise<Map<number, GovTimel
           if (e.type !== "ProposalCreated" || e.pkg_path !== GOVDAO) continue;
           const id = Number(e.attrs?.find((a) => a.key === "id")?.value);
           if (Number.isInteger(id) && !out.has(id)) {
-            out.set(id, { created: { height: tx.block_height, txHash, time: null }, executed: null });
+            out.set(id, { created: { height: tx.block_height, txHash, time: null }, executed: null, votes: new Map() });
           }
         }
       }
-      for (const tx of calls.getTransactions ?? []) {
-        const txHash = gnoHashToHex(tx.hash);
-        if (!txHash || !tx.success) continue;
-        for (const m of tx.messages) {
-          const v = m.value;
-          if (v?.__typename !== "MsgCall" || v.pkg_path !== GOVDAO) continue;
-          if (v.func !== "ExecuteProposal" && v.func !== "ExecuteOrRejectProposal") continue;
-          const id = Number(v.args?.[0]);
-          const entry = out.get(id);
-          if (entry && (!entry.executed || tx.block_height < entry.executed.height)) {
-            entry.executed = { height: tx.block_height, txHash, time: null };
-          }
-        }
+      // Oldest first: the first execution counts, and a voter's last vote.
+      const calls = pool ? await indexedCallsTo(pool, chain.chainId, GOVDAO, [...EXECUTE, VOTE]) : [];
+      for (const c of calls) {
+        const entry = out.get(Number(c.args?.[0]));
+        if (!entry) continue;
+        const at = { height: c.height, txHash: c.txHash, time: c.time };
+        if (c.func === VOTE) entry.votes.set(c.caller, { ...at, option: String(c.args?.[1] ?? "").toUpperCase() });
+        else if (!entry.executed) entry.executed = at;
       }
-      const moments = [...out.values()].flatMap((t) => (t.executed ? [t.created, t.executed] : [t.created]));
-      const times = await gnoTxTimes(chain.chainId, moments.map((m) => m.txHash));
-      for (const m of moments) m.time = times.get(m.txHash) ?? null;
+      const moments = [...out.values()].flatMap((t) => [t.created, ...(t.executed ? [t.executed] : []), ...t.votes.values()]);
+      const times = await gnoTxTimes(
+        chain.chainId,
+        moments.filter((m) => m.time === null).map((m) => m.txHash)
+      );
+      for (const m of moments) m.time ??= times.get(m.txHash) ?? null;
       // Where our index has no time, the tx-indexer's block has one.
       await Promise.all(
         moments

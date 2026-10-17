@@ -5,7 +5,7 @@ import { PageFrame } from "@/components/page-frame";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck } from "@/components/row-deck";
 import { LazyDeck } from "@/components/lazy-deck";
-import { loadPackageList, PACKAGE_COLUMNS, packageRows } from "./rows";
+import { loadPackageList, PACKAGE_COLUMNS, packageRows, REALM_COLUMNS, realmRows } from "./rows";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +17,9 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
 
 /**
  * gno.land's code: realms (stateful, callable) and packages (libraries),
- * newest first, with who deployed each. The tab open on arrival comes with its
- * rows; the other loads them when opened.
+ * newest first, with who deployed each and, for a realm, how much it is
+ * called. The tab open on arrival comes with its rows; the other loads them
+ * when opened.
  */
 export default async function PackagesPage({
   params,
@@ -33,17 +34,18 @@ export default async function PackagesPage({
   if (!chain || chain.kind !== "gno") notFound();
   const accent = accentFor(chain);
 
-  const { paths, realms, libs, deployers, names } = await loadPackageList(chain);
+  const { paths, realms, libs, deployers, names, calls } = await loadPackageList(chain);
   const open = tab === "packages" ? "packages" : "realms";
   const empty = paths ? "None" : "N/A";
   const filter = { placeholder: "Filter by path or deployer…" };
 
-  const deck = (kind: "realms" | "packages") =>
-    kind === open || !paths ? (
+  const deck = (kind: "realms" | "packages") => {
+    const columns = kind === "realms" ? REALM_COLUMNS : PACKAGE_COLUMNS;
+    return kind === open || !paths ? (
       <RowDeck
         accent={accent}
-        columns={PACKAGE_COLUMNS}
-        rows={packageRows(chainId, kind === "realms" ? realms : libs, names)}
+        columns={columns}
+        rows={kind === "realms" ? realmRows(chainId, realms, names, calls) : packageRows(chainId, libs, names)}
         filter={filter}
         empty={empty}
       />
@@ -51,11 +53,12 @@ export default async function PackagesPage({
       <LazyDeck
         endpoint={`/api/chains/${chainId}/packages/list?kind=${kind}`}
         accent={accent}
-        columns={PACKAGE_COLUMNS}
+        columns={columns}
         filter={filter}
         empty={empty}
       />
     );
+  };
 
   const sections = [
     { key: "realms", label: `Realms${paths ? ` (${realms.length})` : ""}`, content: deck("realms") },

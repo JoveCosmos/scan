@@ -22,9 +22,9 @@ import { withinBudget } from "@/lib/cache";
 import { tokenHref } from "@/lib/gno-tokens";
 import { tokenList } from "@/lib/gno-token-data";
 import { addressCell, atName, gnoNames } from "@/lib/gno-users";
-import { gnoIndexed, indexedApprovals, indexedTopCallers } from "@/lib/gno-index";
+import { gnoIndexed, indexedApprovals, indexedFunctionCallCounts, indexedTopCallers } from "@/lib/gno-index";
 import { formatToken } from "@/lib/overview";
-import { decodeParam, formatDate, truncateMiddle } from "@/lib/format";
+import { decodeParam, formatDate, timeAgo, truncateMiddle } from "@/lib/format";
 import { PageFrame } from "@/components/page-frame";
 import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
@@ -110,12 +110,15 @@ export default async function PackagePage({
     realm ? withinBudget(gnoRender(chain, path, arg), BUDGET, null) : null,
   ]);
   // Names, approvals (MsgEnablePackage / MsgRejectPackage) and, for a realm,
-  // who calls it most: all from our index.
+  // who calls it most and how much each function is called: all from our index.
   const indexed = await withinBudget(gnoIndexed(chainId, "gno_tx_msg"), BUDGET, null);
-  const [names, approvals, callers] = await Promise.all([
+  const [names, approvals, callers, funcCalls] = await Promise.all([
     withinBudget(gnoNames(chain), 1500, null),
     indexed ? withinBudget(indexedApprovals(indexed, chainId, path).catch(() => null), BUDGET, null) : null,
     indexed && realm ? withinBudget(indexedTopCallers(indexed, chainId, path).catch(() => null), BUDGET, null) : null,
+    indexed && realm
+      ? withinBudget(indexedFunctionCallCounts(indexed, chainId, path).catch(() => null), BUDGET, null)
+      : null,
   ]);
   // Tokens this realm created.
   const tokens = realm ? await withinBudget(tokenList(chain), 1000, null) : null;
@@ -215,10 +218,13 @@ export default async function PackagePage({
     </div>
   );
 
+  // A realm's functions also say how often each was called, and when last.
+  const topFuncCalls = funcCalls ? Math.max(1, ...[...funcCalls.values()].map((c) => c.calls)) : 1;
   const funcDeck: DeckRow[] = (funcs ?? []).map((f) => {
     const params = f.params.filter((p) => p.type !== "realm");
     const crossing = params.length !== f.params.length;
     const signature = `(${params.map((p) => `${p.name} ${p.type}`).join(", ")})`;
+    const c = funcCalls?.get(f.name) ?? null;
     return {
       key: f.name,
       cells: [
@@ -226,12 +232,29 @@ export default async function PackagePage({
         { v: signature, mono: true, dim: params.length === 0 },
         { v: f.results.join(", ") || "-", mono: true, dim: f.results.length === 0 },
         { v: crossing ? "Crossing" : "-", dim: !crossing },
+        ...(realm
+          ? funcCalls
+            ? [
+                { v: (c?.calls ?? 0).toLocaleString(), mono: true, align: "right" as const, dim: !c, bar: (c?.calls ?? 0) / topFuncCalls },
+                { v: c ? timeAgo(c.lastTime) : "Never", dim: true, align: "right" as const },
+              ]
+            : [
+                { v: "N/A", dim: true, align: "right" as const },
+                { v: "N/A", dim: true, align: "right" as const },
+              ]
+          : []),
       ],
       detail: {
         title: f.name,
         rows: [
           ...f.params.map((p) => ({ label: p.name, value: p.type, mono: true })),
           ...(f.results.length ? [{ label: "Returns", value: f.results.join(", "), mono: true }] : []),
+          ...(c
+            ? [
+                { label: "Calls", value: c.calls.toLocaleString() },
+                { label: "Last call", value: `block ${c.lastHeight.toLocaleString()}`, href: `/${chainId}/blocks/${c.lastHeight}` },
+              ]
+            : []),
         ],
       },
     };
@@ -284,8 +307,14 @@ export default async function PackagePage({
           columns={[
             { label: "Function", width: "22%", phoneWidth: "40%" },
             { label: "Parameters" },
-            { label: "Returns", width: "18%", optional: true },
+            { label: "Returns", width: realm ? "14%" : "18%", optional: true },
             { label: "Kind", width: "10%", phoneHide: true },
+            ...(realm
+              ? [
+                  { label: "Calls", align: "right" as const, width: "9%", phoneWidth: "22%" },
+                  { label: "Last call", align: "right" as const, width: "11%", optional: true },
+                ]
+              : []),
           ]}
           rows={funcDeck}
           filter={{ placeholder: "Filter functions…" }}

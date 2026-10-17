@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getChain, accentFor } from "@/lib/chains";
-import { findSummary, tokenHoldersPage, tokenList, tokenTransfersPage } from "@/lib/gno-token-data";
+import {
+  findSummary,
+  tokenDailyTransfers,
+  tokenHoldersPage,
+  tokenList,
+  tokenTransfers24h,
+  tokenTransfersPage,
+} from "@/lib/gno-token-data";
 import { OlderDeck } from "@/components/older-deck";
 import { HOLDER_COLUMNS, holderRows, TRANSFER_COLUMNS, transferRows } from "../rows";
 import { gnoTxTimes, packageHref, realmByAddress, shortPath } from "@/lib/gno-packages";
@@ -15,6 +22,7 @@ import { BrickBoard, type BrickSpec } from "@/components/brick-board";
 import { SectionTabs } from "@/components/section-tabs";
 import { RowDeck } from "@/components/row-deck";
 import { DetailRow } from "@/components/detail-row";
+import { DayBars } from "@/components/day-bars";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +72,16 @@ export default async function TokenPage({
   const token = tokens ? findSummary(tokens, k.realm, k.symbol) : null;
   if (tokens && !token) notFound();
 
-  // The first page of each list; older ones come from the API by keyset.
-  const [holderPage, transferPage] = token
-    ? await Promise.all([tokenHoldersPage(chain, token.key), tokenTransfersPage(chain, token.key)])
-    : [null, null];
+  // The first page of each list (older ones come from the API by keyset),
+  // and the token's activity: transfers per day and in the last 24 hours.
+  const [holderPage, transferPage, daily, recent] = token
+    ? await Promise.all([
+        tokenHoldersPage(chain, token.key),
+        tokenTransfersPage(chain, token.key),
+        withinBudget(tokenDailyTransfers(chain, token.key), 4000, null),
+        withinBudget(tokenTransfers24h(chain), 4000, null),
+      ])
+    : [null, null, null, null];
   const holders = holderPage?.holders ?? [];
   const count = token ? token.holders : 0;
   const times = transferPage
@@ -91,7 +105,12 @@ export default async function TokenPage({
       lead: true,
     },
     { key: "holders", label: "Holders", value: token ? count.toLocaleString() : "N/A", sub: "with a balance" },
-    { key: "transfers", label: "Transfers", value: token ? token.transfers.toLocaleString() : "N/A", sub: "all time" },
+    {
+      key: "transfers",
+      label: "Transfers",
+      value: token ? token.transfers.toLocaleString() : "N/A",
+      sub: recent && token ? `${(recent.get(token.key) ?? 0).toLocaleString()} in 24h` : "all time",
+    },
     { key: "top10", label: "Top 10", value: token ? share(top10) : "N/A", sub: "of the supply" },
     { key: "decimals", label: "Decimals", value: token ? String(token.decimals) : "N/A", sub: "places" },
     {
@@ -135,6 +154,14 @@ export default async function TokenPage({
             <BrickBoard accent={accent} bricks={bricks} bare />
           </div>
           {profile}
+          {daily ? (
+            <DayBars
+              title="Transfers per day"
+              points={daily.map((d) => ({ day: d.day, v: d.transfers }))}
+              format={(v) => Math.round(v).toLocaleString("en-US")}
+              accent={accent}
+            />
+          ) : null}
         </div>
       ),
     },
