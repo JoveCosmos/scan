@@ -128,13 +128,12 @@ function load<T>(
 
 /**
  * A validator page's figures from the index (blocks proposed, commission,
- * power, events, votes, signing): served for six hours while they refresh,
- * with room for every AtomOne validator and some inactive ones. A first view
- * past the TTL shows the last figures and the next view the new ones; the boot
- * warm-up (warmValidatorIndex) fills them all, so no validator is cold.
+ * power, events, votes, signing): served up to ten minutes while they
+ * refresh, with room for every AtomOne validator and some inactive ones. The
+ * index answers each in milliseconds since migration 013.
  */
 export function VALIDATOR_HISTORY_CACHE(group: string): CacheOptions {
-  return { staleMs: 6 * 60 * 60_000, group: { name: group, max: 160 } };
+  return { staleMs: 10 * 60_000, group: { name: group, max: 160 } };
 }
 
 /**
