@@ -208,6 +208,7 @@ covered throughout.
 | validator_power_time | 4 | `validator_power.time` (migration 013) |
 | gno_tx_msg | 5 (gno) | `gno_tx_msg` (migration 014) |
 | gno_grc20 | 5 (gno) | `gno_grc20_token`, `gno_grc20_transfer`, `gno_grc20_balance` (migration 014) |
+| gno_msg_coins | 6 (gno) | `gno_tx_msg.coins` and `.ugnot` (migration 015) |
 
 The list lives in `extract_capability` (migration 008) and in `CAPABILITIES` in
 `indexer/src/extract.ts`; they must agree.
@@ -620,8 +621,17 @@ have retried that window forever; blocks and transactions now split the window
 until each part fits.
 
 **`gno_tx_msg`**: PK `(chain_id, tx_hash, msg_index)`, one row per message:
-`height`, `success`, `kind`, `pkg_path`, `func`, `caller`, `args text[]`.
-`msg_index` is the message's place in the transaction.
+`height`, `success`, `kind`, `pkg_path`, `func`, `caller`, `args text[]`, and since
+**gno extract version 6** (migration 015) `coins` and `ugnot`. `msg_index` is the
+message's place in the transaction.
+
+**Coins** (Jove, 2026-11-15, for Gno Search). `coins` is what the message sends, as
+the chain states it (`3540000ugnot`, several joined by commas): a send's `amount`,
+or the `send` of a call, run or deployment. `ugnot` is the ugnot among them as a
+`numeric`, for sums. Both NULL when the message sends nothing; text that is not a
+coin list is stored as none, never half-read. Gate on
+`indexer_coverage(chain, 'gno_msg_coins')`: rows below version 6 have NULL
+coins whatever they sent.
 
 | kind | message | caller | pkg_path |
 |---|---|---|---|

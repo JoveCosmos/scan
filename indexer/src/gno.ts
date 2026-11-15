@@ -12,7 +12,8 @@
  *   gno_tx_party  one row per (address, transaction), roles as a bitmask -
  *                 the same design as tx_party, so an account's history is a
  *                 keyset walk of one primary key
- *   gno_tx_msg    one row per message: kind, package, function, caller, args
+ *   gno_tx_msg    one row per message: kind, package, function, caller, args,
+ *                 and the coins it sends
  *   gno_grc20_*   tokens, transfers and (kept by the database) balances, from
  *                 the events gno.land/p/nt/grc20/v0 emits
  *   block         the chain's spine, stamped GNO_EXTRACT_VERSION, so coverage
@@ -27,8 +28,9 @@
 /**
  *   4  gno_tx, gno_tx_party
  *   5  + gno_tx_msg, GRC20 tokens and transfers (2026-10-16)
+ *   6  + gno_tx_msg.coins and .ugnot: what each message sends (2026-11-15)
  */
-export const GNO_EXTRACT_VERSION = 5;
+export const GNO_EXTRACT_VERSION = 6;
 
 /** Bits shared with tx_party where they mean the same thing; creator is gno's own. */
 export const GNO_ROLE = {
@@ -60,6 +62,7 @@ const EVENT_FRAGS: Record<string, string> = {
 const MSG_EXTRA: Record<string, Record<string, string>> = {
   MsgCall: { args: "args" },
   MsgRun: { package: "package{ path }" },
+  MsgAddPackage: { send: "send" },
 };
 export function gnoTxFields(msgTypes: string[], eventTypes: string[], fields: Record<string, string[]> = {}): string {
   const frag = (t: string) =>
@@ -123,6 +126,11 @@ export interface GnoMsgRow {
   func: string | null;
   caller: string | null;
   args: string[] | null;
+  /** The coins the message sends, as the chain states them ("3540000ugnot", several joined by commas): a send's
+      amount, a call's, run's or deployment's send. null when it sends none, or when the text is not a coin list. */
+  coins: string | null;
+  /** The ugnot among them, as a whole number (text, it can pass 2^53). null when there is none. */
+  ugnot: string | null;
 }
 export interface GnoTokenRow {
   token: string;
@@ -161,6 +169,24 @@ function signerOf(v: Record<string, unknown> & { __typename: string }): string |
               MsgEnablePackage: "approver", MsgRejectPackage: "sender" }[v.__typename];
   const a = k ? v[k] : null;
   return typeof a === "string" ? a : null;
+}
+
+/** A coin list as gno writes it: an amount and a denom, several joined by commas ("1ugnot,5/gno.land/r/x:y"). */
+const COINS = /^\d+[^\d,\s][^,\s]*(,\d+[^\d,\s][^,\s]*)*$/;
+const COINS_MAX = 512;
+
+/** What a message sends: a send's amount, a call's, run's or deployment's send. Text that is not a coin list (or is
+    longer than COINS_MAX) is none, never stored half-read; ugnot is the ugnot part, summed. */
+function coinsOf(v: Record<string, unknown> & { __typename: string }): { coins: string | null; ugnot: string | null } {
+  const c = v.__typename === "BankMsgSend" ? v.amount : v.send;
+  if (typeof c !== "string" || c.length > COINS_MAX || !COINS.test(c.trim())) return { coins: null, ugnot: null };
+  const coins = c.trim();
+  let ugnot: bigint | null = null;
+  for (const part of coins.split(",")) {
+    const m = /^(\d+)(.+)$/.exec(part);
+    if (m && m[2] === "ugnot") ugnot = (ugnot ?? BigInt(0)) + BigInt(m[1]);
+  }
+  return { coins, ugnot: ugnot === null ? null : ugnot.toString() };
 }
 
 /** Message kinds by type. UnexpectedMessage (create_session, revoke_session) is none of them and has no row. */
@@ -239,6 +265,7 @@ export function extractGno(blocks: GnoBlockIn[], txs: GnoTxIn[]): GnoExtracted {
           txHash: hash, msgIndex, height: String(t.block_height), success: !!t.success, kind, pkgPath: pkgOf(v),
           func: v.__typename === "MsgCall" && typeof v.func === "string" ? clean(v.func) : null,
           caller: signerOf(v), args: v.__typename === "MsgCall" ? argsOf(v.args) : null,
+          ...coinsOf(v),
         });
       });
       for (const m of msgs) {
@@ -328,12 +355,14 @@ export class GnoSource {
   /** Learn which message and event types this tx-indexer knows, and the optional fields; the query follows. */
   async init(): Promise<void> {
     type T = { possibleTypes?: { name: string }[] | null; fields?: { name: string }[] | null } | null;
-    const d = await this.q<{ m: T; e: T; call: T; run: T }>(
+    const d = await this.q<{ m: T; e: T; call: T; run: T; add: T }>(
       '{ m:__type(name:"MessageValue"){ possibleTypes{ name } } e:__type(name:"Event"){ possibleTypes{ name } }' +
-      ' call:__type(name:"MsgCall"){ fields{ name } } run:__type(name:"MsgRun"){ fields{ name } } }');
+      ' call:__type(name:"MsgCall"){ fields{ name } } run:__type(name:"MsgRun"){ fields{ name } }' +
+      ' add:__type(name:"MsgAddPackage"){ fields{ name } } }');
     const names = (t: T, k: "possibleTypes" | "fields") => (t?.[k] ?? []).map((x) => x.name);
     this.txFields = gnoTxFields(names(d.m, "possibleTypes"), names(d.e, "possibleTypes"),
-                                { MsgCall: names(d.call, "fields"), MsgRun: names(d.run, "fields") });
+                                { MsgCall: names(d.call, "fields"), MsgRun: names(d.run, "fields"),
+                                  MsgAddPackage: names(d.add, "fields") });
   }
 
   private async q<T>(query: string): Promise<T> {

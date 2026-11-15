@@ -48,7 +48,7 @@ describe.skipIf(!url)("migration 014: gno messages and GRC20", () => {
 
   it("writes genesis: block 0, its messages and wugnot, and coverage starts at 0", async () => {
     await commitGno(pool, G, at(0), 0, 0);
-    expect(await q("SELECT height::int, extract_version FROM block WHERE chain_id = $1", [G])).toEqual([{ height: 0, extract_version: 5 }]);
+    expect(await q("SELECT height::int, extract_version FROM block WHERE chain_id = $1", [G])).toEqual([{ height: 0, extract_version: GNO_EXTRACT_VERSION }]);
     expect(await q("SELECT kind, count(*)::int AS n FROM gno_tx_msg WHERE chain_id = $1 GROUP BY 1 ORDER BY 1", [G]))
       .toEqual([{ kind: "addpkg", n: 89 }, { kind: "call", n: 5 }, { kind: "run", n: 2 }]);
     expect(await q("SELECT token, realm, symbol, decimals, created_height::int FROM gno_grc20_token WHERE chain_id = $1", [G]))

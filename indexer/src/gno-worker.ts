@@ -115,17 +115,18 @@ export async function commitGno(pool: Pool, chainId: string, x: GnoExtracted, la
     const msgs = lastBy(x.msgs, (m) => `${m.txHash}|${m.msgIndex}`);
     if (msgs.length) {
       await client.query(
-        `INSERT INTO gno_tx_msg (chain_id, tx_hash, msg_index, height, success, kind, pkg_path, func, caller, args)
+        `INSERT INTO gno_tx_msg (chain_id, tx_hash, msg_index, height, success, kind, pkg_path, func, caller, args, coins, ugnot)
          SELECT $1, t.h, t.i, t.ht, t.ok, t.k, t.p, t.f, t.c,
-                CASE WHEN t.a IS NULL THEN NULL ELSE ARRAY(SELECT jsonb_array_elements_text(t.a::jsonb)) END
-           FROM unnest($2::text[], $3::int[], $4::bigint[], $5::boolean[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[])
-             AS t(h, i, ht, ok, k, p, f, c, a)
+                CASE WHEN t.a IS NULL THEN NULL ELSE ARRAY(SELECT jsonb_array_elements_text(t.a::jsonb)) END, t.cn, t.u
+           FROM unnest($2::text[], $3::int[], $4::bigint[], $5::boolean[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
+                       $11::text[], $12::numeric[])
+             AS t(h, i, ht, ok, k, p, f, c, a, cn, u)
          ON CONFLICT (chain_id, tx_hash, msg_index) DO UPDATE SET
            height = EXCLUDED.height, success = EXCLUDED.success, kind = EXCLUDED.kind, pkg_path = EXCLUDED.pkg_path,
-           func = EXCLUDED.func, caller = EXCLUDED.caller, args = EXCLUDED.args`,
+           func = EXCLUDED.func, caller = EXCLUDED.caller, args = EXCLUDED.args, coins = EXCLUDED.coins, ugnot = EXCLUDED.ugnot`,
         [chainId, msgs.map((m) => m.txHash), msgs.map((m) => m.msgIndex), msgs.map((m) => m.height), msgs.map((m) => m.success),
          msgs.map((m) => m.kind), msgs.map((m) => m.pkgPath), msgs.map((m) => m.func), msgs.map((m) => m.caller),
-         msgs.map((m) => (m.args ? JSON.stringify(m.args) : null))]
+         msgs.map((m) => (m.args ? JSON.stringify(m.args) : null)), msgs.map((m) => m.coins), msgs.map((m) => m.ugnot)]
       );
     }
 

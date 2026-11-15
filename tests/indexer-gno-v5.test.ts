@@ -20,8 +20,7 @@ const GNS = "gno.land/r/gnoswap/gns.GNS.0000000";
 describe("genesis (gnoland-1 height 0)", () => {
   const x = at(0);
   it("is a block like any other, at the gno version, with its 96 transactions", () => {
-    expect(GNO_EXTRACT_VERSION).toBe(5);
-    expect(x.blocks).toEqual([expect.objectContaining({ height: "0", txCount: 96, version: 5 })]);
+    expect(x.blocks).toEqual([expect.objectContaining({ height: "0", txCount: 96, version: GNO_EXTRACT_VERSION })]);
     expect(x.txs).toHaveLength(96);
   });
   it("records every message: the packages deployed, the runs and calls of genesis", () => {
