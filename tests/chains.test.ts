@@ -14,8 +14,6 @@ describe("chain order", () => {
       "atomone-testnet-1",
       "cosmoshub-4",
       "provider",
-      "akashnet-2",
-      "osmosis-1",
       "passage-2",
       "juno-1",
     ]);
@@ -29,8 +27,8 @@ describe("chain order", () => {
 
   it("sorts a chain with no order to the end rather than dropping it", () => {
     const chains = getAllChains();
-    expect(chains).toHaveLength(10);
-    expect(new Set(chains.map((c) => c.order)).size).toBe(10);
+    expect(chains).toHaveLength(8);
+    expect(new Set(chains.map((c) => c.order)).size).toBe(8);
   });
 });
 

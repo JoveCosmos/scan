@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s, GATA SCAN",
   },
   description:
-    "Multi-chain Cosmos block scan by GATA HUB - Cosmos Hub, AtomOne and Akash.",
+    "Multi-chain Cosmos block scan by GATA HUB - Cosmos Hub, AtomOne and gno.land.",
 };
 
 export default function RootLayout({
@@ -49,11 +49,9 @@ export default function RootLayout({
     accent: accentFor(chain),
     // gno.land's governance is a realm (GovDAO), read by the proposals pages.
     governance: getAdapter(chain).capabilities.governance || chain.kind === "gno",
-    // gno.land has no IBC module; every Cosmos SDK chain here does.
-    ibc: chain.kind === "cosmos",
     network: chain.network,
     bech32Prefix: chain.bech32Prefix,
-    sections: (({ txs, proposals, relayers }) => ({ txs, proposals, relayers }))(
+    sections: (({ txs, proposals }) => ({ txs, proposals }))(
       policyFor(chain)
     ),
   }));

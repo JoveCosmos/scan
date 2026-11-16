@@ -17,13 +17,11 @@ export interface ChainSummary {
   logo: string | null;
   /** Chains without a gov module never show the Proposals tab. */
   governance: boolean;
-  /** Chains with no IBC module never show the Relayers tab. */
-  ibc: boolean;
   /**
    * Sections this chain's tier offers. Distinct from the two flags above: those
    * say the module is absent, this says we chose not to carry the section.
    */
-  sections: { txs: boolean; proposals: boolean; relayers: boolean };
+  sections: { txs: boolean; proposals: boolean };
   network: "mainnet" | "testnet";
   /** Account prefix, for routing addresses to their own chain. */
   bech32Prefix: string;
@@ -183,12 +181,11 @@ interface Tab {
   /** Used on a phone, where all seven must fit one row without scrolling. */
   short: string;
   governanceOnly?: boolean;
-  ibcOnly?: boolean;
-  section?: "txs" | "proposals" | "relayers";
+  section?: "txs" | "proposals";
 }
 
-// The chain's identity card, then its activity, then who runs it, then IBC,
-// then what we run for it. The route is still /params.
+// The chain's identity card, then who runs it, then governance. The route is
+// still /params.
 const TABS: Tab[] = [
   { href: "/params", label: "Overview", short: "Home" },
   { href: "/validators", label: "Validators", short: "Vals" },
@@ -198,14 +195,6 @@ const TABS: Tab[] = [
     governanceOnly: true,
     section: "proposals",
   },
-  {
-    href: "/relayers",
-    label: "Relayers", short: "IBC",
-    ibcOnly: true,
-    section: "relayers",
-  },
-  // Not chain-module gated: what we run for a chain, not what the chain has.
-  { href: "/infra", label: "Infra", short: "Infra" },
 ];
 
 const LAST_CHAIN_KEY = "gata-scan-last-chain";
@@ -249,7 +238,6 @@ export function SiteHeader({ chains }: { chains: ChainSummary[] }) {
   const unavailable = (tab: Tab) =>
     chain !== null &&
     ((tab.governanceOnly === true && !chain.governance) ||
-      (tab.ibcOnly === true && !chain.ibc) ||
       (tab.section !== undefined && !chain.sections[tab.section]));
 
   return (

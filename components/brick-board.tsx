@@ -14,7 +14,7 @@ import { Prose } from "@/components/prose";
  *
  * Everything is computed on the server and arrives as data - this component
  * knows nothing about chains, params or governance, which is why the same board
- * renders the overview, the infra tab and anything added later.
+ * renders the overview and anything added later.
  *
  * Three bricks are marked `live` and re-read from the head poll. Only those
  * three change, so the rest of the board never re-renders against the network.

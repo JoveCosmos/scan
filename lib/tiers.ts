@@ -29,35 +29,26 @@ export interface TierPolicy {
    * page against endpoints we do not run.
    */
   metrics: boolean;
-  /** We run a full node, so endpoints and snapshots can be published. */
-  fullNode: boolean;
   /** Sections offered. A chain must also have the module - see capabilities. */
   txs: boolean;
   proposals: boolean;
-  relayers: boolean;
 }
 
 const POLICIES: Record<Tier, Omit<TierPolicy, "tier">> = {
   high: {
     metrics: true,
-    fullNode: true,
     txs: true,
     proposals: true,
-    relayers: true,
   },
   medium: {
     metrics: false,
-    fullNode: false,
     txs: true,
     proposals: true,
-    relayers: true,
   },
   limited: {
     metrics: false,
-    fullNode: false,
     txs: false,
     proposals: false,
-    relayers: false,
   },
 };
 

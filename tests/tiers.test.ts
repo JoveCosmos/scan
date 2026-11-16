@@ -9,15 +9,9 @@ describe("tiers", () => {
 
     expect(byTier).toEqual({
       high: ["gnoland-1", "onyx-1", "atomone-1", "atomone-testnet-1"],
-      medium: ["cosmoshub-4", "provider", "akashnet-2"],
-      limited: ["osmosis-1", "passage-2", "juno-1"],
+      medium: ["cosmoshub-4", "provider"],
+      limited: ["passage-2", "juno-1"],
     });
-  });
-
-  it("runs full nodes only for the top tier", () => {
-    for (const chain of getAllChains()) {
-      expect(policyFor(chain).fullNode, chain.chainId).toBe(chain.tier === "high");
-    }
   });
 
   it("computes derived metrics only at the top tier", () => {
@@ -39,13 +33,12 @@ describe("tiers", () => {
     expect(policyFor(getChain("atomone-1")!)).not.toHaveProperty("indexed");
   });
 
-  it("withholds transactions, proposals and relayers from the limited tier only", () => {
+  it("withholds transactions and proposals from the limited tier only", () => {
     for (const chain of getAllChains()) {
       const policy = policyFor(chain);
       const offered = chain.tier !== "limited";
       expect(policy.txs, `${chain.chainId} txs`).toBe(offered);
       expect(policy.proposals, `${chain.chainId} proposals`).toBe(offered);
-      expect(policy.relayers, `${chain.chainId} relayers`).toBe(offered);
     }
   });
 
@@ -61,10 +54,8 @@ describe("tiers", () => {
   // reappearing here is the first step towards one being printed.
   it("carries no display text", () => {
     expect(Object.keys(policyFor(getChain("juno-1")!)).sort()).toEqual([
-      "fullNode",
       "metrics",
       "proposals",
-      "relayers",
       "tier",
       "txs",
     ]);

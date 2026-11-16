@@ -74,8 +74,6 @@ describe("linkedAddresses", () => {
       expect.arrayContaining([
         "cosmoshub-4",
         "atomone-1",
-        "akashnet-2",
-        "osmosis-1",
         "juno-1",
         "passage-2",
         "gnoland-1",

@@ -618,7 +618,7 @@ async function operatedValidator(
 }
 
 /** The tile that says what an address is when it is not a plain account. */
-function kindTile(kind: AddressKind | null, chainId: string): BrickSpec | null {
+function kindTile(kind: AddressKind | null): BrickSpec | null {
   if (!kind || kind.kind === "user") return null;
   switch (kind.kind) {
     case "module":
@@ -636,7 +636,6 @@ function kindTile(kind: AddressKind | null, chainId: string): BrickSpec | null {
         value: kind.channel,
         sub: "transfer",
         lead: true,
-        href: `/${chainId}/relayers`,
       };
     case "ica":
       return {
@@ -791,7 +790,7 @@ export default async function AccountPage({
     value ? formatToken(value, chain.exponent, 2) : "N/A";
   const nativeRewards = account.rewards?.find((c) => c.denom === chain.denom);
   const otherRewards = (account.rewards?.length ?? 0) - (nativeRewards ? 1 : 0);
-  const tile = kindTile(kind, chainId);
+  const tile = kindTile(kind);
 
   // Transaction total and first/last activity, from the index's per-address
   // count: exact once coverage reaches the chain's first block, "at least"

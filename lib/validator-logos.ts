@@ -16,9 +16,7 @@ const CHAINLIST = "https://raw.githubusercontent.com/cosmostation/chainlist/main
 const CHAINLIST_DIR: Record<string, string> = {
   "cosmoshub-4": "cosmos",
   "atomone-1": "atomone",
-  "akashnet-2": "akash",
   "juno-1": "juno",
-  "osmosis-1": "osmosis",
   "passage-2": "passage",
   provider: "ics-testnet-provider",
   "gnoland-1": "gno",

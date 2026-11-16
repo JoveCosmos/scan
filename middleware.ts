@@ -23,7 +23,7 @@ const CHAINS = new Map(
 );
 
 /** Sections every chain has. */
-const SECTIONS = new Set(["params", "validators", "proposals", "relayers", "infra", "blocks", "txs", "accounts"]);
+const SECTIONS = new Set(["params", "validators", "proposals", "blocks", "txs", "accounts"]);
 
 const BECH32 = /^[a-z0-9]{1,83}1[02-9ac-hj-np-z]{6,}$/i;
 
